@@ -81,8 +81,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # OJO con el prefijo `v`: las tags de trivy-action son `v0.29.0`, no
+      # `0.29.0`. Sin la `v` el job muere antes de arrancar con "unable to
+      # resolve action" — que es lo que pasó en el primer run.
       - name: Dependencias (CVEs en package-lock.json)
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.29.0
         with:
           scan-type: fs
           scan-ref: .
@@ -103,7 +106,7 @@ jobs:
       # y CAMBIAR exit-code A "1". Un gate de seguridad que nunca falla no es
       # un gate. Mientras diga "0", este job informa pero no protege.
       - name: Terraform (configuración insegura en infra/)
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.29.0
         with:
           scan-type: config
           scan-ref: infra
