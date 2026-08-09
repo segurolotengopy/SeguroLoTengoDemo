@@ -1,0 +1,162 @@
+import { describe, expect, it } from "vitest";
+import type { EstadoExpediente } from "../tipos";
+import { calcularEdadDesde, edadEnRangoPermitido } from "../tipos";
+import {
+  esEstadoTerminal,
+  esTransicionLegal,
+  registrarDeclaracionesP6,
+  transicionarExpediente,
+  transicionesLegalesDesde,
+} from "../expediente";
+import { avanzarHastaIdentidadVerificada, crearExpediente, datosComplementariosFixture, declaracionesCompatibles } from "./fixtures";
+
+const TODOS_LOS_ESTADOS: EstadoExpediente[] = [
+  "INICIADO",
+  "CANAL_WA_VERIFICADO",
+  "PLAN_SELECCIONADO",
+  "AUTORIZADO",
+  "CANAL_EMAIL_VERIFICADO",
+  "IDENTIDAD_VERIFICADA",
+  "DERIVADO_MANUAL",
+  "DECLARACIONES_OK",
+  "PAGO_CONFIRMADO",
+  "PAQUETE_GENERADO",
+  "VENCIDO",
+  "DEVOLUCION_EN_TRAMITE",
+  "FIRMADO",
+  "EMITIDO",
+];
+
+describe("transicionarExpediente", () => {
+  it("aplica una transición legal y agrega una entrada al historial", () => {
+    const expediente = crearExpediente();
+
+    const resultado = transicionarExpediente(expediente, "CANAL_WA_VERIFICADO", {}, "2026-01-01T10:05:00.000Z");
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.expediente.estado).toBe("CANAL_WA_VERIFICADO");
+    expect(resultado.expediente.historial).toHaveLength(2);
+    expect(resultado.expediente.historial[1]).toEqual({
+      estado: "CANAL_WA_VERIFICADO",
+      en: "2026-01-01T10:05:00.000Z",
+    });
+  });
+
+  it("no muta el expediente original", () => {
+    const expediente = crearExpediente();
+
+    transicionarExpediente(expediente, "CANAL_WA_VERIFICADO");
+
+    expect(expediente.estado).toBe("INICIADO");
+    expect(expediente.historial).toHaveLength(1);
+  });
+
+  it("rechaza una transición que se salta pasos", () => {
+    const expediente = crearExpediente();
+
+    const resultado = transicionarExpediente(expediente, "PAGO_CONFIRMADO");
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.error).toContain("INICIADO");
+    expect(resultado.error).toContain("PAGO_CONFIRMADO");
+  });
+
+  it("recorre el camino feliz completo hasta EMITIDO", () => {
+    let expediente = avanzarHastaIdentidadVerificada(crearExpediente());
+
+    const declaraciones = registrarDeclaracionesP6(expediente, declaracionesCompatibles, datosComplementariosFixture);
+    expect(declaraciones.ok).toBe(true);
+    if (!declaraciones.ok) return;
+    expediente = declaraciones.expediente;
+    expect(expediente.estado).toBe("DECLARACIONES_OK");
+
+    for (const siguiente of ["PAGO_CONFIRMADO", "PAQUETE_GENERADO", "FIRMADO", "EMITIDO"] as const) {
+      const paso = transicionarExpediente(expediente, siguiente);
+      expect(paso.ok).toBe(true);
+      if (!paso.ok) return;
+      expediente = paso.expediente;
+    }
+
+    expect(expediente.estado).toBe("EMITIDO");
+    expect(esEstadoTerminal(expediente.estado)).toBe(true);
+  });
+
+  it("recorre la rama de vencimiento hasta DEVOLUCION_EN_TRAMITE", () => {
+    let expediente = avanzarHastaIdentidadVerificada(crearExpediente());
+    const declaraciones = registrarDeclaracionesP6(expediente, declaracionesCompatibles, datosComplementariosFixture);
+    if (!declaraciones.ok) throw new Error(declaraciones.error);
+    expediente = declaraciones.expediente;
+
+    for (const siguiente of ["PAGO_CONFIRMADO", "PAQUETE_GENERADO", "VENCIDO", "DEVOLUCION_EN_TRAMITE"] as const) {
+      const paso = transicionarExpediente(expediente, siguiente);
+      if (!paso.ok) throw new Error(paso.error);
+      expediente = paso.expediente;
+    }
+
+    expect(expediente.estado).toBe("DEVOLUCION_EN_TRAMITE");
+    expect(esEstadoTerminal(expediente.estado)).toBe(true);
+  });
+});
+
+describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)", () => {
+  it("registrarDeclaracionesP6 deriva a DERIVADO_MANUAL cuando una declaración de las 1, 2, 3 u 8 es incompatible", () => {
+    const expediente = avanzarHastaIdentidadVerificada(crearExpediente());
+
+    const resultado = registrarDeclaracionesP6(
+      expediente,
+      { ...declaracionesCompatibles, condicionPep: "SI" }, // #8 incompatible
+      datosComplementariosFixture,
+    );
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.expediente.estado).toBe("DERIVADO_MANUAL");
+    expect(resultado.expediente.motivoDerivacionManual).toEqual([8]);
+  });
+
+  it("no existe ninguna transición legal desde DERIVADO_MANUAL hacia ningún otro estado", () => {
+    expect(transicionesLegalesDesde("DERIVADO_MANUAL")).toEqual([]);
+    for (const destino of TODOS_LOS_ESTADOS) {
+      expect(esTransicionLegal("DERIVADO_MANUAL", destino)).toBe(false);
+    }
+  });
+
+  it("no se puede transicionar un expediente DERIVADO_MANUAL hacia pago, firma ni emisión", () => {
+    const expediente = avanzarHastaIdentidadVerificada(crearExpediente());
+    const derivado = registrarDeclaracionesP6(
+      expediente,
+      { ...declaracionesCompatibles, estadoDeSalud: "NO" }, // #1 incompatible
+      datosComplementariosFixture,
+    );
+    if (!derivado.ok) throw new Error(derivado.error);
+    expect(derivado.expediente.estado).toBe("DERIVADO_MANUAL");
+
+    for (const destino of ["DECLARACIONES_OK", "PAGO_CONFIRMADO", "PAQUETE_GENERADO", "FIRMADO", "EMITIDO"] as const) {
+      const intento = transicionarExpediente(derivado.expediente, destino);
+      expect(intento.ok).toBe(false);
+    }
+  });
+
+  it("es un estado terminal", () => {
+    expect(esEstadoTerminal("DERIVADO_MANUAL")).toBe(true);
+  });
+});
+
+describe("edadEnRangoPermitido (regla de negocio #8)", () => {
+  it("acepta exactamente 18 años cumplidos hoy", () => {
+    expect(calcularEdadDesde("2008-01-01", new Date("2026-01-01"))).toBe(18);
+    expect(edadEnRangoPermitido("2008-01-01", new Date("2026-01-01"))).toBe(true);
+  });
+
+  it("rechaza a quien todavía no cumplió 18 (falta un día)", () => {
+    expect(calcularEdadDesde("2008-01-02", new Date("2026-01-01"))).toBe(17);
+    expect(edadEnRangoPermitido("2008-01-02", new Date("2026-01-01"))).toBe(false);
+  });
+
+  it("acepta exactamente 64 años cumplidos y rechaza 65", () => {
+    expect(edadEnRangoPermitido("1962-01-01", new Date("2026-01-01"))).toBe(true);
+    expect(edadEnRangoPermitido("1961-01-01", new Date("2026-01-01"))).toBe(false);
+  });
+});

@@ -1,0 +1,40 @@
+version: 2
+
+updates:
+  # Dependencias de la app. Next.js queda fijado en 15 por límite de Amplify
+  # Hosting (CLAUDE.md, sección Stack): Dependabot puede proponer parches y
+  # minors de 15.x, pero el major 16 está explícitamente ignorado.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+      dev-dependencies:
+        dependency-type: development
+    ignore:
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint-config-next
+        update-types: ["version-update:semver-major"]
+
+  # Las propias actions del pipeline: una action desactualizada o sin fijar
+  # es superficie de ataque de cadena de suministro.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+
+  # Providers de Terraform (infra/.terraform.lock.hcl está versionado a
+  # propósito, ver .gitignore).
+  - package-ecosystem: terraform
+    directory: /infra
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3

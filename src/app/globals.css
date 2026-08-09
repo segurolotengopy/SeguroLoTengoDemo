@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+/*
+ * Variante `dark:` gobernada por el atributo `data-tema="oscuro"` en <html>,
+ * no por `prefers-color-scheme`: la preferencia del sistema se resuelve una
+ * sola vez en el script de arranque (ver `src/components/shared/tema.ts`) y
+ * el usuario puede sobreescribirla con el botón de día/noche.
+ */
+@custom-variant dark (&:where([data-tema="oscuro"], [data-tema="oscuro"] *));
+
+/*
+ * Sistema de diseño — SeguroLoTengo
+ *
+ * Paleta institucional (ver docs/ESPECIFICACION_PANTALLAS.md → "Elementos
+ * comunes a todas las pantallas"):
+ *   - azul    → títulos y etiquetas institucionales
+ *   - naranja → acciones primarias y alertas
+ *   - verde   → confirmaciones y textos de seguridad
+ *   - rojo    → bloqueos
+ *   - hueso   → fondo claro de toda la app
+ *
+ * Cada escala va de 50 (más claro) a 950 (más oscuro), siguiendo la
+ * convención de Tailwind, para poder usarlas como cualquier color utilitario:
+ * `bg-naranja-500`, `text-azul-800`, `border-rojo-300`, etc.
+ */
+@theme {
+  --color-azul-50: #eef4fa;
+  --color-azul-100: #d7e6f2;
+  --color-azul-200: #aecae1;
+  --color-azul-300: #82a9ce;
+  --color-azul-400: #5688ba;
+  --color-azul-500: #35699f;
+  --color-azul-600: #245685;
+  --color-azul-700: #1c4569;
+  --color-azul-800: #163654;
+  --color-azul-900: #102841;
+  --color-azul-950: #0a1a2b;
+
+  --color-naranja-50: #fff4eb;
+  --color-naranja-100: #ffe3cc;
+  --color-naranja-200: #ffc69a;
+  --color-naranja-300: #ffa35f;
+  --color-naranja-400: #ff8a38;
+  --color-naranja-500: #f5721a;
+  --color-naranja-600: #dd5c0f;
+  --color-naranja-700: #b4470b;
+  --color-naranja-800: #8c380c;
+  --color-naranja-900: #6e2e0d;
+  --color-naranja-950: #3b1706;
+
+  --color-verde-50: #eefaf1;
+  --color-verde-100: #d5f3dd;
+  --color-verde-200: #abe7bd;
+  --color-verde-300: #79d497;
+  --color-verde-400: #48bb71;
+  --color-verde-500: #279f54;
+  --color-verde-600: #1b8043;
+  --color-verde-700: #176538;
+  --color-verde-800: #14502f;
+  --color-verde-900: #114228;
+  --color-verde-950: #082416;
+
+  --color-rojo-50: #fdeeee;
+  --color-rojo-100: #fbd8d8;
+  --color-rojo-200: #f6b4b4;
+  --color-rojo-300: #ee8686;
+  --color-rojo-400: #e35b5b;
+  --color-rojo-500: #d33636;
+  --color-rojo-600: #b32424;
+  --color-rojo-700: #8f1d1d;
+  --color-rojo-800: #711c1c;
+  --color-rojo-900: #5e1c1c;
+  --color-rojo-950: #330b0b;
+
+  --color-hueso-50: #fdfcfa;
+  --color-hueso-100: #faf7f2;
+  --color-hueso-200: #f3ede3;
+  --color-hueso-300: #e9dfcf;
+  --color-hueso-400: #dac9ac;
+  --color-hueso-500: #c6af85;
+  --color-hueso-600: #ac9066;
+  --color-hueso-700: #8c7250;
+  --color-hueso-800: #6e5a42;
+  --color-hueso-900: #574838;
+  --color-hueso-950: #2e2419;
+
+  /* Borde fino de las tarjetas ("tarjetas blancas con borde negro fino y
+     esquinas redondeadas"). Token único, no es una escala. */
+  --color-borde-tarjeta: #171717;
+}
+
+/*
+ * Capa semántica sobre la paleta.
+ *
+ * Las escalas de arriba son los colores de marca y no cambian nunca. Estos
+ * tokens, en cambio, dicen *qué rol* cumple cada color en la pantalla (fondo,
+ * superficie de tarjeta, borde, título, cuerpo, etiqueta) y son los únicos que
+ * el tema oscuro reescribe. Regla práctica: para estructura usá los
+ * semánticos (`bg-fondo`, `bg-superficie`, `text-titulo`), y para los bloques
+ * de acento (verde de seguridad, naranja de acción, rojo de bloqueo) usá la
+ * escala con su variante `dark:` explícita.
+ *
+ * Los valores del tema claro son exactamente los que ya usaban las pantallas:
+ * el aspecto especificado en docs/ESPECIFICACION_PANTALLAS.md no cambia.
+ */
+:root {
+  color-scheme: light;
+
+  --tema-fondo: var(--color-hueso-50);
+  --tema-superficie: #ffffff;
+  --tema-superficie-suave: var(--color-hueso-100);
+  --tema-borde: color-mix(in srgb, var(--color-borde-tarjeta) 15%, transparent);
+  --tema-borde-tenue: color-mix(
+    in srgb,
+    var(--color-borde-tarjeta) 10%,
+    transparent
+  );
+  --tema-titulo: var(--color-azul-950);
+  --tema-cuerpo: var(--color-azul-700);
+  --tema-etiqueta: var(--color-azul-600);
+}
+
+/*
+ * Tema oscuro: azules profundos derivados del azul institucional (no grises
+ * neutros), para que la marca siga siendo reconocible. Contraste verificado
+ * sobre `--tema-fondo`: título 15.8:1, cuerpo 9.4:1, etiqueta 6.6:1 — por
+ * encima del 4.5:1 de WCAG AA para texto normal.
+ */
+[data-tema="oscuro"] {
+  color-scheme: dark;
+
+  --tema-fondo: #05101f;
+  --tema-superficie: #0e1e33;
+  --tema-superficie-suave: #16293f;
+  --tema-borde: color-mix(in srgb, var(--color-hueso-100) 22%, transparent);
+  --tema-borde-tenue: color-mix(in srgb, var(--color-hueso-100) 12%, transparent);
+  --tema-titulo: var(--color-hueso-100);
+  --tema-cuerpo: #bacee3;
+  --tema-etiqueta: #93aecb;
+}
+
+@theme inline {
+  --color-background: var(--tema-fondo);
+  --color-foreground: var(--tema-titulo);
+
+  --color-fondo: var(--tema-fondo);
+  --color-superficie: var(--tema-superficie);
+  --color-superficie-suave: var(--tema-superficie-suave);
+  --color-borde-sutil: var(--tema-borde);
+  --color-borde-tenue: var(--tema-borde-tenue);
+  --color-titulo: var(--tema-titulo);
+  --color-cuerpo: var(--tema-cuerpo);
+  --color-etiqueta: var(--tema-etiqueta);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--tema-fondo);
+  color: var(--tema-titulo);
+  font-family: Arial, Helvetica, sans-serif;
+}
