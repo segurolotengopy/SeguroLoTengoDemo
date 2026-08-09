@@ -1,0 +1,33 @@
+# Build spec de AWS Amplify Hosting (plataforma WEB_COMPUTE, definida en
+# infra/amplify.tf) para el SSR de Next.js 15 con App Router.
+#
+# Amplify autodetecta Next.js, pero el spec se versiona igual para que el
+# build sea reproducible y no dependa de la heurística de la consola.
+#
+# Las variables de entorno (DEMO_MODE, DYNAMODB_TABLE, S3_BUCKET,
+# APP_SECRETS_ARN) las inyecta Terraform en la app de Amplify; acá no se
+# declara ninguna. OTP_PEPPER y DEMO_PANEL_KEY nunca son variables de
+# entorno: la app los lee en runtime desde Secrets Manager con el rol de
+# servicio (regla inviolable #2).
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        # Mismo portón que exige CLAUDE.md antes de cerrar una tarea. Corre en
+        # el build para que un despliegue no pueda publicar tipos rotos, lint
+        # en rojo o tests fallando: los tests de P1 incluyen el que verifica
+        # que el código del OTP no se filtra por la API ni por los logs.
+        - npm run verify
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - "**/*"
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
