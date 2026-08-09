@@ -98,7 +98,7 @@ Abrí `/demo-panel` en una segunda pestaña antes de empezar: ahí aparecen los 
 
 **Derivación a Pantalla A (salud).** Igual con `983 000 789`. Señalar que el motivo se registra por número de declaración y que los datos médicos no salen hacia analítica, CRM ni monitoreo de errores.
 
-**Biometría rechazada.** Con `984 000 234`, en P5. Señalar que los campos extraídos no se editan a mano: el único camino es repetir la captura.
+**Biometría rechazada.** Con `984 000 234`, y **eligiendo "Biometría rechazada" en el panel** antes de llegar a P5: el proveedor de identidad simulado responde según la persona activa del panel, no según el número tipeado en P1. Señalar que los campos extraídos no se editan a mano: el único camino es repetir la captura.
 
 **Pantalla B.** Con `985 000 567`, pagar el QR en P7 y no firmar. Con el acelerador de plazo del panel, las 24 horas se comprimen a segundos. Señalar los recordatorios a 1, 5 y 12 horas y que la devolución va únicamente al medio de origen.
 
@@ -111,6 +111,8 @@ Abrí `/demo-panel` en una segunda pestaña antes de empezar: ahí aparecen los 
 Es **el único lugar del sistema donde el código de un OTP puede verse**. La API del flujo nunca lo devuelve, y en base solo está el HMAC — verificado por `src/app/api/p1/__tests__/no-filtra-codigo-otp.test.ts`.
 
 Funciones previstas (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los OTP generados, acelerar el plazo de firma, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100), reiniciar el expediente y ver el registro de evidencia.
+
+**Persona de prueba activa.** El selector del panel decide a quién simula el adaptador de identidad en P5: de ahí salen los datos que devuelve el OCR y si la verificación aprueba. Cada persona trae su propio desenlace, derivado de su fixture (la coincidencia facial y la fecha de nacimiento de `personas.ts`), y al lado hay un selector para **forzar** uno de los cuatro: aprobado, calidad insuficiente, edad fuera del rango 18-64 o no coincide la cara. El forzado sirve para mostrar los dos desenlaces que ninguna de las cinco personas produce por sí sola, sin inventar personas nuevas. La selección vive en memoria del proceso, igual que los códigos OTP.
 
 **Límite conocido.** Los códigos viven en memoria del proceso que atendió el envío, porque la regla inviolable #2 prohíbe persistirlos. En un despliegue con varias instancias, el panel puede no ver un código emitido por otra. Con el tráfico de una demostración suele haber una sola instancia caliente, pero conviene saberlo antes de estar frente a la gerencia: si el código no aparece, recargá y repetí el envío.
 
@@ -132,8 +134,10 @@ Funciones previstas (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los
 | :---- | :---- |
 | P0 · Información | Implementada |
 | P1 · Verificación de WhatsApp | Implementada, con OTP de punta a punta |
-| P2 a P9, Pantallas A y B | **Pendientes** |
-| Panel de demo | Parcial: clave, códigos OTP y registro de evidencia. Faltan selección de persona, acelerador de plazo y fallos forzados |
+| P2 · Planes, P3 · Preparación, P4 · Verificación de correo | Implementadas |
+| P5 · Verificación de identidad | Implementada, con el `IdentityProvider` mock de punta a punta |
+| P6 a P9, Pantallas A y B | **Pendientes** |
+| Panel de demo | Parcial: clave, códigos OTP, registro de evidencia y selección de persona (con desenlace de identidad forzable). Faltan el acelerador de plazo y el resto de los fallos forzados |
 | Consola administrativa | Especificada, sin implementar (`docs/CONSOLA_ADMINISTRATIVA.md`) |
 
 Los datos de este documento están listos para las 12 pantallas; lo que falta es construirlas. Cada pantalla nueva consume los fixtures de `personas.ts` y no debería necesitar datos propios: si una pantalla pide un dato que no está en el catálogo, es señal de que el catálogo quedó corto y hay que ampliarlo acá, no inventarlo en la pantalla.

@@ -11,9 +11,11 @@
  * error explícito en vez de caer silenciosamente al mock, que sería la peor
  * forma de enterarse en producción.
  */
+import type { IdentityProvider } from "../ports/identity-provider";
 import type { OtpProvider } from "../ports/otp-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
 import { resolverAdaptador } from "./index";
+import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 
 export function obtenerOtpProvider(otpRepository: OtpRepository): OtpProvider {
@@ -22,6 +24,18 @@ export function obtenerOtpProvider(otpRepository: OtpRepository): OtpProvider {
     live: () => {
       throw new Error(
         "INTEGRATION_OTP=live pero todavía no existe el adaptador oficial de OtpProvider " +
+          "(src/adapters/live/). Ver docs/Tabla de Integraciones externas - Tabla.csv.",
+      );
+    },
+  });
+}
+
+export function obtenerIdentityProvider(): IdentityProvider {
+  return resolverAdaptador("IDENTITY", {
+    mock: () => crearIdentityProviderMock(),
+    live: () => {
+      throw new Error(
+        "INTEGRATION_IDENTITY=live pero todavía no existe el adaptador oficial de IdentityProvider " +
           "(src/adapters/live/). Ver docs/Tabla de Integraciones externas - Tabla.csv.",
       );
     },
