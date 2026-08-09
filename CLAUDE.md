@@ -18,11 +18,14 @@ No inventes campos, pasos, validaciones ni textos que no estén en la especifica
 
 Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente de verdad de aspectos específicos. Cargalos antes de tocar el área indicada — no asumas su contenido de memoria si pasó tiempo desde la última lectura.
 
+**Convención:** la documentación técnica que publica un proveedor externo (Code100, Bancard, y más adelante Infobip, Entrust, ComplyAdvantage, SEBAOT) vive agrupada en `docs/Integraciones/`. En la raíz de `docs/` quedan los documentos propios del proyecto y del producto: especificaciones, formularios, matriz de cumplimiento y catálogo de integraciones. Un PDF de proveedor nuevo va en `docs/Integraciones/`, nunca suelto en la raíz.
+
 | Archivo | Úsalo para... |
 | :---- | :---- |
 | `Solicitud.pdf` | Estructura exacta y campos obligatorios de la Solicitud de Seguro (proponente, planes/coberturas, beneficiario, declaración médica, declaraciones finales, firma). El servicio de generación de PDF interno debe respetar estos campos y su orden. |
 | `FIPF.pdf` | Formulario de Identificación de Persona Física (SEPRELAD): campos personales, laborales, económicos, origen de fondos, condición PEP. Referencia obligatoria del modelo de datos de KYC/AML — ya reflejado parcialmente en `DatosComplementariosP6` de `src/domain/tipos.ts`. |
-| `Documentacion Firmador - API FLOW.pdf` | Contrato técnico exacto de la API de Code100 (`POST /signature/auth`, `GET /signature/session-start`, `POST /signature/getSessionId`, `POST /signature/sign-pdf`). Gobierna el futuro adaptador oficial de `SignatureProvider` en `src/adapters/live/`. No inventar parámetros ni endpoints distintos a los documentados ahí. |
+| `Integraciones/Documentacion Firmador - API FLOW.pdf` | Contrato técnico exacto de la API de Code100 (`POST /signature/auth`, `GET /signature/session-start`, `POST /signature/getSessionId`, `POST /signature/sign-pdf`). Gobierna el futuro adaptador oficial de `SignatureProvider` en `src/adapters/live/`. No inventar parámetros ni endpoints distintos a los documentados ahí. |
+| `Integraciones/eCommerce_bancard_compra_simple_version_1.23.1 (1).pdf`, `Integraciones/Preaut y promociones 14.pdf`, `Integraciones/Qr en API de Comercios v1.2 16 (1).pdf` | Contrato técnico exacto de las APIs de Bancard: compra simple de eCommerce, preautorización y captura, y QR de comercios. Gobiernan el futuro adaptador oficial de `PaymentProvider` (P7). Mismo criterio que con Code100: no inventar parámetros ni endpoints. |
 | `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` | Matriz normativa (Número, Categoría R1–R8, Título, Norma y Artículo). Fuente de verdad regulatoria del proyecto — ver "Regla de trabajo con los documentos" abajo. |
 | `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf` | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable. |
 | `Cumplimiento SeguroLoTengo.pdf` | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario. |
@@ -149,7 +152,7 @@ La selección de adaptador es por variable de entorno (`INTEGRATION_MODE`, o fla
 
 ### Contrato oficial de `SignatureProvider` (Code100)
 
-Cuando se implemente `src/adapters/live/signature-provider.ts`, debe usar exclusivamente el flujo documentado en `docs/Documentacion Firmador - API FLOW.pdf` — no inventar parámetros ni endpoints:
+Cuando se implemente `src/adapters/live/signature-provider.ts`, debe usar exclusivamente el flujo documentado en `docs/Integraciones/Documentacion Firmador - API FLOW.pdf` — no inventar parámetros ni endpoints:
 
 ```
 POST /signature/auth            → token
@@ -254,5 +257,5 @@ Además de `npm run typecheck && npm run lint && npm test`:
 - No implementes más de una pantalla por sesión: pedime que abramos una sesión nueva.
 - No inventes artículos de ley, endpoints, campos de API o pasos del flujo que no figuren en los documentos fuente.
 - No generes Nota de Cobertura — el producto no la contempla.
-- No introduzcas un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`.
+- No introduzcas un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`, ni dejes su documentación técnica suelta en la raíz de `docs/`: va en `docs/Integraciones/`.
 
