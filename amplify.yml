@@ -22,6 +22,24 @@ frontend:
         # en rojo o tests fallando: los tests de P1 incluyen el que verifica
         # que el código del OTP no se filtra por la API ni por los logs.
         - npm run verify
+
+        # Las variables de entorno de la app de Amplify existen SOLO durante
+        # el build: el cómputo SSR de Next no las hereda. Sin este paso,
+        # `process.env.DYNAMODB_TABLE` es undefined en runtime y los Route
+        # Handlers responden 500, mientras que /demo-panel devuelve 404 porque
+        # DEMO_MODE no vale "true". Volcarlas a `.env.production` es el
+        # mecanismo que Next lee del lado del servidor al arrancar.
+        #
+        # La lista es explícita a propósito, no un volcado de `env`: así no se
+        # filtra al artefacto ninguna variable del runner de Amplify. Ninguna
+        # de estas cuatro es un secreto — APP_SECRETS_ARN identifica al secret
+        # pero no da acceso; el pepper del OTP y la clave del panel se leen en
+        # runtime desde Secrets Manager con el rol de servicio (regla
+        # inviolable #2), y nunca pasan por acá.
+        - |
+          for var in DEMO_MODE DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN; do
+            if [ -n "${!var:-}" ]; then echo "$var=${!var}" >> .env.production; fi
+          done
         - npm run build
   artifacts:
     baseDirectory: .next
