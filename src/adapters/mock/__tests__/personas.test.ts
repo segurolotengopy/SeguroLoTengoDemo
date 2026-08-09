@@ -9,10 +9,16 @@
  */
 import { describe, expect, it } from "vitest";
 import { evaluarElegibilidad } from "../../../domain/elegibilidad";
-import { PLANES } from "../../../domain/planes";
+import { PLANES } from "../../../domain/catalogo";
+import { enmascararCorreo, normalizarCorreo } from "../../../domain/correo";
 import { normalizarCelularParaguayo } from "../../../domain/telefono";
 import { edadEnRangoPermitido } from "../../../domain/tipos";
-import { obtenerPersonaDemo, PERSONAS_DEMO, personaPorCelular } from "../personas";
+import {
+  obtenerPersonaDemo,
+  PERSONAS_DEMO,
+  personaPorCelular,
+  personaPorCorreo,
+} from "../personas";
 
 /** Fecha de referencia fija: la edad de un fixture no puede depender de cuándo corran los tests. */
 const HOY = new Date("2026-08-08T12:00:00.000Z");
@@ -40,6 +46,29 @@ describe("personas de demo · consistencia del catálogo", () => {
     for (const persona of PERSONAS_DEMO) {
       expect(persona.correo.endsWith("@example.com"), `${persona.rotulo}: correo no reservado`).toBe(true);
     }
+  });
+
+  it("todos los correos son válidos para P4 y ya están normalizados", () => {
+    // Gemelo de la prueba de celulares: si alguien agrega una persona con un
+    // correo mal escrito, o con mayúsculas o espacios, la demostración se
+    // rompería recién en vivo, en P4, al pedir el código.
+    for (const persona of PERSONAS_DEMO) {
+      const normalizado = normalizarCorreo(persona.correo);
+      expect(normalizado.ok, `${persona.rotulo}: correo inválido para P4`).toBe(true);
+      // Ya normalizado: el fixture y lo que P4 persiste en el expediente
+      // tienen que ser exactamente el mismo string.
+      if (normalizado.ok) expect(normalizado.correo).toBe(persona.correo);
+    }
+  });
+
+  it("cada correo se enmascara distinto, para poder distinguirlos en pantalla", () => {
+    // P4 y la evidencia solo muestran la versión enmascarada. Si dos personas
+    // compartieran inicial, en una demostración con varias sesiones abiertas
+    // no se sabría cuál es cuál.
+    const enmascarados = PERSONAS_DEMO.map((persona) => enmascararCorreo(persona.correo));
+    expect(new Set(enmascarados).size, `enmascarados repetidos: ${enmascarados.join(", ")}`).toBe(
+      enmascarados.length,
+    );
   });
 
   it("todas están dentro del rango de edad de 18 a 64 (regla #8)", () => {
@@ -135,6 +164,30 @@ describe("personas de demo · búsqueda", () => {
   it("encuentra por celular el que se tipea en P1", () => {
     expect(personaPorCelular("+595981000123")?.id).toBe("camino-feliz");
     expect(personaPorCelular("+595999999999")).toBeNull();
+  });
+
+  it("encuentra por correo el que se tipea en P4", () => {
+    expect(personaPorCorreo("monica.gorena@example.com")?.id).toBe("camino-feliz");
+    expect(personaPorCorreo("ramon.duarte@example.com")?.id).toBe("pep-positivo");
+    expect(personaPorCorreo("nadie@example.com")).toBeNull();
+  });
+
+  it("encuentra por correo aunque se tipee con mayúsculas o espacios, como lo normaliza P4", () => {
+    expect(personaPorCorreo("  Monica.Gorena@Example.COM ")?.id).toBe("camino-feliz");
+  });
+
+  it("un correo con formato inválido devuelve null en vez de romper", () => {
+    expect(personaPorCorreo("sin-arroba")).toBeNull();
+    expect(personaPorCorreo("")).toBeNull();
+  });
+
+  it("cada persona es alcanzable por sus dos canales y son la misma persona", () => {
+    // Es lo que hace posible seguir un recorrido en el panel: P1 identifica
+    // por celular, P4 por correo, y tienen que coincidir.
+    for (const persona of PERSONAS_DEMO) {
+      expect(personaPorCelular(persona.celular)?.id).toBe(persona.id);
+      expect(personaPorCorreo(persona.correo)?.id).toBe(persona.id);
+    }
   });
 
   it("devuelve null para un id inexistente en vez de romper", () => {

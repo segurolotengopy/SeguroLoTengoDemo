@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { listarEnviosDemo } from "@/adapters/mock/otp-provider";
 import { HeaderInstitucional } from "@/components/shared";
+import { enmascararCorreo } from "@/domain/correo";
 import { enmascararCelular } from "@/domain/telefono";
 import { crearEvidenceStore } from "@/repositories";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
@@ -41,8 +42,15 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
   );
 }
 
+/**
+ * El panel puede mostrar el código (es su razón de existir), pero no tiene
+ * por qué mostrar el destino completo: el celular ya se enmascaraba y desde
+ * P4 el correo también, con la misma función que usa el flujo.
+ */
 function destinoLegible(destino: string): string {
-  return destino.startsWith("+595") ? enmascararCelular(destino) : destino;
+  if (destino.startsWith("+595")) return enmascararCelular(destino);
+  if (destino.includes("@")) return enmascararCorreo(destino);
+  return destino;
 }
 
 export default async function PanelDeDemo() {

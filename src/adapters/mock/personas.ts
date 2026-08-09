@@ -18,7 +18,7 @@
  *    espera, y `__tests__/personas.test.ts` verifica que el motor real
  *    efectivamente produzca eso — si alguien cambia una regla, los fixtures
  *    fallan en vez de mentirle a la gerencia en una demostración.
- * 3. **No define importes.** El plan sale de `src/domain/planes.ts`.
+ * 3. **No define importes.** El plan sale de `src/domain/catalogo.ts`.
  *
  * ⚠️ ANTES DE PASAR A INTEGRACIONES REALES: los números de celular de acá son
  * verosímiles y podrían pertenecer a alguien. Cuando exista el adaptador
@@ -26,6 +26,7 @@
  * cualquier envío real, o vas a mandarle un OTP a un desconocido.
  */
 import { createHash } from "node:crypto";
+import { normalizarCorreo } from "../../domain/correo";
 import type {
   CapturaBiometrica,
   Declaraciones,
@@ -89,6 +90,15 @@ export interface PersonaDemo {
   readonly rotulo: string;
   /** Celular en E.164, el que se tipea en P1 sin el prefijo de país. */
   readonly celular: string;
+  /**
+   * Dirección que se tipea en P4, ya normalizada (minúsculas, sin espacios):
+   * tal cual la va a persistir `normalizarCorreo`, así el fixture y lo que
+   * queda en el expediente son el mismo string.
+   *
+   * Siempre en `example.com`, dominio reservado por IANA: cuando exista el
+   * adaptador oficial de Infobip, un envío real a estas direcciones no le
+   * llega a nadie. `__tests__/personas.test.ts` verifica las dos cosas.
+   */
   readonly correo: string;
   readonly identidad: Identidad;
   readonly planElegido: PlanId;
@@ -364,4 +374,19 @@ export function obtenerPersonaDemo(id: IdPersonaDemo): PersonaDemo | null {
 /** Busca por el celular que se tipea en P1, para que el panel sepa quién entró. */
 export function personaPorCelular(e164: string): PersonaDemo | null {
   return PERSONAS_DEMO.find((persona) => persona.celular === e164) ?? null;
+}
+
+/**
+ * Busca por el correo que se tipea en P4. Gemelo de `personaPorCelular`: el
+ * panel de demo necesita reconocer a la persona por cualquiera de sus dos
+ * canales, porque en P4 el celular ya no se vuelve a pedir.
+ *
+ * Normaliza antes de comparar, con la misma función que usa P4
+ * (`domain/correo.ts`): quien tipee `Monica.Gorena@Example.com ` tiene que
+ * caer en la misma persona que quedó registrada en el expediente.
+ */
+export function personaPorCorreo(correo: string): PersonaDemo | null {
+  const normalizado = normalizarCorreo(correo);
+  if (!normalizado.ok) return null;
+  return PERSONAS_DEMO.find((persona) => persona.correo === normalizado.correo) ?? null;
 }

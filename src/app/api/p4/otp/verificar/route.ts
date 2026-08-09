@@ -1,15 +1,14 @@
 /**
- * `POST /api/p1/otp/verificar` — botón `VERIFICAR WHATSAPP` de P1.
+ * `POST /api/p4/otp/verificar` — botón `VERIFICAR CORREO` de P4.
  *
- * Es la única puerta por la que el expediente pasa de INICIADO a
- * CANAL_WA_VERIFICADO, y ni siquiera lo hace este archivo: la transición la
- * ejecuta `verificarOtpWhatsapp` a través de `transicionarExpediente`.
+ * Es la única puerta por la que el expediente pasa de AUTORIZADO a
+ * CANAL_EMAIL_VERIFICADO, y ni siquiera lo hace este archivo: la transición
+ * la ejecuta el motor de canal a través de `transicionarExpediente`.
  *
- * El número que queda registrado como canal verificado es el que persistió
- * el OTP, no uno que mande el cliente en esta petición: acá solo viaja el
+ * La dirección que queda registrada como canal verificado es la que persistió
+ * el OTP, no una que mande el cliente en esta petición: acá solo viaja el
  * código tipeado.
  */
-import { dependenciasP1 } from "@/app/api/p1/_dependencias";
 import {
   COOKIE_OTP,
   COOKIE_SESION,
@@ -17,8 +16,9 @@ import {
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
+import { dependenciasP4 } from "@/app/api/p4/_dependencias";
 import { LONGITUD_CODIGO_OTP } from "@/domain/reglas-otp";
-import { verificarOtpWhatsapp } from "@/domain/verificacion-canal-whatsapp";
+import { verificarOtpCorreo } from "@/domain/verificacion-canal-correo";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,7 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "SESION_INVALIDA" }, { status: 400 });
   }
 
-  const resultado = await verificarOtpWhatsapp(dependenciasP1(), {
+  const resultado = await verificarOtpCorreo(dependenciasP4(), {
     expedienteId,
     otpId,
     codigoIngresado,
