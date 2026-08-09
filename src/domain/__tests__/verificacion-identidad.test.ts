@@ -92,7 +92,15 @@ interface Banco {
   readonly evidencias: ReturnType<typeof crearEvidenciasEnMemoria>;
 }
 
-function crearBanco(estadoInicial: EstadoExpediente = "CANAL_EMAIL_VERIFICADO"): Banco {
+function crearBanco(
+  estadoInicial: EstadoExpediente = "CANAL_EMAIL_VERIFICADO",
+  /**
+   * Expedientes previos de la misma cédula, para ejercitar la regla de bloqueo
+   * de nuevo registro (`docs/CONSOLA_ADMINISTRATIVA.md` §5). Por defecto no hay
+   * ninguno: el camino feliz de P5 no está bloqueado por nadie.
+   */
+  previosDeLaCedula: readonly Expediente[] = [],
+): Banco {
   const expedientes = crearExpedientesEnMemoria();
   const evidencias = crearEvidenciasEnMemoria();
   const expediente = expedienteEn(estadoInicial);
@@ -105,6 +113,7 @@ function crearBanco(estadoInicial: EstadoExpediente = "CANAL_EMAIL_VERIFICADO"):
       identidad: crearIdentityProviderMock(),
       expedientes,
       evidencias,
+      bloqueos: { buscarPorCedula: async () => previosDeLaCedula },
       ahora: () => AHORA,
     },
   };
@@ -244,6 +253,45 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     expect(resultado.datos?.edadEnRango).toBe(false);
     // No deriva a Pantalla A: eso es exclusivo de las declaraciones de P6.
     expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+  });
+
+  it("bloquea si la cédula ya tiene un expediente terminal sin póliza sin superar", async () => {
+    // Regla de bloqueo de nuevo registro (docs/CONSOLA_ADMINISTRATIVA.md §5):
+    // mientras exista un expediente DERIVADO_MANUAL / VENCIDO /
+    // DEVOLUCION_EN_TRAMITE para esa cédula, el flujo digital no deja empezar
+    // uno nuevo. Solo la consola lo levanta, creando un sucesor.
+    const derivado: Expediente = {
+      ...crearExpedienteInicial({ id: "EXP-VIEJO", ahora: AHORA }),
+      estado: "DERIVADO_MANUAL",
+      numeroCasoDerivacion: "CASO-2026-000042",
+    };
+    const banco = crearBanco("CANAL_EMAIL_VERIFICADO", [derivado]);
+
+    const resultado = await confirmar(banco);
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivo).toBe("CEDULA_BLOQUEADA");
+    // El expediente en curso no avanza, y el viejo no se tocó.
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+  });
+
+  it("deja pasar si el expediente terminal ya fue superado por un sucesor", async () => {
+    const derivado: Expediente = {
+      ...crearExpedienteInicial({ id: "EXP-VIEJO", ahora: AHORA }),
+      estado: "DERIVADO_MANUAL",
+    };
+    const sucesor = crearExpedienteInicial({
+      id: "EXP-SUCESOR",
+      ahora: AHORA,
+      expedienteAnteriorId: "EXP-VIEJO",
+    });
+    const banco = crearBanco("CANAL_EMAIL_VERIFICADO", [derivado, sucesor]);
+
+    const resultado = await confirmar(banco);
+
+    expect(resultado.ok).toBe(true);
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("IDENTIDAD_VERIFICADA");
   });
 
   it("bloquea cuando la cara no coincide, con el requisito de coincidencia facial pendiente", async () => {

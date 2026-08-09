@@ -14,12 +14,24 @@ import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-sec
 export interface SecretosApp {
   readonly DEMO_PANEL_KEY: string;
   readonly OTP_PEPPER: string;
+  /**
+   * Clave de la consola administrativa (`docs/CONSOLA_ADMINISTRATIVA.md` §2).
+   * Es un secreto **distinto** del panel de demo a propósito: son dos
+   * herramientas con públicos y poderes distintos —el panel solo mira y olvida
+   * la sesión del navegador; la consola crea expedientes y levanta bloqueos—,
+   * así que compartir clave haría imposible revocar una sin la otra.
+   */
+  readonly ADMIN_CONSOLE_KEY: string;
 }
 
 function esSecretosApp(valor: unknown): valor is SecretosApp {
   if (typeof valor !== "object" || valor === null) return false;
   const registro = valor as Record<string, unknown>;
-  return typeof registro.DEMO_PANEL_KEY === "string" && typeof registro.OTP_PEPPER === "string";
+  return (
+    typeof registro.DEMO_PANEL_KEY === "string" &&
+    typeof registro.OTP_PEPPER === "string" &&
+    typeof registro.ADMIN_CONSOLE_KEY === "string"
+  );
 }
 
 let clienteSecretsManagerSingleton: SecretsManagerClient | null = null;
@@ -53,7 +65,9 @@ export async function obtenerSecretosApp(): Promise<SecretosApp> {
 
       const parseado: unknown = JSON.parse(respuesta.SecretString);
       if (!esSecretosApp(parseado)) {
-        throw new Error(`El secret ${arn} no tiene la forma esperada (DEMO_PANEL_KEY, OTP_PEPPER).`);
+        throw new Error(
+          `El secret ${arn} no tiene la forma esperada (DEMO_PANEL_KEY, OTP_PEPPER, ADMIN_CONSOLE_KEY).`,
+        );
       }
       return parseado;
     })().catch((error: unknown) => {
@@ -74,4 +88,9 @@ export async function obtenerOtpPepper(): Promise<string> {
 /** Clave que protege `/demo-panel`. Solo la usa el panel, nunca el flujo. */
 export async function obtenerDemoPanelKey(): Promise<string> {
   return (await obtenerSecretosApp()).DEMO_PANEL_KEY;
+}
+
+/** Clave que protege `/admin-consola`. Nunca la usa el flujo P0–P9. */
+export async function obtenerAdminConsoleKey(): Promise<string> {
+  return (await obtenerSecretosApp()).ADMIN_CONSOLE_KEY;
 }

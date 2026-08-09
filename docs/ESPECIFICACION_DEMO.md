@@ -136,8 +136,10 @@ Funciones previstas (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los
 | P1 · Verificación de WhatsApp | Implementada, con OTP de punta a punta |
 | P2 · Planes, P3 · Preparación, P4 · Verificación de correo | Implementadas |
 | P5 · Verificación de identidad | Implementada, con el `IdentityProvider` mock de punta a punta |
-| P6 a P9, Pantallas A y B | **Pendientes** |
-| Panel de demo | Parcial: clave, códigos OTP, registro de evidencia y selección de persona (con desenlace de identidad forzable). Faltan el acelerador de plazo y el resto de los fallos forzados |
-| Consola administrativa | Especificada, sin implementar (`docs/CONSOLA_ADMINISTRATIVA.md`) |
+| P6 · Datos y declaraciones | Implementada, con el motor de elegibilidad y la derivación a Pantalla A de punta a punta |
+| Pantalla A · Emisión no automática | Implementada. Los datos de contacto de Alianza e Interseguros son marcadores: el PDF de referencia tampoco los trae |
+| P7 a P9, Pantalla B | **Pendientes** |
+| Panel de demo | Parcial: clave, códigos OTP, registro de evidencia, selección de persona (con desenlace de identidad forzable) y reinicio de expediente. Faltan el acelerador de plazo y el resto de los fallos forzados |
+| Consola administrativa | Implementada en `/admin-consola`: búsqueda, detalle, evidencia y reinicio con justificativo. Falta la vista de envíos/respuestas a proveedores |
 
 Los datos de este documento están listos para las 12 pantallas; lo que falta es construirlas. Cada pantalla nueva consume los fixtures de `personas.ts` y no debería necesitar datos propios: si una pantalla pide un dato que no está en el catálogo, es señal de que el catálogo quedó corto y hay que ampliarlo acá, no inventarlo en la pantalla.

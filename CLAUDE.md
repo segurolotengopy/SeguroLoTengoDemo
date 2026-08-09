@@ -119,6 +119,7 @@ Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley
 8. **Edad 18-64 años** verificada contra la fecha de nacimiento extraída de la cédula, no contra un campo declarado.  
 9. **Solo el titular puede contratar** para sí mismo. No existe flujo de contratación para terceros.  
 10. **Evidencia append-only**: fecha, hora, IP, dispositivo, sesión, versión de texto aceptado y resultado de cada paso. Nunca se sobrescribe ni se borra un registro de evidencia.
+11. **Bloqueo de nuevo registro por cédula**: mientras una cédula tenga un expediente en `DERIVADO_MANUAL`, `VENCIDO` o `DEVOLUCION_EN_TRAMITE` **sin superar**, el flujo digital normal (P0–P9) no deja empezar otro con esa cédula. Se aplica en P5, que es donde el sistema conoce la cédula. Solo la consola administrativa levanta el bloqueo, y lo hace creando un expediente **nuevo** enlazado por `expedienteAnteriorId` — nunca reactivando el viejo, que sigue siendo terminal (regla #5). El bloqueo no es un flag editable: se deriva de la cadena de expedientes. Ver `src/domain/consola-administrativa.ts`.
 
 ---
 
@@ -171,7 +172,9 @@ Los adaptadores oficiales de `PaymentProvider` y `SignatureProvider` deben trata
 
 ## Consola administrativa
 
-Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de las 12 pantallas** ni del contador de 9 pasos. Especificación completa en `docs/CONSOLA_ADMINISTRATIVA.md` — leela antes de tocar esto. En resumen: búsqueda de expedientes, vista de datos y de envíos/respuestas a proveedores (incluidos los mocks), visibilidad de derivación a Pantalla A / vencimiento a Pantalla B, y reinicio con justificativo que **crea un expediente nuevo enlazado al anterior** — nunca reactiva ni cambia de estado el expediente original (`DERIVADO_MANUAL` sigue siendo terminal, regla inviolable #5). Introduce una regla de negocio nueva: mientras una cédula tenga un expediente en `DERIVADO_MANUAL` o `VENCIDO`, el flujo digital normal (P0–P9) bloquea un nuevo registro con esa cédula hasta que la consola lo habilite.
+Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de las 12 pantallas** ni del contador de 9 pasos. Especificación completa en `docs/CONSOLA_ADMINISTRATIVA.md` — leela antes de tocar esto. En resumen: búsqueda de expedientes, vista de datos y de envíos/respuestas a proveedores (incluidos los mocks), visibilidad de derivación a Pantalla A / vencimiento a Pantalla B, y reinicio con justificativo que **crea un expediente nuevo enlazado al anterior** — nunca reactiva ni cambia de estado el expediente original (`DERIVADO_MANUAL` sigue siendo terminal, regla inviolable #5). Introdujo la regla de negocio inviolable #11 (bloqueo de nuevo registro por cédula).
+
+**Estado: implementada.** Ruta `/admin-consola`, protegida por `ADMIN_CONSOLE_ENABLED=true` y `ADMIN_CONSOLE_KEY` (secreto **distinto** del panel de demo). Búsqueda por cédula, número de caso, y estado + rango de fechas, con filtro por nombre. La búsqueda por nombre es un filtro en memoria sobre el resultado de un criterio indexado — limitación conocida, documentada en `src/domain/consola-administrativa.ts`. El detalle **sí muestra** respuestas médicas y condición PEP: es la única excepción autorizada a la regla #7, porque la consola es cumplimiento interno y no analítica/CRM/IA. No copiar ese criterio a ninguna otra pantalla.
 
 ## Panel de demo
 

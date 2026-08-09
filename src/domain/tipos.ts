@@ -274,6 +274,16 @@ export interface Expediente {
   readonly declaraciones: Declaraciones | null;
   /** Números de declaración (subconjunto de 1, 2, 3, 8) que causaron DERIVADO_MANUAL. */
   readonly motivoDerivacionManual: readonly number[] | null;
+  /**
+   * Número de caso de revisión manual, generado al derivar en P6.
+   *
+   * **Correlativo propio, distinto del de la propuesta** (P6, `REGLA AUTOMÁTICA
+   * DE ELEGIBILIDAD`, y Pantalla A: *"El número de caso de revisión es distinto
+   * del correlativo de una propuesta o póliza"*). Un expediente derivado nunca
+   * llega a tener `PROP-`/`FIPF-`: no hay paquete documental porque no hay
+   * pago ni firma posibles desde DERIVADO_MANUAL.
+   */
+  readonly numeroCasoDerivacion: string | null;
   readonly pago: Pago | null;
   readonly paqueteDocumental: PaqueteDocumental | null;
   readonly firma: Firma | null;
@@ -302,6 +312,7 @@ export function crearExpedienteInicial(input: {
     datosComplementarios: null,
     declaraciones: null,
     motivoDerivacionManual: null,
+    numeroCasoDerivacion: null,
     pago: null,
     paqueteDocumental: null,
     firma: null,

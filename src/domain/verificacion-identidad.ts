@@ -53,6 +53,8 @@ import type {
   ImagenCapturada,
   MediaCapturada,
 } from "../ports/identity-provider";
+import { evaluarBloqueoPorCedula } from "./consola-administrativa";
+import type { LectorExpedientesPorCedula } from "./consola-administrativa";
 import { esEstadoCivil, esPaisNacimiento, requisitosPendientes } from "./catalogo-identidad";
 import type { IdRequisitoP5, RequisitosP5, TipoCapturaP5 } from "./catalogo-identidad";
 import { transicionarExpediente } from "./expediente";
@@ -74,6 +76,14 @@ export interface DependenciasP5 {
   readonly identidad: IdentityProvider;
   readonly expedientes: RepositorioExpediente;
   readonly evidencias: EvidenceStore;
+  /**
+   * Búsqueda de expedientes por cédula, para la regla de bloqueo de nuevo
+   * registro (`docs/CONSOLA_ADMINISTRATIVA.md` §5). Es **obligatoria**, no
+   * opcional: si fuera opcional, olvidarla en un composition root apagaría la
+   * regla en silencio. P5 es el único paso del flujo que la necesita porque es
+   * donde el sistema conoce la cédula por primera vez.
+   */
+  readonly bloqueos: LectorExpedientesPorCedula;
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
 }
@@ -535,7 +545,9 @@ export type MotivoRechazoIdentidad =
   | "PAIS_O_ESTADO_CIVIL_INVALIDO"
   | "CAPTURAS_INCOMPLETAS"
   | "REQUISITOS_INCOMPLETOS"
-  | "EDAD_FUERA_DE_RANGO";
+  | "EDAD_FUERA_DE_RANGO"
+  /** Ya hay un expediente terminal sin póliza con esta cédula, sin superar. */
+  | "CEDULA_BLOQUEADA";
 
 export type ResultadoConfirmacionP5 =
   | {
@@ -632,6 +644,15 @@ export async function confirmarIdentidadP5(
   }
 
   if (pendientes.length > 0) return rechazar("REQUISITOS_INCOMPLETOS");
+  // Bloqueo por cédula (docs/CONSOLA_ADMINISTRATIVA.md §5). Se evalúa recién
+  // acá porque la cédula sale del OCR, no de un campo declarado: antes de
+  // tener los requisitos aprobados no hay un número confiable contra el cual
+  // consultar. Solo la consola administrativa puede levantarlo, y lo hace
+  // creando un expediente nuevo enlazado —nunca reactivando el viejo—.
+  if (verificacion.datos) {
+    const bloqueo = await evaluarBloqueoPorCedula(deps.bloqueos, verificacion.datos.numeroCedula);
+    if (bloqueo.bloqueada) return rechazar("CEDULA_BLOQUEADA");
+  }
   // Regla inviolable #8: la edad sale de la fecha de nacimiento extraída de la
   // cédula. `verificacion.datos` no puede ser `null` acá —sin OCR confiable el
   // requisito `cedulaVigenteYLegible` ya habría cortado arriba—, pero el

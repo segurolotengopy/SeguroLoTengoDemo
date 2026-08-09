@@ -20,7 +20,7 @@ import { crearOtpRepositoryDynamoDb } from "./otp-repository";
 import type { OtpRepository } from "./otp-repository";
 import { crearEvidenceStoreDynamoDb } from "./evidencia-repository";
 import { crearExpedienteRepositoryDynamoDb } from "./expediente-repository";
-import type { ExpedienteRepository } from "./expediente-repository";
+import type { ConsultaExpedientes, ExpedienteRepository } from "./expediente-repository";
 import { crearArchivoRepositoryS3 } from "./archivo-repository";
 import type { ArchivoRepository } from "./archivo-repository";
 import type { EvidenceStore } from "../ports/evidence-store";
@@ -40,7 +40,12 @@ export function crearEvidenceStore(): EvidenceStore {
   });
 }
 
-export function crearExpedienteRepository(): ExpedienteRepository {
+/**
+ * Devuelve el repositorio con las búsquedas de la consola administrativa
+ * incluidas (`ConsultaExpedientes`). Quien solo necesite leer y guardar puede
+ * tipar el resultado como `ExpedienteRepository` y no verlas.
+ */
+export function crearExpedienteRepository(): ExpedienteRepository & ConsultaExpedientes {
   return crearExpedienteRepositoryDynamoDb({
     documentClient: obtenerClienteDynamoDb(),
     nombreTabla: nombreTablaExpedientes(),
@@ -55,5 +60,5 @@ export function crearArchivoRepository(): ArchivoRepository {
 }
 
 export type { OtpRepository, CrearOtpInput, OtpCreado, RegistroOtp, ResultadoReenvioOtpRepo } from "./otp-repository";
-export type { ExpedienteRepository } from "./expediente-repository";
+export type { ConsultaExpedientes, ExpedienteRepository } from "./expediente-repository";
 export type { ArchivoRepository, ArchivoGuardado } from "./archivo-repository";

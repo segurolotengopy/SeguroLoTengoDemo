@@ -15,6 +15,7 @@ import { enmascararCelular } from "@/domain/telefono";
 import { crearEvidenceStore } from "@/repositories";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
 import { COOKIE_PANEL, esModoDemo, sesionValida } from "./_sesion";
+import { BotonReiniciar } from "./BotonReiniciar";
 import { FormularioClave } from "./FormularioClave";
 import { SelectorPersona } from "./SelectorPersona";
 
@@ -127,6 +128,10 @@ export default async function PanelDeDemo() {
             personaSeleccionada={seleccion.personaId}
             escenarioForzado={seleccion.escenarioIdentidadForzado ?? ""}
           />
+        </Tarjeta>
+
+        <Tarjeta titulo="Reiniciar expediente">
+          <BotonReiniciar expedienteId={expedienteId} />
         </Tarjeta>
 
         <Tarjeta titulo="Códigos OTP simulados">

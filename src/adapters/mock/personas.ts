@@ -134,7 +134,7 @@ const CAMINO_FELIZ: PersonaDemo = {
     ciudad: "Asunción",
     situacionLaboral: "Relación de dependencia",
     actividad: "Servicios financieros",
-    profesion: "Contadora",
+    profesion: "Contador/a",
     empresa: "Consultora Aurora S.A.",
     ingresoMensualDeclaradoGs: 9_500_000,
     beneficiario: {
@@ -181,7 +181,7 @@ const PEP_POSITIVO: PersonaDemo = {
     ciudad: "Asunción",
     situacionLaboral: "Funcionario público",
     actividad: "Administración pública",
-    profesion: "Abogado",
+    profesion: "Abogado/a",
     empresa: "Ministerio de Obras Públicas",
     ingresoMensualDeclaradoGs: 14_000_000,
     beneficiario: {
@@ -290,7 +290,7 @@ const BIOMETRIA_RECHAZADA: PersonaDemo = {
     ciudad: "Fernando de la Mora",
     situacionLaboral: "Relación de dependencia",
     actividad: "Transporte y logística",
-    profesion: "Técnico en logística",
+    profesion: "Técnico/a en logística",
     empresa: "Logística del Este S.R.L.",
     ingresoMensualDeclaradoGs: 6_800_000,
     beneficiario: {

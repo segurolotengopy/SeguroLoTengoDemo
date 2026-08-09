@@ -38,9 +38,14 @@ resource "aws_amplify_app" "slt_demo" {
 
   environment_variables = {
     DEMO_MODE = "true"
-    # DEMO_PANEL_KEY y OTP_PEPPER NO se inyectan acá como variables de
-    # entorno en texto plano: la app los lee en runtime desde el secret
-    # slt-demo-app-secrets en Secrets Manager, usando el rol de servicio
+    # Consola administrativa (docs/CONSOLA_ADMINISTRATIVA.md). Flag propio, no
+    # compartido con DEMO_MODE: la consola es una herramienta de staff que
+    # eventualmente va a existir en entornos donde el panel de demo no debe
+    # existir. Con este flag apagado, /admin-consola responde 404.
+    ADMIN_CONSOLE_ENABLED = "true"
+    # DEMO_PANEL_KEY, ADMIN_CONSOLE_KEY y OTP_PEPPER NO se inyectan acá como
+    # variables de entorno en texto plano: la app los lee en runtime desde el
+    # secret slt-demo-app-secrets en Secrets Manager, usando el rol de servicio
     # de Amplify (aws_iam_role.amplify_service_role) para leerlo.
     # AWS_REGION NO se declara acá: Amplify rechaza toda variable de entorno
     # que empiece con el prefijo reservado "AWS" (CreateApp devuelve

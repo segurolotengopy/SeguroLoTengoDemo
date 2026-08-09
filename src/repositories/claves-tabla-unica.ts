@@ -24,12 +24,24 @@
  * caller nunca vuelve a mandar `expedienteId` en esas llamadas, así que no
  * conviene depender de conocerlo para armar la clave de lectura.
  *
- * Pendiente (fuera de este cambio): la consola administrativa
- * (`docs/CONSOLA_ADMINISTRATIVA.md`) va a necesitar buscar expedientes por
- * cédula — eso requiere un GSI (p.ej. `gsi1pk = CEDULA#<numeroCedula>`) que
- * todavía no existe en `infra/dynamodb.tf`. No se agrega acá porque la
- * consola "está definida, sin implementar todavía"; queda anotado para
- * cuando se implemente.
+ * Índices de la consola administrativa (`docs/CONSOLA_ADMINISTRATIVA.md` §3),
+ * agregados como **ítems de índice en la misma tabla**, no como GSI:
+ *
+ * - Por cédula:   pk = INDICE#CEDULA#<cedula>      sk = EXPEDIENTE#<id>
+ * - Por caso:     pk = INDICE#CASO#<numeroCaso>    sk = EXPEDIENTE#<id>
+ * - Por estado:   pk = INDICE#ESTADO#<estado>      sk = <actualizadoEn>#<id>
+ * - Por sucesión: pk = INDICE#ANTERIOR#<idViejo>   sk = EXPEDIENTE#<idNuevo>
+ *
+ * **Por qué ítems de índice y no un GSI.** Los tres patrones son Query sobre
+ * la clave primaria que la tabla ya tiene, así que no hace falta tocar
+ * `infra/dynamodb.tf` ni esperar un `terraform apply` para que la consola
+ * funcione. El costo es que el índice por estado queda *eventualmente
+ * inconsistente*: cuando un expediente cambia de estado se escribe el ítem del
+ * estado nuevo, pero el del viejo queda. Por eso la consola siempre relee el
+ * expediente y descarta las entradas cuyo estado ya no coincide — el índice
+ * sirve para acotar candidatos, nunca como fuente de verdad. Los índices por
+ * cédula y por número de caso no tienen ese problema: ninguno de los dos
+ * valores cambia una vez asignado.
  */
 
 const SEPARADOR = "#";
@@ -56,6 +68,52 @@ export function claveEvidencia(
   return {
     pk: prefijoEvidenciaDeExpediente(expedienteId),
     sk: `EVID${SEPARADOR}${fechaIso}${SEPARADOR}${evidenciaId}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Ítems de índice de la consola administrativa
+// ---------------------------------------------------------------------------
+
+export type TipoIndiceExpediente = "CEDULA" | "CASO" | "ESTADO" | "ANTERIOR";
+
+export function particionIndice(tipo: TipoIndiceExpediente, valor: string): string {
+  return `INDICE${SEPARADOR}${tipo}${SEPARADOR}${valor}`;
+}
+
+/**
+ * Índices por cédula y por número de caso: un ítem por expediente. El sort key
+ * es el id, así que reescribirlo es idempotente — guardar dos veces el mismo
+ * expediente no duplica entradas.
+ */
+export function claveIndicePorValor(
+  tipo: "CEDULA" | "CASO" | "ANTERIOR",
+  valor: string,
+  expedienteId: string,
+): { pk: string; sk: string } {
+  return {
+    pk: particionIndice(tipo, valor),
+    sk: `EXPEDIENTE${SEPARADOR}${expedienteId}`,
+  };
+}
+
+/**
+ * Índice por estado. El sort key arranca con `actualizadoEn` para poder pedir
+ * un rango de fechas con `BETWEEN` y recibirlo ya ordenado.
+ *
+ * A diferencia de los otros dos, este ítem **no se borra** cuando el
+ * expediente cambia de estado: queda una entrada por cada estado por el que
+ * pasó. Quien lee tiene que verificar contra el expediente real (ver la nota
+ * de la cabecera de este archivo).
+ */
+export function claveIndicePorEstado(
+  estado: string,
+  actualizadoEn: string,
+  expedienteId: string,
+): { pk: string; sk: string } {
+  return {
+    pk: particionIndice("ESTADO", estado),
+    sk: `${actualizadoEn}${SEPARADOR}${expedienteId}`,
   };
 }
 

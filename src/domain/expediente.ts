@@ -97,25 +97,44 @@ export function transicionarExpediente(
  * de negocio #5). Como DERIVADO_MANUAL no tiene transiciones legales de
  * salida, ningún llamador posterior puede llevar este expediente a pago,
  * firma ni emisión.
+ *
+ * `numeroCasoDerivacion` se recibe ya generado (el generador vive en
+ * `declaraciones-p6.ts`, que sí puede usar `node:crypto`) y **solo se escribe
+ * si la derivación efectivamente ocurre**: un expediente elegible no puede
+ * quedar con un número de caso colgado, aunque el llamador pase uno. Al revés
+ * también está cerrado: derivar sin número de caso es un error de programación
+ * y no se persiste.
  */
 export function registrarDeclaracionesP6(
   expediente: Expediente,
   declaraciones: Declaraciones,
   datosComplementarios: DatosComplementariosP6,
+  numeroCasoDerivacion: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
   const resultado = evaluarElegibilidad(declaraciones);
-  const estadoDestino: EstadoExpediente = resultado.elegibleParaEmisionAutomatica
-    ? "DECLARACIONES_OK"
-    : "DERIVADO_MANUAL";
+
+  if (resultado.elegibleParaEmisionAutomatica) {
+    return transicionarExpediente(
+      expediente,
+      "DECLARACIONES_OK",
+      { declaraciones, datosComplementarios, motivoDerivacionManual: null, numeroCasoDerivacion: null },
+      ahora,
+    );
+  }
+
+  if (numeroCasoDerivacion.trim() === "") {
+    return { ok: false, error: "Una derivación a DERIVADO_MANUAL requiere un número de caso." };
+  }
 
   return transicionarExpediente(
     expediente,
-    estadoDestino,
+    "DERIVADO_MANUAL",
     {
       declaraciones,
       datosComplementarios,
-      motivoDerivacionManual: resultado.elegibleParaEmisionAutomatica ? null : resultado.declaracionesQueBloquean,
+      motivoDerivacionManual: resultado.declaracionesQueBloquean,
+      numeroCasoDerivacion,
     },
     ahora,
   );

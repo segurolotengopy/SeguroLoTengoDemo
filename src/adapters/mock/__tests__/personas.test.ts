@@ -10,6 +10,14 @@
 import { describe, expect, it } from "vitest";
 import { evaluarElegibilidad } from "../../../domain/elegibilidad";
 import { PLANES } from "../../../domain/catalogo";
+import {
+  esActividad,
+  esCiudad,
+  esIngresoMensualValido,
+  esParentesco,
+  esProfesion,
+  esSituacionLaboral,
+} from "../../../domain/catalogo-p6";
 import { enmascararCorreo, normalizarCorreo } from "../../../domain/correo";
 import { normalizarCelularParaguayo } from "../../../domain/telefono";
 import { edadEnRangoPermitido } from "../../../domain/tipos";
@@ -85,6 +93,32 @@ describe("personas de demo · consistencia del catálogo", () => {
   it("cada plan elegido existe en el catálogo de productos", () => {
     for (const persona of PERSONAS_DEMO) {
       expect(PLANES[persona.planElegido]).toBeDefined();
+    }
+  });
+
+  it("los datos complementarios de cada persona son valores que P6 acepta", () => {
+    // Sin esto, una persona de prueba podría traer una profesión o una ciudad
+    // que el selector de P6 no ofrece: la demostración se rompería en vivo, al
+    // guardar, con un `DATOS_INCOMPLETOS` que nadie esperaba.
+    for (const { rotulo, datosComplementarios: datos } of PERSONAS_DEMO) {
+      expect(esCiudad(datos.ciudad), `${rotulo}: ciudad fuera del catálogo`).toBe(true);
+      expect(
+        esSituacionLaboral(datos.situacionLaboral),
+        `${rotulo}: situación laboral fuera del catálogo`,
+      ).toBe(true);
+      expect(esActividad(datos.actividad), `${rotulo}: actividad fuera del catálogo`).toBe(true);
+      expect(esProfesion(datos.profesion), `${rotulo}: profesión fuera del catálogo`).toBe(true);
+      expect(datos.domicilio.trim(), `${rotulo}: domicilio vacío`).not.toBe("");
+      expect(
+        esIngresoMensualValido(datos.ingresoMensualDeclaradoGs),
+        `${rotulo}: ingreso mensual inválido`,
+      ).toBe(true);
+      if (datos.beneficiario.tipo === "PERSONA_DESIGNADA") {
+        expect(
+          esParentesco(datos.beneficiario.parentesco),
+          `${rotulo}: parentesco fuera del catálogo`,
+        ).toBe(true);
+      }
     }
   });
 

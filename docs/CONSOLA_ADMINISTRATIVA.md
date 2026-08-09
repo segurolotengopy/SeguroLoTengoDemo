@@ -1,6 +1,6 @@
 # Consola administrativa — especificación
 
-**Estado: definida en sesión de planificación (2026-08-07), sin implementar todavía.** No forma parte de `Pantallas_Sistema_Demo.pdf` ni de las 12 pantallas de `ESPECIFICACION_PANTALLAS.md` — es una herramienta interna nueva, para staff de AAB1/Interseguros/Alianza, no para el cliente final. No cuenta como pantalla del flujo B2C ni lleva stepper "Paso N de 9".
+**Estado: implementada el 2026-08-09** (definida en sesión de planificación del 2026-08-07). Ruta `/admin-consola`; flag `ADMIN_CONSOLE_ENABLED`, clave `ADMIN_CONSOLE_KEY`. Lo que quedó pendiente está marcado en la sección 6. No forma parte de `Pantallas_Sistema_Demo.pdf` ni de las 12 pantallas de `ESPECIFICACION_PANTALLAS.md` — es una herramienta interna nueva, para staff de AAB1/Interseguros/Alianza, no para el cliente final. No cuenta como pantalla del flujo B2C ni lleva stepper "Paso N de 9".
 
 Si algo de este documento contradice una decisión posterior del usuario, gana la decisión más reciente — a diferencia de `ESPECIFICACION_PANTALLAS.md`, esto no viene de un PDF de referencia externo, así que es editable por acuerdo directo.
 
@@ -49,7 +49,9 @@ Resultado: listado con identificador de expediente, titular (enmascarado salvo q
 
 ## 6. Pendiente de definir en una sesión futura
 
-- Tamaño final y textos exactos del catálogo de justificativos.
-- Si el bloqueo de "nuevo registro" aplica también antes de tener cédula conocida (P1–P4, identificado solo por WhatsApp/correo) o recién desde P5 en adelante, que es donde se conoce la cédula.
-- Diseño visual de la consola (no se definió layout, solo comportamiento).
-- Migración de esta clave simple a roles reales en Vía B.
+- Tamaño final y textos exactos del catálogo de justificativos. *(Se implementaron los cuatro sugeridos; `Otro` exige texto libre.)*
+- Si el bloqueo de "nuevo registro" aplica también antes de tener cédula conocida (P1–P4, identificado solo por WhatsApp/correo) o recién desde P5 en adelante. **Decisión provisoria al implementar: desde P5**, que es donde el OCR entrega la cédula. Antes de P5 no hay contra qué consultar.
+- Migración de esta clave simple a roles reales en Vía B. Hoy quien tiene `ADMIN_CONSOLE_KEY` consulta y también autoriza reinicios.
+- **Envíos a proveedores (sección 4, segundo bullet): no implementado.** La consola muestra el registro de evidencia (`EvidenceStore`), que ya trae paso, resultado, timestamp, IP y hashes. Lo que falta es la vista de payload de solicitud/respuesta por llamada a cada uno de los 7 puertos, incluidos los mocks — eso requiere que los adaptadores registren sus envíos, que hoy no lo hacen.
+- **Búsqueda por nombre a escala real.** Hoy es un filtro en memoria sobre el resultado de un criterio indexado (cédula, caso, o estado + fechas). DynamoDB no busca por substring; con volumen real hay que mover esto a un motor de texto.
+- **Búsqueda por canal verificado (hash / últimos dígitos), sección 3, cuarto criterio: no implementada.**

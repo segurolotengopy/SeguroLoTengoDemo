@@ -13,9 +13,14 @@ import type { DependenciasP5 } from "@/domain/verificacion-identidad";
 import { crearEvidenceStore, crearExpedienteRepository } from "@/repositories";
 
 export function dependenciasP5(): DependenciasP5 {
+  const expedientes = crearExpedienteRepository();
   return {
     identidad: obtenerIdentityProvider(),
-    expedientes: crearExpedienteRepository(),
+    expedientes,
     evidencias: crearEvidenceStore(),
+    // Mismo repositorio: `ExpedienteRepository` y `ConsultaExpedientes` los
+    // implementa el mismo objeto, pero P5 solo recibe la búsqueda por cédula
+    // que necesita la regla de bloqueo.
+    bloqueos: expedientes,
   };
 }
