@@ -100,24 +100,21 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
-      # OJO — ÚNICO JOB EN MODO REPORTE (exit-code 0), a propósito y de forma
-      # temporal. No se pudo correr Trivy localmente antes de abrir este PR,
-      # así que su baseline sobre infra/ es desconocido. Se espera al menos un
-      # hallazgo legítimo: el bucket de evidencias usa SSE-S3 y Trivy pide KMS
-      # con clave administrada por el cliente (decisión de Go-Live, no de la
-      # demo — ver infra/README.md).
+      # Baseline establecido en el run de main del 2026-08-09: un único
+      # hallazgo HIGH, AVD-AWS-0132 (bucket de evidencias con SSE-S3 en vez
+      # de KMS con clave del cliente), documentado con justificación y
+      # vencimiento en .trivyignore.yaml.
       #
-      # TAREA DE SEGUIMIENTO, no opcional: mirar la salida de este job en el
-      # primer run, decidir qué se arregla y qué se documenta en .trivyignore,
-      # y CAMBIAR exit-code A "1". Un gate de seguridad que nunca falla no es
-      # un gate. Mientras diga "0", este job informa pero no protege.
+      # Con el baseline conocido, este job pasa a bloquear: exit-code "1".
+      # Cualquier configuración insegura NUEVA en infra/ frena el build.
       - name: Terraform (configuración insegura en infra/)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: infra
           severity: HIGH,CRITICAL
-          exit-code: "0"
+          trivyignores: .trivyignore.yaml
+          exit-code: "1"
 
   # SAST. Las reglas genéricas (p/typescript, p/react, p/secrets) atrapan lo
   # de siempre; el valor real está en .semgrep/segurolotengo.yml, que codifica

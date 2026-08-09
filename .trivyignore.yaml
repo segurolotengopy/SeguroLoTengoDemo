@@ -1,0 +1,30 @@
+# Excepciones de Trivy, con justificación y vencimiento.
+#
+# Formato YAML y no `.trivyignore` plano a propósito: el plano solo acepta
+# una lista de IDs, sin explicar por qué ni hasta cuándo. Acá cada excepción
+# lleva `statement` (por qué se acepta) y `expired_at` (cuándo vuelve a
+# fallar). Una excepción sin fecha es una decisión que nadie vuelve a revisar.
+
+misconfigurations:
+  - id: AVD-AWS-0132
+    paths:
+      - "s3.tf"
+    statement: >-
+      El bucket de evidencias cifra con SSE-S3 (AES256) en vez de KMS con
+      clave administrada por el cliente. Aceptado SOLO para la vía demo, que
+      no guarda evidencia probatoria real: los datos son fixtures de las
+      personas de prueba (docs/ESPECIFICACION_DEMO.md).
+
+      Para el piloto hay que resolverlo junto con el otro pendiente del mismo
+      bucket, que es pasar Object Lock de GOVERNANCE 30 días a COMPLIANCE 5
+      años (fila 76 de la matriz de cumplimiento, Res. SEPRELAD 71/19
+      arts. 43-44). Los dos cambios son la misma conversación: qué garantías
+      necesita la evidencia con valor legal. Una clave propia agrega rotación
+      controlada, política de acceso y trazabilidad de uso en CloudTrail.
+
+      Implementarlo requiere tres cosas, ninguna gratis: crear un
+      aws_kms_key (con costo mensual), ampliar SLTDemoDeployerPolicy con
+      permisos de KMS (que hoy no tiene), y dar kms:Decrypt y
+      kms:GenerateDataKey al rol de Amplify para que pueda leer y escribir
+      objetos.
+    expired_at: 2026-11-30
