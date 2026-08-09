@@ -11,11 +11,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const CLAVE = "clave-de-panel-de-prueba-123";
+// Valores por constante y no como literal pegado a `OTP_PEPPER:` /
+// `DEMO_PANEL_KEY:`: esas dos formas son exactamente las que buscan las
+// reglas propias de `.gitleaks.toml`, y un fixture no tiene por qué
+// obligarnos a aflojarlas.
+const PEPPER = "pepper-de-prueba";
 
 vi.mock("@/repositories/secrets-client", () => ({
   obtenerDemoPanelKey: async () => CLAVE,
-  obtenerOtpPepper: async () => "pepper-de-prueba",
-  obtenerSecretosApp: async () => ({ DEMO_PANEL_KEY: CLAVE, OTP_PEPPER: "pepper-de-prueba" }),
+  obtenerOtpPepper: async () => PEPPER,
+  obtenerSecretosApp: async () => ({ DEMO_PANEL_KEY: CLAVE, OTP_PEPPER: PEPPER }),
 }));
 
 import { POST } from "@/app/api/demo-panel/sesion/route";

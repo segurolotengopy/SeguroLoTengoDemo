@@ -33,13 +33,31 @@ regex = '''(?i)demo[_-]?panel[_-]?key\s*[:=]\s*['"][^'"]{8,}['"]'''
 tags = ["demo"]
 
 [allowlist]
-description = "Rutas sin secretos reales por construcción"
+description = "Rutas y patrones sin secretos reales por construcción"
+
+# Las exclusiones de `regexes` se evalúan contra la línea completa, no contra
+# el fragmento detectado: lo que las hace seguras es el nombre del campo que
+# está a la izquierda, no el valor.
+regexTarget = "line"
+
 paths = [
   # Hashes de integridad, no credenciales.
   '''package-lock\.json''',
   '''infra/\.terraform\.lock\.hcl''',
   # Documentación fuente (PDF/CSV): binarios y tablas normativas.
   '''docs/.*\.(pdf|csv)$''',
+]
+
+regexes = [
+  # `idempotencyKey` NO es una credencial: es un identificador de petición
+  # que genera el cliente para que un reintento no duplique un cobro (ver
+  # src/ports/payment-provider.ts). No autentica nada, viaja en el cuerpo de
+  # la petición y el proveedor lo devuelve tal cual. La regla genérica del
+  # ruleset por defecto lo marca solo porque el nombre termina en "Key".
+  #
+  # Se excluye el patrón, no los archivos: si mañana alguien pone una
+  # credencial real en un test, se sigue detectando.
+  '''idempotencyKey\s*[:=]''',
 ]
 
 # Nota deliberada: NO agregamos una regla de PII para cédulas paraguayas.
