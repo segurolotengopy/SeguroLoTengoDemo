@@ -20,4 +20,19 @@
 # Este comentario está redactado a propósito sin reproducir la línea
 # original: escribirla textualmente vuelve a disparar la regla, y entonces el
 # archivo que documenta la excepción necesita su propia excepción.
+#
+# OJO con los fingerprints: empiezan con el SHA del commit, así que un rebase
+# los invalida. Hay DOS entradas para la misma línea a propósito:
+#
+#   - 5611d1c: el commit tal como quedó en la rama ci/tier-1-seguridad-base.
+#   - 228747b: el mismo cambio ya rebaseado sobre main al mergear el PR #1.
+#
+# Hacen falta las dos mientras las dos historias existan. Gitleaks no escanea
+# solo la rama actual: recorre todos los refs, y el workflow hace checkout con
+# `fetch-depth: 0`, que se trae todas las ramas del remoto. Con un solo
+# fingerprint, el escaneo encuentra el mismo falso positivo por el otro lado.
+#
+# Cuando se borre la rama ya mergeada, la primera línea queda vestigial y se
+# puede sacar.
 5611d1c10238809230538a5a25fa63f2be33a5a6:src/app/demo-panel/__tests__/puerta.test.ts:slt-otp-pepper:18
+228747b0c235f115ec050c8b4e889be16a4a6b11:src/app/demo-panel/__tests__/puerta.test.ts:slt-otp-pepper:18
