@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { listarEnviosDemo } from "@/adapters/mock/otp-provider";
+import { PERSONAS_DEMO } from "@/adapters/mock/personas";
+import {
+  escenarioIdentidadDe,
+  ESCENARIOS_IDENTIDAD_DEMO,
+  obtenerSeleccionDemo,
+  ROTULO_ESCENARIO_IDENTIDAD,
+} from "@/adapters/mock/persona-activa";
 import { HeaderInstitucional } from "@/components/shared";
 import { enmascararCorreo } from "@/domain/correo";
 import { enmascararCelular } from "@/domain/telefono";
@@ -9,6 +16,7 @@ import { crearEvidenceStore } from "@/repositories";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
 import { COOKIE_PANEL, esModoDemo, sesionValida } from "./_sesion";
 import { FormularioClave } from "./FormularioClave";
+import { SelectorPersona } from "./SelectorPersona";
 
 /**
  * Panel de control del demo (CLAUDE.md → "Panel de demo"). NO es una de las
@@ -72,6 +80,17 @@ export default async function PanelDeDemo() {
   }
 
   const envios = listarEnviosDemo();
+  const seleccion = obtenerSeleccionDemo();
+  const personas = PERSONAS_DEMO.map((persona) => ({
+    id: persona.id,
+    rotulo: persona.rotulo,
+    escenarioPropio: ROTULO_ESCENARIO_IDENTIDAD[escenarioIdentidadDe(persona)],
+    pantallaFinal: persona.desenlace.pantallaFinal,
+  }));
+  const escenarios = ESCENARIOS_IDENTIDAD_DEMO.map((escenario) => ({
+    id: escenario,
+    rotulo: ROTULO_ESCENARIO_IDENTIDAD[escenario],
+  }));
   const expedienteId = almacenCookies.get(COOKIE_EXPEDIENTE)?.value ?? null;
   const evidencias = expedienteId
     ? await crearEvidenceStore().obtenerHistorial(expedienteId)
@@ -100,6 +119,15 @@ export default async function PanelDeDemo() {
             en base solo se guarda el hash.
           </p>
         </header>
+
+        <Tarjeta titulo="Persona de prueba activa">
+          <SelectorPersona
+            personas={personas}
+            escenarios={escenarios}
+            personaSeleccionada={seleccion.personaId}
+            escenarioForzado={seleccion.escenarioIdentidadForzado ?? ""}
+          />
+        </Tarjeta>
 
         <Tarjeta titulo="Códigos OTP simulados">
           {envios.length === 0 ? (
