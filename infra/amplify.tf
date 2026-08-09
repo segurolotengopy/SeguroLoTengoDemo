@@ -6,7 +6,21 @@ resource "aws_amplify_app" "slt_demo" {
   name     = "slt-demo-segurolotengo"
   platform = "WEB_COMPUTE"
 
+  # Son DOS roles distintos y es fácil confundirlos:
+  #
+  # - iam_service_role_arn: lo usa Amplify para CONSTRUIR (clonar, buildear,
+  #   escribir logs).
+  # - compute_role_arn: lo asume el cómputo SSR EN RUNTIME. Sin esto, los
+  #   Route Handlers no tienen credenciales y toda llamada a DynamoDB,
+  #   S3 o Secrets Manager falla con 500, aunque el build haya salido verde y
+  #   las variables de entorno estén bien.
+  #
+  # Se reutiliza el mismo rol porque su política ya es exactamente la que el
+  # runtime necesita (GetItem/PutItem/Query sobre slt-demo-*, objetos del
+  # bucket de evidencias y GetSecretValue del secret de la app), y su relación
+  # de confianza ya habilita a amplify.amazonaws.com.
   iam_service_role_arn = aws_iam_role.amplify_service_role.arn
+  compute_role_arn     = aws_iam_role.amplify_service_role.arn
 
   # Conexión a GitHub: Terraform puede conectar el repo automáticamente solo
   # si se le pasa un token de acceso de GitHub (var.amplify_github_access_token)
