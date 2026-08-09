@@ -1,0 +1,23 @@
+# Hallazgos históricos verificados como falsos positivos.
+#
+# gitleaks escanea todo el historial, no el árbol de trabajo: corregir un
+# archivo en un commit nuevo NO borra el hallazgo del commit viejo. Para eso
+# está este archivo, que pinea la coincidencia exacta por
+# commit:archivo:regla:línea. Cualquier aparición del mismo patrón en otro
+# lado se sigue detectando.
+#
+# Regla al agregar una línea acá: solo si se verificó que el valor NO es una
+# credencial real. Si lo fuera, esto no sería una excepción sino un secreto
+# filtrado, y el arreglo sería rotarlo y reescribir el historial.
+
+# `puerta.test.ts` en 5611d1c asignaba un valor de prueba directamente al
+# campo del pepper, como literal entrecomillado pegado al nombre del campo,
+# que es justo la forma que busca la regla propia slt-otp-pepper. La regla
+# hizo bien su trabajo; el valor era un fixture de test, no el pepper real
+# (el real lo genera Terraform y vive solo en el secret
+# slt-demo-app-secrets). Corregido en 9f5f64e pasándolo por constante.
+#
+# Este comentario está redactado a propósito sin reproducir la línea
+# original: escribirla textualmente vuelve a disparar la regla, y entonces el
+# archivo que documenta la excepción necesita su propia excepción.
+5611d1c10238809230538a5a25fa63f2be33a5a6:src/app/demo-panel/__tests__/puerta.test.ts:slt-otp-pepper:18
