@@ -4,11 +4,15 @@
 # Amplify autodetecta Next.js, pero el spec se versiona igual para que el
 # build sea reproducible y no dependa de la heurística de la consola.
 #
-# Las variables de entorno (DEMO_MODE, DYNAMODB_TABLE, S3_BUCKET,
-# APP_SECRETS_ARN) las inyecta Terraform en la app de Amplify; acá no se
-# declara ninguna. OTP_PEPPER y DEMO_PANEL_KEY nunca son variables de
-# entorno: la app los lee en runtime desde Secrets Manager con el rol de
-# servicio (regla inviolable #2).
+# Las variables de entorno (DEMO_MODE, ADMIN_CONSOLE_ENABLED, DYNAMODB_TABLE,
+# S3_BUCKET, APP_SECRETS_ARN) las inyecta Terraform en la app de Amplify; acá
+# no se declara ninguna. OTP_PEPPER, DEMO_PANEL_KEY y ADMIN_CONSOLE_KEY nunca
+# son variables de entorno: la app los lee en runtime desde Secrets Manager con
+# el rol de servicio (regla inviolable #2).
+#
+# ⚠️ Agregar una variable en `infra/amplify.tf` NO alcanza: hay que sumarla
+# también a la lista explícita del bucle de más abajo. Si falta ahí, el build
+# pasa en verde y la variable simplemente no existe en runtime.
 version: 1
 frontend:
   phases:
@@ -32,12 +36,15 @@ frontend:
         #
         # La lista es explícita a propósito, no un volcado de `env`: así no se
         # filtra al artefacto ninguna variable del runner de Amplify. Ninguna
-        # de estas cuatro es un secreto — APP_SECRETS_ARN identifica al secret
-        # pero no da acceso; el pepper del OTP y la clave del panel se leen en
-        # runtime desde Secrets Manager con el rol de servicio (regla
-        # inviolable #2), y nunca pasan por acá.
+        # de estas cinco es un secreto — APP_SECRETS_ARN identifica al secret
+        # pero no da acceso; el pepper del OTP, la clave del panel y la de la
+        # consola administrativa se leen en runtime desde Secrets Manager con
+        # el rol de servicio (regla inviolable #2), y nunca pasan por acá.
+        #
+        # `ADMIN_CONSOLE_ENABLED` es el flag de /admin-consola: con el flag
+        # ausente o distinto de "true", esa ruta responde 404.
         - |
-          for var in DEMO_MODE DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN; do
+          for var in DEMO_MODE ADMIN_CONSOLE_ENABLED DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN; do
             if [ -n "${!var:-}" ]; then echo "$var=${!var}" >> .env.production; fi
           done
         - npm run build
