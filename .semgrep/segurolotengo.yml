@@ -1,0 +1,152 @@
+# Reglas propias de SeguroLoTengo.
+#
+# Cada regla acá codifica una de las "Reglas de negocio inviolables" de
+# CLAUDE.md, que tienen consecuencia legal. El objetivo declarado en ese
+# documento es que el código las haga "imposibles de violar, no solo
+# evitarlas": estas reglas son la mitad de esa afirmación que ESLint no
+# puede cubrir (ESLint cubre los límites de importación; Semgrep cubre el
+# flujo de datos sensibles).
+#
+# Correr localmente:  semgrep --config .semgrep/segurolotengo.yml .
+rules:
+  # --------------------------------------------------------------------
+  # Reglas inviolables #2 y #6: el OTP en claro y el PAN/CVV no se
+  # persisten "ni en base, ni en logs, ni en respuestas de API".
+  # --------------------------------------------------------------------
+  - id: slt-no-loggear-datos-sensibles
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Regla inviolable #2/#6 de CLAUDE.md: no se puede loggear un OTP en
+      claro, un PAN, un CVV ni un secreto. No existe "log temporal" para
+      estos campos: el rastro queda en CloudWatch. Si necesitás depurar,
+      loggeá un identificador (otpId, referenciaBancard) o un valor
+      enmascarado, nunca el dato.
+    patterns:
+      - pattern: console.$METODO(..., $DATO, ...)
+      - metavariable-regex:
+          metavariable: $DATO
+          # Sin (?i) a propósito: con IGNORECASE, [a-z] también matchea A-Z y
+          # se rompe la detección de camelCase (codigoOtp, datosPan).
+          regex: (?:^|[^A-Za-z])(?:pan|cvv|cvc|otp|codigo|clave|password|secret|pepper)(?![a-z])|(?:PAN|CVV|CVC|OTP|Pan|Cvv|Cvc|Otp|Codigo|Clave|Password|Secret|Pepper)(?![a-z])
+    paths:
+      exclude:
+        - "**/__tests__/**"
+
+  - id: slt-no-persistir-pan-ni-cvv
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Regla inviolable #6 de CLAUDE.md: nunca se persiste el PAN completo ni
+      el CVV, en ninguna capa. Bancard conserva el ámbito de pago (ver
+      "Reglas transversales de integraciones"). Guardá solo los últimos 4
+      dígitos, la marca y la referencia de Bancard.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              { ..., $CAMPO: $VALOR, ... }
+      - metavariable-regex:
+          metavariable: $CAMPO
+          regex: ^(pan|cvv|cvc|numeroTarjeta|numeroDeTarjeta|cardNumber|codigoSeguridad)$
+    paths:
+      include:
+        - "src/repositories/**"
+
+  # --------------------------------------------------------------------
+  # Regla inviolable #7: las respuestas médicas y la condición PEP no salen
+  # hacia analítica, CRM, monitoreo de errores ni servicios de IA.
+  # --------------------------------------------------------------------
+  - id: slt-datos-sensibles-fuera-de-analitica
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Regla inviolable #7 de CLAUDE.md: los datos de salud, la condición PEP
+      y la cédula no salen hacia analítica, CRM, monitoreo de errores ni
+      servicios de IA (ver también "Reglas transversales de integraciones":
+      nada de esto va a Sentry/PostHog/HubSpot). Si necesitás instrumentar
+      este flujo, excluí explícitamente estos campos del payload.
+    patterns:
+      - pattern-either:
+          - pattern: $CLIENTE.capture(...)
+          - pattern: $CLIENTE.track(...)
+          - pattern: $CLIENTE.identify(...)
+          - pattern: $CLIENTE.captureException(...)
+          - pattern: $CLIENTE.setContext(...)
+          - pattern: $CLIENTE.setUser(...)
+      - pattern: $CLIENTE.$METODO(..., $DATO, ...)
+      - metavariable-regex:
+          metavariable: $DATO
+          regex: (?i).*(salud|medic|declaracion|diagnostic|pep|cedula|documento|enfermedad|oncolog).*
+    paths:
+      exclude:
+        - "**/__tests__/**"
+
+  # --------------------------------------------------------------------
+  # Máquina de estados: "Toda transición pasa por src/domain/expediente.ts.
+  # Ningún Route Handler modifica el estado directamente."
+  # --------------------------------------------------------------------
+  - id: slt-transicion-de-estado-fuera-del-dominio
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      CLAUDE.md, máquina de estados del expediente: ningún Route Handler ni
+      componente modifica `estado` directamente. Toda transición pasa por
+      `transicionarExpediente` en src/domain/expediente.ts, que es donde
+      vive la validación (incluida la regla inviolable #5: DERIVADO_MANUAL
+      es terminal). Si falta una transición, agregala ahí con su validación.
+    patterns:
+      - pattern-either:
+          - pattern: $EXPEDIENTE.estado = $NUEVO
+          - pattern: $OBJ.expediente.estado = $NUEVO
+    paths:
+      include:
+        - "src/app/**"
+        - "src/components/**"
+        - "src/repositories/**"
+
+  # --------------------------------------------------------------------
+  # Regla inviolable #2, segunda mitad: "En modo demo el código se expone
+  # únicamente a través del panel de demo, nunca por la API del flujo."
+  # --------------------------------------------------------------------
+  - id: slt-otp-en-respuesta-de-api
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Regla inviolable #2 de CLAUDE.md: la API del flujo nunca devuelve el
+      código OTP, ni siquiera en modo demo. El único canal por el que el
+      código se expone es /demo-panel. Devolvé el otpId y el estado del
+      envío, no el código.
+    patterns:
+      - pattern: |
+          NextResponse.json({ ..., $CAMPO: $VALOR, ... }, ...)
+      - metavariable-regex:
+          metavariable: $CAMPO
+          regex: ^(codigo|codigoOtp|otpCodigo|code|otpCode)$
+    paths:
+      include:
+        - "src/app/api/**"
+      exclude:
+        - "src/app/api/demo-panel/**"
+
+  # --------------------------------------------------------------------
+  # Arquitectura de puertos y adaptadores: "ningún archivo fuera de
+  # src/adapters/ puede importar un SDK de proveedor externo ni hacer fetch
+  # a una API externa". ESLint ya cubre @aws-sdk/*; acá cubrimos los SDK de
+  # los proveedores del catálogo de integraciones externas.
+  # --------------------------------------------------------------------
+  - id: slt-sdk-de-proveedor-fuera-de-adapters
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      CLAUDE.md, regla dura de puertos y adaptadores: los SDK de proveedores
+      externos solo se importan dentro de src/adapters/. Definí la operación
+      en el puerto correspondiente de src/ports/ y consumila desde ahí, para
+      que el mock y la implementación oficial compartan los mismos tests de
+      contrato.
+    pattern-regex: |
+      (?:import[^;]*from\s*|require\()\s*['"](@infobip[^'"]*|infobip[^'"]*|@sentry/[^'"]*|posthog[^'"]*|@hubspot/[^'"]*|onfido[^'"]*|complyadvantage[^'"]*)['"]
+    paths:
+      include:
+        - "src/**"
+      exclude:
+        - "src/adapters/**"

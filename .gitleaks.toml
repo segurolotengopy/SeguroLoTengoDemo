@@ -1,0 +1,50 @@
+title = "SeguroLoTengo — secret scanning"
+
+# Partimos del ruleset por defecto de gitleaks (AWS, GitHub, Stripe, claves
+# privadas, JWT, etc.) y le sumamos lo específico de este proyecto.
+[extend]
+useDefault = true
+
+# Credenciales de los proveedores del catálogo de integraciones externas.
+# Ninguna de estas debería existir todavía en el repo (la demo es 100% mock),
+# y justamente por eso conviene que el pipeline avise el día que aparezca una.
+[[rules]]
+id = "slt-bancard-credenciales"
+description = "Posible credencial de Bancard (public_key / private_key de VPOS)"
+regex = '''(?i)bancard[_-]?(public|private)[_-]?key\s*[:=]\s*['"][0-9a-zA-Z/+=_-]{16,}['"]'''
+tags = ["bancard", "pago"]
+
+[[rules]]
+id = "slt-code100-credenciales"
+description = "Posible credencial o token del firmador Code100"
+regex = '''(?i)code100[_-]?(token|secret|api[_-]?key|password)\s*[:=]\s*['"][0-9a-zA-Z/+=._-]{16,}['"]'''
+tags = ["code100", "firma"]
+
+[[rules]]
+id = "slt-otp-pepper"
+description = "OTP_PEPPER en claro (debe vivir solo en Secrets Manager)"
+regex = '''(?i)otp[_-]?pepper\s*[:=]\s*['"][^'"]{8,}['"]'''
+tags = ["otp"]
+
+[[rules]]
+id = "slt-demo-panel-key"
+description = "DEMO_PANEL_KEY en claro (debe vivir solo en Secrets Manager)"
+regex = '''(?i)demo[_-]?panel[_-]?key\s*[:=]\s*['"][^'"]{8,}['"]'''
+tags = ["demo"]
+
+[allowlist]
+description = "Rutas sin secretos reales por construcción"
+paths = [
+  # Hashes de integridad, no credenciales.
+  '''package-lock\.json''',
+  '''infra/\.terraform\.lock\.hcl''',
+  # Documentación fuente (PDF/CSV): binarios y tablas normativas.
+  '''docs/.*\.(pdf|csv)$''',
+]
+
+# Nota deliberada: NO agregamos una regla de PII para cédulas paraguayas.
+# La C.I. 9.323.336 de la persona de prueba Mónica Gorena está documentada a
+# propósito en CLAUDE.md y en las personas de demo, así que una regla de
+# cédulas daría falso positivo contra la propia especificación. El linter de
+# PII que propone el plan de CI/CD necesita antes una convención explícita
+# que separe fixtures sintéticos de datos reales.

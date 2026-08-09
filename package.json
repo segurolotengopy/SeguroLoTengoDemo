@@ -6,14 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "node scripts/e2e-no-implementado.mjs",
+    "verify": "npm run typecheck && npm run lint && npm test"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1105.0",
+    "@aws-sdk/client-s3": "^3.1105.0",
+    "@aws-sdk/client-secrets-manager": "^3.1105.0",
+    "@aws-sdk/lib-dynamodb": "^3.1105.0",
     "next": "15.5.23",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -21,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.23",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

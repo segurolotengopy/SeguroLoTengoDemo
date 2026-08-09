@@ -1,0 +1,133 @@
+name: CI
+
+# Gate de calidad y seguridad del repo. Corre en cada PR y en cada push a
+# main. Ningún job despliega nada: el deploy sigue siendo manual vía Amplify
+# hasta que exista OIDC hacia AWS (Tier 2 del plan de CI/CD).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Sin permisos de escritura: ningún job de este workflow necesita empujar
+# nada al repo ni publicar artefactos.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  # Lo que CLAUDE.md exige antes de cualquier commit, ahora aplicado por CI
+  # y no por disciplina: typecheck + lint + tests.
+  calidad:
+    name: Typecheck, lint y tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests unitarios y de contrato
+        run: npm test
+
+  # Secret scanning con el binario de gitleaks en vez de gitleaks-action:
+  # la action v2 exige una licencia paga para repos privados de organización,
+  # el binario es gratis siempre.
+  secretos:
+    name: Gitleaks (secret scanning)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Historial completo: un secreto commiteado y luego borrado sigue
+          # estando en el historial, y sigue estando filtrado.
+          fetch-depth: 0
+
+      - name: Instalar gitleaks
+        env:
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          set -euo pipefail
+          curl -sSfL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Escanear historial
+        run: gitleaks detect --config .gitleaks.toml --redact --verbose
+
+  # Trivy cubre en una sola herramienta lo que el plan de CI/CD reparte entre
+  # Snyk (dependencias) y Checkov/tfsec (IaC). No sumamos las tres: es
+  # redundancia sin ganancia para un repo de este tamaño.
+  vulnerabilidades:
+    name: Trivy (dependencias e IaC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias (CVEs en package-lock.json)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # OJO — ÚNICO JOB EN MODO REPORTE (exit-code 0), a propósito y de forma
+      # temporal. No se pudo correr Trivy localmente antes de abrir este PR,
+      # así que su baseline sobre infra/ es desconocido. Se espera al menos un
+      # hallazgo legítimo: el bucket de evidencias usa SSE-S3 y Trivy pide KMS
+      # con clave administrada por el cliente (decisión de Go-Live, no de la
+      # demo — ver infra/README.md).
+      #
+      # TAREA DE SEGUIMIENTO, no opcional: mirar la salida de este job en el
+      # primer run, decidir qué se arregla y qué se documenta en .trivyignore,
+      # y CAMBIAR exit-code A "1". Un gate de seguridad que nunca falla no es
+      # un gate. Mientras diga "0", este job informa pero no protege.
+      - name: Terraform (configuración insegura en infra/)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: config
+          scan-ref: infra
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+  # SAST. Las reglas genéricas (p/typescript, p/react, p/secrets) atrapan lo
+  # de siempre; el valor real está en .semgrep/segurolotengo.yml, que codifica
+  # las reglas de negocio inviolables de CLAUDE.md que ESLint no puede cubrir.
+  sast:
+    name: Semgrep (SAST)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:1.99.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reglas propias del proyecto (reglas inviolables)
+        run: semgrep --config .semgrep/segurolotengo.yml --error --skip-unknown-extensions .
+
+      - name: Reglas genéricas de la comunidad
+        run: |
+          semgrep \
+            --config p/typescript \
+            --config p/react \
+            --config p/secrets \
+            --error --skip-unknown-extensions .
