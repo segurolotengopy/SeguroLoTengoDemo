@@ -135,7 +135,11 @@
         "amplify:CreateBranch",
         "amplify:GetBranch",
         "amplify:UpdateBranch",
-        "amplify:DeleteBranch"
+        "amplify:DeleteBranch",
+        "amplify:StartJob",
+        "amplify:StopJob",
+        "amplify:GetJob",
+        "amplify:ListJobs"
       ],
       "Resource": "arn:aws:amplify:us-east-1:120005938663:apps/*"
     },
