@@ -1,17 +1,16 @@
 /**
- * `POST /api/p1/otp/enviar` — botón `ENVIAR CÓDIGO` de P1
- * (docs/ESPECIFICACION_PANTALLAS.md → "P1 · Paso 1 de 9").
+ * `POST /api/p4/otp/enviar` — botón `ENVIAR CÓDIGO` de P4
+ * (docs/ESPECIFICACION_PANTALLAS.md → "P4 · Paso 4 de 9").
  *
- * El handler es fino a propósito: valida la forma del cuerpo, traduce HTTP a
- * `ContextoPeticion` y delega TODA la lógica en
- * `src/domain/verificacion-canal-whatsapp.ts`. No toca el estado del
- * expediente (regla de CLAUDE.md) ni conoce a DynamoDB.
+ * Gemelo del de P1, contra el mismo motor de canal: valida la forma del
+ * cuerpo, traduce HTTP a `ContextoPeticion` y delega toda la lógica en
+ * `src/domain/verificacion-canal-correo.ts`. No toca el estado del expediente
+ * ni conoce a DynamoDB.
  *
  * Regla inviolable #2: la respuesta no tiene ningún campo donde pudiera
- * viajar el código — ni siquiera en modo demo, donde el código se lee solo
- * desde el panel. Verificado en `../../__tests__/no-filtra-codigo-otp.test.ts`.
+ * viajar el código — ni siquiera en modo demo. Verificado en
+ * `../../__tests__/no-filtra-codigo-otp.test.ts`.
  */
-import { dependenciasP1 } from "@/app/api/p1/_dependencias";
 import {
   COOKIE_EXPEDIENTE,
   COOKIE_OTP,
@@ -20,8 +19,9 @@ import {
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
+import { dependenciasP4 } from "@/app/api/p4/_dependencias";
 import { INTENTOS_MAXIMOS_OTP } from "@/domain/reglas-otp";
-import { enviarOtpWhatsapp } from "@/domain/verificacion-canal-whatsapp";
+import { enviarOtpCorreo } from "@/domain/verificacion-canal-correo";
 
 export const dynamic = "force-dynamic";
 
@@ -31,16 +31,21 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "CUERPO_INVALIDO" }, { status: 400 });
   }
 
-  const numeroIngresado = typeof cuerpo.numero === "string" ? cuerpo.numero : "";
-  const autorizacionAceptada = cuerpo.autorizacionAceptada === true;
+  const correoIngresado = typeof cuerpo.correo === "string" ? cuerpo.correo : "";
 
   const { contexto, expedienteId, otpId } = resolverContextoHttp(request);
+  if (!expedienteId) {
+    // P4 nunca crea expediente: sin cookie, el recorrido no pasó por P1.
+    return respuestaJson({ ok: false, motivo: "SESION_INVALIDA" }, { status: 400 });
+  }
 
-  const resultado = await enviarOtpWhatsapp(dependenciasP1(), {
+  const resultado = await enviarOtpCorreo(dependenciasP4(), {
     expedienteId,
+    // El cooldown se aplica contra el OTP previo solo si es del mismo
+    // propósito: el otpId de P1 que pueda quedar en la cookie no bloquea el
+    // primer envío del correo.
     otpIdPrevio: otpId,
-    numeroIngresado,
-    autorizacionAceptada,
+    correoIngresado,
     contexto,
   });
 

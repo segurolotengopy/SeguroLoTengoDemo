@@ -1,18 +1,18 @@
 /**
- * `POST /api/p1/otp/reenviar` — enlace `Reenviar código` de P1.
+ * `POST /api/p4/otp/reenviar` — enlace `Reenviar código` de P4.
  *
- * Sujeto al bloqueo de 60 segundos desde el último envío (regla inviolable
- * #1). Devuelve 429 con `Retry-After` mientras el cooldown esté activo; el
- * bloqueo lo hace cumplir el repositorio de forma atómica, no la UI.
+ * Mismas reglas que P1 (regla inviolable #1): bloqueo de 60 segundos desde el
+ * último envío, hecho cumplir de forma atómica por el repositorio, no por la
+ * UI. Devuelve 429 con `Retry-After` mientras el cooldown esté activo.
  */
-import { dependenciasP1 } from "@/app/api/p1/_dependencias";
 import {
   COOKIE_OTP,
   COOKIE_SESION,
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
-import { reenviarOtpWhatsapp } from "@/domain/verificacion-canal-whatsapp";
+import { dependenciasP4 } from "@/app/api/p4/_dependencias";
+import { reenviarOtpCorreo } from "@/domain/verificacion-canal-correo";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,7 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "SESION_INVALIDA" }, { status: 400 });
   }
 
-  const resultado = await reenviarOtpWhatsapp(dependenciasP1(), {
-    expedienteId,
-    otpId,
-    contexto,
-  });
+  const resultado = await reenviarOtpCorreo(dependenciasP4(), { expedienteId, otpId, contexto });
 
   if (!resultado.ok) {
     const status = resultado.motivo === "REENVIO_BLOQUEADO" ? 429 : 502;
@@ -58,8 +54,6 @@ export async function POST(request: Request): Promise<Response> {
     {
       cookies: [
         { nombre: COOKIE_SESION, valor: contexto.sesionId },
-        // El reenvío rota el código dentro del mismo otpId, pero se reescribe
-        // la cookie para refrescar su vida útil junto con la sesión.
         { nombre: COOKIE_OTP, valor: resultado.otpId },
       ],
     },

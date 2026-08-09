@@ -62,10 +62,31 @@ export interface PlanSeleccionado {
   readonly seleccionadoEn: string;
 }
 
+/**
+ * Consentimiento inicial de P3 (botón `TENGO TODO LISTO`).
+ *
+ * Respaldo normativo: fila 11 de `docs/Tabla Cumplimiento SeguroLo Tengo -
+ * Tabla.csv` — categoría "R2 - CONSENTIMIENTO, IDENTIFICACIÓN Y REPUDIO",
+ * "Obtener consentimiento inicial para la contratación y el tratamiento de
+ * datos", Ley 4868/13, arts. 6(c) y 7(r); Constitución Nacional, arts. 33 y 36.
+ *
+ * Guarda el **texto completo** además de la versión: si el repositorio de
+ * código se pierde o alguien edita el literal sin subir la versión, el
+ * expediente sigue conteniendo, palabra por palabra, lo que la persona
+ * aceptó. La versión sola sería un puntero a algo que puede cambiar.
+ *
+ * Se escribe una sola vez: la transición PLAN_SELECCIONADO → AUTORIZADO no
+ * tiene autobucle, así que no hay forma de pisar este objeto sin agregar una
+ * transición nueva a `expediente.ts`.
+ */
 export interface AutorizacionInicial {
-  readonly aceptadaEn: string;
+  readonly aceptadaEn: string; // ISO 8601: fecha y hora
   readonly ip: string;
+  readonly dispositivo: string;
+  readonly sesionId: string;
   readonly versionAviso: string;
+  /** Literal íntegro que la persona tuvo a la vista al presionar el botón. */
+  readonly textoAceptado: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +241,16 @@ export interface RegistroEvidencia {
   readonly dispositivo: string;
   readonly sesionId: string;
   readonly versionTextoAceptado: string | null;
+  /**
+   * Literal íntegro aceptado en el paso, cuando el paso implica aceptar algo
+   * (P3 y, más adelante, P8). `null` en los pasos que no piden aceptación:
+   * ahí `versionTextoAceptado` alcanza porque no hay nada que la persona
+   * haya consentido con este registro.
+   *
+   * Nunca se guarda acá un dato de salud, PEP, cédula ni tarjeta: es texto
+   * institucional, el mismo para todo el mundo (regla inviolable #7).
+   */
+  readonly textoAceptado: string | null;
   readonly resultado: "EXITOSO" | "FALLIDO";
   readonly detalle: string | null;
 }

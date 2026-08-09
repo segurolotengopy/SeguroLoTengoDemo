@@ -28,6 +28,7 @@ describe("EvidenceStore DynamoDB — refuerzo de infraestructura de la regla app
       dispositivo: overrides.dispositivo ?? "vitest",
       sesionId: overrides.sesionId ?? "SES-1",
       versionTextoAceptado: overrides.versionTextoAceptado ?? null,
+      textoAceptado: overrides.textoAceptado ?? null,
       resultado: overrides.resultado ?? "EXITOSO",
       detalle: overrides.detalle ?? null,
     };

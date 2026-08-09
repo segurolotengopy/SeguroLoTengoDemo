@@ -131,7 +131,7 @@ describe("P1 · envío del OTP de WhatsApp", () => {
 
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
-    expect(resultado.motivo).toBe("NUMERO_INVALIDO");
+    expect(resultado.motivo).toBe("DESTINO_INVALIDO");
   });
 
   it("crea el expediente en INICIADO y registra evidencia con número enmascarado y referencia", async () => {
@@ -188,7 +188,7 @@ describe("P1 · verificación del código", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
     expect(resultado.estado).toBe("CANAL_WA_VERIFICADO");
-    expect(resultado.numeroEnmascarado).toBe(ENMASCARADO);
+    expect(resultado.destinoEnmascarado).toBe(ENMASCARADO);
 
     const expediente = banco.expedientes.todos.get(expedienteId)!;
     expect(expediente.estado).toBe("CANAL_WA_VERIFICADO");

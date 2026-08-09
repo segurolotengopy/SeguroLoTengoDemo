@@ -18,6 +18,7 @@ function registro(overrides: Partial<RegistroEvidencia> = {}): RegistroEvidencia
     dispositivo: overrides.dispositivo ?? "vitest",
     sesionId: overrides.sesionId ?? "SES-1",
     versionTextoAceptado: overrides.versionTextoAceptado ?? null,
+    textoAceptado: overrides.textoAceptado ?? null,
     resultado: overrides.resultado ?? "EXITOSO",
     detalle: overrides.detalle ?? null,
   };

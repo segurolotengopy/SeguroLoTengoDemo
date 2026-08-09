@@ -18,7 +18,12 @@ import { evaluarElegibilidad } from "./elegibilidad";
 const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
   INICIADO: ["CANAL_WA_VERIFICADO"],
   CANAL_WA_VERIFICADO: ["PLAN_SELECCIONADO"],
-  PLAN_SELECCIONADO: ["AUTORIZADO"],
+  // El autobucle es el enlace `Cambiar plan` de la barra de plan seleccionado
+  // (docs/ESPECIFICACION_PANTALLAS.md → "Elementos comunes"): volver a P2 y
+  // elegir otro plan antes de la autorización de P3. No agrega ningún estado
+  // alcanzable nuevo —desde acá se sigue saliendo solo a AUTORIZADO— y cada
+  // re-selección queda como una entrada más del historial append-only.
+  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "AUTORIZADO"],
   AUTORIZADO: ["CANAL_EMAIL_VERIFICADO"],
   CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA"],
   IDENTIDAD_VERIFICADA: ["DERIVADO_MANUAL", "DECLARACIONES_OK"],

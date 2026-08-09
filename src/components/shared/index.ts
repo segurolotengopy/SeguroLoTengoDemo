@@ -7,6 +7,12 @@ export type { PasoFlujo } from "./StepperPasos";
 export { BarraPlanSeleccionado } from "./BarraPlanSeleccionado";
 export type { BarraPlanSeleccionadoProps } from "./BarraPlanSeleccionado";
 
+export { BarraPlanDelExpediente } from "./BarraPlanDelExpediente";
+export type { BarraPlanDelExpedienteProps } from "./BarraPlanDelExpediente";
+
+export { FormularioVerificacionCanal } from "./FormularioVerificacionCanal";
+export type { FormularioVerificacionCanalProps } from "./FormularioVerificacionCanal";
+
 export { CamposOtp } from "./CamposOtp";
 export type { CamposOtpProps } from "./CamposOtp";
 
