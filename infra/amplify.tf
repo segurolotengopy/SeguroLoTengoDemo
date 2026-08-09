@@ -59,5 +59,16 @@ resource "aws_amplify_branch" "main" {
   framework = "Next.js - SSR"
   stage     = "PRODUCTION"
 
-  enable_auto_build = var.amplify_repository_url != ""
+  # El repositorio NO se conecta desde este código: la consola de Amplify no
+  # ofrece conectar un repo a una app creada por IaC, y la API lo rechaza
+  # mientras exista una rama "desplegada manualmente". La secuencia real fue:
+  # borrar esta rama, conectar el repo con `aws amplify update-app
+  # --repository ... --access-token ...`, y volver a crearla. Por eso el
+  # bloque `lifecycle` de arriba ignora `repository` y los tokens.
+  #
+  # Consecuencia: `var.amplify_repository_url` quedó vacía aunque el repo SÍ
+  # está conectado, así que no sirve para decidir esto. Antes decía
+  # `var.amplify_repository_url != ""` y dejaba el auto-build apagado, con lo
+  # cual un push a main no desplegaba nada.
+  enable_auto_build = true
 }
