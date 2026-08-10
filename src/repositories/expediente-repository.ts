@@ -20,6 +20,7 @@
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { ErrorEscrituraConcurrente } from "../domain/concurrencia";
 import type { EstadoExpediente, Expediente } from "../domain/tipos";
 import {
   claveExpediente,
@@ -36,9 +37,9 @@ export interface ExpedienteRepository {
   /**
    * Persiste la versión más nueva del expediente. Si se pasa
    * `actualizadoEnEsperado`, la escritura es condicional (bloqueo
-   * optimista): falla si el `actualizadoEn` persistido ya no coincide
-   * (alguien más escribió una versión más nueva entre la lectura y esta
-   * escritura).
+   * optimista): falla con `ErrorEscrituraConcurrente` si el `actualizadoEn`
+   * persistido ya no coincide (alguien más escribió una versión más nueva
+   * entre la lectura y esta escritura).
    */
   guardar(expediente: Expediente, actualizadoEnEsperado?: string): Promise<void>;
 }
@@ -192,10 +193,10 @@ export function crearExpedienteRepositoryDynamoDb(
         );
       } catch (error) {
         if (error instanceof ConditionalCheckFailedException) {
-          throw new Error(
-            `El expediente ${expediente.id} fue modificado por otra escritura entre la lectura y este guardado ` +
-              "(actualizadoEn ya no coincide).",
-          );
+          // Tipado a propósito: es una carrera esperable entre dos peticiones
+          // de la misma pantalla, y los casos de uso la atajan y la convierten
+          // en respuesta controlada (ver `src/domain/concurrencia.ts`).
+          throw new ErrorEscrituraConcurrente(expediente.id);
         }
         throw error;
       }

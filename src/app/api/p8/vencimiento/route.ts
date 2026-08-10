@@ -28,7 +28,11 @@ export async function POST(request: Request): Promise<Response> {
   const cookies = [{ nombre: COOKIE_SESION, valor: contexto.sesionId }];
 
   if (!resultado.ok) {
-    return respuestaJson({ ok: false, motivo: resultado.motivo }, { status: 404, cookies });
+    // 409 y no 500: perder la carrera de escritura contra el sondeo de
+    // `/api/p8/estado` es esperable, y el dominio ya reintentó con lecturas
+    // frescas. El próximo tick del contador vuelve a preguntar.
+    const status = resultado.motivo === "CONFLICTO_CONCURRENCIA" ? 409 : 404;
+    return respuestaJson({ ok: false, motivo: resultado.motivo }, { status, cookies });
   }
 
   return respuestaJson(

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ErrorEscrituraConcurrente } from "../../domain/concurrencia";
 import { crearExpedienteInicial } from "../../domain/tipos";
 import { crearExpedienteRepositoryDynamoDb } from "../expediente-repository";
 import { crearFakeDynamoDocumentClient } from "./fake-dynamo-document-client";
@@ -60,8 +61,12 @@ describe("ExpedienteRepository (DynamoDB, con cliente falso)", () => {
     await repo.guardar({ ...inicial, actualizadoEn: "2026-01-01T00:05:00.000Z" });
 
     // La escritura original, que todavía cree que actualizadoEn es el del alta, pierde.
-    await expect(repo.guardar({ ...inicial, actualizadoEn: "2026-01-01T00:10:00.000Z" }, inicial.actualizadoEn)).rejects.toThrow(
-      /modificado por otra escritura/,
-    );
+    // El error es tipado a propósito: los casos de uso lo atajan y lo
+    // convierten en respuesta controlada (`src/domain/concurrencia.ts`).
+    const perdedora = repo.guardar({ ...inicial, actualizadoEn: "2026-01-01T00:10:00.000Z" }, inicial.actualizadoEn);
+    await expect(perdedora).rejects.toBeInstanceOf(ErrorEscrituraConcurrente);
+    await expect(
+      repo.guardar({ ...inicial, actualizadoEn: "2026-01-01T00:10:00.000Z" }, inicial.actualizadoEn),
+    ).rejects.toThrow(/modificado por otra escritura/);
   });
 });

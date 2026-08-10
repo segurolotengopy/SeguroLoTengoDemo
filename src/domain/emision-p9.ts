@@ -42,6 +42,7 @@
  * firmados (CLAUDE.md → "Reglas transversales de integraciones").
  */
 import { randomUUID } from "node:crypto";
+import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { PolicyIssuer } from "../ports/policy-issuer";
 import { actualizarEstadoPolizaP9, registrarEmisionP9 } from "./expediente";
@@ -90,7 +91,14 @@ export type MotivoRechazoP9 =
   | "SIN_FIRMA"
   | "COBRO_NO_CONFIRMADO"
   | "EXPEDIENTE_INCOMPLETO"
-  | "SEBAOT_NO_DISPONIBLE";
+  | "SEBAOT_NO_DISPONIBLE"
+  /**
+   * Otra petición escribió el expediente entre la lectura y el guardado y el
+   * conflicto persistió tras los reintentos (`src/domain/concurrencia.ts`).
+   * No se perdió nada: el bloqueo optimista impidió pisar la otra escritura.
+   * La próxima carga o sondeo ve la versión que ganó.
+   */
+  | "CONFLICTO_CONCURRENCIA";
 
 export type ResultadoEmisionP9 =
   | {
@@ -191,6 +199,25 @@ function polizaDesde(
  * la confirmación de Alianza.
  */
 export async function emitirPolizaP9(
+  deps: DependenciasP9,
+  entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
+): Promise<ResultadoEmisionP9> {
+  try {
+    return await intentarEmitirPolizaP9(deps, entrada);
+  } catch (error) {
+    // Sin reintento, como `iniciarPagoP7` e `iniciarFirmaP8`: la orden de
+    // emisión ya salió hacia SEBAOT y reintentar podría duplicarla
+    // (`src/domain/concurrencia.ts`). Se devuelve el conflicto; la próxima
+    // carga de la pantalla entra por la rama idempotente si el ganador de la
+    // carrera ya dejó el expediente EMITIDO.
+    if (error instanceof ErrorEscrituraConcurrente) {
+      return { ok: false, motivo: "CONFLICTO_CONCURRENCIA" };
+    }
+    throw error;
+  }
+}
+
+async function intentarEmitirPolizaP9(
   deps: DependenciasP9,
   entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
 ): Promise<ResultadoEmisionP9> {
@@ -320,6 +347,20 @@ export async function emitirPolizaP9(
  * no tiene por qué generar una escritura.
  */
 export async function consultarEmisionP9(
+  deps: DependenciasP9,
+  entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
+): Promise<ResultadoEmisionP9> {
+  // Perder la carrera de escritura contra otro sondeo (o contra la carga de la
+  // pantalla, que también escribe) se resuelve releyendo: la operación es
+  // convergente —si el ganador ya asentó el mismo estado de póliza, la releída
+  // cae en `sinCambios` y no escribe— y consultar a SEBAOT no repite efectos.
+  return conReintentoPorConflicto(
+    () => intentarConsultarEmisionP9(deps, entrada),
+    () => ({ ok: false, motivo: "CONFLICTO_CONCURRENCIA" }),
+  );
+}
+
+async function intentarConsultarEmisionP9(
   deps: DependenciasP9,
   entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
 ): Promise<ResultadoEmisionP9> {

@@ -48,6 +48,7 @@
  * `src/app/api/p7/__tests__/no-persiste-datos-de-tarjeta.test.ts`.
  */
 import { randomInt, randomUUID } from "node:crypto";
+import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { PaymentProvider } from "../ports/payment-provider";
 import { ErrorBancard } from "../ports/payment-provider";
@@ -202,7 +203,14 @@ export type MotivoRechazoP7 =
   | "BANCARD_NO_DISPONIBLE"
   | "BANCARD_RECHAZO"
   | "PAGO_NO_INICIADO"
-  | "PAGO_CANCELADO";
+  | "PAGO_CANCELADO"
+  /**
+   * Otra petición escribió el expediente entre la lectura y el guardado y el
+   * conflicto persistió tras los reintentos (`src/domain/concurrencia.ts`).
+   * No se perdió nada: el bloqueo optimista impidió pisar la otra escritura.
+   * El próximo sondeo ve la versión que ganó.
+   */
+  | "CONFLICTO_CONCURRENCIA";
 
 /**
  * Instrucciones para la pantalla según el medio. No tiene ninguna variante con
@@ -343,6 +351,24 @@ async function registrarEvidencia(
  * checkbox sin marcar sería un movimiento innecesario en el vPOS de Alianza.
  */
 export async function iniciarPagoP7(
+  deps: DependenciasP7,
+  entrada: EntradaIniciarPagoP7,
+): Promise<ResultadoIniciarPagoP7> {
+  try {
+    return await intentarIniciarPagoP7(deps, entrada);
+  } catch (error) {
+    // Sin reintento, a diferencia del sondeo: reintentar podría abrir una
+    // segunda operación en Bancard (`src/domain/concurrencia.ts`). Se devuelve
+    // el conflicto y la persona puede volver a tocar el botón; el reintento
+    // manual reutiliza la `idempotencyKey` persistida (ver `claveDeIdempotencia`).
+    if (error instanceof ErrorEscrituraConcurrente) {
+      return { ok: false, motivo: "CONFLICTO_CONCURRENCIA" };
+    }
+    throw error;
+  }
+}
+
+async function intentarIniciarPagoP7(
   deps: DependenciasP7,
   entrada: EntradaIniciarPagoP7,
 ): Promise<ResultadoIniciarPagoP7> {
@@ -546,6 +572,20 @@ export async function iniciarPagoP7(
  * oficial (CLAUDE.md → "Idempotencia de webhooks").
  */
 export async function confirmarPagoP7(
+  deps: DependenciasP7,
+  entrada: { expedienteId: string; contexto: ContextoPeticion },
+): Promise<ResultadoConfirmarPagoP7> {
+  // Perder la carrera de escritura contra otro sondeo (o contra el callback
+  // oficial de Bancard, cuando exista) se resuelve releyendo: la operación es
+  // convergente —rama idempotente para PAGO_CONFIRMADO— y consultar a Bancard
+  // de nuevo no repite ningún efecto.
+  return conReintentoPorConflicto(
+    () => intentarConfirmarPagoP7(deps, entrada),
+    () => ({ ok: false, motivo: "CONFLICTO_CONCURRENCIA" }),
+  );
+}
+
+async function intentarConfirmarPagoP7(
   deps: DependenciasP7,
   entrada: { expedienteId: string; contexto: ContextoPeticion },
 ): Promise<ResultadoConfirmarPagoP7> {

@@ -33,6 +33,10 @@ function estadoHttp(motivo: MotivoRechazoP8): number {
     case "PAQUETE_NO_GENERADO":
     case "GARANTIA_PAGO_NO_LISTA":
     case "CANAL_NO_VERIFICADO":
+    // Perdió la carrera de escritura contra el sondeo de estado. Nada quedó
+    // abierto de más: si el acto de firma llegó a registrarse, volver a tocar
+    // el botón devuelve ese mismo enlace.
+    case "CONFLICTO_CONCURRENCIA":
       return 409;
     case "CODE100_NO_DISPONIBLE":
     case "CODE100_RECHAZO":
