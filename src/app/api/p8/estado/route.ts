@@ -29,6 +29,11 @@ function estadoHttp(motivo: MotivoRechazoP8): number {
     case "PLAZO_VENCIDO":
     case "FIRMA_NO_INICIADA":
     case "FIRMA_NO_COMPLETADA":
+    // Perdió la carrera de escritura contra otra petición y el conflicto
+    // persistió tras los reintentos del dominio. No es un error del servidor:
+    // el bloqueo optimista hizo su trabajo y el próximo sondeo ve la versión
+    // que ganó.
+    case "CONFLICTO_CONCURRENCIA":
       return 409;
     case "CODE100_NO_DISPONIBLE":
       return 502;

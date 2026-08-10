@@ -126,12 +126,11 @@ export const pagoConfirmadoFixture: Pago = {
 };
 
 /**
- * Expediente del camino feliz, listo para que el servicio de generación de
- * documentos lo cierre: en PAGO_CONFIRMADO, con plan, identidad, datos
- * complementarios, declaraciones compatibles, canales verificados,
- * correlativo, facturación y pago acreditado.
+ * Expediente del camino feliz al salir de P6: en DECLARACIONES_OK, con plan,
+ * identidad, datos complementarios, declaraciones compatibles y canales
+ * verificados. Es la entrada de P7.
  */
-export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
+export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
   const base = avanzarHastaIdentidadVerificada(crearExpediente(id));
 
   const conDatos = transicionarExpediente(base, "DECLARACIONES_OK", {
@@ -149,9 +148,18 @@ export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
     },
   });
   if (!conDatos.ok) throw new Error(conDatos.error);
+  return conDatos.expediente;
+}
 
+/**
+ * Expediente del camino feliz, listo para que el servicio de generación de
+ * documentos lo cierre: en PAGO_CONFIRMADO, con plan, identidad, datos
+ * complementarios, declaraciones compatibles, canales verificados,
+ * correlativo, facturación y pago acreditado.
+ */
+export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
   const confirmado = transicionarExpediente(
-    conDatos.expediente,
+    expedienteEnDeclaracionesOk(id),
     "PAGO_CONFIRMADO",
     {
       numeroPropuesta: NUMERO_PROPUESTA_FIJO,

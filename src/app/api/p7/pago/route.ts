@@ -35,6 +35,10 @@ function estadoHttp(motivo: MotivoRechazoP7): number {
       return 404;
     case "ESTADO_INVALIDO":
     case "EXPEDIENTE_INCOMPLETO":
+    // Perdió la carrera de escritura contra el sondeo de estado. No se llegó
+    // a abrir nada duplicado en Bancard: reintentar el botón reutiliza la
+    // `idempotencyKey` persistida.
+    case "CONFLICTO_CONCURRENCIA":
       return 409;
     case "BANCARD_NO_DISPONIBLE":
     case "BANCARD_RECHAZO":

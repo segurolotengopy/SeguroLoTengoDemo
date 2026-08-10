@@ -29,6 +29,10 @@ function estadoHttp(motivo: MotivoRechazoP7): number {
     case "PAGO_NO_INICIADO":
     case "ESTADO_INVALIDO":
     case "PAGO_CANCELADO":
+    // Perdió la carrera de escritura contra otra petición y el conflicto
+    // persistió tras los reintentos del dominio. El próximo sondeo ve la
+    // versión que ganó.
+    case "CONFLICTO_CONCURRENCIA":
       return 409;
     default:
       return 400;

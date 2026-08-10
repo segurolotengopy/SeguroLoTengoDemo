@@ -47,6 +47,7 @@
  * `textos-p8.ts`.
  */
 import { randomUUID } from "node:crypto";
+import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { PaymentProvider } from "../ports/payment-provider";
 import type { SignatureProvider } from "../ports/signature-provider";
@@ -125,7 +126,14 @@ export type MotivoRechazoP8 =
   | "CODE100_NO_DISPONIBLE"
   | "CODE100_RECHAZO"
   | "FIRMA_NO_INICIADA"
-  | "FIRMA_NO_COMPLETADA";
+  | "FIRMA_NO_COMPLETADA"
+  /**
+   * Otra petición escribió el expediente entre la lectura y el guardado y el
+   * conflicto persistió tras los reintentos (`src/domain/concurrencia.ts`).
+   * No se perdió nada: el bloqueo optimista impidió pisar la otra escritura.
+   * El próximo sondeo ve la versión que ganó.
+   */
+  | "CONFLICTO_CONCURRENCIA";
 
 export interface ActoDeFirmaVisible {
   readonly idCode100: string;
@@ -265,6 +273,12 @@ async function aplicarVencimiento(
   expediente: Expediente,
   contexto: ContextoPeticion,
 ): Promise<{ readonly expediente: Expediente; readonly vencio: boolean }> {
+  // Ya vencido —por una llamada anterior a este mismo camino o por la petición
+  // concurrente que ganó la carrera de escritura—: no hay nada que escribir ni
+  // evidencia nueva que dejar. Es lo que hace convergente el reintento ante
+  // conflicto y cierta la promesa de idempotencia de `POST /api/p8/vencimiento`.
+  if (expediente.estado === "VENCIDO") return { expediente, vencio: true };
+
   const fecha = reloj.ahora();
   const transicion = vencerPlazoFirmaSiCorresponde(expediente, fecha);
 
@@ -382,6 +396,24 @@ export interface EntradaIniciarFirmaP8 {
  * quedó cerrado (rechazado, cancelado o vencido).
  */
 export async function iniciarFirmaP8(
+  deps: DependenciasP8,
+  entrada: EntradaIniciarFirmaP8,
+): Promise<ResultadoIniciarFirmaP8> {
+  try {
+    return await intentarIniciarFirmaP8(deps, entrada);
+  } catch (error) {
+    // Sin reintento, a diferencia de los sondeos: reintentar podría abrir un
+    // segundo acto de firma en Code100 (`src/domain/concurrencia.ts`). Se
+    // devuelve el conflicto y la persona puede volver a tocar el botón; si el
+    // acto ya quedó abierto, `actoVigente` devuelve ese mismo enlace.
+    if (error instanceof ErrorEscrituraConcurrente) {
+      return { ok: false, motivo: "CONFLICTO_CONCURRENCIA" };
+    }
+    throw error;
+  }
+}
+
+async function intentarIniciarFirmaP8(
   deps: DependenciasP8,
   entrada: EntradaIniciarFirmaP8,
 ): Promise<ResultadoIniciarFirmaP8> {
@@ -551,6 +583,19 @@ async function actoVigente(
  * → "Idempotencia de webhooks").
  */
 export async function confirmarFirmaP8(
+  deps: DependenciasP8,
+  entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
+): Promise<ResultadoConfirmarFirmaP8> {
+  // Perder la carrera de escritura contra el vencimiento o contra otro sondeo
+  // se resuelve releyendo: la operación es convergente (rama idempotente para
+  // FIRMADO, `aplicarVencimiento` para VENCIDO) y no repite efectos en Code100.
+  return conReintentoPorConflicto(
+    () => intentarConfirmarFirmaP8(deps, entrada),
+    () => ({ ok: false, motivo: "CONFLICTO_CONCURRENCIA" }),
+  );
+}
+
+async function intentarConfirmarFirmaP8(
   deps: DependenciasP8,
   entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
 ): Promise<ResultadoConfirmarFirmaP8> {
@@ -738,7 +783,10 @@ async function capturarSiEsCredito(
 
 export type ResultadoVencimientoP8 =
   | { readonly ok: true; readonly vencio: boolean; readonly estado: EstadoExpediente }
-  | { readonly ok: false; readonly motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+  | {
+      readonly ok: false;
+      readonly motivo: "EXPEDIENTE_NO_ENCONTRADO" | "CONFLICTO_CONCURRENCIA";
+    };
 
 /**
  * Evalúa el plazo y, si se cumplió, vence el expediente.
@@ -746,17 +794,27 @@ export type ResultadoVencimientoP8 =
  * Es la misma rutina que corre al principio de las otras dos operaciones,
  * expuesta aparte para que la pantalla pueda dispararla cuando su cuenta
  * regresiva llega a cero sin tener que pedir un enlace ni confirmar una firma.
+ *
+ * La pantalla la dispara a la vez que sigue sondeando `/api/p8/estado`, así
+ * que perder la carrera de escritura contra ese sondeo es esperable: se
+ * reintenta con una lectura fresca, que converge (un expediente ya VENCIDO no
+ * se vuelve a escribir ni deja evidencia nueva).
  */
 export async function vencerPlazoFirmaP8(
   deps: DependenciasP8,
   entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
 ): Promise<ResultadoVencimientoP8> {
-  const reloj = resolverReloj(deps);
-  const guardado = await deps.expedientes.obtenerPorId(entrada.expedienteId);
-  if (!guardado) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+  return conReintentoPorConflicto<ResultadoVencimientoP8>(
+    async () => {
+      const reloj = resolverReloj(deps);
+      const guardado = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+      if (!guardado) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
 
-  const { expediente, vencio } = await aplicarVencimiento(deps, reloj, guardado, entrada.contexto);
-  return { ok: true, vencio, estado: expediente.estado };
+      const { expediente, vencio } = await aplicarVencimiento(deps, reloj, guardado, entrada.contexto);
+      return { ok: true, vencio, estado: expediente.estado };
+    },
+    () => ({ ok: false, motivo: "CONFLICTO_CONCURRENCIA" }),
+  );
 }
 
 // ---------------------------------------------------------------------------
