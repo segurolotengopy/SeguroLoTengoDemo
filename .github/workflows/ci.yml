@@ -27,7 +27,7 @@ jobs:
     name: Typecheck, lint y tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -52,7 +52,7 @@ jobs:
     name: Gitleaks (secret scanning)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Historial completo: un secreto commiteado y luego borrado sigue
           # estando en el historial, y sigue estando filtrado.
@@ -79,7 +79,7 @@ jobs:
     name: Trivy (dependencias e IaC)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Dos cosas que rompieron este job y conviene no repetir:
       #
@@ -125,7 +125,7 @@ jobs:
     container:
       image: semgrep/semgrep:1.99.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Reglas propias del proyecto (reglas inviolables)
         run: semgrep --config .semgrep/segurolotengo.yml --error --skip-unknown-extensions .
