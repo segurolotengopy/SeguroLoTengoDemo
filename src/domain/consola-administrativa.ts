@@ -99,6 +99,8 @@ export function expedientesQueBloquean(
 /** Subconjunto de `ConsultaExpedientes` que necesita la regla de bloqueo. */
 export interface LectorExpedientesPorCedula {
   buscarPorCedula(numeroCedula: string): Promise<readonly Expediente[]>;
+  /** Expedientes que declaran a este como `expedienteAnteriorId`. */
+  buscarSucesores(expedienteId: string): Promise<readonly Expediente[]>;
 }
 
 export interface ResultadoBloqueo {
@@ -123,7 +125,18 @@ export async function evaluarBloqueoPorCedula(
   numeroCedula: string,
 ): Promise<ResultadoBloqueo> {
   const expedientes = await lector.buscarPorCedula(numeroCedula);
-  const bloquean = expedientesQueBloquean(expedientes);
+  const candidatos = expedientesQueBloquean(expedientes);
+
+  // El sucesor de un reinicio nace `INICIADO` y sin cédula —la persona la va a
+  // capturar de nuevo en P5—, así que la lista por cédula no lo contiene y la
+  // superación no se ve ahí: hay que preguntarla por el enlace de sucesión
+  // directo. Mismo criterio que ya aplica la vista de detalle de la consola
+  // (`/api/admin-consola/expediente` junta cadena + sucesores antes de evaluar).
+  const bloquean: Expediente[] = [];
+  for (const candidato of candidatos) {
+    const sucesores = await lector.buscarSucesores(candidato.id);
+    if (sucesores.length === 0) bloquean.push(candidato);
+  }
 
   return {
     bloqueada: bloquean.length > 0,

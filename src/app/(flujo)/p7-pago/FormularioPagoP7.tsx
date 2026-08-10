@@ -104,6 +104,19 @@ const MENSAJES: Readonly<Record<string, string>> = {
 /** Cada cuánto se le pregunta a Bancard si la operación ya se acreditó. */
 const INTERVALO_SONDEO_MS = 2_000;
 
+/**
+ * Motivos que de verdad no se resuelven esperando: con ellos el sondeo se
+ * corta y se muestra el error. Cualquier otro fallo (un 5xx puntual, un cuerpo
+ * malformado) se trata como transitorio y el próximo sondeo reintenta — antes
+ * un solo tropiezo dejaba la pantalla esperando un pago que ya no consultaba.
+ */
+const MOTIVOS_TERMINALES_SONDEO: ReadonlySet<string> = new Set([
+  "SESION_INVALIDA",
+  "EXPEDIENTE_NO_ENCONTRADO",
+  "ESTADO_INVALIDO",
+  "PAGO_CANCELADO",
+]);
+
 const CLASE_CAMPO =
   "h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500";
 
@@ -164,8 +177,11 @@ export function FormularioPagoP7() {
     const datos = (await respuesta.json().catch(() => ({}))) as RespuestaEstado;
 
     if (!datos.ok) {
-      if (vigente.current) setError(MENSAJES[datos.motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO);
-      return true; // deja de sondear: el motivo no se resuelve esperando
+      const terminal = datos.motivo !== undefined && MOTIVOS_TERMINALES_SONDEO.has(datos.motivo);
+      if (terminal && vigente.current) {
+        setError(MENSAJES[datos.motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO);
+      }
+      return terminal;
     }
     if (!datos.confirmado) return false;
 

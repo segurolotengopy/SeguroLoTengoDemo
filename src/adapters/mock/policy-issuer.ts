@@ -47,6 +47,7 @@
  * fijar el reloj en vez de esperar.
  */
 import { randomUUID } from "node:crypto";
+import { estadoCompartidoDemo } from "./estado-compartido";
 import type {
   EmitirPolizaInput,
   EstadoFacturaElectronica,
@@ -87,7 +88,7 @@ export interface PolizaMock {
  * `GET /api/p9/estado` la consulta desde otro handler, en otro adaptador, del
  * mismo proceso.
  */
-const polizas = new Map<string, PolizaMock>();
+const polizas = estadoCompartidoDemo("polizas.emitidas", () => new Map<string, PolizaMock>());
 
 export interface OpcionesPolicyIssuerMock {
   readonly ahora?: () => Date;

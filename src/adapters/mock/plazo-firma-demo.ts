@@ -24,6 +24,7 @@
  * despliegue con varias instancias cada una tiene su valor.
  */
 import { PLAZO_FIRMA_MS } from "../../domain/pago-p7";
+import { estadoCompartidoDemo } from "./estado-compartido";
 
 /** Piso: por debajo de esto la pantalla no alcanza ni a dibujar el enlace. */
 export const PLAZO_FIRMA_DEMO_MINIMO_MS = 5_000;
@@ -36,7 +37,9 @@ export const PLAZOS_FIRMA_DEMO: readonly { readonly ms: number; readonly rotulo:
   { ms: PLAZO_FIRMA_DEMO_MINIMO_MS, rotulo: "5 segundos" },
 ];
 
-let plazoElegidoMs: number = PLAZO_FIRMA_MS;
+const caja = estadoCompartidoDemo("plazo-firma.elegido", () => ({
+  plazoElegidoMs: PLAZO_FIRMA_MS,
+}));
 
 function modoDemo(): boolean {
   return process.env.DEMO_MODE === "true";
@@ -47,7 +50,7 @@ function modoDemo(): boolean {
  * como `plazoFirmaMs`, y en modo no-demo son siempre las 24 horas del producto.
  */
 export function plazoFirmaMs(): number {
-  return modoDemo() ? plazoElegidoMs : PLAZO_FIRMA_MS;
+  return modoDemo() ? caja.plazoElegidoMs : PLAZO_FIRMA_MS;
 }
 
 export type ResultadoFijarPlazo =
@@ -60,11 +63,11 @@ export function fijarPlazoFirmaDemo(ms: number): ResultadoFijarPlazo {
   if (!Number.isFinite(ms) || ms < PLAZO_FIRMA_DEMO_MINIMO_MS || ms > PLAZO_FIRMA_MS) {
     return { ok: false, motivo: "PLAZO_INVALIDO" };
   }
-  plazoElegidoMs = Math.floor(ms);
-  return { ok: true, plazoMs: plazoElegidoMs };
+  caja.plazoElegidoMs = Math.floor(ms);
+  return { ok: true, plazoMs: caja.plazoElegidoMs };
 }
 
 /** Deja el plazo como al arrancar el proceso: 24 horas. */
 export function reiniciarPlazoFirmaDemo(): void {
-  plazoElegidoMs = PLAZO_FIRMA_MS;
+  caja.plazoElegidoMs = PLAZO_FIRMA_MS;
 }

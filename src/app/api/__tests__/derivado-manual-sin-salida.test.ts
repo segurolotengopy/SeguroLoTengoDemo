@@ -408,7 +408,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             identidad: crearIdentityProviderMock(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
-            bloqueos: { buscarPorCedula: async () => [] },
+            bloqueos: { buscarPorCedula: async () => [], buscarSucesores: async () => [] },
           },
           { expedienteId: EXPEDIENTE_ID, tipo: "FRENTE", imagen: IMAGEN, contexto: CONTEXTO },
         ),
@@ -421,7 +421,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             identidad: crearIdentityProviderMock(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
-            bloqueos: { buscarPorCedula: async () => [] },
+            bloqueos: { buscarPorCedula: async () => [], buscarSucesores: async () => [] },
           },
           { expedienteId: EXPEDIENTE_ID, imagenes: IMAGENES, contexto: CONTEXTO },
         ),
@@ -434,7 +434,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             identidad: crearIdentityProviderMock(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
-            bloqueos: { buscarPorCedula: async () => [] },
+            bloqueos: { buscarPorCedula: async () => [], buscarSucesores: async () => [] },
           },
           {
             expedienteId: EXPEDIENTE_ID,
@@ -1005,7 +1005,7 @@ describe("5. Bloqueo de nuevo registro por cédula", () => {
   it("P5 rechaza una cédula bloqueada, y el bloqueo no depende de un flag editable", async () => {
     const derivado = await expedienteDerivado();
     const bloqueo = await evaluarBloqueoPorCedula(
-      { buscarPorCedula: async () => [derivado] },
+      { buscarPorCedula: async () => [derivado], buscarSucesores: async () => [] },
       "9323336",
     );
 
@@ -1014,5 +1014,24 @@ describe("5. Bloqueo de nuevo registro por cédula", () => {
     // respuesta médica ni la condición PEP (regla inviolable #7).
     expect(JSON.stringify(bloqueo)).not.toContain("condicionPep");
     expect(JSON.stringify(bloqueo)).not.toContain("estadoDeSalud");
+  });
+
+  it("el sucesor levanta el bloqueo aunque no aparezca en la lista por cédula", async () => {
+    // El sucesor de un reinicio nace `INICIADO`, sin cédula: `buscarPorCedula`
+    // no lo devuelve. La superación tiene que verse igual, por el enlace de
+    // sucesión — si no, el reinicio de la consola no serviría para nada.
+    const derivado = await expedienteDerivado();
+    const sucesor = { ...crearExpediente("EXP-NUEVO"), expedienteAnteriorId: derivado.id };
+
+    const bloqueo = await evaluarBloqueoPorCedula(
+      {
+        buscarPorCedula: async () => [derivado],
+        buscarSucesores: async (id) => (id === derivado.id ? [sucesor] : []),
+      },
+      "9323336",
+    );
+
+    expect(bloqueo.bloqueada).toBe(false);
+    expect(bloqueo.expedientesQueBloquean).toEqual([]);
   });
 });

@@ -31,6 +31,8 @@
  * y solo funciona con `DEMO_MODE=true`.
  */
 
+import { estadoCompartidoDemo } from "./estado-compartido";
+
 export type FallaDemo =
   | "OTP_EXPIRADO"
   | "OTP_INTENTOS_AGOTADOS"
@@ -83,7 +85,7 @@ export function esFallaDemo(valor: unknown): valor is FallaDemo {
   return FALLAS_DEMO.some((falla) => falla === valor);
 }
 
-const armadas = new Set<FallaDemo>();
+const armadas = estadoCompartidoDemo("fallas.armadas", () => new Set<FallaDemo>());
 
 function modoDemo(): boolean {
   return process.env.DEMO_MODE === "true";

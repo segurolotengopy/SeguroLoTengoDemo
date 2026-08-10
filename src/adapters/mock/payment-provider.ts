@@ -62,6 +62,7 @@ import type {
 } from "../../ports/payment-provider";
 import { ErrorBancard } from "../../ports/payment-provider";
 import type { EstadoPago, MedioDePago } from "../../domain/tipos";
+import { estadoCompartidoDemo } from "./estado-compartido";
 
 /**
  * Vigencia del QR generado. **Decisión de producto, no obligación legal**: no
@@ -122,9 +123,9 @@ export interface OperacionMock {
  * `GET /api/p7/estado` la consulta desde otro handler, en otro adaptador, del
  * mismo proceso.
  */
-const operaciones = new Map<string, OperacionMock>();
+const operaciones = estadoCompartidoDemo("pagos.operaciones", () => new Map<string, OperacionMock>());
 /** `idempotencyKey` → `referenciaBancard`. Es lo que impide el cobro duplicado. */
-const porClaveDeIdempotencia = new Map<string, string>();
+const porClaveDeIdempotencia = estadoCompartidoDemo("pagos.idempotencia", () => new Map<string, string>());
 
 export interface OpcionesPaymentProviderMock {
   readonly ahora?: () => Date;

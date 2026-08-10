@@ -57,6 +57,7 @@ import { ErrorCode100 } from "../../ports/signature-provider";
 import { INTENTOS_MAXIMOS_OTP, VIGENCIA_OTP_MS } from "../../domain/reglas-otp";
 import { generarCodigoOtp } from "../../repositories/otp-hash";
 import type { CanalFirma, DocumentoCerrado, Firma, PaqueteDocumental } from "../../domain/tipos";
+import { estadoCompartidoDemo } from "./estado-compartido";
 
 /**
  * Vigencia del enlace de firma: 24 horas (fila 41 de
@@ -80,8 +81,17 @@ export type FallaCode100Demo = "TIMEOUT" | "RECHAZADA";
  * Manager como el de `OtpRepository`: acá se está simulando el almacén interno
  * de Code100, que es del proveedor y no nuestro. Aleatorio por arranque, así
  * ni siquiera entre reinicios queda un hash comparable.
+ *
+ * Anclado en `estadoCompartidoDemo` por la misma razón que `sesiones`: tiene
+ * que ser **uno por proceso**, no uno por instancia de módulo. Si cada
+ * recompilación de `next dev` acuñara un pepper nuevo mientras las sesiones
+ * sobreviven en `globalThis`, un OTP emitido antes de la recompilación se
+ * verificaría contra otro pepper y daría `CODIGO_INCORRECTO` sin que la
+ * persona se haya equivocado.
  */
-const PEPPER_DEL_PROCESO = randomBytes(32).toString("hex");
+const PEPPER_DEL_PROCESO = estadoCompartidoDemo("firma.pepper", () =>
+  randomBytes(32).toString("hex"),
+);
 
 function hmacOtp(codigo: string): string {
   return createHmac("sha256", PEPPER_DEL_PROCESO).update(codigo, "utf8").digest("hex");
@@ -133,8 +143,8 @@ export interface CodigoFirmaDemo {
   readonly expiraEn: string;
 }
 
-const sesiones = new Map<string, SesionFirmaMock>();
-const codigosDemo = new Map<string, CodigoFirmaDemo>();
+const sesiones = estadoCompartidoDemo("firma.sesiones", () => new Map<string, SesionFirmaMock>());
+const codigosDemo = estadoCompartidoDemo("firma.codigos-demo", () => new Map<string, CodigoFirmaDemo>());
 
 export interface OpcionesSignatureProviderMock {
   readonly ahora?: () => Date;

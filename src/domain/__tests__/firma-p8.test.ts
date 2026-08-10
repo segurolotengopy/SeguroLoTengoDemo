@@ -178,11 +178,18 @@ function armar(expediente: Expediente = expedienteEnPaqueteGenerado()): Entorno 
   };
 }
 
-/** Abre el enlace en el Code100 simulado y firma con el código emitido. */
+/**
+ * Abre el enlace en el Code100 simulado y firma con el código emitido.
+ * Siempre al reloj del fixture: sin `ahora` los mocks caen al reloj real del
+ * sistema, y en cuanto ese reloj supera el vencimiento de la fixture el enlace
+ * se ve expirado. Todos los tests firman en AHORA; el que avanza el reloj lo
+ * hace después de firmar.
+ */
 function firmarEnCode100(idCode100: string, opciones: { fallarAMitadDelSellado?: boolean } = {}) {
-  abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true });
+  const ahora = () => new Date(AHORA);
+  abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true, ahora });
   const codigo = obtenerCodigoFirmaDemo(idCode100)?.codigo ?? "";
-  return firmarEnCode100Mock(idCode100, codigo, opciones);
+  return firmarEnCode100Mock(idCode100, codigo, { ...opciones, ahora });
 }
 
 async function pedirEnlace(entorno: Entorno, canal: unknown = "WHATSAPP") {
@@ -403,9 +410,10 @@ describe("P8 · confirmar la firma", () => {
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
 
-    abrirEnlaceDeFirmaMock(enlace.acto.idCode100, { retenerCodigoParaPanelDemo: true });
+    const ahora = () => new Date(AHORA);
+    abrirEnlaceDeFirmaMock(enlace.acto.idCode100, { retenerCodigoParaPanelDemo: true, ahora });
     const codigo = obtenerCodigoFirmaDemo(enlace.acto.idCode100)?.codigo ?? "";
-    firmarEnCode100Mock(enlace.acto.idCode100, codigo);
+    firmarEnCode100Mock(enlace.acto.idCode100, codigo, { ahora });
     await sondear(entorno);
 
     expect(codigo).not.toBe("");
@@ -468,7 +476,10 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
     expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
 
     const codigo = obtenerCodigoFirmaDemo(enlace.acto.idCode100)?.codigo ?? "";
-    expect(firmarEnCode100Mock(enlace.acto.idCode100, codigo).ok).toBe(true);
+    const reintento = firmarEnCode100Mock(enlace.acto.idCode100, codigo, {
+      ahora: () => new Date(AHORA),
+    });
+    expect(reintento.ok).toBe(true);
     await sondear(entorno);
 
     const expediente = entorno.repositorio.actual();

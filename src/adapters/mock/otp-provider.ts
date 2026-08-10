@@ -33,6 +33,7 @@ import type {
   SolicitudVerificacionOtp,
 } from "../../ports/otp-provider";
 import type { OtpRepository } from "../../repositories/otp-repository";
+import { estadoCompartidoDemo } from "./estado-compartido";
 
 /** Lo que el panel de demo puede ver de un envío simulado. */
 export interface EnvioDemo {
@@ -48,7 +49,7 @@ export interface EnvioDemo {
  * por request, y el panel de demo (otro handler) tiene que poder leer el
  * código emitido por el handler del flujo dentro del mismo proceso.
  */
-const registroDemo = new Map<string, EnvioDemo>();
+const registroDemo = estadoCompartidoDemo("otp.registro-demo", () => new Map<string, EnvioDemo>());
 
 /**
  * Fallo puntual que el panel de demo puede forzar sobre el próximo envío.

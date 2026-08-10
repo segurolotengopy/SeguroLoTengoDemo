@@ -24,6 +24,7 @@
  * la evidencia probatoria.
  */
 import { edadEnRangoPermitido } from "../../domain/tipos";
+import { estadoCompartidoDemo } from "./estado-compartido";
 import { obtenerPersonaDemo, PERSONAS_DEMO } from "./personas";
 import type { IdPersonaDemo, PersonaDemo } from "./personas";
 
@@ -69,24 +70,26 @@ const SELECCION_INICIAL: SeleccionDemo = {
   escenarioIdentidadForzado: null,
 };
 
-let seleccion: SeleccionDemo = SELECCION_INICIAL;
+const caja = estadoCompartidoDemo("persona-activa.seleccion", () => ({
+  seleccion: SELECCION_INICIAL,
+}));
 
 export function obtenerSeleccionDemo(): SeleccionDemo {
-  return seleccion;
+  return caja.seleccion;
 }
 
 export function fijarSeleccionDemo(nueva: SeleccionDemo): void {
-  seleccion = nueva;
+  caja.seleccion = nueva;
 }
 
 /** Deja la selección como al arrancar el proceso (camino feliz, sin forzados). */
 export function reiniciarSeleccionDemo(): void {
-  seleccion = SELECCION_INICIAL;
+  caja.seleccion = SELECCION_INICIAL;
 }
 
 /** La persona activa; si el id guardado ya no existe, cae al camino feliz. */
 export function personaActiva(): PersonaDemo {
-  const persona = obtenerPersonaDemo(seleccion.personaId) ?? obtenerPersonaDemo(ID_PERSONA_POR_DEFECTO);
+  const persona = obtenerPersonaDemo(caja.seleccion.personaId) ?? obtenerPersonaDemo(ID_PERSONA_POR_DEFECTO);
   if (!persona) {
     // Imposible salvo que alguien borre el fixture del camino feliz; mejor
     // fallar acá que simular a nadie.
@@ -113,7 +116,7 @@ export function escenarioIdentidadDe(
 
 /** Escenario efectivo: el forzado por el panel si existe, si no el de la persona. */
 export function escenarioIdentidadActivo(fechaReferencia: Date = new Date()): EscenarioIdentidadDemo {
-  return seleccion.escenarioIdentidadForzado ?? escenarioIdentidadDe(personaActiva(), fechaReferencia);
+  return caja.seleccion.escenarioIdentidadForzado ?? escenarioIdentidadDe(personaActiva(), fechaReferencia);
 }
 
 export function esIdPersonaDemo(valor: unknown): valor is IdPersonaDemo {
