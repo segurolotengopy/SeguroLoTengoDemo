@@ -23,7 +23,7 @@ vi.mock("@/repositories/secrets-client", () => ({
   obtenerSecretosApp: async () => ({ DEMO_PANEL_KEY: CLAVE, OTP_PEPPER: PEPPER }),
 }));
 
-import { POST } from "@/app/api/demo-panel/sesion/route";
+import { POST } from "@/app/api/demo-panel/sesion/route.demo";
 
 function peticion(cuerpo: unknown): Request {
   return new Request("https://segurolotengo.test/api/demo-panel/sesion", {

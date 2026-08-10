@@ -1,7 +1,26 @@
 import type { NextConfig } from "next";
 
+/**
+ * Exclusión del bundle del panel de demo (CLAUDE.md → "Panel de demo":
+ * "excluido del bundle cuando el flag está apagado").
+ *
+ * Los archivos de ruta del panel usan la extensión `page.demo.tsx` /
+ * `route.demo.ts`. Con `DEMO_MODE` apagado esas extensiones no figuran en
+ * `pageExtensions`, así que App Router ni siquiera las ve: `/demo-panel` y
+ * `/api/demo-panel/*` no existen en el build — no es un 404 en runtime, es
+ * que la ruta no se compila. Los componentes que solo el panel importa
+ * quedan fuera del grafo y no entran al bundle.
+ *
+ * La decisión es de **tiempo de build**: un despliegue con el flag apagado
+ * no contiene el código del panel. Las guardas de runtime (`esModoDemo()` en
+ * la página y en cada Route Handler) se conservan igual, como defensa en
+ * profundidad para un build hecho con el flag prendido pero servido con el
+ * flag apagado.
+ */
+const esModoDemo = process.env.DEMO_MODE === "true";
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  pageExtensions: esModoDemo ? ["demo.tsx", "demo.ts", "tsx", "ts"] : ["tsx", "ts"],
 };
 
 export default nextConfig;
