@@ -16,6 +16,9 @@ export type { FormularioVerificacionCanalProps } from "./FormularioVerificacionC
 export { CamposOtp } from "./CamposOtp";
 export type { CamposOtpProps } from "./CamposOtp";
 
+export { VisorEvidencia } from "./VisorEvidencia";
+export type { VisorEvidenciaProps } from "./VisorEvidencia";
+
 export { ToggleTema } from "./ToggleTema";
 export type { ToggleTemaProps } from "./ToggleTema";
 

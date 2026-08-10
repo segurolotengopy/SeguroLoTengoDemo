@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { VisorEvidencia } from "@/components/shared";
 import { formatearGuaranies, PLANES } from "@/domain/catalogo";
 import { TEXTOS_DECLARACIONES_P6 } from "@/domain/textos-p6";
 import { DECLARACIONES_P6 } from "@/domain/elegibilidad";
@@ -302,39 +303,14 @@ export function DetalleExpediente({
         </Bloque>
       </div>
 
-      {/* Registro de evidencia */}
-      <Bloque titulo={`Registro de evidencia (${detalle.evidencias?.length ?? 0} · append-only)`}>
-        <ol className="flex flex-col gap-2">
-          {(detalle.evidencias ?? []).map((registro) => (
-            <li
-              key={registro.id}
-              className="flex flex-col gap-0.5 rounded-lg border border-borde-tenue bg-superficie-suave p-3 text-sm"
-            >
-              <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="font-semibold text-titulo">{registro.paso}</span>
-                <span
-                  className={`text-xs font-bold ${
-                    registro.resultado === "EXITOSO"
-                      ? "text-verde-700 dark:text-verde-300"
-                      : "text-rojo-700 dark:text-rojo-300"
-                  }`}
-                >
-                  {registro.resultado}
-                </span>
-                <span className="text-xs text-etiqueta tabular-nums">
-                  {new Date(registro.fecha).toLocaleString("es-PY")}
-                </span>
-              </div>
-              <p className="text-xs text-cuerpo">
-                IP {registro.ip} · sesión {registro.sesionId.slice(0, 8)}…
-                {registro.versionTextoAceptado ? ` · ${registro.versionTextoAceptado}` : ""}
-              </p>
-              {registro.detalle ? (
-                <p className="font-mono text-xs break-all text-etiqueta">{registro.detalle}</p>
-              ) : null}
-            </li>
-          ))}
-        </ol>
+      {/* Visor de evidencia — mismo componente que el panel de demo (§4) */}
+      <Bloque titulo="Visor de evidencia">
+        <VisorEvidencia
+          expedienteId={expediente.id}
+          evidencias={detalle.evidencias ?? []}
+          paqueteDocumental={expediente.paqueteDocumental}
+          firma={expediente.firma}
+        />
       </Bloque>
 
       {/* Reinicio con justificativo */}
