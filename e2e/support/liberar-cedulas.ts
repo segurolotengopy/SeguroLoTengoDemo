@@ -34,6 +34,7 @@ function esFilaBusqueda(valor: unknown): valor is FilaBusqueda {
 export async function liberarCedulasDePrueba(): Promise<void> {
   const clave = await obtenerClaveConsola();
 
+  // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request -- webServer local de Playwright en loopback (127.0.0.1); la clave nunca sale de la máquina.
   const sesion = await fetch(`${BASE_URL}/api/admin-consola/sesion`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -60,6 +61,7 @@ export async function liberarCedulasDePrueba(): Promise<void> {
     const filas = Array.isArray(datos.resultados) ? datos.resultados.filter(esFilaBusqueda) : [];
 
     for (const fila of filas.filter((candidata) => candidata.bloqueaRegistro)) {
+      // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request -- webServer local de Playwright en loopback (127.0.0.1).
       const reinicio = await fetch(`${BASE_URL}/api/admin-consola/reinicio`, {
         method: "POST",
         headers: { "content-type": "application/json", cookie },

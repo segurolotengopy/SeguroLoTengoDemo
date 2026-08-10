@@ -52,6 +52,7 @@ async function esperarServidorListo(timeoutMs: number): Promise<void> {
   const limite = Date.now() + timeoutMs;
   for (;;) {
     try {
+      // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request -- webServer local de Playwright en loopback (127.0.0.1); no hay TLS ni tráfico fuera de la máquina.
       await fetch(BASE_URL, { method: "GET" });
       return;
     } catch {
