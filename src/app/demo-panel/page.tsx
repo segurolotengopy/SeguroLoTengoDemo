@@ -19,7 +19,7 @@ import {
   listarSesionesFirmaMock,
   obtenerCodigoFirmaDemo,
 } from "@/adapters/mock/signature-provider";
-import { HeaderInstitucional } from "@/components/shared";
+import { HeaderInstitucional, VisorEvidencia } from "@/components/shared";
 import { enmascararCorreo } from "@/domain/correo";
 import { enmascararCelular } from "@/domain/telefono";
 import { crearEvidenceStore, crearExpedienteRepository } from "@/repositories";
@@ -152,9 +152,10 @@ export default async function PanelDeDemo() {
   const evidencias = expedienteId
     ? await crearEvidenceStore().obtenerHistorial(expedienteId)
     : [];
-  const estadoDelExpediente = expedienteId
-    ? ((await crearExpedienteRepository().obtenerPorId(expedienteId))?.estado ?? null)
+  const expedienteActivo = expedienteId
+    ? await crearExpedienteRepository().obtenerPorId(expedienteId)
     : null;
+  const estadoDelExpediente = expedienteActivo?.estado ?? null;
 
   return (
     <div className="flex flex-1 flex-col bg-fondo">
@@ -252,52 +253,18 @@ export default async function PanelDeDemo() {
           </p>
         </Tarjeta>
 
-        <Tarjeta titulo="Registro de evidencia del expediente en curso">
+        <Tarjeta titulo="Visor de evidencia del expediente en curso">
           {!expedienteId ? (
             <p className="text-sm text-cuerpo">
               No hay expediente en esta sesión del navegador. Empezá P1 y volvé.
             </p>
-          ) : evidencias.length === 0 ? (
-            <p className="text-sm text-cuerpo">
-              Expediente <code className="font-mono">{expedienteId}</code>, todavía sin evidencia.
-            </p>
           ) : (
-            <>
-              <p className="text-xs text-etiqueta">
-                Expediente <code className="font-mono">{expedienteId}</code> ·{" "}
-                {evidencias.length} registros (append-only)
-              </p>
-              <ol className="flex flex-col gap-2">
-                {evidencias.map((registro) => (
-                  <li
-                    key={registro.id}
-                    className="flex flex-col gap-0.5 rounded-lg border border-borde-tenue bg-superficie-suave p-3 text-sm"
-                  >
-                    <div className="flex flex-wrap items-baseline gap-x-3">
-                      <span className="font-semibold text-titulo">{registro.paso}</span>
-                      <span
-                        className={`text-xs font-bold ${
-                          registro.resultado === "EXITOSO"
-                            ? "text-verde-700 dark:text-verde-300"
-                            : "text-rojo-700 dark:text-rojo-300"
-                        }`}
-                      >
-                        {registro.resultado}
-                      </span>
-                      <span className="text-xs text-etiqueta tabular-nums">
-                        {new Date(registro.fecha).toLocaleString("es-PY")}
-                      </span>
-                    </div>
-                    <p className="text-xs text-cuerpo">
-                      IP {registro.ip} · sesión {registro.sesionId.slice(0, 8)}…
-                    </p>
-                    {registro.detalle ? (
-                      <p className="font-mono text-xs break-all text-etiqueta">{registro.detalle}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
-            </>
+            <VisorEvidencia
+              expedienteId={expedienteId}
+              evidencias={evidencias}
+              paqueteDocumental={expedienteActivo?.paqueteDocumental ?? null}
+              firma={expedienteActivo?.firma ?? null}
+            />
           )}
         </Tarjeta>
 

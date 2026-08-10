@@ -124,6 +124,8 @@ Funciones (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los OTP gener
 
 **Límite conocido.** Los códigos viven en memoria del proceso que atendió el envío, porque la regla inviolable #2 prohíbe persistirlos. En un despliegue con varias instancias, el panel puede no ver un código emitido por otra. Con el tráfico de una demostración suele haber una sola instancia caliente, pero conviene saberlo antes de estar frente a la gerencia: si el código no aparece, recargá y repetí el envío.
 
+**Pendiente: exclusión del bundle vs. bloqueo en runtime.** CLAUDE.md dice que con `DEMO_MODE` apagado el panel queda "excluido del bundle"; lo implementado hoy es bloqueo en tiempo de ejecución (`notFound()` en la página y guarda `esModoDemo()` en cada ruta de `/api/demo-panel/*`), sin exclusión a nivel de build. El acceso queda igual de cerrado, pero hay que alinear una de las dos puntas: implementar la exclusión real del bundle o corregir el texto de CLAUDE.md. Detectado en la auditoría de reglas inviolables del 2026-08-10.
+
 ---
 
 ## 6. Antes de una demostración
