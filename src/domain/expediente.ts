@@ -16,9 +16,11 @@ import type {
   Declaraciones,
   EstadoExpediente,
   Expediente,
+  PaqueteDocumental,
   Pago,
 } from "./tipos";
 import { ESTADOS_TERMINALES, garantiaDePagoLista } from "./tipos";
+import { codigoFipf, codigoSolicitud } from "./documentos";
 import { evaluarElegibilidad } from "./elegibilidad";
 
 /** Grafo de transiciones legales: única fuente de verdad de la máquina de estados. */
@@ -235,4 +237,78 @@ export function confirmarGarantiaDePagoP7(
     { pago: confirmacion.pago, plazoFirmaVenceEn: confirmacion.plazoFirmaVenceEn },
     ahora,
   );
+}
+
+// ---------------------------------------------------------------------------
+// P8 · Paquete documental (Solicitud + FIPF cerrados)
+// ---------------------------------------------------------------------------
+
+/**
+ * PAGO_CONFIRMADO → PAQUETE_GENERADO: asienta la Solicitud y el FIPF ya
+ * cerrados y hasheados, antes de habilitar la firma.
+ *
+ * Las tres reglas que esta función hace imposibles de violar:
+ *
+ * **Los documentos entran juntos o no entra ninguno** (regla inviolable #3).
+ * `PaqueteDocumental` no tiene campos opcionales y esta es la única escritura
+ * de `expediente.paqueteDocumental`, así que no existe un estado en el que la
+ * Solicitud esté cerrada y el FIPF no.
+ *
+ * **Un solo correlativo, dos prefijos.** Los códigos se validan contra
+ * `expediente.numeroPropuesta`: un paquete cuyo FIPF no derive del mismo
+ * número que la Solicitud se rechaza acá y nunca llega a persistirse
+ * (CLAUDE.md → "Reglas transversales de integraciones"; fila 47 de la matriz
+ * de cumplimiento, Res. SS SG. 215/15, punto 14; Ley 6822/21, arts. 44-46).
+ *
+ * **No hay paquete sin garantía de pago.** El único estado de origen legal es
+ * PAGO_CONFIRMADO, y encima se verifica el estado del pago: los documentos se
+ * cierran después de que Bancard confirmó, nunca antes.
+ *
+ * No existe transición PAQUETE_GENERADO → PAQUETE_GENERADO, y es a propósito:
+ * regenerar un documento ya cerrado exigiría versión y huellas nuevas (regla
+ * inviolable #4), así que sería una transición distinta, con su propia
+ * validación, y no un autobucle silencioso.
+ */
+export function registrarPaqueteDocumental(
+  expediente: Expediente,
+  paquete: PaqueteDocumental,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (!expediente.numeroPropuesta) {
+    return { ok: false, error: "No se puede cerrar el paquete documental sin correlativo de propuesta." };
+  }
+
+  if (!garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
+    return {
+      ok: false,
+      error: "No se puede cerrar el paquete documental sin una garantía de pago lista.",
+    };
+  }
+
+  const esperados = {
+    solicitud: codigoSolicitud(expediente.numeroPropuesta),
+    fipf: codigoFipf(expediente.numeroPropuesta),
+  };
+  if (paquete.solicitud.codigo !== esperados.solicitud || paquete.fipf.codigo !== esperados.fipf) {
+    return {
+      ok: false,
+      error:
+        `Los códigos del paquete no derivan del correlativo ${expediente.numeroPropuesta}: ` +
+        `se esperaba ${esperados.solicitud} y ${esperados.fipf}, ` +
+        `llegó ${paquete.solicitud.codigo} y ${paquete.fipf.codigo}.`,
+    };
+  }
+
+  if (paquete.solicitud.version !== paquete.fipf.version) {
+    return {
+      ok: false,
+      error: "La Solicitud y el FIPF deben cerrarse con la misma versión: se firman en un solo acto.",
+    };
+  }
+
+  if (paquete.solicitud.hashSha256 === "" || paquete.fipf.hashSha256 === "") {
+    return { ok: false, error: "Ningún documento puede quedar cerrado sin su huella digital SHA-256." };
+  }
+
+  return transicionarExpediente(expediente, "PAQUETE_GENERADO", { paqueteDocumental: paquete }, ahora);
 }
