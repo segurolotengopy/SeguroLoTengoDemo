@@ -247,6 +247,10 @@ Título: `Facturación y garantía de pago` — prepará el pago antes de firmar
 - Botón `PREAUTORIZAR TARJETA`.  
 - `DEPENDENCIA DE BANCARD`: se habilitará cuando Bancard confirme la modalidad de preautorización y captura para el vPOS de Alianza. Si no se firma, se cancelará o liberará la reserva según Bancard.
 
+> **Nota de implementación (divergencia vigente).** Bancard confirmó que la **preautorización aplica únicamente a tarjeta de crédito**. Con tarjeta de débito la preautorización ya mueve el dinero — *"al enviar la misma ya se realiza el movimiento de dinero, es decir, se acredita el monto preautorizado en la cuenta del comercio"* (`Integraciones/Preaut y promociones 14.pdf`) —, así que describirla como reserva sería informarle al cliente algo distinto de lo que ocurre con su plata (fila 25 de la matriz de cumplimiento).
+>
+> Por eso la pantalla implementada ofrece **tres** medios y no dos: el débito se separa del crédito y se agrupa con el QR como pago definitivo antes de la firma, resuelto por **compra simple de vPOS** (`Integraciones/eCommerce_bancard_compra_simple_version_1.23.1 (1).pdf`). El crédito conserva exactamente el texto y el comportamiento descritos arriba. Ver `MedioDePago` en `src/domain/tipos.ts`.
+
 **`DESPUÉS DE ESTA PANTALLA`** (dos secuencias distintas):
 
 - QR: `QR pagado → Firma Code100 → Solicitud de emisión`  

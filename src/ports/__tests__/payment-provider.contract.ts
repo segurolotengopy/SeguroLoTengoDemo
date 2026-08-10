@@ -1,7 +1,16 @@
 /**
  * Suite de contrato para cualquier implementación de `PaymentProvider`
- * (mock u oficial), P7. Cubre el flujo de QR (pago definitivo) y de tarjeta
- * (preautorización, captura y liberación de reserva).
+ * (mock u oficial), P7. Cubre las tres modalidades: QR y débito (pago
+ * definitivo antes de la firma) y crédito (preautorización, captura y
+ * liberación de reserva).
+ *
+ * La suite **no verifica el estado al que llega cada modalidad** después de
+ * pagar: eso depende de cuándo la persona escanea el QR o completa el
+ * formulario seguro, que ninguna implementación puede forzar desde acá. Lo que
+ * sí verifica es lo que el puerto promete pase lo que pase: idempotencia,
+ * forma de las respuestas y comportamiento ante una referencia desconocida.
+ * Los desenlaces temporales los prueba el test del adaptador, que sí puede
+ * fijar el reloj.
  *
  * Regla de negocio inviolable #6 (ningún PAN completo ni CVV): es una
  * garantía de tipos, no verificable en runtime. `EstadoConsultaPago` solo
@@ -45,8 +54,86 @@ export function runPaymentProviderContractTests(
 
       const estado = await p.consultarEstadoPago(inicio.referenciaBancard);
 
-      expect(estado.medio).toBe("QR_BANCARD");
-      expect(estado.montoGs).toBe(475000);
+      expect(estado?.medio).toBe("QR_BANCARD");
+      expect(estado?.montoGs).toBe(475000);
+      // Un QR no tiene tarjeta detrás; ni siquiera el dato enmascarado.
+      expect(estado?.ultimos4Digitos).toBeNull();
+    });
+
+    it("devuelve null al consultar una referencia que Bancard no conoce", async () => {
+      const p = await proveedor();
+
+      expect(await p.consultarEstadoPago("NO-EXISTE-ESTA-REFERENCIA")).toBeNull();
+    });
+
+    it("inicia un pago con tarjeta de débito por compra simple, con URL de formulario seguro", async () => {
+      const p = await proveedor();
+      const resultado = await p.iniciarPagoTarjetaDebito({
+        expedienteId: "EXP-CONTRATO-9",
+        propuestaId: "PROP-00018425",
+        montoGs: 475000,
+        urlRetorno: "https://segurolotengo.com/p7/retorno",
+        idempotencyKey: "IDEMP-CONTRATO-9",
+      });
+
+      expect(resultado.referenciaBancard.length).toBeGreaterThan(0);
+      expect(resultado.urlFormularioSeguro).toMatch(/^https?:\/\//);
+    });
+
+    it("reintenta iniciarPagoTarjetaDebito con la misma idempotencyKey y no abre un cobro nuevo", async () => {
+      const p = await proveedor();
+      const input = {
+        expedienteId: "EXP-CONTRATO-10",
+        propuestaId: "PROP-00018425",
+        montoGs: 475000,
+        urlRetorno: "https://segurolotengo.com/p7/retorno",
+        idempotencyKey: "IDEMP-CONTRATO-10",
+      };
+
+      const primero = await p.iniciarPagoTarjetaDebito(input);
+      const reintento = await p.iniciarPagoTarjetaDebito(input);
+
+      expect(reintento.referenciaBancard).toBe(primero.referenciaBancard);
+      expect(reintento.urlFormularioSeguro).toBe(primero.urlFormularioSeguro);
+    });
+
+    /**
+     * La preautorización es exclusiva de la tarjeta de crédito (confirmado por
+     * Bancard): con débito el dinero ya se movió en P7, así que no hay nada
+     * que capturar y pedirlo es un error de programación.
+     */
+    it("rechaza capturar una operación de débito: no es una preautorización", async () => {
+      const p = await proveedor();
+      const debito = await p.iniciarPagoTarjetaDebito({
+        expedienteId: "EXP-CONTRATO-11",
+        propuestaId: "PROP-00018425",
+        montoGs: 475000,
+        urlRetorno: "https://segurolotengo.com/p7/retorno",
+        idempotencyKey: "IDEMP-CONTRATO-11",
+      });
+
+      await expect(p.capturarPreautorizacion(debito.referenciaBancard)).rejects.toThrow();
+    });
+
+    it("distingue el medio de cada operación al consultarla", async () => {
+      const p = await proveedor();
+      const debito = await p.iniciarPagoTarjetaDebito({
+        expedienteId: "EXP-CONTRATO-12",
+        propuestaId: "PROP-00018425",
+        montoGs: 475000,
+        urlRetorno: "https://segurolotengo.com/p7/retorno",
+        idempotencyKey: "IDEMP-CONTRATO-12",
+      });
+      const credito = await p.iniciarPreautorizacionTarjeta({
+        expedienteId: "EXP-CONTRATO-12",
+        propuestaId: "PROP-00018425",
+        montoGs: 475000,
+        urlRetorno: "https://segurolotengo.com/p7/retorno",
+        idempotencyKey: "IDEMP-CONTRATO-12-BIS",
+      });
+
+      expect((await p.consultarEstadoPago(debito.referenciaBancard))?.medio).toBe("TARJETA_DEBITO");
+      expect((await p.consultarEstadoPago(credito.referenciaBancard))?.medio).toBe("TARJETA_CREDITO");
     });
 
     it("inicia una preautorización de tarjeta con URL de formulario seguro de Bancard", async () => {

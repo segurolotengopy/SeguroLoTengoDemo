@@ -138,7 +138,8 @@ Funciones previstas (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los
 | P5 · Verificación de identidad | Implementada, con el `IdentityProvider` mock de punta a punta |
 | P6 · Datos y declaraciones | Implementada, con el motor de elegibilidad y la derivación a Pantalla A de punta a punta |
 | Pantalla A · Emisión no automática | Implementada. Los datos de contacto de Alianza e Interseguros son marcadores: el PDF de referencia tampoco los trae |
-| P7 a P9, Pantalla B | **Pendientes** |
+| P7 · Facturación y garantía de pago | Implementada, con el `PaymentProvider` mock de punta a punta: QR, débito y crédito, declaración de origen lícito bloqueante e idempotencia del intento de pago |
+| P8, P9, Pantalla B | **Pendientes** |
 | Panel de demo | Parcial: clave, códigos OTP, registro de evidencia, selección de persona (con desenlace de identidad forzable) y reinicio de expediente. Faltan el acelerador de plazo y el resto de los fallos forzados |
 | Consola administrativa | Implementada en `/admin-consola`: búsqueda, detalle, evidencia y reinicio con justificativo. Falta la vista de envíos/respuestas a proveedores |
 

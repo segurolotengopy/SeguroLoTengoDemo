@@ -40,6 +40,8 @@ import {
   reiniciarExpediente,
 } from "@/domain/consola-administrativa";
 import { guardarDatosYDeclaracionesP6 } from "@/domain/declaraciones-p6";
+import { confirmarPagoP7, iniciarPagoP7 } from "@/domain/pago-p7";
+import type { PaymentProvider } from "@/ports/payment-provider";
 import { esTransicionLegal, transicionarExpediente, transicionesLegalesDesde } from "@/domain/expediente";
 import { seleccionarPlan } from "@/domain/seleccion-plan";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "@/domain/tipos";
@@ -102,6 +104,26 @@ function evidenciasFalsas(): EvidenceStore {
  * necesita: que los casos de uso de P1 y P4 lleguen hasta el chequeo de estado
  * sin explotar antes por falta de infraestructura.
  */
+/**
+ * `PaymentProvider` que explota si alguien lo llama. Un expediente derivado no
+ * puede llegar a Bancard: si un caso de uso lo intentara, este doble convierte
+ * el intento en un fallo ruidoso en vez de dejarlo pasar como una operación
+ * simulada más.
+ */
+function pagosQueFallanSiSeUsan(): PaymentProvider {
+  const explotar = (metodo: string) => () => {
+    throw new Error(`Se llamó a PaymentProvider.${metodo} con un expediente DERIVADO_MANUAL.`);
+  };
+  return {
+    iniciarPagoQr: explotar("iniciarPagoQr"),
+    iniciarPagoTarjetaDebito: explotar("iniciarPagoTarjetaDebito"),
+    iniciarPreautorizacionTarjeta: explotar("iniciarPreautorizacionTarjeta"),
+    consultarEstadoPago: explotar("consultarEstadoPago"),
+    capturarPreautorizacion: explotar("capturarPreautorizacion"),
+    cancelarOLiberarReserva: explotar("cancelarOLiberarReserva"),
+  };
+}
+
 function otpFalso(): { provider: OtpProvider; lector: { obtener: (id: string) => Promise<null> } } {
   const provider: OtpProvider = {
     async enviarOtp() {
@@ -405,6 +427,43 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
           },
         ),
     },
+    /**
+     * P7 es el primer endpoint que podría mover dinero, así que es donde la
+     * `Regla del sistema` de la Pantalla A —*"no continuar a pago Bancard"*—
+     * se juega de verdad. Los dos casos rechazan **antes** de llamar al
+     * proveedor: `iniciarPagoP7` mira el estado antes de abrir la operación, y
+     * `confirmarPagoP7` corta porque un expediente derivado no tiene `pago`.
+     */
+    {
+      ruta: "p7/pago",
+      ejecutar: async (repo) =>
+        iniciarPagoP7(
+          {
+            pagos: pagosQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            medio: "QR_BANCARD",
+            ruc: "",
+            origenLicitoDeFondos: true,
+            contexto: CONTEXTO,
+          },
+        ),
+    },
+    {
+      ruta: "p7/estado",
+      ejecutar: async (repo) =>
+        confirmarPagoP7(
+          {
+            pagos: pagosQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
   ];
 
   it.each(CASOS.map((caso) => [caso.ruta, caso] as const))(
@@ -509,6 +568,9 @@ describe("3. Inventario de rutas de la API", () => {
       "expediente/canales",
       "expediente/caso",
       "expediente/plan",
+      // Proyecta el bloque 1 de P7 desde el expediente; `leerResumenPagoP7`
+      // devuelve null si no está en DECLARACIONES_OK o PAGO_CONFIRMADO.
+      "p7/resumen",
     ];
 
     /**
@@ -530,6 +592,8 @@ describe("3. Inventario de rutas de la API", () => {
       "p5/captura",
       "p5/identidad",
       "p6/declaraciones",
+      "p7/estado",
+      "p7/pago",
     ];
 
     const conocidas = new Set([...SOLO_LECTURA, ...CUBIERTAS, ...CREAN_SIN_TOCAR_EL_ORIGINAL]);

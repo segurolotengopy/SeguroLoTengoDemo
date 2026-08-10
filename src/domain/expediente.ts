@@ -10,8 +10,15 @@
  *               ├─ VENCIDO → DEVOLUCION_EN_TRAMITE → Pantalla B
  *               └─ FIRMADO → EMITIDO → P9
  */
-import type { DatosComplementariosP6, Declaraciones, EstadoExpediente, Expediente } from "./tipos";
-import { ESTADOS_TERMINALES } from "./tipos";
+import type {
+  DatosComplementariosP6,
+  DatosFacturacionP7,
+  Declaraciones,
+  EstadoExpediente,
+  Expediente,
+  Pago,
+} from "./tipos";
+import { ESTADOS_TERMINALES, garantiaDePagoLista } from "./tipos";
 import { evaluarElegibilidad } from "./elegibilidad";
 
 /** Grafo de transiciones legales: única fuente de verdad de la máquina de estados. */
@@ -136,6 +143,96 @@ export function registrarDeclaracionesP6(
       motivoDerivacionManual: resultado.declaracionesQueBloquean,
       numeroCasoDerivacion,
     },
+    ahora,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// P7 · Facturación y garantía de pago
+// ---------------------------------------------------------------------------
+
+/**
+ * Asienta el intento de pago de P7 **sin mover el estado**: el expediente se
+ * queda en DECLARACIONES_OK hasta que Bancard confirme.
+ *
+ * Existe como función del dominio —y no como un `guardar` armado en el Route
+ * Handler— porque lo que se persiste acá es lo que hace idempotente al cobro:
+ * la `idempotencyKey` y la `referenciaBancard` del intento en curso. Sin
+ * guardarlas, un reintento después de un timeout abriría una operación nueva
+ * en Bancard y cobraría dos veces (fila 32 de la matriz de cumplimiento, Ley
+ * 6822/21, art. 68(1); Res. BCP 25/21, art. 8).
+ *
+ * Vuelve a escribirse en cada reintento del mismo intento, y eso está bien:
+ * `Pago` es el intento en curso, no un registro histórico. La traza
+ * append-only de cada llamada a Bancard vive en `EvidenceStore` (regla
+ * inviolable #10), que es donde no se pisa nada.
+ */
+export function registrarIntentoPagoP7(
+  expediente: Expediente,
+  intento: {
+    readonly numeroPropuesta: string;
+    readonly facturacion: DatosFacturacionP7;
+    readonly pago: Pago;
+  },
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (expediente.estado !== "DECLARACIONES_OK") {
+    return {
+      ok: false,
+      error: `Solo se puede preparar el pago desde DECLARACIONES_OK; el expediente está en ${expediente.estado}.`,
+    };
+  }
+
+  if (garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
+    return {
+      ok: false,
+      error: "El expediente ya tiene una garantía de pago vigente; no se puede abrir otro intento.",
+    };
+  }
+
+  return {
+    ok: true,
+    expediente: {
+      ...expediente,
+      // El correlativo se acuña una sola vez: cambiar de medio de pago o
+      // reintentar no puede darle a la misma persona dos números de propuesta.
+      numeroPropuesta: expediente.numeroPropuesta ?? intento.numeroPropuesta,
+      facturacion: intento.facturacion,
+      pago: intento.pago,
+      actualizadoEn: ahora,
+    },
+  };
+}
+
+/**
+ * DECLARACIONES_OK → PAGO_CONFIRMADO. Es el único punto por el que P7 mueve
+ * el estado, y solo lo hace con una garantía de pago efectivamente lista:
+ * QR o débito acreditados, o crédito preautorizado.
+ *
+ * `PAGO_CONFIRMADO` significa *"garantía de pago lista"*, no *"cobrado"* —
+ * con crédito todavía no se cobró nada; la captura la ordena la firma en P8
+ * (P8, bloque 2: `GARANTÍA DE PAGO LISTA`; filas 26 y 27 de la matriz).
+ *
+ * `plazoFirmaVenceEn` entra en la misma transición a propósito: el plazo de
+ * 24 horas arranca con el pago confirmado, y dejarlo para una escritura
+ * posterior abriría una ventana en la que existe un pago sin vencimiento.
+ */
+export function confirmarGarantiaDePagoP7(
+  expediente: Expediente,
+  confirmacion: { readonly pago: Pago; readonly plazoFirmaVenceEn: string },
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (!garantiaDePagoLista(confirmacion.pago.estado)) {
+    return {
+      ok: false,
+      error: `No se puede confirmar la garantía de pago con el pago en estado ${confirmacion.pago.estado}.`,
+    };
+  }
+
+  return transicionarExpediente(
+    expediente,
+    "PAGO_CONFIRMADO",
+    { pago: confirmacion.pago, plazoFirmaVenceEn: confirmacion.plazoFirmaVenceEn },
     ahora,
   );
 }
