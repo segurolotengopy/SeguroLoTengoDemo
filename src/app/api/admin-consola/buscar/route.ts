@@ -19,7 +19,11 @@
  */
 import { respuestaJson } from "@/app/api/_http/contexto-peticion";
 import { rechazoDeAcceso } from "@/app/api/admin-consola/_guardia";
-import { armarResultados, filtrarPorNombre } from "@/domain/consola-administrativa";
+import {
+  armarResultados,
+  estadoBloqueaRegistro,
+  filtrarPorNombre,
+} from "@/domain/consola-administrativa";
 import { ESTADOS_TERMINALES } from "@/domain/tipos";
 import type { EstadoExpediente, Expediente } from "@/domain/tipos";
 import { crearExpedienteRepository } from "@/repositories";
@@ -39,6 +43,7 @@ const ESTADOS_VALIDOS: readonly EstadoExpediente[] = [
   "PAQUETE_GENERADO",
   "VENCIDO",
   "DEVOLUCION_EN_TRAMITE",
+  "DEVUELTO",
   "FIRMADO",
   "EMITIDO",
 ];
@@ -99,9 +104,28 @@ export async function GET(request: Request): Promise<Response> {
 
   const filtrados = filtrarPorNombre(encontrados, nombre);
 
+  // Un sucesor de reinicio nace `INICIADO` y sin cédula, así que `contexto`
+  // (armado por cédula) no lo contiene, y sin él el badge `bloqueaRegistro`
+  // marcaría como bloqueante un expediente ya superado. Mismo criterio que la
+  // vista de detalle: se juntan los sucesores de los que están en estado
+  // bloqueante antes de evaluar.
+  const conEstadoBloqueante = contexto.filter((expediente) =>
+    estadoBloqueaRegistro(expediente.estado),
+  );
+  const sucesores = (
+    await Promise.all(
+      conEstadoBloqueante.map((expediente) => repositorio.buscarSucesores(expediente.id)),
+    )
+  ).flat();
+  const idsEnContexto = new Set(contexto.map((expediente) => expediente.id));
+  const contextoConSucesores = [
+    ...contexto,
+    ...sucesores.filter((sucesor) => !idsEnContexto.has(sucesor.id)),
+  ];
+
   return respuestaJson({
     ok: true,
-    resultados: armarResultados(filtrados, contexto),
+    resultados: armarResultados(filtrados, contextoConSucesores),
     // Le dice a la consola qué estados dibujar con badge de terminal.
     estadosTerminales: ESTADOS_TERMINALES,
   });

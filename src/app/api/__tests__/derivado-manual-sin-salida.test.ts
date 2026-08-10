@@ -40,8 +40,22 @@ import {
   reiniciarExpediente,
 } from "@/domain/consola-administrativa";
 import { guardarDatosYDeclaracionesP6 } from "@/domain/declaraciones-p6";
+import { generarPaqueteDocumental } from "@/documentos";
+import type { RepositorioArchivos } from "@/documentos";
+import {
+  iniciarDevolucionPantallaB,
+  registrarDevolucionEjecutadaPantallaB,
+} from "@/domain/devolucion-pantalla-b";
+import {
+  consultarEmisionP9,
+  emitirPolizaP9,
+  registrarComunicacionesComercialesP9,
+} from "@/domain/emision-p9";
+import { confirmarFirmaP8, iniciarFirmaP8, vencerPlazoFirmaP8 } from "@/domain/firma-p8";
 import { confirmarPagoP7, iniciarPagoP7 } from "@/domain/pago-p7";
 import type { PaymentProvider } from "@/ports/payment-provider";
+import type { PolicyIssuer } from "@/ports/policy-issuer";
+import type { SignatureProvider } from "@/ports/signature-provider";
 import { esTransicionLegal, transicionarExpediente, transicionesLegalesDesde } from "@/domain/expediente";
 import { seleccionarPlan } from "@/domain/seleccion-plan";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "@/domain/tipos";
@@ -121,6 +135,36 @@ function pagosQueFallanSiSeUsan(): PaymentProvider {
     consultarEstadoPago: explotar("consultarEstadoPago"),
     capturarPreautorizacion: explotar("capturarPreautorizacion"),
     cancelarOLiberarReserva: explotar("cancelarOLiberarReserva"),
+  };
+}
+
+function polizasQueFallanSiSeUsan(): PolicyIssuer {
+  const explotar = (metodo: string) => () => {
+    throw new Error(`Se llamó a PolicyIssuer.${metodo} con un expediente DERIVADO_MANUAL.`);
+  };
+  return {
+    emitirPoliza: explotar("emitirPoliza"),
+    consultarEstadoPoliza: explotar("consultarEstadoPoliza"),
+    consultarEstadoFacturaElectronica: explotar("consultarEstadoFacturaElectronica"),
+  };
+}
+
+function archivosQueFallanSiSeUsan(): RepositorioArchivos {
+  return {
+    guardarArchivo: () => {
+      throw new Error("Se guardó un PDF de un expediente DERIVADO_MANUAL.");
+    },
+  };
+}
+
+function firmasQueFallanSiSeUsan(): SignatureProvider {
+  const explotar = (metodo: string) => () => {
+    throw new Error(`Se llamó a SignatureProvider.${metodo} con un expediente DERIVADO_MANUAL.`);
+  };
+  return {
+    iniciarFirma: explotar("iniciarFirma"),
+    descargarDocumentosFirmados: explotar("descargarDocumentosFirmados"),
+    confirmarResultado: explotar("confirmarResultado"),
   };
 }
 
@@ -364,7 +408,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             identidad: crearIdentityProviderMock(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
-            bloqueos: { buscarPorCedula: async () => [] },
+            bloqueos: { buscarPorCedula: async () => [], buscarSucesores: async () => [] },
           },
           { expedienteId: EXPEDIENTE_ID, tipo: "FRENTE", imagen: IMAGEN, contexto: CONTEXTO },
         ),
@@ -377,7 +421,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             identidad: crearIdentityProviderMock(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
-            bloqueos: { buscarPorCedula: async () => [] },
+            bloqueos: { buscarPorCedula: async () => [], buscarSucesores: async () => [] },
           },
           { expedienteId: EXPEDIENTE_ID, imagenes: IMAGENES, contexto: CONTEXTO },
         ),
@@ -390,7 +434,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             identidad: crearIdentityProviderMock(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
-            bloqueos: { buscarPorCedula: async () => [] },
+            bloqueos: { buscarPorCedula: async () => [], buscarSucesores: async () => [] },
           },
           {
             expedienteId: EXPEDIENTE_ID,
@@ -459,6 +503,114 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
           {
             pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
+    /**
+     * P8 es donde se juega la otra mitad de la `Regla del sistema` de la
+     * Pantalla A: *"no continuar a … firma Code100 ni emisión mediante
+     * SEBAOT"*. Los dos casos cortan **antes** de tocar al proveedor —
+     * `iniciarFirmaP8` mira el estado, y `confirmarFirmaP8` corta porque un
+     * expediente derivado no tiene acto de firma abierto.
+     */
+    {
+      ruta: "p8/firma",
+      ejecutar: async (repo) =>
+        iniciarFirmaP8(
+          {
+            firmas: firmasQueFallanSiSeUsan(),
+            pagos: pagosQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, canal: "WHATSAPP", contexto: CONTEXTO },
+        ),
+    },
+    {
+      ruta: "p8/estado",
+      ejecutar: async (repo) =>
+        confirmarFirmaP8(
+          {
+            firmas: firmasQueFallanSiSeUsan(),
+            pagos: pagosQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
+    /**
+     * La Pantalla B es el desenlace del vencimiento del plazo de firma, no de
+     * la derivación: un expediente DERIVADO_MANUAL nunca pagó nada, así que no
+     * hay trámite de devolución que abrir ni premio que devolver.
+     */
+    {
+      ruta: "pantalla-b/caso",
+      ejecutar: async (repo) =>
+        iniciarDevolucionPantallaB(
+          { expedientes: repo, evidencias: evidenciasFalsas() },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
+    {
+      ruta: "demo-panel/devolucion",
+      ejecutar: async (repo) =>
+        registrarDevolucionEjecutadaPantallaB(
+          { expedientes: repo, evidencias: evidenciasFalsas() },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
+    /**
+     * P9 cierra la `Regla del sistema` de la Pantalla A: *"no continuar a pago
+     * Bancard, firma Code100 ni emisión mediante SEBAOT"*. Los tres cortan
+     * antes de tocar al proveedor, porque un expediente derivado no está en
+     * FIRMADO ni en EMITIDO.
+     */
+    {
+      ruta: "p9/resumen",
+      ejecutar: async (repo) =>
+        emitirPolizaP9(
+          {
+            polizas: polizasQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
+    {
+      ruta: "p9/estado",
+      ejecutar: async (repo) =>
+        consultarEmisionP9(
+          {
+            polizas: polizasQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
+    {
+      ruta: "p9/comunicaciones",
+      ejecutar: async (repo) =>
+        registrarComunicacionesComercialesP9(
+          {
+            polizas: polizasQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, acepta: true, contexto: CONTEXTO },
+        ),
+    },
+    {
+      ruta: "p8/resumen",
+      ejecutar: async (repo) =>
+        generarPaqueteDocumental(
+          {
+            expedientes: repo,
+            archivos: archivosQueFallanSiSeUsan(),
             evidencias: evidenciasFalsas(),
           },
           { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
@@ -562,6 +714,12 @@ describe("3. Inventario de rutas de la API", () => {
       "admin-consola/expediente",
       "admin-consola/sesion",
       "demo-panel/persona",
+      // Actúan sobre el estado en memoria del Code100 simulado y sobre el
+      // plazo que se le va a poner a los próximos pagos: no leen ni escriben
+      // ningún expediente. Ambas exigen DEMO_MODE=true y la clave del panel.
+      "demo-panel/fallas",
+      "demo-panel/firma",
+      "demo-panel/plazo-firma",
       // Solo borra cookies del navegador: no toca el expediente en la base.
       "demo-panel/reiniciar",
       "demo-panel/sesion",
@@ -571,6 +729,9 @@ describe("3. Inventario de rutas de la API", () => {
       // Proyecta el bloque 1 de P7 desde el expediente; `leerResumenPagoP7`
       // devuelve null si no está en DECLARACIONES_OK o PAGO_CONFIRMADO.
       "p7/resumen",
+      // Sirve los PDF ya cerrados del propio expediente. Un derivado no tiene
+      // `paqueteDocumental`, así que responde 409 sin leer nada de S3.
+      "p8/documento",
     ];
 
     /**
@@ -594,9 +755,30 @@ describe("3. Inventario de rutas de la API", () => {
       "p6/declaraciones",
       "p7/estado",
       "p7/pago",
+      "p8/estado",
+      "p8/firma",
+      "p8/resumen",
+      "pantalla-b/caso",
+      "demo-panel/devolucion",
+      "p9/comunicaciones",
+      "p9/estado",
+      "p9/resumen",
     ];
 
-    const conocidas = new Set([...SOLO_LECTURA, ...CUBIERTAS, ...CREAN_SIN_TOCAR_EL_ORIGINAL]);
+    /**
+     * Puede escribir, pero no sobre un expediente derivado: el vencimiento del
+     * plazo de firma solo alcanza a PAGO_CONFIRMADO y PAQUETE_GENERADO, y
+     * devuelve `ok: true` sin tocar nada en cualquier otro estado — por eso no
+     * entra en `CASOS`, que exige un rechazo. Su prueba es la de abajo.
+     */
+    const INMUTABLES_SOBRE_UN_DERIVADO: readonly string[] = ["p8/vencimiento"];
+
+    const conocidas = new Set([
+      ...SOLO_LECTURA,
+      ...CUBIERTAS,
+      ...CREAN_SIN_TOCAR_EL_ORIGINAL,
+      ...INMUTABLES_SOBRE_UN_DERIVADO,
+    ]);
     const desconocidas = rutas.filter((ruta) => !conocidas.has(ruta));
 
     expect(
@@ -604,6 +786,25 @@ describe("3. Inventario de rutas de la API", () => {
       "Hay endpoints nuevos sin prueba de que rechacen un expediente DERIVADO_MANUAL. " +
         "Agregalos a CASOS (si mutan el expediente) o a SOLO_LECTURA.",
     ).toEqual([]);
+  });
+
+  it("POST /api/p8/vencimiento deja intacto un expediente derivado", async () => {
+    const derivado = await expedienteDerivado();
+    const { repo, actual } = repositorioFalso(derivado);
+
+    const resultado = await vencerPlazoFirmaP8(
+      {
+        firmas: firmasQueFallanSiSeUsan(),
+        pagos: pagosQueFallanSiSeUsan(),
+        expedientes: repo,
+        evidencias: evidenciasFalsas(),
+      },
+      { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+    );
+
+    expect(resultado.ok && resultado.vencio).toBe(false);
+    expect(actual()).toEqual(derivado);
+    expect(actual().estado).toBe("DERIVADO_MANUAL");
   });
 });
 
@@ -804,7 +1005,7 @@ describe("5. Bloqueo de nuevo registro por cédula", () => {
   it("P5 rechaza una cédula bloqueada, y el bloqueo no depende de un flag editable", async () => {
     const derivado = await expedienteDerivado();
     const bloqueo = await evaluarBloqueoPorCedula(
-      { buscarPorCedula: async () => [derivado] },
+      { buscarPorCedula: async () => [derivado], buscarSucesores: async () => [] },
       "9323336",
     );
 
@@ -813,5 +1014,24 @@ describe("5. Bloqueo de nuevo registro por cédula", () => {
     // respuesta médica ni la condición PEP (regla inviolable #7).
     expect(JSON.stringify(bloqueo)).not.toContain("condicionPep");
     expect(JSON.stringify(bloqueo)).not.toContain("estadoDeSalud");
+  });
+
+  it("el sucesor levanta el bloqueo aunque no aparezca en la lista por cédula", async () => {
+    // El sucesor de un reinicio nace `INICIADO`, sin cédula: `buscarPorCedula`
+    // no lo devuelve. La superación tiene que verse igual, por el enlace de
+    // sucesión — si no, el reinicio de la consola no serviría para nada.
+    const derivado = await expedienteDerivado();
+    const sucesor = { ...crearExpediente("EXP-NUEVO"), expedienteAnteriorId: derivado.id };
+
+    const bloqueo = await evaluarBloqueoPorCedula(
+      {
+        buscarPorCedula: async () => [derivado],
+        buscarSucesores: async (id) => (id === derivado.id ? [sucesor] : []),
+      },
+      "9323336",
+    );
+
+    expect(bloqueo.bloqueada).toBe(false);
+    expect(bloqueo.expedientesQueBloquean).toEqual([]);
   });
 });

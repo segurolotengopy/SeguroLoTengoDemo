@@ -7,19 +7,27 @@
  *     → CANAL_EMAIL_VERIFICADO → IDENTIDAD_VERIFICADA
  *        ├─ DERIVADO_MANUAL (terminal) → Pantalla A
  *        └─ DECLARACIONES_OK → PAGO_CONFIRMADO → PAQUETE_GENERADO
- *               ├─ VENCIDO → DEVOLUCION_EN_TRAMITE → Pantalla B
+ *               ├─ VENCIDO → DEVOLUCION_EN_TRAMITE → DEVUELTO (Pantalla B)
  *               └─ FIRMADO → EMITIDO → P9
+ *
+ * Con una arista más que el diagrama de CLAUDE.md: PAGO_CONFIRMADO → VENCIDO.
+ * El plazo de firma arranca con el pago, no con el cierre del paquete, así que
+ * un expediente pagado que nunca llegó a P8 también tiene que poder vencer.
+ * La justificación completa está junto a la entrada del grafo.
  */
 import type {
+  ActoDeFirmaEnCurso,
+  PolizaDelExpediente,
   DatosComplementariosP6,
   DatosFacturacionP7,
   Declaraciones,
   EstadoExpediente,
   Expediente,
+  Firma,
   PaqueteDocumental,
   Pago,
 } from "./tipos";
-import { ESTADOS_TERMINALES, garantiaDePagoLista } from "./tipos";
+import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, garantiaDePagoLista } from "./tipos";
 import { codigoFipf, codigoSolicitud } from "./documentos";
 import { evaluarElegibilidad } from "./elegibilidad";
 
@@ -40,10 +48,27 @@ const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExp
   // posible desde acá hacia pago, firma ni emisión.
   DERIVADO_MANUAL: [],
   DECLARACIONES_OK: ["PAGO_CONFIRMADO"],
-  PAGO_CONFIRMADO: ["PAQUETE_GENERADO"],
+  // El diagrama de CLAUDE.md dibuja VENCIDO colgando solo de PAQUETE_GENERADO.
+  // Acá PAGO_CONFIRMADO también puede vencer, y es una corrección deliberada:
+  // el plazo de 24 horas arranca con el pago confirmado (`plazoFirmaVenceEn` se
+  // escribe en esa misma transición), así que un expediente pagado cuya persona
+  // nunca abrió P8 —y por lo tanto nunca cerró el paquete documental— tiene el
+  // plazo corriendo y, sin esta arista, no habría estado al que ir cuando se
+  // cumple. Sería un pago sin vencimiento posible, justo lo contrario de la
+  // fila 30 de la matriz de cumplimiento (*"Devolver el premio si el cliente no
+  // firma dentro del plazo comunicado"*, Ley 4868/13, arts. 7(f), 17 y 30(b)).
+  // No abre ningún camino nuevo hacia adelante: VENCIDO sigue saliendo solo a
+  // DEVOLUCION_EN_TRAMITE.
+  PAGO_CONFIRMADO: ["PAQUETE_GENERADO", "VENCIDO"],
   PAQUETE_GENERADO: ["VENCIDO", "FIRMADO"],
   VENCIDO: ["DEVOLUCION_EN_TRAMITE"],
-  DEVOLUCION_EN_TRAMITE: [],
+  // El trámite de devolución termina cuando Alianza devolvió el premio al medio
+  // de origen. Es un hecho que ocurre fuera del flujo digital —presencial, en
+  // las oficinas de Alianza— pero que el expediente tiene que poder asentar:
+  // el pie de la Pantalla B declara el estado final como
+  // `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`.
+  DEVOLUCION_EN_TRAMITE: ["DEVUELTO"],
+  DEVUELTO: [],
   FIRMADO: ["EMITIDO"],
   EMITIDO: [],
 };
@@ -311,4 +336,253 @@ export function registrarPaqueteDocumental(
   }
 
   return transicionarExpediente(expediente, "PAQUETE_GENERADO", { paqueteDocumental: paquete }, ahora);
+}
+
+// ---------------------------------------------------------------------------
+// P8 · Acto de firma (Code100)
+// ---------------------------------------------------------------------------
+
+/**
+ * Asienta el enlace de firma enviado **sin mover el estado**: el expediente se
+ * queda en PAQUETE_GENERADO hasta que Code100 confirme la firma.
+ *
+ * Existe como función del dominio —y no como un `guardar` armado en el Route
+ * Handler— porque lo que se persiste acá es lo que permite sondear después de
+ * una recarga: el `session_id` de Code100. Sin guardarlo, volver a P8 dejaría
+ * un acto de firma vivo del lado del proveedor que el portal ya no sabe mirar.
+ *
+ * Pedir un enlace nuevo pisa el anterior, y eso está bien: `actoDeFirma` es el
+ * acto en curso, no un registro histórico. La traza append-only de cada envío
+ * vive en `EvidenceStore` (regla inviolable #10).
+ */
+export function registrarEnvioEnlaceFirmaP8(
+  expediente: Expediente,
+  acto: ActoDeFirmaEnCurso,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (expediente.estado !== "PAQUETE_GENERADO") {
+    return {
+      ok: false,
+      error: `Solo se puede enviar el enlace de firma desde PAQUETE_GENERADO; el expediente está en ${expediente.estado}.`,
+    };
+  }
+
+  if (!expediente.paqueteDocumental) {
+    return { ok: false, error: "No se puede firmar sin la Solicitud y el FIPF cerrados y hasheados." };
+  }
+
+  return { ok: true, expediente: { ...expediente, actoDeFirma: acto, actualizadoEn: ahora } };
+}
+
+/**
+ * PAQUETE_GENERADO → FIRMADO. Es la única escritura de `expediente.firma`.
+ *
+ * Las cuatro cosas que hace imposibles de violar:
+ *
+ * **Los dos documentos o ninguno** (regla inviolable #3). `Firma` no tiene
+ * campos opcionales —`hashSolicitudFirmada` y `hashFipfFirmado` son
+ * obligatorios— y esta es una sola escritura, así que no existe un expediente
+ * con la Solicitud firmada y el FIPF no. Además se rechaza acá cualquier firma
+ * que llegue con una huella vacía: un `""` pasaría el chequeo del tipo pero no
+ * probaría nada.
+ *
+ * **La firma es del acto que este expediente abrió.** El `idCode100` tiene que
+ * coincidir con el de `actoDeFirma`: una confirmación de otra sesión —o un
+ * callback duplicado de otra propuesta— no puede firmar este expediente
+ * (fila 47 de la matriz: vincular Solicitud, FIPF, pago y firmas por
+ * correlativos o hashes).
+ *
+ * **No hay firma sin paquete cerrado** (regla inviolable #4): el único estado
+ * de origen legal es PAQUETE_GENERADO, y encima se verifica que el paquete
+ * esté.
+ *
+ * **No hay firma sin garantía de pago** (P7 → P8: la firma se habilita después
+ * del QR pagado o de la preautorización).
+ */
+export function registrarFirmaP8(
+  expediente: Expediente,
+  firma: Firma,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (!expediente.paqueteDocumental) {
+    return { ok: false, error: "No se puede registrar una firma sin paquete documental cerrado." };
+  }
+
+  if (!garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
+    return { ok: false, error: "No se puede registrar una firma sin una garantía de pago lista." };
+  }
+
+  if (!expediente.actoDeFirma) {
+    return { ok: false, error: "No hay ningún acto de firma abierto para este expediente." };
+  }
+
+  if (expediente.actoDeFirma.idCode100 !== firma.idCode100) {
+    return {
+      ok: false,
+      error:
+        `La firma llegó con el identificador ${firma.idCode100}, ` +
+        `pero el acto abierto de este expediente es ${expediente.actoDeFirma.idCode100}.`,
+    };
+  }
+
+  if (firma.hashSolicitudFirmada.trim() === "" || firma.hashFipfFirmado.trim() === "") {
+    return {
+      ok: false,
+      error: "La firma tiene que traer la huella de los dos documentos firmados: se firman en un solo acto.",
+    };
+  }
+
+  return transicionarExpediente(expediente, "FIRMADO", { firma }, ahora);
+}
+
+/**
+ * Vencimiento del plazo para firmar → VENCIDO, de ahí a Pantalla B.
+ *
+ * No hay ningún proceso en segundo plano que dispare esto: el plazo se evalúa
+ * contra `plazoFirmaVenceEn` cada vez que alguien toca el expediente (el sondeo
+ * de P8, la consola administrativa). Es lo que corresponde en una app sin
+ * demonios propios, y además hace que el vencimiento sea una consecuencia del
+ * reloj y no de que un job haya corrido.
+ *
+ * Devuelve el expediente **sin cambios** —no un error— si el plazo todavía no
+ * se cumplió o si el expediente ya no está esperando una firma: quien llama
+ * puede aplicarlo siempre y quedarse con lo que salga.
+ */
+export function vencerPlazoFirmaSiCorresponde(
+  expediente: Expediente,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  const esperandoFirma = expediente.estado === "PAGO_CONFIRMADO" || expediente.estado === "PAQUETE_GENERADO";
+  if (!esperandoFirma) return { ok: true, expediente };
+
+  if (!expediente.plazoFirmaVenceEn || ahora < expediente.plazoFirmaVenceEn) {
+    return { ok: true, expediente };
+  }
+
+  return transicionarExpediente(expediente, "VENCIDO", {}, ahora);
+}
+
+/**
+ * Actualiza el `Pago` **sin mover el estado**: la captura de la
+ * preautorización que ordena la firma del cliente (fila 27 de la matriz —
+ * *"Ordenar la captura definitiva inmediatamente después de la firma del
+ * cliente"*, Código Civil, arts. 1348, 1373 y 1374) y la liberación de la
+ * reserva cuando el plazo vence sin firma.
+ *
+ * Solo admite avanzar el `Pago` dentro de la misma operación: no puede cambiar
+ * el medio, ni el importe, ni la referencia de Bancard. Cambiar cualquiera de
+ * esas tres sería otro cobro, no una actualización de este.
+ */
+export function registrarEstadoDePagoP8(
+  expediente: Expediente,
+  pago: Pago,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  const anterior = expediente.pago;
+  if (!anterior) {
+    return { ok: false, error: "No hay ningún pago sobre el que registrar un cambio de estado." };
+  }
+
+  const mismaOperacion =
+    anterior.medio === pago.medio &&
+    anterior.montoGs === pago.montoGs &&
+    anterior.referenciaBancard === pago.referenciaBancard &&
+    anterior.idempotencyKey === pago.idempotencyKey;
+
+  if (!mismaOperacion) {
+    return {
+      ok: false,
+      error: "El pago recibido no es la misma operación de Bancard que tiene el expediente.",
+    };
+  }
+
+  return { ok: true, expediente: { ...expediente, pago, actualizadoEn: ahora } };
+}
+
+// ---------------------------------------------------------------------------
+// P9 · Emisión de la póliza (Alianza mediante SEBAOT)
+// ---------------------------------------------------------------------------
+
+/**
+ * FIRMADO → EMITIDO: SeguroLoTengo remitió el expediente y Alianza aceptó la
+ * solicitud. Es la única escritura de `expediente.poliza`.
+ *
+ * **EMITIDO significa "solicitud aceptada y emisión ordenada", no "póliza en
+ * mano".** P9 lo muestra exactamente así: `Solicitud aceptada ✓` junto a
+ * `Póliza en preparación ⋯`. El estado del documento en sí vive en
+ * `poliza.estado` y lo mueve Alianza a su ritmo — por eso son dos cosas
+ * distintas y no un solo campo.
+ *
+ * Las tres cosas que hace imposibles de violar:
+ *
+ * **No hay emisión sin firma completa** (regla inviolable #3): el único estado
+ * de origen legal es FIRMADO, al que solo se llega con los dos documentos
+ * firmados en un mismo acto, y encima se verifica que `firma` esté.
+ *
+ * **No hay emisión sin cobro efectivo** (fila 44 de la matriz: *"Si falla el
+ * cobro, no solicitar la emisión automática"*, Código Civil, art. 1373; Ley
+ * 4868/13, arts. 7(e) y 7(p)). Ojo con la diferencia respecto de P8: para
+ * *firmar* alcanza con la garantía lista —una preautorización de crédito
+ * sirve—, pero para *emitir* hace falta que el dinero haya entrado. Con crédito
+ * eso significa CAPTURADO, no PREAUTORIZADO: la captura la ordena la firma del
+ * cliente, y si no se completó no hay cobro que respalde la emisión. Es el
+ * orden que fija la fila 43 (firma → cobro → envío a Alianza → validación →
+ * emisión) y el que describe el bloque `DESPUÉS DE LA FIRMA DEL CLIENTE` de P8.
+ *
+ * **La póliza conserva el correlativo de la propuesta**: se valida que
+ * `numeroPoliza` sea el mismo `numeroPropuesta` del expediente. Una póliza con
+ * numeración propia rompería el vínculo que exige la fila 47.
+ */
+export function registrarEmisionP9(
+  expediente: Expediente,
+  poliza: PolizaDelExpediente,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (!expediente.firma) {
+    return { ok: false, error: "No se puede emitir una póliza sin la Solicitud y el FIPF firmados." };
+  }
+
+  const pago = expediente.pago;
+  if (!pago || !cobroConfirmadoParaEmision(pago)) {
+    return {
+      ok: false,
+      error:
+        `No se puede solicitar la emisión sin el cobro confirmado: el pago está en ` +
+        `${pago?.estado ?? "(sin pago)"} con medio ${pago?.medio ?? "(sin medio)"}.`,
+    };
+  }
+
+  if (!expediente.numeroPropuesta || poliza.numeroPoliza !== expediente.numeroPropuesta) {
+    return {
+      ok: false,
+      error:
+        `La póliza tiene que conservar el correlativo de la propuesta: se esperaba ` +
+        `${expediente.numeroPropuesta ?? "(sin correlativo)"} y llegó ${poliza.numeroPoliza}.`,
+    };
+  }
+
+  return transicionarExpediente(expediente, "EMITIDO", { poliza }, ahora);
+}
+
+/**
+ * Actualiza el estado de la póliza y de la factura **sin mover el estado del
+ * expediente**: EMITIDO ya se alcanzó al aceptarse la solicitud, y lo que
+ * cambia después es el avance de Alianza.
+ *
+ * No admite cambiar el número de póliza: sería otra póliza, no una
+ * actualización de esta.
+ */
+export function actualizarEstadoPolizaP9(
+  expediente: Expediente,
+  poliza: PolizaDelExpediente,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  const anterior = expediente.poliza;
+  if (!anterior) return { ok: false, error: "El expediente no tiene ninguna póliza que actualizar." };
+
+  if (anterior.numeroPoliza !== poliza.numeroPoliza) {
+    return { ok: false, error: "El número de póliza no puede cambiar: sería otra póliza." };
+  }
+
+  return { ok: true, expediente: { ...expediente, poliza, actualizadoEn: ahora } };
 }

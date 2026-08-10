@@ -1,0 +1,47 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DynamoDBExpedientesTable",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:120005938663:table/slt-demo-expedientes",
+        "arn:aws:dynamodb:us-east-1:120005938663:table/slt-demo-expedientes/index/*"
+      ]
+    },
+    {
+      "Sid": "S3EvidenciasBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::slt-demo-evidencias-9e0e93f3",
+        "arn:aws:s3:::slt-demo-evidencias-9e0e93f3/*"
+      ]
+    },
+    {
+      "Sid": "SecretsManagerAppSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:120005938663:secret:slt-demo-app-secrets-wX3mDq"
+      ]
+    }
+  ]
+}

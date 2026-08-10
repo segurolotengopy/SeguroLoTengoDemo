@@ -51,6 +51,7 @@ import type {
 } from "../../ports/identity-provider";
 import { escenarioIdentidadActivo, personaActiva } from "./persona-activa";
 import type { EscenarioIdentidadDemo } from "./persona-activa";
+import { estadoCompartidoDemo } from "./estado-compartido";
 
 /** Edad que devuelve el OCR simulado en el escenario `EDAD_FUERA_DE_RANGO`. */
 const EDAD_SIMULADA_FUERA_DE_RANGO = 17;
@@ -79,7 +80,7 @@ interface SesionMock {
  * por request, y las capturas de `/api/p5/captura` tienen que seguir estando
  * cuando llegue `/api/p5/analisis` dentro del mismo proceso.
  */
-const sesiones = new Map<string, SesionMock>();
+const sesiones = estadoCompartidoDemo("identidad.sesiones", () => new Map<string, SesionMock>());
 
 function sesionDe(expedienteId: string): SesionMock {
   const existente = sesiones.get(expedienteId);

@@ -22,6 +22,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Artefactos de Playwright (reportes y trazas incluyen JS empaquetado).
+    "playwright-report/**",
+    "test-results/**",
   ]),
   // Regla dura de CLAUDE.md: "nada llama al SDK de DynamoDB o S3 fuera de
   // src/repositories/" (y, por extensión, ningún SDK de AWS en general —

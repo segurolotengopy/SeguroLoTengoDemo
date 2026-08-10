@@ -9,15 +9,30 @@ import {
   obtenerSeleccionDemo,
   ROTULO_ESCENARIO_IDENTIDAD,
 } from "@/adapters/mock/persona-activa";
+import {
+  DESCRIPCION_FALLA_DEMO,
+  FALLAS_DEMO,
+  fallasArmadasDemo,
+} from "@/adapters/mock/fallas-demo";
+import { PLAZOS_FIRMA_DEMO, plazoFirmaMs } from "@/adapters/mock/plazo-firma-demo";
+import {
+  listarSesionesFirmaMock,
+  obtenerCodigoFirmaDemo,
+} from "@/adapters/mock/signature-provider";
 import { HeaderInstitucional } from "@/components/shared";
 import { enmascararCorreo } from "@/domain/correo";
 import { enmascararCelular } from "@/domain/telefono";
-import { crearEvidenceStore } from "@/repositories";
+import { crearEvidenceStore, crearExpedienteRepository } from "@/repositories";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
 import { COOKIE_PANEL, esModoDemo, sesionValida } from "./_sesion";
+import { BotonDevolucionEjecutada } from "./BotonDevolucionEjecutada";
 import { BotonReiniciar } from "./BotonReiniciar";
+import { ControlFirmaCode100 } from "./ControlFirmaCode100";
+import type { SesionFirmaVisible } from "./ControlFirmaCode100";
 import { FormularioClave } from "./FormularioClave";
+import { SelectorFallas } from "./SelectorFallas";
 import { SelectorPersona } from "./SelectorPersona";
+import { SelectorPlazoFirma } from "./SelectorPlazoFirma";
 
 /**
  * Panel de control del demo (CLAUDE.md → "Panel de demo"). NO es una de las
@@ -92,10 +107,54 @@ export default async function PanelDeDemo() {
     id: escenario,
     rotulo: ROTULO_ESCENARIO_IDENTIDAD[escenario],
   }));
+  // Estado de los actos de firma simulados. El código en claro sale del
+  // registro en memoria del adaptador mock, igual que los OTP de P1 y P4: en la
+  // sesión simulada solo queda su HMAC (regla inviolable #2).
+  const sesionesFirma: readonly SesionFirmaVisible[] = listarSesionesFirmaMock().map((sesion) => {
+    const codigo = obtenerCodigoFirmaDemo(sesion.idCode100);
+    const estado: SesionFirmaVisible["estado"] = sesion.firma
+      ? "FIRMADA"
+      : sesion.fallo
+        ? "CERRADA"
+        : sesion.otp
+          ? "ESPERANDO_CODIGO"
+          : "ESPERANDO_APERTURA";
+
+    return {
+      idCode100: sesion.idCode100,
+      expedienteId: sesion.expedienteId,
+      canal: sesion.canal,
+      destino: destinoLegible(sesion.destino),
+      enlaceEnviadoEn: sesion.enlaceEnviadoEn,
+      venceEn: sesion.venceEn,
+      estado,
+      detalleEstado: sesion.firma
+        ? "FIRMADA"
+        : sesion.fallo
+          ? `SIN FIRMAR · ${sesion.fallo.motivo}`
+          : sesion.otp
+            ? "ENLACE ABIERTO · ESPERANDO CÓDIGO"
+            : "ENLACE ENVIADO",
+      codigo: codigo?.codigo ?? null,
+      hashSolicitudFirmada: sesion.firma?.hashSolicitudFirmada ?? null,
+      hashFipfFirmado: sesion.firma?.hashFipfFirmado ?? null,
+    };
+  });
+
+  const armadas = new Set(fallasArmadasDemo());
+  const fallas = FALLAS_DEMO.map((falla) => ({
+    id: falla,
+    ...DESCRIPCION_FALLA_DEMO[falla],
+    armada: armadas.has(falla),
+  }));
+
   const expedienteId = almacenCookies.get(COOKIE_EXPEDIENTE)?.value ?? null;
   const evidencias = expedienteId
     ? await crearEvidenceStore().obtenerHistorial(expedienteId)
     : [];
+  const estadoDelExpediente = expedienteId
+    ? ((await crearExpedienteRepository().obtenerPorId(expedienteId))?.estado ?? null)
+    : null;
 
   return (
     <div className="flex flex-1 flex-col bg-fondo">
@@ -128,6 +187,22 @@ export default async function PanelDeDemo() {
             personaSeleccionada={seleccion.personaId}
             escenarioForzado={seleccion.escenarioIdentidadForzado ?? ""}
           />
+        </Tarjeta>
+
+        <Tarjeta titulo="Forzar fallos puntuales">
+          <SelectorFallas fallas={fallas} />
+        </Tarjeta>
+
+        <Tarjeta titulo="Plazo para firmar (P7 → P8)">
+          <SelectorPlazoFirma opciones={PLAZOS_FIRMA_DEMO} plazoActualMs={plazoFirmaMs()} />
+        </Tarjeta>
+
+        <Tarjeta titulo="Acto de firma Code100 simulado">
+          <ControlFirmaCode100 sesiones={sesionesFirma} />
+        </Tarjeta>
+
+        <Tarjeta titulo="Devolución de Pantalla B">
+          <BotonDevolucionEjecutada estado={estadoDelExpediente} />
         </Tarjeta>
 
         <Tarjeta titulo="Reiniciar expediente">

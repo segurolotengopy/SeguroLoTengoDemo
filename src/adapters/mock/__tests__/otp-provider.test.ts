@@ -11,6 +11,7 @@ import { crearOtpRepositoryDynamoDb } from "../../../repositories/otp-repository
 import type { OtpRepository } from "../../../repositories/otp-repository";
 import { runOtpProviderContractTests } from "../../../ports/__tests__/otp-provider.contract";
 import { crearOtpProviderMock, limpiarRegistroDemo, obtenerEnvioDemo } from "../otp-provider";
+import type { FallaOtpDemo } from "../otp-provider";
 
 const PEPPER = "pepper-de-prueba";
 
@@ -106,5 +107,82 @@ describe("OtpProviderMock — canal del panel de demo", () => {
     expect(envio.ok).toBe(false);
     if (envio.ok) return;
     expect(envio.motivo).toBe("ERROR_ENVIO");
+  });
+});
+
+/**
+ * Los dos fallos de OTP que el panel de demo puede forzar (CLAUDE.md → "Panel
+ * de demo"). Lo que se verifica no es que "devuelvan un error", sino que el OTP
+ * que producen sea **real** y lo rechace la validación de siempre: el mock no
+ * tiene una rama que finja un vencimiento ni un contador de intentos propio.
+ */
+describe("OtpProviderMock — fallos forzados desde el panel de demo", () => {
+  beforeEach(() => {
+    limpiarRegistroDemo();
+  });
+
+  function proveedorCon(falla: FallaOtpDemo) {
+    return crearOtpProviderMock({
+      otpRepository: crearRepositorio(),
+      retenerCodigoParaPanelDemo: true,
+      fallaForzada: () => falla,
+    });
+  }
+
+  async function enviar(proveedor: ReturnType<typeof crearOtpProviderMock>) {
+    const envio = await proveedor.enviarOtp({
+      expedienteId: "EXP-FALLA",
+      proposito: "VERIFICACION_CELULAR",
+      destino: { canal: "WHATSAPP", valor: "+595981000000" },
+    });
+    if (!envio.ok) throw new Error("el envío debería haber tenido éxito");
+    const codigo = obtenerEnvioDemo(envio.otpId)?.codigo ?? "";
+    return { otpId: envio.otpId, codigo };
+  }
+
+  it("EXPIRADO: el código correcto se rechaza por vigencia vencida", async () => {
+    const proveedor = proveedorCon("EXPIRADO");
+    const { otpId, codigo } = await enviar(proveedor);
+
+    const resultado = await proveedor.verificarOtp({ otpId, codigoIngresado: codigo });
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivo).toBe("EXPIRADO");
+  });
+
+  it("INTENTOS_AGOTADOS: el código correcto se rechaza porque ya no quedan intentos", async () => {
+    const proveedor = proveedorCon("INTENTOS_AGOTADOS");
+    const { otpId, codigo } = await enviar(proveedor);
+
+    const resultado = await proveedor.verificarOtp({ otpId, codigoIngresado: codigo });
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivo).toBe("INTENTOS_AGOTADOS");
+  });
+
+  it("sin falla forzada, el mismo camino verifica bien", async () => {
+    const proveedor = crearOtpProviderMock({
+      otpRepository: crearRepositorio(),
+      retenerCodigoParaPanelDemo: true,
+    });
+    const { otpId, codigo } = await enviar(proveedor);
+
+    expect((await proveedor.verificarOtp({ otpId, codigoIngresado: codigo })).ok).toBe(true);
+  });
+
+  it("el envío con falla forzada sigue sin devolver el código por el puerto", async () => {
+    const proveedor = proveedorCon("EXPIRADO");
+    const envio = await proveedor.enviarOtp({
+      expedienteId: "EXP-FALLA-2",
+      proposito: "VERIFICACION_CELULAR",
+      destino: { canal: "WHATSAPP", valor: "+595981000000" },
+    });
+    if (!envio.ok) throw new Error("el envío debería haber tenido éxito");
+
+    const codigo = obtenerEnvioDemo(envio.otpId)?.codigo ?? "";
+    expect(codigo).not.toBe("");
+    expect(JSON.stringify(envio)).not.toContain(codigo);
   });
 });

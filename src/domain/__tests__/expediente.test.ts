@@ -89,19 +89,24 @@ describe("transicionarExpediente", () => {
     expect(esEstadoTerminal(expediente.estado)).toBe(true);
   });
 
-  it("recorre la rama de vencimiento hasta DEVOLUCION_EN_TRAMITE", () => {
+  it("recorre la rama de vencimiento hasta DEVUELTO", () => {
     let expediente = avanzarHastaIdentidadVerificada(crearExpediente());
     const declaraciones = registrarDeclaracionesP6(expediente, declaracionesCompatibles, datosComplementariosFixture, NUMERO_CASO_FIJO);
     if (!declaraciones.ok) throw new Error(declaraciones.error);
     expediente = declaraciones.expediente;
 
-    for (const siguiente of ["PAGO_CONFIRMADO", "PAQUETE_GENERADO", "VENCIDO", "DEVOLUCION_EN_TRAMITE"] as const) {
+    const rama = ["PAGO_CONFIRMADO", "PAQUETE_GENERADO", "VENCIDO", "DEVOLUCION_EN_TRAMITE", "DEVUELTO"] as const;
+    for (const siguiente of rama) {
       const paso = transicionarExpediente(expediente, siguiente);
       if (!paso.ok) throw new Error(paso.error);
       expediente = paso.expediente;
     }
 
-    expect(expediente.estado).toBe("DEVOLUCION_EN_TRAMITE");
+    // El trámite de devolución tiene una etapa más que el resto de las ramas:
+    // DEVOLUCION_EN_TRAMITE es un trámite en curso, no un final, y el estado
+    // terminal es DEVUELTO (pie de la Pantalla B).
+    expect(expediente.estado).toBe("DEVUELTO");
+    expect(esEstadoTerminal("DEVOLUCION_EN_TRAMITE")).toBe(false);
     expect(esEstadoTerminal(expediente.estado)).toBe(true);
   });
 });

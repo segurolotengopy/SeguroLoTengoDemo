@@ -113,7 +113,7 @@ function crearBanco(
       identidad: crearIdentityProviderMock(),
       expedientes,
       evidencias,
-      bloqueos: { buscarPorCedula: async () => previosDeLaCedula },
+      bloqueos: { buscarPorCedula: async () => previosDeLaCedula, buscarSucesores: async () => [] },
       ahora: () => AHORA,
     },
   };

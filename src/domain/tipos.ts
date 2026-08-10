@@ -23,18 +23,27 @@ export type EstadoExpediente =
   | "PAQUETE_GENERADO"
   | "VENCIDO"
   | "DEVOLUCION_EN_TRAMITE"
+  | "DEVUELTO"
   | "FIRMADO"
   | "EMITIDO";
 
 /**
  * Estados sin ninguna transición legal hacia adelante. DERIVADO_MANUAL es
  * terminal en el flujo digital por regla de negocio #5 (no hay pago, firma
- * ni emisión posible desde ahí); DEVOLUCION_EN_TRAMITE y EMITIDO son el fin
- * natural de sus respectivas ramas del diagrama de CLAUDE.md.
+ * ni emisión posible desde ahí); DEVUELTO y EMITIDO son el fin natural de sus
+ * respectivas ramas del diagrama de CLAUDE.md.
+ *
+ * DEVOLUCION_EN_TRAMITE **dejó de ser terminal**: la Pantalla B lo describe
+ * como un trámite en curso y su pie declara el estado final del expediente
+ * como `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`. Que el trámite termine
+ * —Alianza devolvió el premio al medio de origen— es un hecho que hay que
+ * poder asentar, y para eso hace falta un estado al que llegar. Sigue sin
+ * haber ningún camino de vuelta al flujo digital: DEVUELTO tampoco tiene
+ * salida, y ninguno de los dos llega nunca a póliza.
  */
 export const ESTADOS_TERMINALES: readonly EstadoExpediente[] = [
   "DERIVADO_MANUAL",
-  "DEVOLUCION_EN_TRAMITE",
+  "DEVUELTO",
   "EMITIDO",
 ];
 
@@ -250,6 +259,28 @@ export function garantiaDePagoLista(estado: EstadoPago): boolean {
   return estado === "CONFIRMADO" || estado === "PREAUTORIZADO" || estado === "CAPTURADO";
 }
 
+/**
+ * `true` cuando el dinero **efectivamente entró**, no solo cuando quedó
+ * garantizado. Es la condición para pedirle a Alianza que emita.
+ *
+ * La diferencia con `garantiaDePagoLista` es exactamente el crédito: una
+ * preautorización habilita la firma (P8) pero **no** la emisión, porque el
+ * importe todavía está reservado y no cobrado. La captura la ordena la firma
+ * del cliente; si esa captura no se completa, no hay cobro y por lo tanto no
+ * hay emisión que pedir — fila 44 de `docs/Tabla Cumplimiento SeguroLo Tengo -
+ * Tabla.csv`: *"Si falla el cobro, no solicitar la emisión automática"*
+ * (Código Civil, art. 1373; Ley 4868/13, arts. 7(e) y 7(p)), y el orden de la
+ * fila 43 (firma → cobro → envío a Alianza → validación → emisión).
+ *
+ * Con QR y débito no hay distinción posible: cobraron en P7 o no existe la
+ * operación.
+ */
+export function cobroConfirmadoParaEmision(pago: Pago): boolean {
+  return esPagoDefinitivoAntesDeFirma(pago.medio)
+    ? pago.estado === "CONFIRMADO"
+    : pago.estado === "CAPTURADO";
+}
+
 export interface Pago {
   readonly medio: MedioDePago;
   readonly estado: EstadoPago;
@@ -324,6 +355,28 @@ export interface PaqueteDocumental {
 export type CanalFirma = "WHATSAPP" | "EMAIL";
 
 /**
+ * Acto de firma abierto en Code100 (P8, botón `ENVIAR ENLACE SEGURO DE FIRMA`).
+ *
+ * **No es una firma**: es el enlace enviado y esperando. Se persiste porque
+ * cada Route Handler es un proceso nuevo y el sondeo de P8 —o el callback del
+ * adaptador oficial— tiene que poder encontrar el `session_id` después de una
+ * recarga de la pantalla. Mismo criterio que la `idempotencyKey` del `Pago`.
+ *
+ * Se sobrescribe si la persona pide un enlace nuevo (el anterior quedó
+ * rechazado o vencido); la traza append-only de cada envío vive en
+ * `EvidenceStore` (regla inviolable #10), que es donde no se pisa nada.
+ */
+export interface ActoDeFirmaEnCurso {
+  readonly idCode100: string;
+  readonly canal: CanalFirma;
+  /** Canal verificado al que Code100 mandó el enlace, enmascarado. */
+  readonly destinoEnmascarado: string;
+  readonly enlaceEnviadoEn: string; // ISO 8601
+  /** Vigencia del enlace informada por el proveedor (24 horas). */
+  readonly venceEn: string; // ISO 8601
+}
+
+/**
  * Regla #3 (atómica de firma): este tipo solo puede existir si AMBOS
  * documentos quedaron firmados en el mismo acto. No hay forma de
  * representar "uno firmado, el otro no" — no hay campos opcionales.
@@ -334,6 +387,40 @@ export interface Firma {
   readonly firmadoEn: string;
   readonly hashSolicitudFirmada: string;
   readonly hashFipfFirmado: string;
+}
+
+// ---------------------------------------------------------------------------
+// Emisión de la póliza (P9)
+// ---------------------------------------------------------------------------
+
+export type EstadoPolizaExpediente = "EN_PROCESO_DE_EMISION" | "EMITIDA" | "RECHAZADA";
+export type EstadoFacturaExpediente = "PENDIENTE" | "EMITIDA" | "RECHAZADA";
+
+/**
+ * Lo que SeguroLoTengo sabe de la póliza: **un estado y dos referencias**, no
+ * el documento.
+ *
+ * La póliza y la factura las emite y las envía Alianza (SEBAOT y SIFEN);
+ * SeguroLoTengo no las genera, no las almacena y no las entrega — desde el
+ * portal solo se descargan la Solicitud y el FIPF firmados (P9,
+ * `DOCUMENTOS DISPONIBLES PARA DESCARGAR`; CLAUDE.md → "Reglas transversales de
+ * integraciones"). Por eso acá no hay ningún campo de bytes ni de URL de
+ * descarga: no habría de dónde sacarlos.
+ *
+ * `numeroPoliza` es el mismo correlativo de la propuesta: SEBAOT no acuña uno
+ * nuevo (fila 47 de la matriz de cumplimiento).
+ *
+ * **No se genera Nota de Cobertura**: no está modelada porque el producto no la
+ * contempla.
+ */
+export interface PolizaDelExpediente {
+  readonly numeroPoliza: string;
+  readonly estado: EstadoPolizaExpediente;
+  readonly emitidaEn: string | null;
+  readonly estadoFactura: EstadoFacturaExpediente;
+  readonly referenciaFactura: string | null;
+  /** Cuándo SeguroLoTengo remitió el expediente a Alianza. */
+  readonly solicitadaEn: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -417,7 +504,11 @@ export interface Expediente {
    */
   readonly plazoFirmaVenceEn: string | null;
   readonly paqueteDocumental: PaqueteDocumental | null;
+  /** Enlace de firma enviado y esperando confirmación de Code100 (P8). */
+  readonly actoDeFirma: ActoDeFirmaEnCurso | null;
   readonly firma: Firma | null;
+  /** Estado de la emisión en Alianza (P9). No contiene la póliza, solo su estado. */
+  readonly poliza: PolizaDelExpediente | null;
 
   /** Consola administrativa: reinicio que crea un expediente nuevo enlazado al anterior. */
   readonly expedienteAnteriorId: string | null;
@@ -449,7 +540,9 @@ export function crearExpedienteInicial(input: {
     pago: null,
     plazoFirmaVenceEn: null,
     paqueteDocumental: null,
+    actoDeFirma: null,
     firma: null,
+    poliza: null,
     expedienteAnteriorId: input.expedienteAnteriorId ?? null,
     creadoEn: input.ahora,
     actualizadoEn: input.ahora,
