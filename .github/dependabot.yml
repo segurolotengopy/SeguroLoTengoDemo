@@ -21,6 +21,23 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: eslint-config-next
         update-types: ["version-update:semver-major"]
+      # ESLint queda atado al pin de Next 15 por transitividad:
+      # `eslint-config-next@15.x` declara un peer de ESLint que no admite el
+      # major 10, así que un bump de ESLint rompe `npm ci` con ERESOLVE antes
+      # de llegar a correr un solo test. Lo comprobó el PR #5, que agrupaba
+      # este major con otros dos y quedó imposible de mergear en bloque.
+      # Se desbloquea solo cuando `eslint-config-next` salga del ignore de
+      # arriba — es decir, cuando Amplify Hosting admita Next 16.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # TypeScript sale del grupo automático por una razón distinta: el
+      # dominio del expediente es de tipado estricto y una máquina de estados
+      # con reglas de consecuencia legal (CLAUDE.md, "Reglas de negocio
+      # inviolables"). Un major de TS cambia inferencia y chequeos: merece su
+      # propio PR, revisado a mano, no venir de pasajero en un grupo de
+      # dev-dependencies junto con `@types/node`.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   # Las propias actions del pipeline: una action desactualizada o sin fijar
   # es superficie de ataque de cadena de suministro.
