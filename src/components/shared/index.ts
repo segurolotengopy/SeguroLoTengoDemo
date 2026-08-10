@@ -1,3 +1,5 @@
+export { BandaDemo } from "./BandaDemo";
+
 export { HeaderInstitucional } from "./HeaderInstitucional";
 export type { HeaderInstitucionalProps } from "./HeaderInstitucional";
 
