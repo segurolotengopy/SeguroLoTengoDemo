@@ -82,6 +82,8 @@ src/
 
   domain/                 \# máquina de estados, reglas de elegibilidad, tipos
 
+  documentos/             \# generación de la Solicitud y el FIPF: PDF, QR, hash
+
   ports/                  \# las 7 interfaces de proveedores externos
 
   adapters/mock/          \# implementaciones simuladas
@@ -167,6 +169,26 @@ Reglas no negociables de esa integración (ya reflejadas a nivel de tipos en `sr
 ### Idempotencia de webhooks (Bancard y Code100)
 
 Los adaptadores oficiales de `PaymentProvider` y `SignatureProvider` deben tratar sus webhooks/callbacks como potencialmente duplicados (reintentos de red, doble entrega). `src/ports/payment-provider.ts` ya expone `idempotencyKey` en los métodos de inicio de pago y documenta `capturarPreautorizacion`/`cancelarOLiberarReserva` como idempotentes por `referenciaBancard` — cualquier adaptador debe cumplir esa garantía, no solo el mock.
+
+---
+
+## Servicio de generación de documentos
+
+`src/documentos/` cierra la Solicitud (`PROP-<correlativo>`) y el FIPF (`FIPF-<correlativo>`) — **un solo correlativo, dos prefijos**, el que acuña P7 en `Expediente.numeroPropuesta` — calcula el SHA-256 de cada PDF, los guarda por `ArchivoRepository` y transiciona PAGO_CONFIRMADO → PAQUETE_GENERADO. Es el paso que habilita la firma de P8: sin paquete cerrado y hasheado no hay nada válido que mandarle a Code100 (regla inviolable #4).
+
+**No es un proveedor externo, así que no tiene puerto.** Los 7 puertos modelan integraciones con terceros; generar un PDF propio no lo es. Lo único que pasa por infraestructura es guardar el archivo, y eso ya entra por `src/repositories/archivo-repository.ts`.
+
+Reparto: `src/domain/documentos.ts` decide **qué dice** cada documento (proyección del Expediente, sin `node:*`); `plantillas.ts` + `layout.ts` cómo se distribuye en la hoja; `pdf.ts` + `tipografia.ts` escriben los bytes; `qr.ts` genera el QR de verificación; `servicio.ts` cierra, hashea, guarda, transiciona y deja evidencia.
+
+Tres cosas no negociables de este servicio:
+
+- **Determinismo.** Mismo contenido y misma fecha de cierre ⇒ mismos bytes ⇒ mismo hash. Sin `/ID` aleatorio ni `/CreationDate` del reloj. Si el hash dependiera del momento de generación no sería una propiedad del documento, y una auditoría no podría reproducirlo.
+- **Los dos documentos entran juntos o no entra ninguno** (regla inviolable #3). `registrarPaqueteDocumental` es una sola escritura y valida que ambos códigos deriven del mismo correlativo y compartan versión.
+- **Sin librerías de PDF ni de QR.** Ambas se escribieron acá (menos de 400 líneas cada una) porque lo que hace falta es la matriz de módulos y los bytes del archivo, no renderers de canvas ni fuentes embebidas — y porque las librerías de PDF de uso corriente emiten metadatos no deterministas. Mismo criterio con el que P7 decidió no dibujar el QR de Bancard.
+
+**El QR es decisión de producto, no obligación legal**: no hay fila en la matriz de cumplimiento que lo exija (la 77 exige el hash individual y la 47 vincular por correlativo o hash, cosas que el paquete cumple sin él). Codifica **solo** `<URL_BASE>/<código>` — nunca el hash (el QR va dentro del PDF que se hashea) ni ningún dato de la persona.
+
+**Pendiente:** la ruta `/verificar/<código>` a la que apunta el QR todavía no existe, y el servicio no está expuesto por HTTP — lo va a cablear el Route Handler de P8 con `crearArchivoRepository()`, que ya está.
 
 ---
 
