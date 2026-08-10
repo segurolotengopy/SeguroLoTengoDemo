@@ -39,6 +39,7 @@ const ESTADOS_VALIDOS: readonly EstadoExpediente[] = [
   "PAQUETE_GENERADO",
   "VENCIDO",
   "DEVOLUCION_EN_TRAMITE",
+  "DEVUELTO",
   "FIRMADO",
   "EMITIDO",
 ];

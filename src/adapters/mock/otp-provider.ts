@@ -24,6 +24,7 @@
  * flujo ni de la evidencia probatoria.
  */
 import { randomUUID } from "node:crypto";
+import { INTENTOS_MAXIMOS_OTP, VIGENCIA_OTP_MS } from "../../domain/reglas-otp";
 import type {
   OtpProvider,
   ResultadoEnvioOtp,
@@ -49,6 +50,18 @@ export interface EnvioDemo {
  */
 const registroDemo = new Map<string, EnvioDemo>();
 
+/**
+ * Fallo puntual que el panel de demo puede forzar sobre el próximo envío.
+ *
+ * Ninguno de los dos abre un camino nuevo en el código: los dos producen un
+ * OTP **real** en un estado que el repositorio ya sabe rechazar. `EXPIRADO`
+ * corre la hora de creación hacia atrás para que nazca vencido;
+ * `INTENTOS_AGOTADOS` quema los tres intentos con códigos incorrectos. Así lo
+ * que se ve en la demostración es exactamente la misma validación que corre en
+ * producción, no una simulación de ella.
+ */
+export type FallaOtpDemo = "EXPIRADO" | "INTENTOS_AGOTADOS";
+
 export interface OpcionesOtpProviderMock {
   readonly otpRepository: OtpRepository;
   /**
@@ -57,6 +70,8 @@ export interface OpcionesOtpProviderMock {
    */
   readonly retenerCodigoParaPanelDemo?: boolean;
   readonly ahora?: () => string;
+  /** Falla a forzar en el próximo envío (palanca del panel de demo). */
+  readonly fallaForzada?: () => FallaOtpDemo | null;
 }
 
 function referenciaDeEnvio(canal: string): string {
@@ -70,11 +85,25 @@ export function crearOtpProviderMock(opciones: OpcionesOtpProviderMock): OtpProv
     otpRepository,
     retenerCodigoParaPanelDemo = process.env.DEMO_MODE === "true",
     ahora = () => new Date().toISOString(),
+    fallaForzada = () => null,
   } = opciones;
 
   function registrarEnvioDemo(envio: EnvioDemo): void {
     if (!retenerCodigoParaPanelDemo) return;
     registroDemo.set(envio.otpId, envio);
+  }
+
+  /**
+   * Quema los tres intentos del OTP recién creado, con códigos que no son el
+   * suyo. No hace falta saber cuál es el correcto: cualquier código distinto
+   * cuenta como intento fallido, y `INTENTOS_AGOTADOS` lo decide el
+   * repositorio con la misma regla de siempre.
+   */
+  async function agotarIntentos(otpId: string, codigoReal: string, instante: string): Promise<void> {
+    const incorrecto = codigoReal === "000000" ? "999999" : "000000";
+    for (let intento = 0; intento < INTENTOS_MAXIMOS_OTP; intento += 1) {
+      await otpRepository.verificarCodigo(otpId, incorrecto, instante);
+    }
   }
 
   return {
@@ -91,13 +120,26 @@ export function crearOtpProviderMock(opciones: OpcionesOtpProviderMock): OtpProv
       }
 
       const enviadoEn = ahora();
+      const falla = fallaForzada();
+
+      // Con `EXPIRADO` el OTP se crea con la hora corrida hacia atrás: el
+      // repositorio le calcula `expiraEn = creación + 5 minutos`, que ya pasó.
+      const creadoEn =
+        falla === "EXPIRADO"
+          ? new Date(new Date(enviadoEn).getTime() - VIGENCIA_OTP_MS - 1_000).toISOString()
+          : enviadoEn;
+
       const creado = await otpRepository.crear({
         expedienteId,
         proposito,
         canal: destino.canal,
         destino: destino.valor,
-        ahora: enviadoEn,
+        ahora: creadoEn,
       });
+
+      if (falla === "INTENTOS_AGOTADOS") {
+        await agotarIntentos(creado.otpId, creado.codigo, enviadoEn);
+      }
 
       const referenciaEnvio = referenciaDeEnvio(destino.canal);
       registrarEnvioDemo({

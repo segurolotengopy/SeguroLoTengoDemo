@@ -121,7 +121,7 @@ Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley
 8. **Edad 18-64 años** verificada contra la fecha de nacimiento extraída de la cédula, no contra un campo declarado.  
 9. **Solo el titular puede contratar** para sí mismo. No existe flujo de contratación para terceros.  
 10. **Evidencia append-only**: fecha, hora, IP, dispositivo, sesión, versión de texto aceptado y resultado de cada paso. Nunca se sobrescribe ni se borra un registro de evidencia.
-11. **Bloqueo de nuevo registro por cédula**: mientras una cédula tenga un expediente en `DERIVADO_MANUAL`, `VENCIDO` o `DEVOLUCION_EN_TRAMITE` **sin superar**, el flujo digital normal (P0–P9) no deja empezar otro con esa cédula. Se aplica en P5, que es donde el sistema conoce la cédula. Solo la consola administrativa levanta el bloqueo, y lo hace creando un expediente **nuevo** enlazado por `expedienteAnteriorId` — nunca reactivando el viejo, que sigue siendo terminal (regla #5). El bloqueo no es un flag editable: se deriva de la cadena de expedientes. Ver `src/domain/consola-administrativa.ts`.
+11. **Bloqueo de nuevo registro por cédula**: mientras una cédula tenga un expediente en `DERIVADO_MANUAL`, `VENCIDO`, `DEVOLUCION_EN_TRAMITE` o `DEVUELTO` **sin superar**, el flujo digital normal (P0–P9) no deja empezar otro con esa cédula. Se aplica en P5, que es donde el sistema conoce la cédula. Solo la consola administrativa levanta el bloqueo, y lo hace creando un expediente **nuevo** enlazado por `expedienteAnteriorId` — nunca reactivando el viejo, que sigue siendo terminal (regla #5). El bloqueo no es un flag editable: se deriva de la cadena de expedientes. Ver `src/domain/consola-administrativa.ts`.
 
 ---
 
@@ -135,9 +135,15 @@ INICIADO → CANAL\_WA\_VERIFICADO → PLAN\_SELECCIONADO → AUTORIZADO
 
      └─ DECLARACIONES\_OK → PAGO\_CONFIRMADO → PAQUETE\_GENERADO
 
-            ├─ VENCIDO → DEVOLUCION\_EN\_TRAMITE → Pantalla B
+            ├─ VENCIDO → DEVOLUCION\_EN\_TRAMITE → DEVUELTO (Pantalla B)
 
             └─ FIRMADO → EMITIDO → P9
+
+`EMITIDO` significa **solicitud aceptada y emisión ordenada**, no "póliza en mano": P9 lo muestra como `Solicitud aceptada ✓` junto a `Póliza en preparación ⋯`. El estado del documento vive aparte, en `Expediente.poliza`, y lo mueve Alianza (SEBAOT y SIFEN) a su ritmo — por eso son dos cosas distintas. La póliza **conserva el correlativo de la propuesta**: SEBAOT no acuña un número nuevo.
+
+`DEVUELTO` cierra la rama del vencimiento: `DEVOLUCION_EN_TRAMITE` es un trámite en curso —no un final— y el pie de la Pantalla B declara el estado final del expediente como `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`. La devolución la ejecuta Alianza presencialmente, fuera del flujo digital; el expediente solo la asienta. Ninguno de los dos estados vuelve al flujo ni llega a póliza, y los dos bloquean por regla #11.
+
+Hay una arista más que no está dibujada arriba: **PAGO\_CONFIRMADO → VENCIDO**. El plazo de 24 horas arranca con el pago confirmado, no con el cierre del paquete, así que un expediente pagado cuya persona nunca abrió P8 también tiene que poder vencer; sin esa arista habría un pago sin vencimiento posible. No abre ningún camino nuevo hacia adelante: VENCIDO sigue saliendo solo a DEVOLUCION\_EN\_TRAMITE. La justificación completa está junto al grafo en `src/domain/expediente.ts`.
 
 Toda transición pasa por `src/domain/expediente.ts`. **Ningún Route Handler modifica el estado directamente.** Si necesitás una transición nueva, se agrega ahí con su validación.
 
@@ -202,7 +208,9 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
-Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de firma de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100), reiniciar el expediente y ver el registro de evidencia.
+Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de firma de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **fallo de captura de Bancard**, rechazo de Code100), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+
+Tres reglas de las palancas del panel, todas verificadas por tests: **se consumen en un solo intento** (se ve el error una vez y el reintento funciona); **ninguna inventa un camino** — cada fallo produce un estado real que rechaza la validación de siempre, no una rama especial del código; y **ninguna existe fuera de `DEMO_MODE`**, ni siquiera si quedó armada antes de apagar el flag. El plazo de firma, además, solo se puede acortar: alargarlo sería cambiarle a la persona una condición ya informada (fila 30 de la matriz).
 
 Personas de prueba definidas en `src/adapters/mock/personas.ts`:
 
@@ -268,7 +276,7 @@ Además de `npm run typecheck && npm run lint && npm test`:
 4. Si usa una integración externa: ¿está descrita en `docs/Tabla de Integraciones externas - Tabla.csv`? ¿Respeta las "Reglas transversales de integraciones" de arriba?
 5. ¿Se generan y persisten las evidencias probatorias correspondientes (hash, timestamp, IP, canal, resultado) vía `EvidenceStore`?
 6. ¿La firma, si aplica, sigue la regla atómica de Code100 (Solicitud + FIPF en un solo acto)?
-7. ¿El pago, si aplica, respeta el flujo Bancard (QR-antes-de-firma o preautorización-antes/captura-después) y es idempotente?
+7. ¿El pago, si aplica, respeta el flujo Bancard (QR-antes-de-firma o preautorización-antes/captura-después) y es idempotente? ¿La emisión exige el cobro **confirmado** y no solo garantizado (fila 44: una preautorización sin capturar habilita la firma, no la póliza)?
 8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica, o (a futuro) al asistente IA?
 
 ---

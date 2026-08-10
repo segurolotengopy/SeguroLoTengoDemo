@@ -5,11 +5,13 @@ import type {
   EstadoExpediente,
   Expediente,
   Identidad,
+  PaqueteDocumental,
   Pago,
 } from "../tipos";
 import { crearExpedienteInicial } from "../tipos";
 import { PLANES } from "../catalogo";
-import { transicionarExpediente } from "../expediente";
+import { registrarPaqueteDocumental, transicionarExpediente } from "../expediente";
+import { codigoFipf, codigoSolicitud } from "../documentos";
 import { TEXTO_DECLARACION_ORIGEN_LICITO, VERSION_DECLARACION_ORIGEN_LICITO } from "../textos-p7";
 
 export const declaracionesCompatibles: Declaraciones = {
@@ -162,4 +164,37 @@ export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
   if (!confirmado.ok) throw new Error(confirmado.error);
 
   return confirmado.expediente;
+}
+
+// ---------------------------------------------------------------------------
+// Expediente con el paquete documental ya cerrado (entrada de P8)
+// ---------------------------------------------------------------------------
+
+export const PAQUETE_FIXTURE: PaqueteDocumental = {
+  solicitud: {
+    codigo: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
+    version: 1,
+    hashSha256: "a".repeat(64),
+    cerradoEn: "2026-08-09T15:02:00.000Z",
+  },
+  fipf: {
+    codigo: codigoFipf(NUMERO_PROPUESTA_FIJO),
+    version: 1,
+    hashSha256: "b".repeat(64),
+    cerradoEn: "2026-08-09T15:02:00.000Z",
+  },
+};
+
+/**
+ * Expediente listo para P8: la Solicitud y el FIPF cerrados y hasheados, el
+ * pago acreditado y el plazo de 24 horas corriendo.
+ */
+export function expedienteEnPaqueteGenerado(id = "EXP-TEST-P8"): Expediente {
+  const conPaquete = registrarPaqueteDocumental(
+    expedienteEnPagoConfirmado(id),
+    PAQUETE_FIXTURE,
+    "2026-08-09T15:02:00.000Z",
+  );
+  if (!conPaquete.ok) throw new Error(conPaquete.error);
+  return conPaquete.expediente;
 }

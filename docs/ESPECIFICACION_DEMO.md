@@ -100,7 +100,9 @@ Abrí `/demo-panel` en una segunda pestaña antes de empezar: ahí aparecen los 
 
 **Biometría rechazada.** Con `984 000 234`, y **eligiendo "Biometría rechazada" en el panel** antes de llegar a P5: el proveedor de identidad simulado responde según la persona activa del panel, no según el número tipeado en P1. Señalar que los campos extraídos no se editan a mano: el único camino es repetir la captura.
 
-**Pantalla B.** Con `985 000 567`, pagar el QR en P7 y no firmar. Con el acelerador de plazo del panel, las 24 horas se comprimen a segundos. Señalar los recordatorios a 1, 5 y 12 horas y que la devolución va únicamente al medio de origen.
+**Pantalla B.** Con `985 000 567`, **fijar primero el plazo corto en el panel** (el vencimiento se congela al confirmarse el pago, así que hay que elegirlo antes), pagar el QR en P7 y no firmar. Al vencer, P8 lleva sola a `/solicitud-vencida`. Señalar los recordatorios a 1, 5 y 12 horas —que los hace Interseguros a mano, no el sistema— y que la devolución va únicamente al medio de origen. Para cerrar el recorrido, el botón *Alianza ejecutó la devolución* del panel deja el expediente en `DEVUELTO`.
+
+Con tarjeta de crédito el desenlace es otro y la pantalla lo dice distinto: no hubo cobro, así que no hay premio que devolver sino una reserva que se libera. Es la misma divergencia declarada de P7 (`MedioDePago` en `src/domain/tipos.ts`).
 
 ---
 
@@ -110,7 +112,13 @@ Abrí `/demo-panel` en una segunda pestaña antes de empezar: ahí aparecen los 
 
 Es **el único lugar del sistema donde el código de un OTP puede verse**. La API del flujo nunca lo devuelve, y en base solo está el HMAC — verificado por `src/app/api/p1/__tests__/no-filtra-codigo-otp.test.ts`.
 
-Funciones previstas (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los OTP generados, acelerar el plazo de firma, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100), reiniciar el expediente y ver el registro de evidencia.
+Funciones (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los OTP generados, acelerar el plazo de firma, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+
+**Fallos forzados.** Las cuatro palancas se arman para **un solo intento**: se ve el error una vez y el reintento funciona, así la demostración sigue sin volver al panel. Ninguna inventa un camino: el OTP expirado nace con la hora corrida hacia atrás y lo rechaza la validación de vigencia de siempre; los intentos agotados se queman contra el repositorio real; el timeout de Bancard y el rechazo de Code100 entran por el `fallaForzada` que los adaptadores mock ya exponían.
+
+**Plazo de firma.** El selector cambia el plazo que se le asigna a los **próximos** pagos confirmados: un expediente que ya pagó tiene su vencimiento congelado desde ese momento. Para mostrar la Pantalla B hay que elegir el plazo corto **antes** de pagar el QR en P7. Nunca se puede alargar más allá de las 24 horas, y con `DEMO_MODE` apagado rigen las 24 horas aunque quede otra cosa elegida.
+
+**Acto de firma de Code100.** En una demostración no llega ningún WhatsApp ni ningún correo con el enlace, así que el panel hace de pantalla del proveedor: abrir el enlace (ahí se emite el tercer OTP), tipear el código y firmar, o rechazar. El botón *Firmar con falla a mitad* corta el sellado entre la Solicitud y el FIPF: es la demostración en vivo de la regla inviolable #3 — después de apretarlo, las dos huellas de abajo siguen diciendo "sin firmar".
 
 **Persona de prueba activa.** El selector del panel decide a quién simula el adaptador de identidad en P5: de ahí salen los datos que devuelve el OCR y si la verificación aprueba. Cada persona trae su propio desenlace, derivado de su fixture (la coincidencia facial y la fecha de nacimiento de `personas.ts`), y al lado hay un selector para **forzar** uno de los cuatro: aprobado, calidad insuficiente, edad fuera del rango 18-64 o no coincide la cara. El forzado sirve para mostrar los dos desenlaces que ninguna de las cinco personas produce por sí sola, sin inventar personas nuevas. La selección vive en memoria del proceso, igual que los códigos OTP.
 
@@ -139,9 +147,12 @@ Funciones previstas (ver CLAUDE.md → "Panel de demo"): elegir persona, ver los
 | P6 · Datos y declaraciones | Implementada, con el motor de elegibilidad y la derivación a Pantalla A de punta a punta |
 | Pantalla A · Emisión no automática | Implementada. Los datos de contacto de Alianza e Interseguros son marcadores: el PDF de referencia tampoco los trae |
 | P7 · Facturación y garantía de pago | Implementada, con el `PaymentProvider` mock de punta a punta: QR, débito y crédito, declaración de origen lícito bloqueante e idempotencia del intento de pago |
-| Servicio de generación de documentos | Implementado en `src/documentos/`: cierra `PROP-…` y `FIPF-…` con el mismo correlativo, calcula el SHA-256 de cada PDF y estampa el QR de verificación. Todavía no está expuesto por HTTP: lo va a consumir el Route Handler de P8 |
-| P8, P9, Pantalla B | **Pendientes** |
-| Panel de demo | Parcial: clave, códigos OTP, registro de evidencia, selección de persona (con desenlace de identidad forzable) y reinicio de expediente. Faltan el acelerador de plazo y el resto de los fallos forzados |
+| Servicio de generación de documentos | Implementado en `src/documentos/`: cierra `PROP-…` y `FIPF-…` con el mismo correlativo, calcula el SHA-256 de cada PDF y estampa el QR de verificación. Lo consume `GET /api/p8/resumen`, que es donde el paquete se cierra al entrar a P8 |
+| P8 · Revisión y firma final | Implementada, con el `SignatureProvider` mock de punta a punta: un solo acto de firma para la Solicitud y el FIPF, tercer OTP del lado de Code100, descarga de los PDF con verificación de huella y vencimiento del plazo de 24 horas |
+| Pantalla B · Solicitud vencida | Implementada en `/solicitud-vencida`: seguimiento de firma (1, 5, 12 y 24 horas), resumen del caso, procedimiento de devolución en cuatro pasos, actores y evidencia conservada. Abre el trámite de devolución al entrar y llega hasta `DEVUELTO` |
+| P9 · Contratación aceptada | Implementada, con el `PolicyIssuer` mock de punta a punta: SEBAOT simulado remite y emite (`EN EMISIÓN` → `EMITIDA`), la factura la sigue por SIFEN, y se descargan la Solicitud y el FIPF **firmados**, verificando su huella. No se genera Nota de Cobertura |
+| Panel de demo | Implementado: clave, códigos OTP, registro de evidencia, selección de persona (con desenlace de identidad forzable), acelerador del plazo de firma, los cuatro fallos forzados, el acto de firma de Code100 simulado, la devolución ejecutada por Alianza y reinicio de expediente |
+| Las 12 pantallas | **Completas.** P0–P9, Pantalla A y Pantalla B |
 | Consola administrativa | Implementada en `/admin-consola`: búsqueda, detalle, evidencia y reinicio con justificativo. Falta la vista de envíos/respuestas a proveedores |
 
-Los datos de este documento están listos para las 12 pantallas; lo que falta es construirlas. Cada pantalla nueva consume los fixtures de `personas.ts` y no debería necesitar datos propios: si una pantalla pide un dato que no está en el catálogo, es señal de que el catálogo quedó corto y hay que ampliarlo acá, no inventarlo en la pantalla.
+Las 12 pantallas están construidas. Cada pantalla nueva consume los fixtures de `personas.ts` y no debería necesitar datos propios: si una pantalla pide un dato que no está en el catálogo, es señal de que el catálogo quedó corto y hay que ampliarlo acá, no inventarlo en la pantalla.

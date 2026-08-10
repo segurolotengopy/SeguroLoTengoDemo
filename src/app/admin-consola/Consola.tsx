@@ -69,12 +69,13 @@ const ESTADOS = [
   "PAQUETE_GENERADO",
   "VENCIDO",
   "DEVOLUCION_EN_TRAMITE",
+  "DEVUELTO",
   "FIRMADO",
   "EMITIDO",
 ];
 
 /** Estados terminales sin póliza: los que la especificación pide badgear. */
-const ESTADOS_BADGE = new Set(["DERIVADO_MANUAL", "VENCIDO", "DEVOLUCION_EN_TRAMITE"]);
+const ESTADOS_BADGE = new Set(["DERIVADO_MANUAL", "VENCIDO", "DEVOLUCION_EN_TRAMITE", "DEVUELTO"]);
 
 const CLASE_CAMPO =
   "h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500";

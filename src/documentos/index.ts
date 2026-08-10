@@ -23,14 +23,18 @@ export {
   CONTENT_TYPE_PDF,
   ESTADO_REQUERIDO_DOCUMENTOS,
   PASO_EVIDENCIA_DOCUMENTOS,
+  archivarDocumentosFirmados,
   claveDocumento,
+  claveDocumentoFirmado,
   generarPaqueteDocumental,
 } from "./servicio";
 export type {
+  DependenciasArchivadoFirmados,
   DependenciasDocumentos,
   DocumentoGenerado,
   MotivoRechazoDocumentos,
   RepositorioArchivos,
+  ResultadoArchivadoFirmados,
   ResultadoGenerarPaquete,
 } from "./servicio";
 export { renderizarFipf, renderizarSolicitud } from "./plantillas";

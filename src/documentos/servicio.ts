@@ -53,6 +53,7 @@ import { registrarPaqueteDocumental } from "../domain/expediente";
 import type { DocumentoCerrado, Expediente, PaqueteDocumental, RegistroEvidencia } from "../domain/tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../domain/verificacion-canal";
 import type { EvidenceStore } from "../ports/evidence-store";
+import type { SignatureProvider } from "../ports/signature-provider";
 import { renderizarFipf, renderizarSolicitud } from "./plantillas";
 
 // ---------------------------------------------------------------------------
@@ -143,6 +144,15 @@ export type ResultadoGenerarPaquete =
  */
 export function claveDocumento(expedienteId: string, codigo: string, version: number): string {
   return `expedientes/${expedienteId}/documentos/${codigo}-v${version}.pdf`;
+}
+
+/**
+ * Ruta del PDF **firmado** que devolvió Code100. Va aparte del cerrado y nunca
+ * lo pisa: los dos son evidencia, y el cerrado es el que se hasheó antes de
+ * firmar (regla inviolable #4). Es el archivo que P9 pone a descargar.
+ */
+export function claveDocumentoFirmado(expedienteId: string, codigo: string, version: number): string {
+  return `expedientes/${expedienteId}/documentos/${codigo}-v${version}-firmado.pdf`;
 }
 
 // ---------------------------------------------------------------------------
@@ -393,4 +403,104 @@ async function cerrarDocumentos(
   }
 
   return { ok: true, solicitud: guardados[0], fipf: guardados[1] };
+}
+
+// ---------------------------------------------------------------------------
+// Archivado de los documentos firmados (entrada de P9)
+// ---------------------------------------------------------------------------
+
+/**
+ * Baja de Code100 los dos PDF firmados y los guarda, para que P9 los pueda
+ * ofrecer en `DOCUMENTOS DISPONIBLES PARA DESCARGAR`.
+ *
+ * **Idempotente sin necesidad de estado nuevo**: si los dos archivos ya están
+ * guardados no vuelve a pedirlos. Eso lo hace seguro de llamar en cada carga de
+ * P9 y hace que un fallo de red se reintente solo la próxima vez, sin tener que
+ * marcar en el expediente si el archivado ya ocurrió.
+ *
+ * **Verifica la huella antes de dar por bueno el archivo.** El SHA-256 de lo
+ * que se guardó tiene que coincidir con el que Code100 reportó en la `Firma` y
+ * que ya está en el expediente. Si no coincide, el archivo no es el que se
+ * firmó y no se registra como tal (fila 47 de la matriz de cumplimiento:
+ * vincular Solicitud, FIPF, pago y firmas mediante correlativos o hashes).
+ *
+ * **Los dos o ninguno** (regla inviolable #3): las dos huellas se verifican
+ * **antes** de escribir ningún archivo, con el mismo criterio que usa
+ * `cerrarDocumentos` para el paquete sin firmar. Si el FIPF no coincide, la
+ * Solicitud tampoco se guarda — si no, `GET /api/p8/documento?firmado=1` podría
+ * servir una Solicitud firmada mientras el FIPF nunca llegó a archivarse.
+ */
+export interface DependenciasArchivadoFirmados {
+  readonly archivos: RepositorioArchivos & {
+    obtenerArchivo(clave: string): Promise<Uint8Array | null>;
+  };
+  readonly firmas: SignatureProvider;
+}
+
+export type ResultadoArchivadoFirmados =
+  | { readonly ok: true; readonly claveSolicitud: string; readonly claveFipf: string }
+  | {
+      readonly ok: false;
+      readonly motivo: "SIN_FIRMA" | "PROVEEDOR_SIN_DOCUMENTOS" | "HUELLA_NO_COINCIDE";
+      readonly detalle?: string;
+    };
+
+export async function archivarDocumentosFirmados(
+  deps: DependenciasArchivadoFirmados,
+  expediente: Expediente,
+): Promise<ResultadoArchivadoFirmados> {
+  const paquete = expediente.paqueteDocumental;
+  const firma = expediente.firma;
+  if (!paquete || !firma) return { ok: false, motivo: "SIN_FIRMA" };
+
+  const objetivos = [
+    { documento: paquete.solicitud, hashFirmado: firma.hashSolicitudFirmada },
+    { documento: paquete.fipf, hashFirmado: firma.hashFipfFirmado },
+  ] as const;
+
+  const claves = objetivos.map(({ documento }) =>
+    claveDocumentoFirmado(expediente.id, documento.codigo, documento.version),
+  );
+
+  const yaGuardados = await Promise.all(claves.map((clave) => deps.archivos.obtenerArchivo(clave)));
+  if (yaGuardados.every((bytes) => bytes !== null)) {
+    return { ok: true, claveSolicitud: claves[0], claveFipf: claves[1] };
+  }
+
+  const documentos = await deps.firmas.descargarDocumentosFirmados(firma.idCode100);
+  if (!documentos) return { ok: false, motivo: "PROVEEDOR_SIN_DOCUMENTOS" };
+
+  const bytes = [documentos.solicitud, documentos.fipf] as const;
+
+  // Primero se verifican las dos huellas, sin escribir nada. Recién si las dos
+  // corresponden se guardan los archivos.
+  for (let indice = 0; indice < objetivos.length; indice += 1) {
+    const hash = sha256Hex(bytes[indice]);
+    if (hash !== objetivos[indice].hashFirmado) {
+      return {
+        ok: false,
+        motivo: "HUELLA_NO_COINCIDE",
+        detalle:
+          `El PDF firmado de ${objetivos[indice].documento.codigo} no coincide con la huella registrada: ` +
+          `${hash} ≠ ${objetivos[indice].hashFirmado}.`,
+      };
+    }
+  }
+
+  for (let indice = 0; indice < objetivos.length; indice += 1) {
+    const guardado = await deps.archivos.guardarArchivo(claves[indice], bytes[indice], CONTENT_TYPE_PDF);
+    // El repositorio también hashea lo que efectivamente escribió: si difiere,
+    // algo alteró el contenido entre la verificación y el almacenamiento.
+    if (guardado.hashSha256 !== objetivos[indice].hashFirmado) {
+      return {
+        ok: false,
+        motivo: "HUELLA_NO_COINCIDE",
+        detalle:
+          `El archivo guardado de ${objetivos[indice].documento.codigo} no coincide con la huella registrada: ` +
+          `${guardado.hashSha256} ≠ ${objetivos[indice].hashFirmado}.`,
+      };
+    }
+  }
+
+  return { ok: true, claveSolicitud: claves[0], claveFipf: claves[1] };
 }

@@ -47,9 +47,17 @@ import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-can
 // ---------------------------------------------------------------------------
 
 /**
- * Estados que bloquean un registro nuevo con la misma cédula. Son los dos
- * finales del flujo digital que **no** terminaron en póliza: la derivación a
- * Pantalla A y el vencimiento del plazo de firma de Pantalla B.
+ * Estados que bloquean un registro nuevo con la misma cédula. Son los finales
+ * del flujo digital que **no** terminaron en póliza: la derivación a Pantalla A
+ * y las tres etapas del vencimiento del plazo de firma de Pantalla B.
+ *
+ * `DEVUELTO` está en la lista **a propósito**, aunque sea el final feliz del
+ * trámite de devolución. La regla inviolable #11 habla de expedientes "sin
+ * superar", y superarlos es algo que hace la consola administrativa creando uno
+ * nuevo enlazado por `expedienteAnteriorId` — nunca algo que ocurra solo. Si
+ * devolver el premio destrabara la cédula por sí mismo, existiría un camino
+ * para volver al flujo digital sin que nadie revise el caso, que es justo lo
+ * que la regla #11 impide.
  *
  * `EMITIDO` no está: un expediente emitido es un contrato cerrado con éxito,
  * no un caso pendiente de resolver. Que una persona pueda o no contratar una
@@ -59,6 +67,7 @@ export const ESTADOS_QUE_BLOQUEAN_REGISTRO: readonly EstadoExpediente[] = [
   "DERIVADO_MANUAL",
   "VENCIDO",
   "DEVOLUCION_EN_TRAMITE",
+  "DEVUELTO",
 ];
 
 export function estadoBloqueaRegistro(estado: EstadoExpediente): boolean {

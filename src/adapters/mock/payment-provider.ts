@@ -92,6 +92,14 @@ const ULTIMOS_4_SIMULADOS = "0042";
 /** Falla que el panel de demo puede forzar sobre la próxima operación. */
 export type FallaBancardDemo = "TIMEOUT" | "RECHAZADA";
 
+/**
+ * Falla de la **captura** de una preautorización, que es un momento distinto de
+ * la apertura de la operación: la ordena la firma del cliente en P8. Existe para
+ * poder demostrar la fila 44 de la matriz de cumplimiento (*"Si falla el cobro,
+ * no solicitar la emisión automática"*).
+ */
+export type FallaCapturaDemo = "CAPTURA_FALLIDA";
+
 export interface OperacionMock {
   readonly referenciaBancard: string;
   readonly expedienteId: string;
@@ -126,6 +134,8 @@ export interface OpcionesPaymentProviderMock {
   readonly demoraAcreditacionMs?: number;
   /** Falla a forzar en la próxima operación (palanca del panel de demo). */
   readonly fallaForzada?: () => FallaBancardDemo | null;
+  /** Falla a forzar en la próxima captura de preautorización. */
+  readonly fallaCapturaForzada?: () => FallaCapturaDemo | null;
 }
 
 function referenciaDeBancard(): string {
@@ -164,6 +174,7 @@ export function crearPaymentProviderMock(
   const demoraGeneracionMs = opciones.demoraGeneracionMs ?? DEMORA_GENERACION_MS;
   const demoraAcreditacionMs = opciones.demoraAcreditacionMs ?? DEMORA_ACREDITACION_MS;
   const fallaForzada = opciones.fallaForzada ?? (() => null);
+  const fallaCapturaForzada = opciones.fallaCapturaForzada ?? (() => null);
 
   /**
    * Avanza una operación pendiente cuando el reloj alcanzó su acreditación (la
@@ -309,6 +320,13 @@ export function crearPaymentProviderMock(
 
       // Idempotencia: una segunda captura no vuelve a cobrar.
       if (operacion.estado === "CAPTURADO") return proyectar(operacion);
+
+      if (fallaCapturaForzada() === "CAPTURA_FALLIDA") {
+        throw new ErrorBancard(
+          "RECHAZADA",
+          "Bancard rechazó la captura de la preautorización (simulado).",
+        );
+      }
 
       if (operacion.estado !== "PREAUTORIZADO") {
         throw new Error(

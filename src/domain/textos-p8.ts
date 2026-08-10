@@ -1,0 +1,218 @@
+/**
+ * Literales de P8 · Revisión y firma final, transcritos de
+ * docs/ESPECIFICACION_PANTALLAS.md → "P8 · Paso 8 de 9 — Revisión y firma
+ * final".
+ *
+ * Mismo criterio que `textos-p1.ts`, `textos-p3.ts`, `textos-p6.ts` y
+ * `textos-p7.ts`: módulo sin ninguna dependencia (ni siquiera `node:*`) porque
+ * lo consumen las dos orillas —la pantalla, que muestra los literales, y el
+ * caso de uso del servidor, que registra la versión del que se aceptó—.
+ *
+ * **Al cambiar una sola palabra de la declaración de firma hay que subir
+ * `VERSION_DECLARACION_FIRMA`.** Las evidencias ya guardadas apuntan a la
+ * versión vieja y no se reescriben nunca (regla inviolable #10).
+ *
+ * ## Respaldo normativo de los bloques
+ *
+ * Filas de `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`, categoría
+ * "R4 - FIRMA ELECTRÓNICA MEDIANTE CODE100" salvo donde se indica:
+ *
+ * - 34 — El cliente firma electrónicamente la Solicitud y el FIPF
+ *   (Ley 6822/21, arts. 38(1), 42(5) y 67-69; Res. SS SG. 215/15, anexo 1,
+ *   numeral 11.15).
+ * - 35 — Cerrar los documentos antes de firmar y conservar sus huellas
+ *   digitales (Ley 6822/21, arts. 42(5), 61 y 66).
+ * - 36 — Un mismo enlace Code100 para firmar la Solicitud y el FIPF (diseño
+ *   del proceso; debe mantener atribución conforme al art. 40 de la Ley 6822/21).
+ * - 37 — Orden de firma: cliente primero; Interseguros y Alianza después, en
+ *   paralelo (no hay artículo que lo imponga).
+ * - 41 — Vigencia de 24 horas para el enlace de firma (no es plazo legal;
+ *   debe informarse conforme a Ley 4868/13, arts. 7(f), 7(n) y 7(r)).
+ * - 42 — Conservar evidencia Code100: identidad, OTP, IP, fecha, hora, hash y
+ *   resultado (Ley 6822/21, arts. 42(5), 66 y 68(3)).
+ * - 29 — Recordatorios de firma a 1, 5 y 12 horas ("R3", no hay artículo que
+ *   determine esos horarios).
+ * - 43 y 47 — Firma confirmada → cobro → envío a Alianza → validación
+ *   automática → emisión, y vinculación por correlativos o hashes
+ *   ("R5 - ACEPTACIÓN, EMISIÓN Y PÓLIZA"; Código Civil, arts. 1348 y 1373-1374;
+ *   Res. SS SG. 215/15, punto 14; Ley 6822/21, arts. 44-46).
+ */
+import type { CanalFirma } from "./tipos";
+
+export const TITULO_P8 = "Revisión y firma final";
+
+export const SUBTITULO_P8 =
+  "Revisá los documentos cerrados y firmalos en un único proceso seguro de Code100.";
+
+export const ADVERTENCIA_ACEPTACION_P8 =
+  "La aceptación contractual ocurre al firmar en Code100, no al presionar un botón del portal.";
+
+// ---------------------------------------------------------------------------
+// Bloque 1 — Revisá los documentos
+// ---------------------------------------------------------------------------
+
+export const TITULO_BLOQUE_DOCUMENTOS_P8 = "Revisá los documentos";
+
+export const BADGE_DATOS_VERIFICADOS_P8 = "DATOS E IDENTIDAD VERIFICADOS";
+
+export const NOMBRE_SOLICITUD_P8 = "Solicitud de Seguro de Vida Oncológico";
+
+export const DESCRIPCION_SOLICITUD_P8 =
+  "Plan, coberturas, premio y beneficiario; declaraciones médicas y autorizaciones; versión definitiva preparada para firma.";
+
+export const NOMBRE_FIPF_P8 = "Formulario de Identificación de Persona Física";
+
+export const DESCRIPCION_FIPF_P8 =
+  "Datos personales, laborales y económicos; identificación, PEP, origen de fondos y evidencias; vinculado al mismo correlativo de la Solicitud.";
+
+/** Regla inviolable #4: el PDF se cierra y se hashea antes de habilitar la firma. */
+export const MARCA_PDF_CERRADO_P8 = "PDF cerrado · hash registrado";
+
+export const BOTON_VER_PDF_P8 = "VER PDF";
+export const BOTON_DESCARGAR_P8 = "DESCARGAR";
+
+export const TITULO_ACCESO_PREVIO_P8 = "ACCESO PREVIO A LA INFORMACIÓN";
+
+export const ENLACES_ACCESO_PREVIO_P8: readonly string[] = [
+  "Coberturas, exclusiones y carencias",
+  "Condiciones del seguro",
+  "Aviso de privacidad",
+];
+
+export const NOTA_SIN_MODIFICACION_P8 =
+  "Después de enviar, los documentos no podrán modificarse sin generar una nueva versión y nuevas huellas digitales.";
+
+// ---------------------------------------------------------------------------
+// Bloque 2 — Elegí el canal
+// ---------------------------------------------------------------------------
+
+export const TITULO_BLOQUE_CANAL_P8 = "Elegí el canal";
+
+export const SUBTITULO_BLOQUE_CANAL_P8 = "Code100 enviará el enlace al canal elegido.";
+
+/** El canal por defecto de la especificación es el WhatsApp verificado. */
+export const CANAL_FIRMA_POR_DEFECTO: CanalFirma = "WHATSAPP";
+
+export const ROTULO_CANAL_P8: Readonly<Record<CanalFirma, string>> = {
+  WHATSAPP: "WhatsApp verificado",
+  EMAIL: "Correo verificado",
+};
+
+export const TITULO_GARANTIA_PAGO_P8 = "GARANTÍA DE PAGO LISTA";
+
+export const NOTA_GARANTIA_SIN_DATOS_NUEVOS_P8 =
+  "Esta firma no solicita nuevos datos de pago.";
+
+export const TITULO_UN_SOLO_ACTO_P8 = "UN SOLO ACTO DE FIRMA";
+
+export const TEXTO_UN_SOLO_ACTO_P8 =
+  "La firma electrónica no cualificada del cliente quedará vinculada simultáneamente a la Solicitud y al FIPF mediante sus huellas digitales.";
+
+// ---------------------------------------------------------------------------
+// Bloque 3 — Firmá mediante Code100
+// ---------------------------------------------------------------------------
+
+export const TITULO_BLOQUE_FIRMA_P8 = "Firmá mediante Code100";
+
+export const TITULO_DECLARACION_FIRMA_P8 = "DECLARACIÓN QUE SE ACEPTARÁ AL FIRMAR";
+
+/**
+ * Literal íntegro que la persona tiene a la vista al pedir el enlace. Se guarda
+ * completo en la evidencia —no solo su versión— por el mismo motivo que en P3 y
+ * P7: si alguien edita este archivo sin subir la versión, el expediente sigue
+ * conteniendo, palabra por palabra, lo que la persona aceptó.
+ */
+export const TEXTO_DECLARACION_FIRMA_P8 =
+  "Declaro haber tenido acceso y haber revisado la Solicitud, el FIPF, las condiciones, coberturas, " +
+  "exclusiones, carencias, premio y forma de entrega; confirmo la veracidad de los datos; acepto el " +
+  "contenido de ambos documentos y solicito la emisión de la póliza electrónica de Seguro de Vida " +
+  "Oncológico.";
+
+export const VERSION_DECLARACION_FIRMA_P8 = "2026-01-P8-v1";
+
+export const NOTA_ACEPTACION_REGISTRADA_P8 =
+  "La aceptación queda registrada por Code100 junto con la firma.";
+
+export const BOTON_ENVIAR_ENLACE_P8 = "ENVIAR ENLACE SEGURO DE FIRMA";
+
+export const NOTA_ENVIO_ENLACE_P8 =
+  "Code100 enviará el enlace al canal verificado seleccionado.";
+
+export const PASOS_PROGRESO_FIRMA_P8: readonly string[] = [
+  "Recibí el enlace",
+  "Abrí y firmá",
+  "Volvé al portal",
+];
+
+export const ESTADO_ESPERANDO_CODE100_P8 = "Esperando confirmación verificable de Code100";
+
+export const NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8 =
+  "QR — seguimiento manual de firma a 1, 5 y 12 horas; vencimiento a las 24 horas.";
+
+// ---------------------------------------------------------------------------
+// Después de la firma del cliente
+// ---------------------------------------------------------------------------
+
+export const TITULO_DESPUES_DE_LA_FIRMA_P8 = "DESPUÉS DE LA FIRMA DEL CLIENTE";
+
+export interface PasoPosteriorP8 {
+  readonly titulo: string;
+  readonly detalle: string;
+}
+
+export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
+  {
+    titulo: "Confirmación Code100",
+    detalle: "El cliente firmó la Solicitud y el FIPF; se verifican los hashes y la transacción.",
+  },
+  {
+    titulo: "Firmas y cobro",
+    detalle:
+      "Interseguros y Alianza firman ambos PDF; Bancard confirma el cobro y el identificador.",
+  },
+  {
+    titulo: "Envío y validación",
+    detalle:
+      "SeguroLoTengo remite el expediente a Alianza; Alianza valida automáticamente mediante SEBAOT.",
+  },
+  {
+    titulo: "Emisión y entrega",
+    detalle:
+      "Alianza emite y firma la póliza electrónica; envía la póliza y la factura a los canales verificados.",
+  },
+];
+
+export const LEYENDAS_FINALES_P8: readonly string[] = [
+  "No se genera Nota de Cobertura.",
+  "La póliza conserva el correlativo de la Solicitud y el identificador de Bancard.",
+  "Se registrarán PDFs, hashes, aceptación, canal, ID de Code100, firmantes, fecha, hora, IP, estados y callbacks.",
+];
+
+// ---------------------------------------------------------------------------
+// Estados de la pantalla que no son literales del documento
+// ---------------------------------------------------------------------------
+//
+// La especificación describe la pantalla en su estado normal. Estos textos
+// cubren los desenlaces que el documento nombra pero no redacta (el enlace
+// rechazado, el plazo cumplido) y se escribieron para esta pantalla siguiendo
+// el mismo registro. No son literales citables de la especificación.
+
+export const AVISO_PLAZO_RESTANTE_P8 = "Tiempo restante para firmar";
+
+export const AVISO_PLAZO_VENCIDO_P8 =
+  "Se cumplió el plazo para firmar. Tu solicitud venció y se inició el procedimiento correspondiente.";
+
+export const AVISO_FIRMA_RECHAZADA_P8 =
+  "Code100 informó que el acto de firma no se completó. Podés pedir un enlace nuevo mientras siga vigente el plazo.";
+
+/**
+ * La firma ya está registrada, pero Bancard todavía no confirmó la captura de
+ * la preautorización. No se avanza a P9 hasta que el cobro esté confirmado
+ * (fila 44 de la matriz: *"Si falla el cobro, no solicitar la emisión
+ * automática"*).
+ */
+export const AVISO_CAPTURA_PENDIENTE_P8 =
+  "Firmaste correctamente. Estamos confirmando el cobro con Bancard antes de solicitar la emisión.";
+
+export const AVISO_ENLACE_ENVIADO_P8 =
+  "Enviamos el enlace de firma a tu canal verificado. Abrilo, firmá y volvé a esta pantalla.";
