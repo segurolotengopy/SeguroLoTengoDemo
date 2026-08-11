@@ -55,6 +55,12 @@ export interface ExpedienteRepository {
 export interface ConsultaExpedientes {
   buscarPorCedula(numeroCedula: string): Promise<readonly Expediente[]>;
   buscarPorNumeroCaso(numeroCaso: string): Promise<readonly Expediente[]>;
+  /**
+   * Por el correlativo de la propuesta (`00018425`), sin prefijo: la consola
+   * traduce `PROP-`/`FIPF-` con `correlativoDeCodigo` antes de llamar acá
+   * (`docs/CONSOLA_ADMINISTRATIVA.md` §3 exige aceptar los tres formatos).
+   */
+  buscarPorNumeroPropuesta(correlativo: string): Promise<readonly Expediente[]>;
   /** Expedientes que declaran a este como `expedienteAnteriorId`. */
   buscarSucesores(expedienteId: string): Promise<readonly Expediente[]>;
   /** `desde`/`hasta` son ISO 8601 y filtran por `actualizadoEn`. */
@@ -94,6 +100,13 @@ export function crearExpedienteRepositoryDynamoDb(
     }
     if (expediente.numeroCasoDerivacion) {
       claves.push(claveIndicePorValor("CASO", expediente.numeroCasoDerivacion, expediente.id));
+    }
+    // El correlativo de la propuesta se acuña en P7 y no cambia más, así que
+    // este índice tampoco puede quedar obsoleto. Los expedientes guardados
+    // antes de que existiera lo ganan en su próxima escritura — misma
+    // compensación que el resto: el índice acota candidatos, no es verdad.
+    if (expediente.numeroPropuesta) {
+      claves.push(claveIndicePorValor("PROPUESTA", expediente.numeroPropuesta, expediente.id));
     }
     // Índice de sucesión: permite preguntar "¿alguien ya superó a este
     // expediente?" sin depender de que tenga cédula. Es lo que impide crear
@@ -222,6 +235,12 @@ export function crearExpedienteRepositoryDynamoDb(
       const ids = await idsDeIndice(particionIndice("CASO", numeroCaso));
       const expedientes = await hidratar(ids);
       return expedientes.filter((expediente) => expediente.numeroCasoDerivacion === numeroCaso);
+    },
+
+    async buscarPorNumeroPropuesta(correlativo: string): Promise<readonly Expediente[]> {
+      const ids = await idsDeIndice(particionIndice("PROPUESTA", correlativo));
+      const expedientes = await hidratar(ids);
+      return expedientes.filter((expediente) => expediente.numeroPropuesta === correlativo);
     },
 
     async buscarSucesores(expedienteId: string): Promise<readonly Expediente[]> {

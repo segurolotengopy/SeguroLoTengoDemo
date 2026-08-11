@@ -24,7 +24,7 @@ import {
   estadoBloqueaRegistro,
   filtrarPorNombre,
 } from "@/domain/consola-administrativa";
-import { ESTADOS_TERMINALES } from "@/domain/tipos";
+import { correlativoDeCodigo } from "@/domain/documentos";
 import type { EstadoExpediente, Expediente } from "@/domain/tipos";
 import { crearExpedienteRepository } from "@/repositories";
 
@@ -80,7 +80,14 @@ export async function GET(request: Request): Promise<Response> {
       break;
     }
     case "caso": {
-      encontrados = await repositorio.buscarPorNumeroCaso(valor.toUpperCase());
+      // Los tres formatos de la especificación: `PROP-`/`FIPF-` se traducen
+      // al correlativo de la propuesta; cualquier otro valor se busca como
+      // número de caso de derivación (`CASO-...`).
+      const codigo = valor.toUpperCase();
+      const correlativo = correlativoDeCodigo(codigo);
+      encontrados = correlativo
+        ? await repositorio.buscarPorNumeroPropuesta(correlativo)
+        : await repositorio.buscarPorNumeroCaso(codigo);
       // Para saber si un caso derivado sigue bloqueando hay que mirar sus
       // hermanos por cédula, no solo el expediente encontrado.
       const cedula = encontrados[0]?.identidad?.numeroCedula;
@@ -123,10 +130,12 @@ export async function GET(request: Request): Promise<Response> {
     ...sucesores.filter((sucesor) => !idsEnContexto.has(sucesor.id)),
   ];
 
+  // Sin `estadosTerminales` en la respuesta: era un campo muerto (la UI tiene
+  // su propia lista de estados con badge) y además engañoso — `EMITIDO` es
+  // terminal pero no bloquea, y `VENCIDO`/`DEVOLUCION_EN_TRAMITE` bloquean sin
+  // ser terminales. El badge correcto ya viaja por fila en `bloqueaRegistro`.
   return respuestaJson({
     ok: true,
     resultados: armarResultados(filtrados, contextoConSucesores),
-    // Le dice a la consola qué estados dibujar con badge de terminal.
-    estadosTerminales: ESTADOS_TERMINALES,
   });
 }

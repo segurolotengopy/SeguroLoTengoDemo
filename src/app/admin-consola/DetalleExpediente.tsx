@@ -134,6 +134,15 @@ export function DetalleExpediente({
               {detalle.caso.motivo} · derivado el{" "}
               {new Date(detalle.caso.derivadoEn).toLocaleString("es-PY")}
             </p>
+          ) : ["VENCIDO", "DEVOLUCION_EN_TRAMITE", "DEVUELTO"].includes(expediente.estado) ? (
+            // La rama del vencimiento (§4 pide motivo y fecha para las dos
+            // ramas por igual, no solo para DERIVADO_MANUAL).
+            <p className="text-sm text-rojo-900 dark:text-rojo-100">
+              Motivo: no se firmó dentro del plazo
+              {expediente.plazoFirmaVenceEn
+                ? ` · venció el ${new Date(expediente.plazoFirmaVenceEn).toLocaleString("es-PY")}`
+                : ""}
+            </p>
           ) : null}
           <p className="text-sm text-rojo-900 dark:text-rojo-100">
             {bloqueo.bloqueaHoy
@@ -283,6 +292,37 @@ export function DetalleExpediente({
           <p className="text-xs text-etiqueta">
             Nunca se almacena el número completo de tarjeta ni el CVV (regla inviolable #6), ni el
             código de un OTP en claro (regla #2).
+          </p>
+        </Bloque>
+
+        <Bloque titulo="Póliza y factura (las emite Alianza)">
+          {expediente.poliza ? (
+            <dl className="grid grid-cols-2 gap-3">
+              <Dato rotulo="Número de póliza" valor={expediente.poliza.numeroPoliza} />
+              <Dato rotulo="Estado" valor={expediente.poliza.estado} />
+              <Dato
+                rotulo="Remitida a Alianza"
+                valor={new Date(expediente.poliza.solicitadaEn).toLocaleString("es-PY")}
+              />
+              <Dato
+                rotulo="Emitida"
+                valor={
+                  expediente.poliza.emitidaEn
+                    ? new Date(expediente.poliza.emitidaEn).toLocaleString("es-PY")
+                    : null
+                }
+              />
+              <Dato rotulo="Factura" valor={expediente.poliza.estadoFactura} />
+              <Dato rotulo="Referencia de factura" valor={expediente.poliza.referenciaFactura} />
+            </dl>
+          ) : (
+            <p className="text-sm text-cuerpo">
+              Sin emisión ordenada todavía: la póliza recién se remite a Alianza con el expediente
+              en <code className="font-mono">EMITIDO</code>.
+            </p>
+          )}
+          <p className="text-xs text-etiqueta">
+            El número de póliza conserva el correlativo de la propuesta: SEBAOT no acuña uno nuevo.
           </p>
         </Bloque>
 

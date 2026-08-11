@@ -27,10 +27,11 @@
  * Índices de la consola administrativa (`docs/CONSOLA_ADMINISTRATIVA.md` §3),
  * agregados como **ítems de índice en la misma tabla**, no como GSI:
  *
- * - Por cédula:   pk = INDICE#CEDULA#<cedula>      sk = EXPEDIENTE#<id>
- * - Por caso:     pk = INDICE#CASO#<numeroCaso>    sk = EXPEDIENTE#<id>
- * - Por estado:   pk = INDICE#ESTADO#<estado>      sk = <actualizadoEn>#<id>
- * - Por sucesión: pk = INDICE#ANTERIOR#<idViejo>   sk = EXPEDIENTE#<idNuevo>
+ * - Por cédula:    pk = INDICE#CEDULA#<cedula>          sk = EXPEDIENTE#<id>
+ * - Por caso:      pk = INDICE#CASO#<numeroCaso>        sk = EXPEDIENTE#<id>
+ * - Por propuesta: pk = INDICE#PROPUESTA#<correlativo>  sk = EXPEDIENTE#<id>
+ * - Por estado:    pk = INDICE#ESTADO#<estado>          sk = <actualizadoEn>#<id>
+ * - Por sucesión:  pk = INDICE#ANTERIOR#<idViejo>       sk = EXPEDIENTE#<idNuevo>
  *
  * **Por qué ítems de índice y no un GSI.** Los tres patrones son Query sobre
  * la clave primaria que la tabla ya tiene, así que no hace falta tocar
@@ -75,7 +76,7 @@ export function claveEvidencia(
 // Ítems de índice de la consola administrativa
 // ---------------------------------------------------------------------------
 
-export type TipoIndiceExpediente = "CEDULA" | "CASO" | "ESTADO" | "ANTERIOR";
+export type TipoIndiceExpediente = "CEDULA" | "CASO" | "PROPUESTA" | "ESTADO" | "ANTERIOR";
 
 export function particionIndice(tipo: TipoIndiceExpediente, valor: string): string {
   return `INDICE${SEPARADOR}${tipo}${SEPARADOR}${valor}`;
@@ -87,7 +88,7 @@ export function particionIndice(tipo: TipoIndiceExpediente, valor: string): stri
  * expediente no duplica entradas.
  */
 export function claveIndicePorValor(
-  tipo: "CEDULA" | "CASO" | "ANTERIOR",
+  tipo: "CEDULA" | "CASO" | "PROPUESTA" | "ANTERIOR",
   valor: string,
   expedienteId: string,
 ): { pk: string; sk: string } {
