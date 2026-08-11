@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { BandaDemo } from "@/components/shared/BandaDemo";
 import { SCRIPT_TEMA_INICIAL } from "@/components/shared/tema";
 import "./globals.css";
 
@@ -37,7 +38,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_INICIAL }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {process.env.DEMO_MODE === "true" ? <BandaDemo /> : null}
+        {children}
+      </body>
     </html>
   );
 }
