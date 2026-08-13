@@ -27,6 +27,7 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 | `FIPF.pdf` | Formulario de Identificación de Persona Física (SEPRELAD): campos personales, laborales, económicos, origen de fondos, condición PEP. Referencia obligatoria del modelo de datos de KYC/AML — ya reflejado parcialmente en `DatosComplementariosP6` de `src/domain/tipos.ts`. |
 | `Integraciones/Documentacion Firmador - API FLOW.pdf` | Contrato técnico exacto de la API de Code100 (`POST /signature/auth`, `GET /signature/session-start`, `POST /signature/getSessionId`, `POST /signature/sign-pdf`). Gobierna el futuro adaptador oficial de `SignatureProvider` en `src/adapters/live/`. No inventar parámetros ni endpoints distintos a los documentados ahí. |
 | `Integraciones/eCommerce_bancard_compra_simple_version_1.23.1 (1).pdf`, `Integraciones/Preaut y promociones 14.pdf`, `Integraciones/Qr en API de Comercios v1.2 16 (1).pdf` | Contrato técnico exacto de las APIs de Bancard: compra simple de eCommerce, preautorización y captura, y QR de comercios. Gobiernan el futuro adaptador oficial de `PaymentProvider` (P7). Mismo criterio que con Code100: no inventar parámetros ni endpoints. |
+| `RECOMENDACIONES_ONBOARDING_IDENTIDAD.md` | Estrategia de P5 (Rekognition/Textract para demo y piloto, brecha de autenticidad documental, RFP para producción) y **§7: los parámetros internacionales de calidad de rostro, prueba de vida y coincidencia facial**, con su procedencia. Los números viven implementados en `src/domain/identidad-parametros.ts`; ese documento explica por qué son esos. |
 | `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` | Matriz normativa (Número, Categoría R1–R8, Título, Norma y Artículo). Fuente de verdad regulatoria del proyecto — ver "Regla de trabajo con los documentos" abajo. |
 | `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf` | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable. |
 | `Cumplimiento SeguroLoTengo.pdf` | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario. |
@@ -198,6 +199,20 @@ Tres cosas no negociables de este servicio:
 **Pendiente:** la ruta `/verificar/<código>` a la que apunta el QR todavía no existe, y el servicio no está expuesto por HTTP — lo va a cablear el Route Handler de P8 con `crearArchivoRepository()`, que ya está.
 
 ---
+
+## Parámetros de verificación de identidad (P5)
+
+Los "niveles" con los que P5 decide —calidad de imagen, prueba de vida, coincidencia facial, confianza de OCR— viven **solo** en `src/domain/identidad-parametros.ts`, versionados con `VERSION_POLITICA_IDENTIDAD`. No los repitas en un adaptador ni en una pantalla.
+
+Tres reglas, todas verificadas por tests:
+
+- **Toda decisión biométrica se registra como `DecisionBiometrica`**: puntuación cruda + umbral aplicado + versión del modelo del proveedor + versión de la política. Un `aprobada: true` suelto no es evidencia — un auditor pregunta con qué umbral se aprobó, y las APIs sin estado de Rekognition migran de versión de modelo solas.
+- **Escala 0–100 en todo el módulo**, la de Rekognition. Cualquier adaptador que hable otra escala normaliza antes de llegar al dominio.
+- **La coincidencia facial usa 99, no 95** (umbral de caso sensible de AWS): de ahí cuelga la firma de un contrato de seguro de vida y la identificación ante SEPRELAD. A 99, AWS exige recortar el rostro antes de comparar — por eso existe `RECORTE_ROSTRO_OBLIGATORIO`.
+
+Bajar cualquiera de esos umbrales "para mejorar la conversión" pone la suite en rojo a propósito. Si hay que cambiarlos, se cambia también la versión de la política, porque si no se reescribiría retroactivamente el criterio con el que se aprobaron los expedientes viejos (regla inviolable #10).
+
+`src/domain/mrz.ts` lee el MRZ TD1 del dorso (ICAO Doc 9303) y cruza sus datos contra lo que el OCR leyó en el frente. Es la única verificación de autenticidad documental que tenemos con código propio; verifica **consistencia interna, no existencia** — un MRZ inventado con dígitos bien calculados pasa. La procedencia de cada número y el límite de cada control están en §7 de `docs/RECOMENDACIONES_ONBOARDING_IDENTIDAD.md`.
 
 ## Consola administrativa
 
