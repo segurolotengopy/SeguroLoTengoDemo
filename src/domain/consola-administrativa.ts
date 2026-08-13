@@ -38,6 +38,8 @@
  */
 import { randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
+import { enmascararCorreo } from "./correo";
+import { enmascararCelular } from "./telefono";
 import { crearExpedienteInicial } from "./tipos";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
@@ -162,6 +164,9 @@ export interface FilaResultado {
   readonly estado: EstadoExpediente;
   readonly titularEnmascarado: string | null;
   readonly documentoEnmascarado: string | null;
+  /** Canales verificados, enmascarados: referencia cuando todavía no hay cédula. */
+  readonly whatsappEnmascarado: string | null;
+  readonly correoEnmascarado: string | null;
   readonly actualizadoEn: string;
   readonly numeroCasoDerivacion: string | null;
   /** `true` si este expediente bloquea un registro nuevo con su cédula. */
@@ -202,6 +207,12 @@ export function armarResultados(
       : null,
     documentoEnmascarado: expediente.identidad
       ? enmascararDocumento(expediente.identidad.numeroCedula)
+      : null,
+    whatsappEnmascarado: expediente.canalWhatsapp
+      ? enmascararCelular(expediente.canalWhatsapp.valor)
+      : null,
+    correoEnmascarado: expediente.canalEmail
+      ? enmascararCorreo(expediente.canalEmail.valor)
       : null,
     actualizadoEn: expediente.actualizadoEn,
     numeroCasoDerivacion: expediente.numeroCasoDerivacion,
@@ -263,6 +274,79 @@ export function rotuloJustificativo(id: IdJustificativoReinicio): string {
 
 export const PASO_EVIDENCIA_REINICIO_ADMIN = "ADMIN_REINICIO_EXPEDIENTE";
 export const PASO_EVIDENCIA_ORIGEN_REINICIO = "ADMIN_EXPEDIENTE_CREADO_POR_REINICIO";
+export const PASO_EVIDENCIA_ENVIO_ALIANZA = "ADMIN_ENVIO_CASO_ALIANZA";
+
+// ---------------------------------------------------------------------------
+// Envío del caso a Alianza (simulado en el demo)
+// ---------------------------------------------------------------------------
+
+/**
+ * Buzón simulado del área de casos de Alianza. En el demo no sale ningún
+ * correo real: el "envío" se materializa como evidencia append-only en el
+ * expediente, que es lo que la consola puede auditar.
+ */
+export const DESTINATARIO_CASOS_ALIANZA = "casos@alianzagarantia.com.py";
+
+export interface EntradaEnvioAlianza {
+  readonly expedienteId: string;
+  readonly contexto: ContextoPeticion;
+}
+
+export type MotivoRechazoEnvioAlianza = "EXPEDIENTE_NO_ENCONTRADO";
+
+export type ResultadoEnvioAlianza =
+  | {
+      readonly ok: true;
+      readonly destinatario: string;
+      readonly asunto: string;
+      readonly enviadoEn: string;
+    }
+  | { readonly ok: false; readonly motivo: MotivoRechazoEnvioAlianza };
+
+/**
+ * Simula la remisión del caso al equipo de Alianza — pensada sobre todo para
+ * expedientes que terminaron en Pantalla A (derivación) o Pantalla B
+ * (vencimiento), aunque se permite para cualquier estado: reenviar un caso no
+ * altera el expediente.
+ *
+ * **Qué NO viaja en el "correo": ninguna respuesta médica ni la condición PEP**
+ * (regla inviolable #7 — la consola puede mostrarlas en pantalla, pero este
+ * envío es una comunicación saliente y se limita a referencia del caso). El
+ * asunto lleva el número de caso o de propuesta y el estado; nada más.
+ */
+export async function enviarCasoAAlianza(
+  deps: Pick<DependenciasConsola, "expedientes" | "evidencias" | "ahora" | "nuevoId">,
+  entrada: EntradaEnvioAlianza,
+): Promise<ResultadoEnvioAlianza> {
+  const ahora = deps.ahora ?? (() => new Date().toISOString());
+  const nuevoId = deps.nuevoId ?? (() => randomUUID());
+  const fecha = ahora();
+
+  const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+  if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+
+  const referencia =
+    expediente.numeroCasoDerivacion ??
+    (expediente.numeroPropuesta ? `PROP-${expediente.numeroPropuesta}` : expediente.id);
+  const asunto = `Caso ${referencia} · ${expediente.estado}`;
+
+  const evidencia: RegistroEvidencia = {
+    id: nuevoId(),
+    expedienteId: expediente.id,
+    paso: PASO_EVIDENCIA_ENVIO_ALIANZA,
+    fecha,
+    ip: entrada.contexto.ip,
+    dispositivo: entrada.contexto.dispositivo,
+    sesionId: entrada.contexto.sesionId,
+    versionTextoAceptado: null,
+    textoAceptado: null,
+    resultado: "EXITOSO",
+    detalle: `destinatario=${DESTINATARIO_CASOS_ALIANZA} · asunto=${asunto} · envío simulado (demo)`,
+  };
+  await deps.evidencias.guardar(evidencia);
+
+  return { ok: true, destinatario: DESTINATARIO_CASOS_ALIANZA, asunto, enviadoEn: fecha };
+}
 
 /**
  * Búsqueda de sucesores. Es lo que hace exacta la verificación de "este

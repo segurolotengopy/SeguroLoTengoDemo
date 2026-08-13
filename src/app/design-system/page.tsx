@@ -17,7 +17,7 @@ export default function DesignSystemPreview() {
     <div className="flex flex-1 flex-col gap-8 bg-fondo pb-16">
       <HeaderInstitucional indicador={<StepperPasos pasoActual={4} />} />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 sm:px-6">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-10 px-4 sm:px-6">
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             HeaderInstitucional — variantes del indicador
@@ -187,7 +187,7 @@ export default function DesignSystemPreview() {
                 },
                 {
                   nombre: "hueso",
-                  uso: "fondo",
+                  uso: "neutros",
                   clases: [
                     "bg-hueso-50",
                     "bg-hueso-100",

@@ -25,23 +25,25 @@ export default function PantallaP5Identidad() {
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos pasoActual={5} />} />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <BarraPlanDelExpediente enlaceTexto="Cambiar plan" enlaceHref="/p2-plan" />
 
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold text-titulo sm:text-3xl">Verificá tu identidad</h1>
-          <p className="text-base text-azul-700 dark:text-azul-200">
-            Vas a fotografiar tu cédula paraguaya vigente y a hacer una selfie en vivo.
-          </p>
-          <p className="text-sm font-semibold text-cuerpo">
-            No se admite pasaporte ni documento extranjero. Esta pantalla no contiene
-            declaraciones, pago ni firma.
+        <header className="flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-4">
+          <h1 className="shrink-0 text-xl font-bold text-titulo sm:text-2xl">
+            Verificá tu identidad
+          </h1>
+          <p className="text-sm text-cuerpo">
+            Vas a fotografiar tu cédula paraguaya vigente y a hacer una selfie en vivo.{" "}
+            <span className="font-semibold">
+              No se admite pasaporte ni documento extranjero. Esta pantalla no contiene
+              declaraciones, pago ni firma.
+            </span>
           </p>
         </header>
 
         <VerificacionIdentidad />
 
-        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-4">
+        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link
             href="/p4-correo"
             className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"

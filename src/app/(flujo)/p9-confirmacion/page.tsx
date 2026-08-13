@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HeaderInstitucional, StepperPasos } from "@/components/shared";
+import {
+  HeaderInstitucional,
+  IsologoAlianza,
+  IsologoInterseguros,
+  StepperPasos,
+} from "@/components/shared";
 import {
   BAJADA_P9,
   CONTACTOS_P9,
-  PASOS_QUE_OCURRIRA_P9,
   ROTULO_BOTON_FINALIZAR_P9,
   ROTULO_PRODUCTO_P9,
   TITULO_P9,
-  TITULO_QUE_OCURRIRA_P9,
 } from "@/domain/textos-p9";
 import { ContratacionAceptada } from "./ContratacionAceptada";
 
@@ -45,13 +48,13 @@ export default function PantallaP9Confirmacion() {
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos pasoActual={9} />} />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         {/* ---------------------------------------------------------------- */}
         {/* Encabezado verde                                                  */}
         {/* ---------------------------------------------------------------- */}
-        <header className="flex flex-col gap-3 rounded-xl border border-verde-300 bg-verde-50 p-5 sm:flex-row sm:items-start sm:justify-between dark:border-verde-700 dark:bg-verde-950">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold text-verde-900 sm:text-3xl dark:text-verde-100">
+        <header className="flex flex-col gap-2 rounded-lg border border-verde-300 bg-verde-50 p-3 sm:flex-row sm:items-baseline sm:justify-between dark:border-verde-700 dark:bg-verde-950">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+            <h1 className="shrink-0 text-xl font-bold text-verde-900 sm:text-2xl dark:text-verde-100">
               {TITULO_P9}
             </h1>
             <p className="text-sm text-verde-900 dark:text-verde-100">{BAJADA_P9}</p>
@@ -64,55 +67,32 @@ export default function PantallaP9Confirmacion() {
         <ContratacionAceptada />
 
         {/* ---------------------------------------------------------------- */}
-        {/* ¿QUÉ OCURRIRÁ AHORA?                                              */}
+        {/* Pie: cierre y contactos con isologos, debajo del botón            */}
         {/* ---------------------------------------------------------------- */}
-        <section
-          aria-labelledby="p9-que-ocurrira"
-          className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
-        >
-          <h2
-            id="p9-que-ocurrira"
-            className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
-          >
-            {TITULO_QUE_OCURRIRA_P9}
-          </h2>
-          <ol className="flex flex-col gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-4">
-            {PASOS_QUE_OCURRIRA_P9.map((paso, indice) => (
-              <li
-                key={paso}
-                className="flex flex-col gap-1 rounded-lg border border-borde-tenue bg-superficie-suave p-3"
-              >
-                <span className="text-[11px] font-bold text-etiqueta">{indice + 1}</span>
-                <span className="text-sm text-cuerpo">{paso}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Pie: contactos y cierre                                           */}
-        {/* ---------------------------------------------------------------- */}
-        <footer className="flex flex-col gap-4 border-t border-borde-tenue pt-4">
-          <dl className="flex flex-col gap-2">
-            {CONTACTOS_P9.map((contacto) => (
-              <div
-                key={contacto.actor}
-                className="flex flex-col gap-0.5 rounded-lg border border-borde-tenue bg-superficie-suave p-3"
-              >
-                <dt className="text-sm font-bold text-titulo">{contacto.actor}</dt>
-                <dd className="text-xs text-cuerpo">
-                  {contacto.rol} · {contacto.datos}
-                </dd>
-              </div>
-            ))}
-          </dl>
-
+        <footer className="flex flex-col gap-3 border-t border-borde-tenue pt-3">
           <Link
             href="/"
-            className="inline-flex h-12 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"
           >
             {ROTULO_BOTON_FINALIZAR_P9}
           </Link>
+
+          <dl className="grid gap-2 lg:grid-cols-2">
+            {CONTACTOS_P9.map((contacto, indice) => (
+              <div
+                key={contacto.actor}
+                className="flex items-center gap-3 rounded-lg border border-borde-tenue bg-superficie-suave p-2.5"
+              >
+                {indice === 0 ? <IsologoAlianza tamano={32} /> : <IsologoInterseguros tamano={32} />}
+                <div className="flex flex-col gap-0.5">
+                  <dt className="text-sm font-bold text-titulo">{contacto.actor}</dt>
+                  <dd className="text-xs text-cuerpo">
+                    {contacto.rol} · {contacto.datos}
+                  </dd>
+                </div>
+              </div>
+            ))}
+          </dl>
         </footer>
       </main>
     </div>

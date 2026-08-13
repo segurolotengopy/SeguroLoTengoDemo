@@ -43,7 +43,7 @@ export default function PantallaBSolicitudVencida() {
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos variante="pantalla-b" />} />
 
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         {/* ---------------------------------------------------------------- */}
         {/* Encabezado rojo                                                   */}
         {/* ---------------------------------------------------------------- */}
@@ -63,12 +63,14 @@ export default function PantallaBSolicitudVencida() {
 
         <CasoVencido />
 
+        {/* En pantallas anchas: actores y evidencia lado a lado. */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* ---------------------------------------------------------------- */}
         {/* ACTORES Y REGISTRO                                                */}
         {/* ---------------------------------------------------------------- */}
         <section
           aria-labelledby="b-actores"
-          className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+          className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
         >
           <h2
             id="b-actores"
@@ -94,7 +96,7 @@ export default function PantallaBSolicitudVencida() {
         {/* ---------------------------------------------------------------- */}
         <section
           aria-labelledby="b-evidencia"
-          className="flex flex-col gap-3 rounded-xl border border-verde-300 bg-verde-50 p-5 dark:border-verde-700 dark:bg-verde-950"
+          className="flex flex-col gap-3 rounded-lg border border-verde-300 bg-verde-50 p-4 dark:border-verde-700 dark:bg-verde-950"
         >
           <h2
             id="b-evidencia"
@@ -108,8 +110,9 @@ export default function PantallaBSolicitudVencida() {
             ))}
           </ul>
         </section>
+        </div>
 
-        <footer className="flex flex-col gap-3 border-t border-borde-tenue pt-4">
+        <footer className="flex flex-col gap-3 border-t border-borde-tenue pt-3">
           <Link
             href="/"
             className="inline-flex h-12 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"

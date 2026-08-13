@@ -1,21 +1,15 @@
 "use client";
 
 import { useState } from "react";
-// Desde `textos-p3` y no desde el caso de uso: este es un componente de
-// cliente, e importar el caso de uso arrastraría `node:crypto` al bundle.
-import {
-  ADVERTENCIA_AUTORIZACION_INICIAL_P3,
-  CUERPO_AUTORIZACION_INICIAL_P3,
-  NOTA_REGISTRO_P3,
-} from "@/domain/textos-p3";
 
 /**
- * Bloque `AUTORIZACIÓN INICIAL PARA COMENZAR` y botón `TENGO TODO LISTO →`
- * de P3 (docs/ESPECIFICACION_PANTALLAS.md → "P3 · Paso 3 de 9").
+ * Botón `TENGO TODO LISTO →` de P3 (docs/ESPECIFICACION_PANTALLAS.md →
+ * "P3 · Paso 3 de 9"), con su error y su confirmación de registro.
  *
- * El literal que se muestra es el mismo módulo versionado que el servidor
- * persiste como `textoAceptado`, así que lo que la persona lee y lo que queda
- * asentado no pueden divergir.
+ * El literal de la autorización (`CUERPO_AUTORIZACION_INICIAL_P3` y su
+ * advertencia) lo muestra la página servidor desde el mismo módulo versionado
+ * `@/domain/textos-p3` que el servidor persiste como `textoAceptado`, así que
+ * lo que la persona lee y lo que queda asentado no pueden divergir.
  *
  * P3 no tiene checkbox: la especificación define el propio botón como el acto
  * de aceptación ("al presionar TENGO TODO LISTO, se autoriza..."), así que el
@@ -75,39 +69,12 @@ export function BotonAutorizacionInicial() {
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
-      <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-        Autorización inicial para comenzar
-      </h2>
-
-      {/* Las dos partes juntas son, palabra por palabra, el literal que el
-          servidor persiste como `textoAceptado`. */}
-      <p className="text-sm text-cuerpo">{CUERPO_AUTORIZACION_INICIAL_P3}</p>
-
-      <p className="rounded-lg border border-verde-200 bg-verde-50 px-3 py-2 text-sm font-semibold text-verde-800 dark:border-verde-800 dark:bg-verde-950 dark:text-verde-200">
-        {ADVERTENCIA_AUTORIZACION_INICIAL_P3}
-      </p>
-
-      <div className="flex flex-wrap gap-x-6 gap-y-2">
-        <a
-          href="#autorizacion-inicial"
-          className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-        >
-          Aviso de privacidad
-        </a>
-        <a
-          href="#autorizacion-inicial"
-          className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-        >
-          Términos y condiciones
-        </a>
-      </div>
-
+    <div className="flex flex-col gap-2">
       <button
         type="button"
         onClick={autorizar}
         disabled={enProceso}
-        className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:self-start"
+        className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:self-start"
       >
         {enProceso ? "Registrando…" : "Tengo todo listo →"}
       </button>
@@ -124,8 +91,6 @@ export function BotonAutorizacionInicial() {
           versión {registro.versionAviso}
         </p>
       ) : null}
-
-      <p className="text-xs text-etiqueta">{NOTA_REGISTRO_P3}</p>
-    </section>
+    </div>
   );
 }

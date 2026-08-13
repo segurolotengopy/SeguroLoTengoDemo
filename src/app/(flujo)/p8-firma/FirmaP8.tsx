@@ -401,11 +401,15 @@ export function FirmaP8() {
   const pasoActual = firmado ? 3 : acto ? (enlaceAbierto ? 2 : 1) : 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
+      {/* En pantallas anchas: documentos y canal a la izquierda, el acto de
+          firma de Code100 a la derecha con el botón a la vista. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="flex flex-col gap-4">
       {/* ------------------------------------------------------------------ */}
       {/* Bloque 1 — Revisá los documentos                                    */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             {TITULO_BLOQUE_DOCUMENTOS_P8}
@@ -455,12 +459,12 @@ export function FirmaP8() {
       {/* ------------------------------------------------------------------ */}
       {/* Bloque 2 — Elegí el canal                                           */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
-        <div className="flex flex-col gap-1">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             {TITULO_BLOQUE_CANAL_P8}
           </h2>
-          <p className="text-sm text-cuerpo">{SUBTITULO_BLOQUE_CANAL_P8}</p>
+          <p className="text-xs text-cuerpo">{SUBTITULO_BLOQUE_CANAL_P8}</p>
         </div>
 
         <fieldset className="flex flex-col gap-2" disabled={acto !== null || firmado}>
@@ -506,18 +510,19 @@ export function FirmaP8() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave px-4 py-3">
+        <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2.5">
           <h3 className="text-[11px] font-bold tracking-wide text-etiqueta uppercase">
             {TITULO_UN_SOLO_ACTO_P8}
           </h3>
-          <p className="text-sm text-cuerpo">{TEXTO_UN_SOLO_ACTO_P8}</p>
+          <p className="text-xs text-cuerpo">{TEXTO_UN_SOLO_ACTO_P8}</p>
         </div>
       </section>
+      </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Bloque 3 — Firmá mediante Code100                                   */}
+      {/* Bloque 3 — Firmá mediante Code100 (columna derecha)                 */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
         <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
           {TITULO_BLOQUE_FIRMA_P8}
         </h2>
@@ -543,7 +548,7 @@ export function FirmaP8() {
           type="button"
           onClick={enviarEnlace}
           disabled={enviando || firmado || acto !== null || !resumen?.garantia?.lista}
-          className="inline-flex h-12 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:opacity-40"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:opacity-40"
         >
           {enviando ? "Enviando…" : BOTON_ENVIAR_ENLACE_P8}
         </button>
@@ -606,6 +611,7 @@ export function FirmaP8() {
           </p>
         ) : null}
       </section>
+      </div>
     </div>
   );
 }

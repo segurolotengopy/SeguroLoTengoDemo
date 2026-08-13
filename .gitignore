@@ -14,6 +14,10 @@
 /coverage
 
 # Playwright (e2e)
+# `pantallas/` son capturas y PDF generados por e2e/98-capturas-gerencia.spec.ts
+# (~15 MB). Se regeneran con `npx playwright test e2e/98-capturas-gerencia.spec.ts`;
+# no se versionan para no inflar el repo con binarios derivados.
+/pantallas/
 /test-results/
 /playwright-report/
 /blob-report/

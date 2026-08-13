@@ -272,11 +272,14 @@ export function FormularioVerificacionCanal({
   const verificado = etapa === "verificado";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
+      {/* En pantallas anchas los dos pasos van lado a lado para que el flujo
+          completo entre sin scroll; en angostas se apilan. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       {/* ---------------------------------------------------------------- */}
       {/* Paso 1 — Ingresá tu destino                                       */}
       {/* ---------------------------------------------------------------- */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
         <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
           {paso1Titulo}
         </h2>
@@ -329,7 +332,7 @@ export function FormularioVerificacionCanal({
       {/* Paso 2 — Ingresá el código recibido                               */}
       {/* ---------------------------------------------------------------- */}
       <section
-        className={`flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5 ${
+        className={`flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4 ${
           etapa === "destino" ? "opacity-50" : ""
         }`}
       >
@@ -401,20 +404,21 @@ export function FormularioVerificacionCanal({
           </p>
         ) : null}
 
-        <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave p-3 text-xs text-cuerpo">
+        <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave p-2.5 text-xs text-cuerpo">
           {advertencias}
         </div>
       </section>
+      </div>
 
       {/* ---------------------------------------------------------------- */}
       {/* Registro de seguridad                                             */}
       {/* ---------------------------------------------------------------- */}
       {registro ? (
-        <section className="flex flex-col gap-2 rounded-xl border border-borde-sutil bg-superficie p-5">
+        <section className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Registro de seguridad
           </h2>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-5">
             <div className="flex justify-between gap-3 sm:block">
               <dt className="text-etiqueta">Fecha y hora</dt>
               <dd className="text-titulo tabular-nums">

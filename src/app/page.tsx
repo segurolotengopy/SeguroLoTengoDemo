@@ -29,7 +29,7 @@ const RUTA_P1 = "/p1-whatsapp";
 function BandaMarca() {
   return (
     <div className="w-full border-b border-borde-tenue bg-superficie">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="mx-auto flex w-full max-w-pantalla flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p className="text-sm font-bold tracking-wide text-titulo uppercase">
           SeguroLoTengo.com
         </p>
@@ -91,7 +91,7 @@ export default function PantallaP0Informacion() {
       <HeaderInstitucional indicador={<StepperPasos variante="p0" />} />
       <BandaMarca />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
         {/* Bloque principal + panel de video */}
         <section className="grid gap-6 lg:grid-cols-[1.15fr_1fr] lg:items-start">
           <div className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5 sm:p-7">
@@ -234,7 +234,7 @@ export default function PantallaP0Informacion() {
       </main>
 
       <footer className="mt-auto border-t border-borde-tenue bg-superficie">
-        <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6">
+        <div className="mx-auto w-full max-w-pantalla px-4 py-4 sm:px-6">
           <p className="text-xs text-etiqueta">
             Información pública · Versión 1 · Sin chat con inteligencia
             artificial

@@ -123,7 +123,7 @@ export function CasoVencido() {
   const pasos = conDevolucion ? PASOS_DEVOLUCION : PASOS_LIBERACION_RESERVA;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <p className="text-sm text-rojo-900 dark:text-rojo-100">
         {caso === null
           ? BAJADA_PANTALLA_B
@@ -132,12 +132,14 @@ export function CasoVencido() {
             : BAJADA_PANTALLA_B_CREDITO}
       </p>
 
+      {/* En pantallas anchas: seguimiento y resumen lado a lado. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       {/* ------------------------------------------------------------------ */}
       {/* SEGUIMIENTO DE FIRMA                                                */}
       {/* ------------------------------------------------------------------ */}
       <section
         aria-labelledby="b-seguimiento"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
           id="b-seguimiento"
@@ -177,7 +179,7 @@ export function CasoVencido() {
       {/* ------------------------------------------------------------------ */}
       <section
         aria-labelledby="b-resumen"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
           id="b-resumen"
@@ -203,13 +205,14 @@ export function CasoVencido() {
           {AVISO_SIN_POLIZA_NI_COBERTURA}
         </p>
       </section>
+      </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* PROCEDIMIENTO DE DEVOLUCIÓN (o liberación de la reserva)            */}
       {/* ------------------------------------------------------------------ */}
       <section
         aria-labelledby="b-procedimiento"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
           id="b-procedimiento"

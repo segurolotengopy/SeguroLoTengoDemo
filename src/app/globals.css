@@ -11,54 +11,60 @@
 /*
  * Sistema de diseño — SeguroLoTengo
  *
- * Paleta institucional (ver docs/ESPECIFICACION_PANTALLAS.md → "Elementos
- * comunes a todas las pantallas"):
- *   - azul    → títulos y etiquetas institucionales
- *   - naranja → acciones primarias y alertas
- *   - verde   → confirmaciones y textos de seguridad
+ * Paleta de marca alineada a la identidad de interseguros360.com y a los
+ * isologos de las dos entidades (ver docs/GUIA_DE_ESTILOS.md, que documenta
+ * el origen de cada valor). Roles:
+ *   - azul    → azul institucional de Alianza Garantía
+ *   - naranja → naranja de Interseguros: acciones primarias y alertas
+ *   - verde   → verde de Alianza: confirmaciones y textos de seguridad
  *   - rojo    → bloqueos
- *   - hueso   → fondo claro de toda la app
+ *   - hueso   → neutros: fondos, bordes y textos grises del sitio
  *
  * Cada escala va de 50 (más claro) a 950 (más oscuro), siguiendo la
  * convención de Tailwind, para poder usarlas como cualquier color utilitario:
  * `bg-naranja-500`, `text-azul-800`, `border-rojo-300`, etc.
  */
 @theme {
-  --color-azul-50: #eef4fa;
-  --color-azul-100: #d7e6f2;
-  --color-azul-200: #aecae1;
-  --color-azul-300: #82a9ce;
-  --color-azul-400: #5688ba;
-  --color-azul-500: #35699f;
-  --color-azul-600: #245685;
-  --color-azul-700: #1c4569;
-  --color-azul-800: #163654;
-  --color-azul-900: #102841;
-  --color-azul-950: #0a1a2b;
+  /* Azul Alianza — ancla 600 = #2b5a9e (isologo). */
+  --color-azul-50: #f0f5fb;
+  --color-azul-100: #dce8f5;
+  --color-azul-200: #b9d0e9;
+  --color-azul-300: #8fb2da;
+  --color-azul-400: #6591c7;
+  --color-azul-500: #4173b1;
+  --color-azul-600: #2b5a9e;
+  --color-azul-700: #254a80;
+  --color-azul-800: #203c65;
+  --color-azul-900: #1b304f;
+  --color-azul-950: #111f34;
 
-  --color-naranja-50: #fff4eb;
-  --color-naranja-100: #ffe3cc;
-  --color-naranja-200: #ffc69a;
-  --color-naranja-300: #ffa35f;
-  --color-naranja-400: #ff8a38;
-  --color-naranja-500: #f5721a;
-  --color-naranja-600: #dd5c0f;
-  --color-naranja-700: #b4470b;
-  --color-naranja-800: #8c380c;
-  --color-naranja-900: #6e2e0d;
-  --color-naranja-950: #3b1706;
+  /* Naranja Interseguros — 500 = naranja del isologo, 600 = primario del
+     sitio interseguros360.com (hsl(24 85% 40%)). */
+  --color-naranja-50: #fdf4ec;
+  --color-naranja-100: #fbe3cd;
+  --color-naranja-200: #f6c69c;
+  --color-naranja-300: #f0a264;
+  --color-naranja-400: #e88135;
+  --color-naranja-500: #e2660f;
+  --color-naranja-600: #bd550f;
+  --color-naranja-700: #98450e;
+  --color-naranja-800: #7a380f;
+  --color-naranja-900: #642f10;
+  --color-naranja-950: #371806;
 
-  --color-verde-50: #eefaf1;
-  --color-verde-100: #d5f3dd;
-  --color-verde-200: #abe7bd;
-  --color-verde-300: #79d497;
-  --color-verde-400: #48bb71;
-  --color-verde-500: #279f54;
-  --color-verde-600: #1b8043;
-  --color-verde-700: #176538;
-  --color-verde-800: #14502f;
-  --color-verde-900: #114228;
-  --color-verde-950: #082416;
+  /* Verde Alianza — ancla 400 = #8dc63f (isologo); 600+ oscurecidos para
+     texto con contraste AA. */
+  --color-verde-50: #f6faec;
+  --color-verde-100: #e9f3d1;
+  --color-verde-200: #d2e8a6;
+  --color-verde-300: #b4d872;
+  --color-verde-400: #8dc63f;
+  --color-verde-500: #71a828;
+  --color-verde-600: #55811d;
+  --color-verde-700: #436519;
+  --color-verde-800: #385118;
+  --color-verde-900: #2f4417;
+  --color-verde-950: #17250a;
 
   --color-rojo-50: #fdeeee;
   --color-rojo-100: #fbd8d8;
@@ -72,21 +78,55 @@
   --color-rojo-900: #5e1c1c;
   --color-rojo-950: #330b0b;
 
-  --color-hueso-50: #fdfcfa;
-  --color-hueso-100: #faf7f2;
-  --color-hueso-200: #f3ede3;
-  --color-hueso-300: #e9dfcf;
-  --color-hueso-400: #dac9ac;
-  --color-hueso-500: #c6af85;
-  --color-hueso-600: #ac9066;
-  --color-hueso-700: #8c7250;
-  --color-hueso-800: #6e5a42;
-  --color-hueso-900: #574838;
-  --color-hueso-950: #2e2419;
+  /* Neutros del sitio: fondo #fafafa, bordes #e0e0e0, textos #6b6b6b /
+     #474747 / #333333. Conserva el nombre histórico "hueso" para no tocar
+     todas las pantallas; hoy es una escala de grises apenas cálidos. */
+  --color-hueso-50: #fafafa;
+  --color-hueso-100: #f4f2ef;
+  --color-hueso-200: #e0e0e0;
+  --color-hueso-300: #c9c8c5;
+  --color-hueso-400: #adaca8;
+  --color-hueso-500: #8f8e8a;
+  --color-hueso-600: #6b6b6b;
+  --color-hueso-700: #545454;
+  --color-hueso-800: #474747;
+  --color-hueso-900: #333333;
+  --color-hueso-950: #1a1a1a;
 
   /* Borde fino de las tarjetas ("tarjetas blancas con borde negro fino y
      esquinas redondeadas"). Token único, no es una escala. */
   --color-borde-tarjeta: #171717;
+
+  /*
+   * Forma y layout — tomados de la referencia de estilo del mockup
+   * (docs/GUIA_DE_ESTILOS.md → "Forma y layout"): radios de 16/24 px para
+   * tarjetas y marcos, contenedor ancho de 1400 px (`max-w-pantalla`) y
+   * blanco táctil mínimo de 44 px (WCAG 2.5.5, `min-h-tap`).
+   */
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --container-pantalla: 1400px;
+  --spacing-tap: 44px;
+
+  /*
+   * Escala tipográfica fluida (360 px → 1456 px, sin media queries):
+   * `text-display`, `text-h1`, `text-h2`, `text-h3` para títulos nuevos.
+   * Las clases de tamaño fijo de Tailwind siguen disponibles.
+   */
+  --text-display: clamp(1.75rem, 1.15rem + 2.6vw, 3rem);
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.015em;
+  --text-display--font-weight: 700;
+  --text-h1: clamp(1.5rem, 1.1rem + 1.8vw, 2.25rem);
+  --text-h1--line-height: 1.2;
+  --text-h1--letter-spacing: -0.01em;
+  --text-h1--font-weight: 700;
+  --text-h2: clamp(1.25rem, 1.05rem + 0.9vw, 1.5rem);
+  --text-h2--line-height: 1.25;
+  --text-h2--font-weight: 700;
+  --text-h3: clamp(1.05rem, 0.98rem + 0.4vw, 1.2rem);
+  --text-h3--line-height: 1.3;
+  --text-h3--font-weight: 600;
 }
 
 /*
@@ -100,8 +140,9 @@
  * de acento (verde de seguridad, naranja de acción, rojo de bloqueo) usá la
  * escala con su variante `dark:` explícita.
  *
- * Los valores del tema claro son exactamente los que ya usaban las pantallas:
- * el aspecto especificado en docs/ESPECIFICACION_PANTALLAS.md no cambia.
+ * Los valores del tema claro replican la identidad de interseguros360.com:
+ * fondo casi blanco, texto en grises (#333 / #474747 / #6b6b6b) y el naranja
+ * reservado para acciones y acentos (ver docs/GUIA_DE_ESTILOS.md).
  */
 :root {
   color-scheme: light;
@@ -115,28 +156,28 @@
     var(--color-borde-tarjeta) 10%,
     transparent
   );
-  --tema-titulo: var(--color-azul-950);
-  --tema-cuerpo: var(--color-azul-700);
-  --tema-etiqueta: var(--color-azul-600);
+  --tema-titulo: var(--color-hueso-900);
+  --tema-cuerpo: var(--color-hueso-800);
+  --tema-etiqueta: var(--color-hueso-600);
 }
 
 /*
- * Tema oscuro: azules profundos derivados del azul institucional (no grises
- * neutros), para que la marca siga siendo reconocible. Contraste verificado
- * sobre `--tema-fondo`: título 15.8:1, cuerpo 9.4:1, etiqueta 6.6:1 — por
- * encima del 4.5:1 de WCAG AA para texto normal.
+ * Tema oscuro: grafito neutro, espejo del claro (que es gris, no azul), con
+ * los acentos de marca intactos. Contraste verificado sobre `--tema-fondo`:
+ * título ≈16:1, cuerpo ≈11.8:1, etiqueta ≈7.4:1 — por encima del 4.5:1 de
+ * WCAG AA para texto normal.
  */
 [data-tema="oscuro"] {
   color-scheme: dark;
 
-  --tema-fondo: #05101f;
-  --tema-superficie: #0e1e33;
-  --tema-superficie-suave: #16293f;
+  --tema-fondo: #141414;
+  --tema-superficie: #1e1e1e;
+  --tema-superficie-suave: #262626;
   --tema-borde: color-mix(in srgb, var(--color-hueso-100) 22%, transparent);
   --tema-borde-tenue: color-mix(in srgb, var(--color-hueso-100) 12%, transparent);
   --tema-titulo: var(--color-hueso-100);
-  --tema-cuerpo: #bacee3;
-  --tema-etiqueta: #93aecb;
+  --tema-cuerpo: #cfcecb;
+  --tema-etiqueta: #a5a4a0;
 }
 
 @theme inline {
@@ -152,12 +193,42 @@
   --color-cuerpo: var(--tema-cuerpo);
   --color-etiqueta: var(--tema-etiqueta);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-dm-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: var(--tema-fondo);
   color: var(--tema-titulo);
-  font-family: Arial, Helvetica, sans-serif;
+  /* DM Sans: la tipografía de interseguros360.com (docs/GUIA_DE_ESTILOS.md). */
+  font-family: var(--font-dm-sans), system-ui, Arial, Helvetica, sans-serif;
+  /* Cifras tabulares en todo el sistema: los importes en guaraníes deben
+     alinearse verticalmente entre los tres planes. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Foco visible siempre: un flujo de trámite también se navega con teclado. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-azul-600);
+  outline-offset: 2px;
+}
+
+[data-tema="oscuro"] :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--color-azul-300);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

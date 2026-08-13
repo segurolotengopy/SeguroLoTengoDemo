@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AVISOS_IMPORTANTE_P9,
+  PASOS_QUE_OCURRIRA_P9,
+  TITULO_QUE_OCURRIRA_P9,
   BADGE_EMITIDA,
   BADGE_EN_EMISION,
   BOTON_DESCARGAR_P9,
@@ -277,13 +279,13 @@ export function ContratacionAceptada() {
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* ------------------------------------------------------------------ */}
-      {/* ESTADO DE LA CONTRATACIÓN                                           */}
+      {/* ESTADO DE LA CONTRATACIÓN — un solo recuadro para los cuatro hitos   */}
       {/* ------------------------------------------------------------------ */}
       <section
         aria-labelledby="p9-estado"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-3"
       >
         <h2
           id="p9-estado"
@@ -291,16 +293,13 @@ export function ContratacionAceptada() {
         >
           {TITULO_ESTADO_CONTRATACION}
         </h2>
-        <ol className="flex flex-col gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
           {HITOS_CONTRATACION.map((hito, indice) => {
             const cumplido = indice < 3 ? resumen !== null : polizaEmitida;
             return (
-              <li
-                key={hito.numero}
-                className="flex flex-col gap-1 rounded-lg border border-borde-tenue bg-superficie-suave p-3"
-              >
+              <li key={hito.numero} className="flex flex-col gap-0.5">
                 <span
-                  className={`text-sm font-bold ${
+                  className={`text-xs font-bold ${
                     cumplido
                       ? "text-verde-700 dark:text-verde-300"
                       : "text-naranja-700 dark:text-naranja-300"
@@ -308,7 +307,7 @@ export function ContratacionAceptada() {
                 >
                   {cumplido ? "✓" : "⋯"} {hito.titulo}
                 </span>
-                <span className="text-xs text-cuerpo">{hito.detalle}</span>
+                <span className="text-[11px] text-cuerpo">{hito.detalle}</span>
                 <span className="text-[11px] text-etiqueta tabular-nums">
                   {hora(fechasHito[indice])}
                 </span>
@@ -318,12 +317,14 @@ export function ContratacionAceptada() {
         </ol>
       </section>
 
+      {/* En pantallas anchas: resumen a la izquierda, documentos a la derecha. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       {/* ------------------------------------------------------------------ */}
       {/* RESUMEN DE LA CONTRATACIÓN                                          */}
       {/* ------------------------------------------------------------------ */}
       <section
         aria-labelledby="p9-resumen"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
           id="p9-resumen"
@@ -361,11 +362,12 @@ export function ContratacionAceptada() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Documentos                                                          */}
+      {/* Documentos (columna derecha)                                        */}
       {/* ------------------------------------------------------------------ */}
+      <div className="flex flex-col gap-4">
       <section
         aria-labelledby="p9-por-recibir"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
           id="p9-por-recibir"
@@ -394,7 +396,7 @@ export function ContratacionAceptada() {
 
       <section
         aria-labelledby="p9-descargar"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
           id="p9-descargar"
@@ -420,17 +422,20 @@ export function ContratacionAceptada() {
           <p className="text-sm text-cuerpo">Preparando los documentos firmados…</p>
         )}
 
-        <p className="rounded-lg border border-borde-sutil bg-superficie-suave px-4 py-3 text-sm font-bold text-titulo">
+        <p className="rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2 text-sm font-bold text-titulo">
           {LEYENDA_SIN_NOTA_DE_COBERTURA}
         </p>
       </section>
+      </div>
+      </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* COMUNICACIONES COMERCIALES · OPCIONAL                               */}
+      {/* Comunicaciones (izquierda) y qué ocurrirá ahora (derecha)            */}
       {/* ------------------------------------------------------------------ */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <section
         aria-labelledby="p9-comunicaciones"
-        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
           id="p9-comunicaciones"
@@ -453,6 +458,30 @@ export function ContratacionAceptada() {
           <span className="text-sm text-cuerpo">{TEXTO_COMUNICACIONES_COMERCIALES}</span>
         </label>
       </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* ¿QUÉ OCURRIRÁ AHORA?                                                */}
+      {/* ------------------------------------------------------------------ */}
+      <section
+        aria-labelledby="p9-que-ocurrira"
+        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
+      >
+        <h2
+          id="p9-que-ocurrira"
+          className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
+        >
+          {TITULO_QUE_OCURRIRA_P9}
+        </h2>
+        <ol className="flex flex-col gap-1">
+          {PASOS_QUE_OCURRIRA_P9.map((paso, indice) => (
+            <li key={paso} className="text-xs text-cuerpo">
+              <span className="font-bold text-etiqueta">{indice + 1} · </span>
+              {paso}
+            </li>
+          ))}
+        </ol>
+      </section>
+      </div>
     </div>
   );
 }

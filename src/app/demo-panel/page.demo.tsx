@@ -57,7 +57,7 @@ export const metadata: Metadata = {
 
 function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5">
+    <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
       <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
         {titulo}
       </h2>
@@ -88,7 +88,7 @@ export default async function PanelDeDemo() {
     return (
       <div className="flex flex-1 flex-col bg-fondo">
         <HeaderInstitucional />
-        <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-4 py-10">
+        <main className="mx-auto flex w-full max-w-pantalla flex-1 flex-col items-center justify-center px-4 py-10">
           <FormularioClave />
         </main>
       </div>
@@ -172,45 +172,20 @@ export default async function PanelDeDemo() {
         }
       />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-titulo">Panel de demo</h1>
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6">
+        <header className="flex flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-4">
+          <h1 className="shrink-0 text-xl font-bold text-titulo">Panel de demo</h1>
           <p className="text-sm text-cuerpo">
             Herramienta de demostración. Los códigos de acá salen del adaptador mock en memoria;
             en base solo se guarda el hash.
           </p>
         </header>
 
-        <Tarjeta titulo="Persona de prueba activa">
-          <SelectorPersona
-            personas={personas}
-            escenarios={escenarios}
-            personaSeleccionada={seleccion.personaId}
-            escenarioForzado={seleccion.escenarioIdentidadForzado ?? ""}
-          />
-        </Tarjeta>
-
-        <Tarjeta titulo="Forzar fallos puntuales">
-          <SelectorFallas fallas={fallas} />
-        </Tarjeta>
-
-        <Tarjeta titulo="Plazo para firmar (P7 → P8)">
-          <SelectorPlazoFirma opciones={PLAZOS_FIRMA_DEMO} plazoActualMs={plazoFirmaMs()} />
-        </Tarjeta>
-
-        <Tarjeta titulo="Acto de firma Code100 simulado">
-          <ControlFirmaCode100 sesiones={sesionesFirma} />
-        </Tarjeta>
-
-        <Tarjeta titulo="Devolución de Pantalla B">
-          <BotonDevolucionEjecutada estado={estadoDelExpediente} />
-        </Tarjeta>
-
-        <Tarjeta titulo="Reiniciar expediente">
-          <BotonReiniciar expedienteId={expedienteId} />
-        </Tarjeta>
-
-        <Tarjeta titulo="Códigos OTP simulados">
+        {/* Ancho: OTP y acto de firma a la izquierda; devolución y reinicio a
+            la derecha. Angosto: todo apilado en ese mismo orden. */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          <div className="flex flex-col gap-4">
+            <Tarjeta titulo="Códigos OTP simulados">
           {envios.length === 0 ? (
             <p className="text-sm text-cuerpo">
               Todavía no se envió ningún código en esta instancia. Andá a{" "}
@@ -248,10 +223,46 @@ export default async function PanelDeDemo() {
               </table>
             </div>
           )}
-          <p className="text-xs text-etiqueta">
-            Un código desaparece de esta lista apenas se usa: al verificarse, deja de retenerse.
-          </p>
-        </Tarjeta>
+              <p className="text-xs text-etiqueta">
+                Un código desaparece de esta lista apenas se usa: al verificarse, deja de retenerse.
+              </p>
+            </Tarjeta>
+
+            <Tarjeta titulo="Acto de firma Code100 simulado">
+              <ControlFirmaCode100 sesiones={sesionesFirma} />
+            </Tarjeta>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <Tarjeta titulo="Devolución de Pantalla B">
+              <BotonDevolucionEjecutada estado={estadoDelExpediente} />
+            </Tarjeta>
+
+            <Tarjeta titulo="Reiniciar expediente">
+              <BotonReiniciar expedienteId={expedienteId} />
+            </Tarjeta>
+          </div>
+        </div>
+
+        {/* Debajo: persona, fallos forzados y plazo de firma. */}
+        <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+          <Tarjeta titulo="Persona de prueba activa">
+            <SelectorPersona
+              personas={personas}
+              escenarios={escenarios}
+              personaSeleccionada={seleccion.personaId}
+              escenarioForzado={seleccion.escenarioIdentidadForzado ?? ""}
+            />
+          </Tarjeta>
+
+          <Tarjeta titulo="Forzar fallos puntuales">
+            <SelectorFallas fallas={fallas} />
+          </Tarjeta>
+
+          <Tarjeta titulo="Plazo para firmar (P7 → P8)">
+            <SelectorPlazoFirma opciones={PLAZOS_FIRMA_DEMO} plazoActualMs={plazoFirmaMs()} />
+          </Tarjeta>
+        </div>
 
         <Tarjeta titulo="Visor de evidencia del expediente en curso">
           {!expedienteId ? (

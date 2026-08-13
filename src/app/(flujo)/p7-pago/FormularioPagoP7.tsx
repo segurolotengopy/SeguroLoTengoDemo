@@ -5,6 +5,7 @@ import { formatearGuaranies } from "@/domain/catalogo";
 // Desde `textos-p7`, no desde el caso de uso: este es un componente de cliente
 // e importar `pago-p7.ts` arrastraría `node:crypto` al bundle.
 import {
+  ADVERTENCIA_PAGO_NO_ES_FIRMA_P7,
   AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7,
   AVISO_PLAZO_FIRMA_CON_LIBERACION_P7,
   BOTON_CONTINUAR_P7,
@@ -23,6 +24,7 @@ import {
   ROTULO_PRIMA_NETA_P7,
   ROTULO_PROPUESTA_P7,
   ROTULO_RUC_P7,
+  SEGURIDAD_P7,
   TEXTOS_MEDIOS_DE_PAGO_P7,
   TEXTO_DECLARACION_ORIGEN_LICITO,
   TITULO_BLOQUE_FACTURA_P7,
@@ -32,6 +34,7 @@ import {
   TITULO_LIQUIDACION_P7,
   TITULO_PLAZO_FIRMA_P7,
   TITULO_REFERENCIAS_P7,
+  TITULO_SEGURIDAD_P7,
   VALOR_OFICIAL_DE_ALIANZA_P7,
 } from "@/domain/textos-p7";
 import { esPagoDefinitivoAntesDeFirma } from "@/domain/tipos";
@@ -250,11 +253,14 @@ export function FormularioPagoP7() {
   const importe = resumen ? formatearGuaranies(resumen.montoGs) : "—";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
+      {/* En pantallas anchas: factura a la izquierda, medio de pago y botón a
+          la derecha; plazo, secuencia y seguridad debajo del botón. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       {/* ------------------------------------------------------------------ */}
       {/* Bloque 1 — Datos para la factura                                    */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             {TITULO_BLOQUE_FACTURA_P7}
@@ -363,22 +369,23 @@ export function FormularioPagoP7() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Bloque 2 — Medio de pago                                            */}
+      {/* Bloque 2 — Medio de pago (columna derecha)                          */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             {TITULO_BLOQUE_MEDIOS_P7}
           </h2>
           <p className="text-xs text-etiqueta">{NOTA_MOMENTOS_DISTINTOS_P7}</p>
         </div>
 
-        <fieldset className="flex flex-col gap-3" disabled={confirmado}>
+        <fieldset className="flex flex-col gap-2" disabled={confirmado}>
           <legend className="sr-only">{TITULO_BLOQUE_MEDIOS_P7}</legend>
           {TEXTOS_MEDIOS_DE_PAGO_P7.map((opcion) => (
             <label
               key={opcion.medio}
-              className={`flex cursor-pointer flex-col gap-2 rounded-lg border-2 p-4 ${
+              className={`flex cursor-pointer flex-col gap-1.5 rounded-lg border-2 p-3 ${
                 medio === opcion.medio
                   ? "border-naranja-500 bg-naranja-50 dark:bg-naranja-950"
                   : "border-borde-sutil bg-superficie-suave"
@@ -416,34 +423,12 @@ export function FormularioPagoP7() {
           ))}
         </fieldset>
 
-        {/* Plazo para firmar */}
-        <div className="flex flex-col gap-1 rounded-lg border border-naranja-300 bg-naranja-50 px-4 py-3 dark:border-naranja-700 dark:bg-naranja-950">
-          <p className="text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:text-naranja-200">
-            {TITULO_PLAZO_FIRMA_P7}
-          </p>
-          <p className="text-sm text-naranja-900 dark:text-naranja-100">
-            {definitivo ? AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7 : AVISO_PLAZO_FIRMA_CON_LIBERACION_P7}
-          </p>
-        </div>
-
         {medio === "TARJETA_CREDITO" ? (
-          <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave px-4 py-3">
+          <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2.5">
             <p className="text-[11px] font-bold tracking-wide text-etiqueta uppercase">
               {TITULO_DEPENDENCIA_BANCARD_P7}
             </p>
-            <p className="text-sm text-cuerpo">{DEPENDENCIA_BANCARD_P7}</p>
-          </div>
-        ) : null}
-
-        {/* Después de esta pantalla */}
-        {textoMedio ? (
-          <div className="flex flex-col gap-1 rounded-lg border border-azul-200 bg-azul-50 px-4 py-3 dark:border-azul-700 dark:bg-azul-950">
-            <p className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-              {TITULO_DESPUES_DE_ESTA_PANTALLA_P7}
-            </p>
-            <p className="text-sm font-semibold text-azul-900 dark:text-azul-100">
-              {textoMedio.secuencia}
-            </p>
+            <p className="text-xs text-cuerpo">{DEPENDENCIA_BANCARD_P7}</p>
           </div>
         ) : null}
 
@@ -454,7 +439,7 @@ export function FormularioPagoP7() {
               type="button"
               onClick={() => void generar()}
               disabled={!origenLicito || generando}
-              className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
+              className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
             >
               {generando ? "Comunicando con Bancard…" : (textoMedio?.botón ?? "Continuar")}
             </button>
@@ -473,7 +458,7 @@ export function FormularioPagoP7() {
       {instruccion && !confirmado ? (
         <section
           aria-live="polite"
-          className="flex flex-col items-start gap-3 rounded-xl border border-borde-sutil bg-superficie p-5"
+          className="flex flex-col items-start gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
         >
           {instruccion.tipo === "QR" ? (
             <>
@@ -521,7 +506,7 @@ export function FormularioPagoP7() {
       {confirmado ? (
         <section
           aria-live="polite"
-          className="flex flex-col gap-3 rounded-xl border border-verde-400 bg-verde-50 p-5 dark:border-verde-600 dark:bg-verde-950"
+          className="flex flex-col gap-3 rounded-lg border border-verde-400 bg-verde-50 p-4 dark:border-verde-600 dark:bg-verde-950"
         >
           <h2 className="text-sm font-bold tracking-wide text-verde-800 uppercase dark:text-verde-200">
             {definitivo ? "Pago acreditado" : "Tarjeta preautorizada"}
@@ -550,6 +535,56 @@ export function FormularioPagoP7() {
           {error}
         </p>
       ) : null}
+      </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Debajo del botón: plazo, secuencia y seguridad                       */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+        {/* Plazo para firmar */}
+        <div className="flex flex-col gap-1 rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2.5 dark:border-naranja-700 dark:bg-naranja-950">
+          <p className="text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:text-naranja-200">
+            {TITULO_PLAZO_FIRMA_P7}
+          </p>
+          <p className="text-xs text-naranja-900 dark:text-naranja-100">
+            {definitivo ? AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7 : AVISO_PLAZO_FIRMA_CON_LIBERACION_P7}
+          </p>
+        </div>
+
+        {/* Después de esta pantalla */}
+        {textoMedio ? (
+          <div className="flex flex-col gap-1 rounded-lg border border-azul-200 bg-azul-50 px-3 py-2.5 dark:border-azul-700 dark:bg-azul-950">
+            <p className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+              {TITULO_DESPUES_DE_ESTA_PANTALLA_P7}
+            </p>
+            <p className="text-xs font-semibold text-azul-900 dark:text-azul-100">
+              {textoMedio.secuencia}
+            </p>
+          </div>
+        ) : null}
+
+        {/* Seguridad y trazabilidad */}
+        <section
+          aria-labelledby="p7-seguridad"
+          className="flex flex-col gap-1 rounded-lg border border-verde-300 bg-verde-50 px-3 py-2.5 dark:border-verde-700 dark:bg-verde-950"
+        >
+          <h2
+            id="p7-seguridad"
+            className="text-[11px] font-bold uppercase tracking-wide text-verde-800 dark:text-verde-200"
+          >
+            {TITULO_SEGURIDAD_P7}
+          </h2>
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs text-verde-900 dark:text-verde-100">
+            {SEGURIDAD_P7.map((linea) => (
+              <li key={linea}>{linea}</li>
+            ))}
+          </ul>
+          <p className="text-xs font-semibold text-verde-900 dark:text-verde-100">
+            {ADVERTENCIA_PAGO_NO_ES_FIRMA_P7}
+          </p>
+        </section>
+      </div>
     </div>
   );
 }
