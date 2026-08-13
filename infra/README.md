@@ -66,8 +66,24 @@ la política, actualizar ese archivo a mano.
 - `secrets.tf` — secret `slt-demo-app-secrets` (JSON con `DEMO_PANEL_KEY` y `OTP_PEPPER`, valores de arranque generados por Terraform, rotables manualmente sin volver a aplicar).
 - `amplify.tf` — app de Amplify Hosting (`WEB_COMPUTE`) y rama `main`. La conexión al repo de GitHub queda pendiente de un paso manual salvo que se provean `amplify_repository_url` y `amplify_github_access_token`.
 - `logs.tf` — log group `/aws/amplify/slt-demo-segurolotengo`, retención 7 días.
+- `presupuesto.tf` — presupuestos mensuales `slt-demo-presupuesto-mensual` (cuenta completa, USD 50) y `slt-demo-presupuesto-identidad` (solo Rekognition y Textract, USD 20), con alertas al 50/80/100 %.
 
-## Pendiente / fuera de alcance de este agente
+## Verificación de identidad (P5) — Rekognition y Textract
 
+El rol de cómputo de Amplify tiene desde ahora los permisos de las APIs sin almacenamiento de Rekognition (`CreateFaceLivenessSession`, `StartFaceLivenessSession`, `GetFaceLivenessSessionResults`, `DetectFaces`, `CompareFaces`) y de `textract:DetectDocumentText`.
+
+Tres cosas de esa política que conviene no "corregir" sin leer esto:
+
+1. **`Resource = "*"` es obligatorio.** Ni Rekognition ni Textract admiten permisos a nivel de recurso en estas operaciones: acotar por ARN devuelve `AccessDenied`, no una política más estricta. El recorte real es la lista de acciones.
+2. **`textract:AnalyzeID` está deliberadamente excluido.** Está entrenado sobre documentos de EE.UU. y no sirve para la cédula paraguaya; no se concede el permiso para que nadie lo use por error creyendo que es "el bueno".
+3. **`rekognition:IndexFaces` / `SearchFaces` tampoco están.** Ese camino crea colecciones que **persisten vectores faciales del lado de AWS**; el flujo de P5 es 1:1 contra la foto de la cédula y no necesita almacenar biometría en ningún servicio externo. Si algún día hace falta detección de duplicados, es una decisión de privacidad a tomar antes, no un permiso a agregar.
+
+**Región:** Face Liveness solo existe en `us-east-1`, `us-west-2`, `eu-west-1`, `ap-northeast-1` y `ap-south-1` — **no hay región sudamericana**. La demo ya está en `us-east-1`, así que no hay cambio de región, pero sí una consecuencia legal: las selfies de clientes paraguayos salen del continente y esa transferencia internacional de datos biométricos hay que declararla en el aviso de privacidad (Ley 7593/2025).
+
+## Pasos manuales que Terraform no puede hacer
+
+- **Política de opt-out de servicios de IA de AWS.** Que las imágenes de rostro y cédula no se usen para mejorar los servicios de AWS se configura como *AI services opt-out policy* a nivel de **AWS Organizations**, no de cuenta, y requiere la cuenta de gestión de la organización. El usuario `aab1-demo-deployer` no puede ni debe poder hacerlo. **Es condición de entrada antes de procesar la primera imagen de una persona real**, no un pendiente cosmético.
+- **Aplicar el JSON de `iam-policy-deployer-reference.json` sobre `SLTDemoDeployerPolicy` en AWS.** El archivo es la referencia versionada, no la fuente: sumó el bloque `BudgetsSltDemo`, y sin aplicarlo el `terraform apply` de los presupuestos falla con `AccessDenied`.
+- **Correo de alerta del presupuesto.** Pasar `TF_VAR_presupuesto_correo_alerta`; sin él los presupuestos se crean pero no avisan a nadie.
 - Conectar el repo de GitHub a la app de Amplify (manual, vía consola, salvo que se pase un token).
 - Migrar el state a un backend remoto si el equipo crece.

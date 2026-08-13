@@ -137,10 +137,42 @@ Esto cambia el planteo de la §3 de este documento. La brecha de autenticidad do
 
 No reemplaza al análisis documental (no dice si el plástico es genuino, dice si esa persona con ese número existe en el registro), pero ataca el fraude que más importa acá: contratar con la identidad de otro. **Recomendación: sumarlo al RFP y probarlo en el piloto de tres formatos.** Queda registrado como ítem 33 de `docs/Tabla de Integraciones externas - Tabla.csv`, en estado ALTERNATIVA - A EVALUAR. Conviene verificar de primera mano la fuente y la base legal de esa consulta antes de comprometerlo: es un dato que el proveedor declara, no algo que hayamos confirmado con Identificaciones.
 
-### 7.8 Lo que no se pudo fijar
+### 7.8 Medición del bundle de Amplify UI (hecha, con resultado)
+
+Face Liveness solo funciona con el componente `FaceLivenessDetector` de Amplify UI — AWS no soporta implementaciones propias del streaming. Se midió antes de adoptarlo:
+
+| Métrica | Resultado |
+| :---- | :---- |
+| Peso del chunk de liveness | **1,07 MB crudo · 289 kB gzip** |
+| Impacto en el First Load JS de P5 | **+1 kB** (124 kB → 125 kB) |
+| Impacto en el bundle compartido | +0,17 kB |
+| Impacto en las otras once pantallas | ninguno |
+
+**El chunk queda aislado y diferido.** Con `next/dynamic` + `ssr: false`, el megabyte se descarga recién cuando la persona toca `INICIAR VERIFICACIÓN`, no al abrir P5. Es el lugar correcto para un spinner: el usuario ya sabe que va a arrancar una verificación.
+
+**Conclusión: aceptable, con una condición.** El componente entra solo por importación dinámica en la ruta de P5. Si alguien lo importa estáticamente, esos 289 kB pasan al First Load de un producto mobile-first en Paraguay y la medición deja de valer.
+
+**Costo oculto que apareció al medir:** instalar `aws-amplify` **rompe el build**. Arrastra `@smithy/protocol-http@3.3.0`, que depende de `@smithy/types@2.12.0`, y esa segunda copia crea dos identidades de tipo incompatibles que hacen fallar el tipado del SDK de DynamoDB ya instalado (`PutCommand` deja de ser asignable). Se resuelve con un `overrides` en `package.json` fijando `@smithy/types` a una sola versión (`4.17.0` al momento de medir). **No es opcional y hay que dejarlo anotado**, porque el síntoma —un error de tipos en `evidencia-repository.ts`, un archivo que nadie tocó— no se parece en nada a la causa.
+
+La dependencia todavía **no está instalada**: se agrega en la sesión que construya el frontend de P5, junto con el `overrides`.
+
+### 7.9 Lo que no se pudo fijar
 
 - **Especificación oficial del MRZ de la cédula paraguaya.** El Departamento de Identificaciones no publica la especificación técnica. Que la cédula nueva (chip, desde julio de 2023) sea TD1 está inferido de que los lectores comerciales de MRZ la listan como compatible con ICAO 9303, no confirmado contra documentación oficial. **El piloto de tres formatos del ítem 9 tiene que confirmarlo con cédulas reales antes de que esto sea producción.** El código está escrito para que un MRZ ausente o ilegible sea un caso previsto, no una excepción.
 - **El formato anterior sin MRZ** no tiene verificación de autenticidad posible con código propio: ahí el cruce contra registro civil (§7.7) deja de ser una mejora y pasa a ser la única defensa.
+- **Ni `CompareFaces` ni Face Liveness informan la versión del modelo.** Solo la devuelven las APIs con colección (`IndexFaces`, `SearchFaces`), que este flujo no usa a propósito para no persistir vectores faciales en AWS. La evidencia queda entonces con `versionModeloProveedor: null`, y AWS §6.2 avisa que las APIs sin estado migran de modelo solas: dos expedientes de meses distintos pueden haberse decidido con modelos distintos sin que quede registro. Lo que sí queda sellado es el umbral y la versión de nuestra política. **Es una limitación del proveedor, no un pendiente nuestro**, y conviene tenerla escrita antes de que la pregunte un auditor.
+
+## 8. El puerto `IdentityProvider` no encaja con Face Liveness
+
+Hallazgo de implementación, y hay que resolverlo antes de cablear P5.
+
+El puerto declara `capturarSelfieYPruebaDeVida(expedienteId, video: MediaCapturada)` — bytes de video llegando al backend. **Face Liveness no funciona así:** el video va del navegador directo a Rekognition por el componente de Amplify, y el backend nunca ve los bytes; recibe un `sessionId` y consulta el resultado.
+
+Por eso el trabajo de este tramo quedó como **capacidades componibles** (`src/adapters/live/rekognition-identidad.ts` y `textract-cedula.ts`) y no como un `IdentityProvider` completo: un adaptador que fingiera recibir video sería mentira, y uno que tirara excepción en ese método sería medio adaptador.
+
+Ese reparto además sirve al pedido de **reutilizar el módulo de onboarding en otros proyectos**: las capacidades reciben bytes y devuelven `DecisionBiometrica`, sin saber nada de expedientes ni de cédulas paraguayas. Lo específico de Paraguay está aislado en una sola función (`extraerCamposCedulaParaguaya`).
+
+Cuando se arme P5, el puerto debería aceptar una unión discriminada —`{ tipo: "VIDEO", bytes }` para el mock, `{ tipo: "SESION_LIVENESS", referencia }` para el real— en vez de `MediaCapturada` a secas. Toca el mock, el test de contrato y dos llamadas en `src/domain/verificacion-identidad.ts`: está acotado, pero es cambio de puerto y merece su propio commit.
 
 ---
 
