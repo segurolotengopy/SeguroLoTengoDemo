@@ -43,16 +43,106 @@ El puerto `IdentityProvider` con adapters mock y tests de contrato compartidos e
 
 ## 5. Notas técnicas para el adapter Rekognition
 
-- **Face Liveness requiere `FaceLivenessDetector` de Amplify UI** en el frontend (streaming, no API de foto simple) y opera en regiones limitadas (típicamente `us-east-1`) → declarar transferencia internacional de datos biométricos en el aviso de privacidad.
+- **Face Liveness requiere `FaceLivenessDetector` de Amplify UI** en el frontend (streaming, no API de foto simple) y opera en regiones limitadas → ver §7.3, la restricción es más seria de lo que parecía.
 - Usar la **audit image de la sesión de liveness** como entrada de CompareFaces: ata criptográficamente prueba de vida y comparación.
-- Umbrales sugeridos: similitud CompareFaces ≥ 90 (95 para assurance alto); confianza de liveness ≥ 80–85.
-- Guardar en el registro de evidencia: **score crudo + umbral vigente + versión de API/modelo** → hace auditable la decisión ante SEPRELAD y permite comparar proveedores después.
+- Umbrales: ver §7, que los reemplaza con los valores publicados por AWS. *(Este documento decía antes «≥ 90, 95 para assurance alto» para CompareFaces y «80–85» para liveness; eran estimaciones. Los valores correctos son 99 y 80.)*
+- Guardar en el registro de evidencia: **score crudo + umbral vigente + versión de API/modelo** → hace auditable la decisión ante SEPRELAD y permite comparar proveedores después. **Implementado** en `src/domain/identidad-parametros.ts` (`DecisionBiometrica`).
 - Activar la **política de opt-out de servicios de IA de AWS** a nivel organización (que las imágenes no se usen para mejorar los servicios): obligatorio de facto con datos biométricos bajo Ley 7593/2025.
 - Pre-chequeo de calidad en el cliente (blur/reflejo/encuadre) antes de llamar al backend: ahorra llamadas y mejora conversión.
 
 ## 6. Ajuste de flujo sugerido
 
 La regla actual de P5 ("si falla, repetir captura; si persiste, no continúa digitalmente") es correcta para impedir edición manual del OCR, pero deja al cliente con fallo persistente **sin expediente de salida**. Sugerencia: tras N intentos fallidos (p. ej. 3), derivar a un caso de revisión manual tipo Pantalla A (número de caso propio, evidencia conservada, contacto humano). Consistente con la consola administrativa y con la fila 19 de la matriz (derivación sin rechazo automático).
+
+## 7. Parámetros internacionales (agregado 2026-08-13)
+
+Los números de esta sección **no son estimaciones**: salen de la documentación del proveedor y de las normas ISO/ICAO citadas en cada caso. Están implementados y bloqueados por tests en `src/domain/identidad-parametros.ts` — cambiar cualquiera pone la suite en rojo, que es el punto.
+
+### 7.1 Calidad de la imagen del rostro
+
+De AWS, *Face and Liveness Verification for Identity Verification with Amazon Rekognition* (act. 12/03/2024), §3.3.1:
+
+| Parámetro | Valor | Origen |
+| :---- | :---- | :---- |
+| Yaw (giro horizontal) | −30° a +30° | AWS §3.3.1 |
+| Pitch (cabeceo) | −30° a +30° | AWS §3.3.1 |
+| **Roll (inclinación lateral)** | **−30° a +30°** | **Agregado nuestro** — AWS no lo acota; ICAO Doc 9303 / ISO/IEC 39794-5 Anexo D1 exigen pose frontal en los tres ejes |
+| Sharpness (nitidez) | > 25 | AWS §3.3.1 |
+| Brightness (brillo) | > 25 | AWS §3.3.1 |
+| `FaceOccluded` | debe ser `false` | AWS §3.3.1 |
+| Tamaño del rostro | > 50×50 px | AWS §3.3.1 |
+
+Filtrar por calidad **antes** de comparar no es cosmético: comparar imágenes malas sube falsos rechazos y falsos aceptes a la vez, así que un umbral alto sobre una imagen mala es una garantía falsa.
+
+### 7.2 Umbrales de decisión
+
+| Decisión | Umbral | Justificación |
+| :---- | :---- | :---- |
+| Coincidencia facial (`CompareFaces.Similarity`) | **99** | AWS §6.1: «95 – regular use cases / 99 – **sensitive** use cases». De esta comparación cuelga la firma de un contrato de seguro de vida y la identificación ante SEPRELAD (fila 14): es sensible. |
+| Prueba de vida (`GetFaceLivenessSessionResults.Confidence`) | **80** | AWS §6.1. La doc del servicio ubica 50–60 contra ataques de presentación (foto, pantalla) y 80–90 contra inyección digital (deepfake, video pregrabado) — la amenaza real de un onboarding remoto sin nadie del otro lado. |
+| Confianza mínima de OCR por bloque (Textract) | **90** | **Decisión de producto, no de norma.** Los campos quedan bloqueados y no editables, y la fecha de nacimiento alimenta el corte 18–64 (regla inviolable #8). |
+
+Dos condiciones que vienen pegadas al 99 y que es fácil pasar por alto:
+
+1. **AWS exige recortar el rostro con `DetectFaces` antes de comparar** cuando el umbral es ≥ 99. Sin recorte, el fondo y el resto del documento entran en la imagen y bajan la similitud de un par legítimo por debajo del umbral. Está como `RECORTE_ROSTRO_OBLIGATORIO`.
+2. **Escala 0–100, no 0–1.** El mock histórico devolvía `0.97`. Un 0,97 comparado contra un umbral de 99 rechaza — que es el lado seguro del error, pero hay que normalizar en el adaptador igual. Hay un test de regresión para esto.
+
+**Anti-abuso de la prueba de vida** (AWS §3.2): máximo 5 chequeos fallidos en 3 minutos desde un mismo dispositivo → bloqueo de 30–60 minutos → tras 3–5 bloqueos repetidos, veto del dispositivo. Es control de fraude (el atacante prueba deepfakes hasta que uno pase) y de costo (cada intento se factura). **No confundir con los límites de OTP de la regla inviolable #1** (3 intentos): son controles distintos sobre canales distintos.
+
+La sesión de liveness (`CreateFaceLivenessSession`) es de **un solo uso y TTL de 3 minutos**, fijado por el proveedor.
+
+### 7.3 Restricción de región — más seria de lo previsto
+
+**Face Liveness solo existe en cinco regiones: `us-east-1`, `us-west-2`, `eu-west-1`, `ap-northeast-1`, `ap-south-1`.** No hay región sudamericana: `sa-east-1` (São Paulo) **no** lo tiene.
+
+Consecuencias, en orden de importancia:
+
+1. **Toda selfie con prueba de vida de un cliente paraguayo sale del continente.** Es transferencia internacional de datos biométricos y hay que declararla en el aviso de privacidad bajo la Ley 7593/2025. No es un detalle de arquitectura, es un texto que el cliente tiene que leer y aceptar en P3 o P5.
+2. La **política de opt-out de servicios de IA de AWS** (que las imágenes no se usen para mejorar los servicios) deja de ser recomendable y pasa a ser condición de entrada. Se configura a nivel de AWS Organizations, no de cuenta.
+3. Textract sí está en más regiones, pero **tampoco en São Paulo** — misma conversación.
+
+### 7.4 Nueva opción de challenge (julio 2025)
+
+`CreateFaceLivenessSession` acepta desde julio de 2025 dos tipos de desafío:
+
+- **`FaceMovementAndLightChallenge`** — el original: acercar el rostro y quedarse quieto durante destellos de luz. **Máxima precisión**, es el recomendado.
+- **`FaceMovementChallenge`** — sin destellos, **3 segundos más rápido**, admite cámara trasera. Prioriza velocidad sobre precisión.
+
+**Recomendación: `FaceMovementAndLightChallenge` como camino principal** (es la decisión de precisión y este es un caso sensible), **con `FaceMovementChallenge` como alternativa ofrecida explícitamente a personas fotosensibles**. Esto además cubre el punto de AWS §3.2 de «ofrecer un camino alternativo a usuarios fotosensibles», que con un solo challenge con destellos quedaba sin resolver. No hay fila en la matriz de cumplimiento que lo exija; es accesibilidad y decisión de producto.
+
+### 7.5 Costo real por verificación
+
+| Servicio | Precio unitario | Por expediente |
+| :---- | :---- | :---- |
+| Face Liveness | USD 0,015 / chequeo (primeros 500 mil/mes) | 1 chequeo |
+| CompareFaces | ~USD 0,001 | 1 comparación |
+| DetectFaces (calidad + recorte) | ~USD 0,001 × 2 | frente + selfie |
+| Textract `DetectDocumentText` | USD 0,0015 / página | 2 páginas (frente y dorso) |
+
+**≈ USD 0,021 por expediente completo**, sin mínimos ni contrato. Contra USD 2–3 de Entrust y USD 1–1,35 de Sumsub. Con crédito de AWS, el costo del demo es efectivamente cero: mil verificaciones completas son ~USD 21.
+
+### 7.6 MRZ de la cédula — implementado
+
+`src/domain/mrz.ts` lee el formato **TD1 de ICAO Doc 9303** (tres líneas de 30 caracteres) y verifica sus cuatro dígitos verificadores, incluido el compuesto que ata las dos primeras líneas entre sí. El algoritmo está anclado con el **especimen canónico publicado en el Doc 9303 Parte 5** (`ERIKSSON`/`UTO`): si nuestros dígitos coinciden con los de la norma, los pesos y el rango del compuesto son los correctos. Sin ese anclaje, los tests solo probarían que el código coincide consigo mismo.
+
+Encima, `cruzarConMrz` compara lo leído en el frente contra el dorso (número de cédula, fecha de nacimiento, sexo) y verifica vigencia y estado emisor `PRY`. Un frente adulterado sin recalcular dos dígitos verificadores no pasa.
+
+**Límite honesto, que conviene decir en voz alta:** esto verifica *consistencia interna*, no existencia. Un MRZ inventado con dígitos bien calculados pasa. Lo único que supera eso es cruzar contra el registro civil.
+
+### 7.7 Hallazgo nuevo: validación contra el registro civil paraguayo
+
+**Didit expone un servicio `pry_cedula` que valida nombre y número de cédula contra el Departamento de Identificaciones, a USD 0,20 por consulta concluyente**, con latencia de un par de segundos.
+
+Esto cambia el planteo de la §3 de este documento. La brecha de autenticidad documental tenía tres salidas: piloto con código propio (defendible pero flojo), convenio con Identificaciones (la más fuerte, pero lenta) y proveedor documental especializado (Regula). Aparece una cuarta: **cruzar contra la fuente oficial por API, hoy, sin convenio propio y a un costo que no mueve la aguja** — USD 0,20 sobre un expediente de ~USD 0,021 sigue siendo dos órdenes de magnitud menos que Entrust.
+
+No reemplaza al análisis documental (no dice si el plástico es genuino, dice si esa persona con ese número existe en el registro), pero ataca el fraude que más importa acá: contratar con la identidad de otro. **Recomendación: sumarlo al RFP y probarlo en el piloto de tres formatos.** Queda registrado como ítem 33 de `docs/Tabla de Integraciones externas - Tabla.csv`, en estado ALTERNATIVA - A EVALUAR. Conviene verificar de primera mano la fuente y la base legal de esa consulta antes de comprometerlo: es un dato que el proveedor declara, no algo que hayamos confirmado con Identificaciones.
+
+### 7.8 Lo que no se pudo fijar
+
+- **Especificación oficial del MRZ de la cédula paraguaya.** El Departamento de Identificaciones no publica la especificación técnica. Que la cédula nueva (chip, desde julio de 2023) sea TD1 está inferido de que los lectores comerciales de MRZ la listan como compatible con ICAO 9303, no confirmado contra documentación oficial. **El piloto de tres formatos del ítem 9 tiene que confirmarlo con cédulas reales antes de que esto sea producción.** El código está escrito para que un MRZ ausente o ilegible sea un caso previsto, no una excepción.
+- **El formato anterior sin MRZ** no tiene verificación de autenticidad posible con código propio: ahí el cruce contra registro civil (§7.7) deja de ser una mejora y pasa a ser la única defensa.
+
+---
 
 ## Resumen ejecutivo
 
@@ -65,6 +155,13 @@ La regla actual de P5 ("si falla, repetir captura; si persiste, no continúa dig
 
 ### Fuentes
 
+- [AWS · Face and Liveness Verification for Identity Verification with Amazon Rekognition](https://d1.awsstatic.com/rekognition/identity-verification-whitepaper-2024.pdf) — §3.2, §3.3.1 y §6.1: umbrales de calidad, umbrales de decisión y política anti-abuso
+- [ICAO Doc 9303 · Machine Readable Travel Documents](https://www.icao.int/sites/default/files/publications/DocSeries/9303_p3_cons_en.pdf) — MRZ, dígitos verificadores y especimen TD1
+- [ICAO · Technical Report: Portrait Quality (Reference Facial Images for MRTD)](https://www.icao.int/sites/default/files/TRIP/Publications/TR-Portrait-Quality-v1.0.pdf)
+- [ISO/IEC 29794-5:2025 · Biometric sample quality — Face image data](https://www.iso.org/standard/81005.html) — a dónde migrar cuando los proveedores expongan componentes de calidad
+- [iBeta · ISO 30107-3 Presentation Attack Detection](https://www.ibeta.com/iso-30107-3-presentation-attack-detection-confirmation-letters/) — niveles L1/L2 y métricas APCER/BPCER
+- [AWS · Face Liveness: mejoras de precisión y nuevo challenge (julio 2025)](https://aws.amazon.com/about-aws/whats-new/2025/07/amazon-rekognition-face-liveness-accuracy-improvements-challenge-setting/)
+- [Didit · validación de cédula paraguaya contra registro civil](https://didit.me/es/blog/paraguay-cedula-database-validation/)
 - [Amazon Rekognition pricing](https://aws.amazon.com/rekognition/pricing/)
 - [Amazon Rekognition Face Liveness — AI Service Card](https://aws.amazon.com/ai/responsible-ai/resources/rekognition-face-liveness/)
 - [Textract AnalyzeID — documentos soportados](https://docs.aws.amazon.com/textract/latest/dg/how-it-works-identity.html)
