@@ -65,6 +65,22 @@ export interface EstiloLinea {
   readonly grosor?: number;
 }
 
+/**
+ * Segmento de un camino vectorial, en las mismas coordenadas de la API
+ * (origen arriba a la izquierda): `m` mueve, `l` traza recta, `c` traza una
+ * curva Bézier cúbica (dos puntos de control y el destino), `z` cierra.
+ */
+export type SegmentoCamino =
+  | readonly ["m", number, number]
+  | readonly ["l", number, number]
+  | readonly ["c", number, number, number, number, number, number]
+  | readonly ["z"];
+
+export interface EstiloCamino extends EstiloCaja {
+  /** Extremos y uniones redondeados (para trazos gruesos, como un isologo). */
+  readonly redondeado?: boolean;
+}
+
 export interface Pagina {
   /** Escribe una línea de texto. `y` es la línea base, medida desde arriba. */
   texto(x: number, y: number, contenido: string, estilo?: EstiloTexto): void;
@@ -75,6 +91,8 @@ export interface Pagina {
   parrafo(x: number, y: number, ancho: number, contenido: string, estilo?: EstiloTexto & { readonly interlineado?: number }): number;
   rectangulo(x: number, y: number, ancho: number, alto: number, estilo?: EstiloCaja): void;
   linea(x1: number, y1: number, x2: number, y2: number, estilo?: EstiloLinea): void;
+  /** Dibuja un camino vectorial arbitrario (isologos, formas curvas). */
+  camino(segmentos: readonly SegmentoCamino[], estilo?: EstiloCamino): void;
   /** Dibuja la matriz de un QR con su zona de silencio, ocupando `lado` puntos en total. */
   qr(x: number, y: number, lado: number, matriz: MatrizQr): void;
 }
@@ -182,6 +200,40 @@ function crearPagina(alto: number): { pagina: Pagina; contenido: () => string } 
         `${redondear(x2)} ${redondear(invertirY(y2))} l`,
         "S",
       );
+    },
+
+    camino(segmentos, estilo = {}) {
+      if (!estilo.relleno && !estilo.borde) return;
+      const partes: string[] = [];
+      if (estilo.relleno) partes.push(operadorColor(estilo.relleno, true));
+      if (estilo.borde) {
+        partes.push(operadorColor(estilo.borde, false), `${redondear(estilo.grosor ?? 0.6)} w`);
+      }
+      if (estilo.redondeado) partes.push("1 J", "1 j");
+
+      for (const segmento of segmentos) {
+        if (segmento[0] === "m" || segmento[0] === "l") {
+          partes.push(
+            `${redondear(segmento[1])} ${redondear(invertirY(segmento[2]))} ${segmento[0]}`,
+          );
+        } else if (segmento[0] === "c") {
+          partes.push(
+            `${redondear(segmento[1])} ${redondear(invertirY(segmento[2]))} ` +
+              `${redondear(segmento[3])} ${redondear(invertirY(segmento[4]))} ` +
+              `${redondear(segmento[5])} ${redondear(invertirY(segmento[6]))} c`,
+          );
+        } else {
+          partes.push("h");
+        }
+      }
+
+      if (estilo.relleno && estilo.borde) partes.push("B");
+      else if (estilo.relleno) partes.push("f");
+      else partes.push("S");
+      // El estado gráfico persiste dentro del stream: se restauran los
+      // extremos rectos para no afectar a las líneas que vengan después.
+      if (estilo.redondeado) partes.push("0 J", "0 j");
+      ops.push(...partes);
     },
 
     qr(x, y, lado, matriz) {

@@ -17,7 +17,6 @@ import type { CampoP6 } from "@/domain/catalogo-p6";
 import { DECLARACIONES_P6 } from "@/domain/elegibilidad";
 import { formatearGuaranies } from "@/domain/catalogo";
 import {
-  ADVERTENCIA_P6,
   AYUDA_PEP,
   LEYENDA_DOCUMENTOS_P6,
   NOTA_BENEFICIARIO_DESIGNADO_P6,
@@ -212,23 +211,22 @@ export function FormularioDatosYDeclaraciones() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <p className="rounded-lg border border-azul-200 bg-azul-50 px-4 py-3 text-sm font-semibold text-azul-900 dark:border-azul-700 dark:bg-azul-950 dark:text-azul-100">
-        {ADVERTENCIA_P6}
-      </p>
-
+    <div className="flex flex-col gap-4">
+      {/* En pantallas anchas: datos complementarios a la izquierda y las ocho
+          declaraciones a la derecha; debajo, beneficiario y botón. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       {/* ------------------------------------------------------------------ */}
       {/* Bloque 1 — Datos complementarios                                    */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
-        <div>
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Datos complementarios
           </h2>
-          <p className="text-sm text-cuerpo">Los marcados con * son obligatorios.</p>
+          <p className="text-xs text-cuerpo">Los marcados con * son obligatorios.</p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1 sm:col-span-2">
             <label htmlFor="p6-domicilio" className="text-xs font-semibold text-etiqueta">
               Domicilio *
@@ -314,9 +312,96 @@ export function FormularioDatosYDeclaraciones() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Beneficiario por fallecimiento                                      */}
+      {/* Bloque 2 — Declaraciones obligatorias (un solo recuadro)            */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+      <section className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4">
+        <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+          Declaraciones obligatorias
+        </h2>
+
+        <ul className="flex flex-col divide-y divide-borde-tenue">
+          {TEXTOS_DECLARACIONES_P6.map((declaracion) => {
+            const definicion = DECLARACIONES_P6.find((d) => d.numero === declaracion.numero);
+            if (!definicion) return null;
+            const respuesta = respuestas[declaracion.numero];
+
+            return (
+              <li key={declaracion.numero}>
+                <fieldset className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <legend className="float-left text-xs font-bold tracking-wide text-titulo uppercase">
+                      {declaracion.numero}. {declaracion.titulo}
+                      <span className="ml-2 rounded-full border border-verde-300 bg-verde-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-verde-800 uppercase dark:border-verde-700 dark:bg-verde-950 dark:text-verde-200">
+                        {rotuloRespuestaHabilitante(definicion.respuestaHabilitante)}
+                      </span>
+                    </legend>
+
+                    <div className="flex gap-1.5">
+                      {(["SI", "NO"] as const).map((opcion) => (
+                        <label
+                          key={opcion}
+                          className={`flex h-7 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-4 text-xs font-bold uppercase ${
+                            respuesta === opcion
+                              ? "border-naranja-500 bg-naranja-50 text-azul-950 dark:bg-naranja-950 dark:text-naranja-100"
+                              : "border-borde-sutil bg-superficie text-cuerpo"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`p6-declaracion-${declaracion.numero}`}
+                            value={opcion}
+                            // Sin esto, un lector de pantalla anuncia ocho pares
+                            // de "Sí / No" idénticos y sin contexto.
+                            aria-label={`${declaracion.numero}. ${declaracion.titulo}: ${
+                              opcion === "SI" ? "Sí" : "No"
+                            }`}
+                            checked={respuesta === opcion}
+                            onChange={() =>
+                              setRespuestas((actuales) => ({
+                                ...actuales,
+                                [declaracion.numero]: opcion,
+                              }))
+                            }
+                            className="sr-only"
+                          />
+                          {opcion === "SI" ? "Sí" : "No"}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-cuerpo">{declaracion.texto}</p>
+
+                  {declaracion.numero === 8 ? (
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setMostrarAyudaPep((visible) => !visible)}
+                        aria-expanded={mostrarAyudaPep}
+                        className="self-start text-xs font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
+                      >
+                        {ROTULO_AYUDA_PEP}
+                      </button>
+                      {mostrarAyudaPep ? (
+                        <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-xs text-azul-900 dark:border-azul-700 dark:bg-azul-950 dark:text-azul-100">
+                          {AYUDA_PEP}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </fieldset>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Beneficiario (izquierda) y acción (derecha)                          */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
         <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
           Beneficiario por fallecimiento
         </h2>
@@ -398,125 +483,43 @@ export function FormularioDatosYDeclaraciones() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Bloque 2 — Declaraciones obligatorias                               */}
+      {/* Guardar y continuar (derecha), con los textos debajo del botón       */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
-        <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-          Declaraciones obligatorias
-        </h2>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={!puedeContinuar}
+            className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
+          >
+            {enviando ? "Guardando…" : "Guardar y continuar →"}
+          </button>
+          {!puedeContinuar ? (
+            <p className="text-xs text-etiqueta">
+              Se habilita al completar los datos obligatorios y responder las ocho declaraciones.
+            </p>
+          ) : null}
+        </div>
 
-        <ul className="flex flex-col gap-3">
-          {TEXTOS_DECLARACIONES_P6.map((declaracion) => {
-            const definicion = DECLARACIONES_P6.find((d) => d.numero === declaracion.numero);
-            if (!definicion) return null;
-            const respuesta = respuestas[declaracion.numero];
+        {error ? (
+          <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
+            {error}
+            {camposInvalidos.length > 0
+              ? ` (${camposInvalidos.map((campo) => ROTULOS_CAMPO[campo]).join(", ")})`
+              : ""}
+          </p>
+        ) : null}
 
-            return (
-              <li key={declaracion.numero}>
-                <fieldset className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie-suave p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <legend className="text-sm font-bold tracking-wide text-titulo uppercase">
-                      {declaracion.numero}. {declaracion.titulo}
-                    </legend>
-                    <span className="rounded-full border border-verde-300 bg-verde-50 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-verde-800 uppercase dark:border-verde-700 dark:bg-verde-950 dark:text-verde-200">
-                      {rotuloRespuestaHabilitante(definicion.respuestaHabilitante)}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-cuerpo">{declaracion.texto}</p>
-
-                  {declaracion.numero === 8 ? (
-                    <div className="flex flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setMostrarAyudaPep((visible) => !visible)}
-                        aria-expanded={mostrarAyudaPep}
-                        className="self-start text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-                      >
-                        {ROTULO_AYUDA_PEP}
-                      </button>
-                      {mostrarAyudaPep ? (
-                        <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-sm text-azul-900 dark:border-azul-700 dark:bg-azul-950 dark:text-azul-100">
-                          {AYUDA_PEP}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  <div className="flex gap-2">
-                    {(["SI", "NO"] as const).map((opcion) => (
-                      <label
-                        key={opcion}
-                        className={`flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 text-sm font-bold uppercase sm:flex-none sm:px-8 ${
-                          respuesta === opcion
-                            ? "border-naranja-500 bg-naranja-50 text-azul-950 dark:bg-naranja-950 dark:text-naranja-100"
-                            : "border-borde-sutil bg-superficie text-cuerpo"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`p6-declaracion-${declaracion.numero}`}
-                          value={opcion}
-                          // Sin esto, un lector de pantalla anuncia ocho pares
-                          // de "Sí / No" idénticos y sin contexto.
-                          aria-label={`${declaracion.numero}. ${declaracion.titulo}: ${
-                            opcion === "SI" ? "Sí" : "No"
-                          }`}
-                          checked={respuesta === opcion}
-                          onChange={() =>
-                            setRespuestas((actuales) => ({
-                              ...actuales,
-                              [declaracion.numero]: opcion,
-                            }))
-                          }
-                          className="sr-only"
-                        />
-                        {opcion === "SI" ? "Sí" : "No"}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="flex flex-col gap-2 rounded-lg border border-rojo-200 bg-rojo-50 px-4 py-3 dark:border-rojo-800 dark:bg-rojo-950">
+        <div className="flex flex-col gap-1 rounded-lg border border-rojo-200 bg-rojo-50 px-3 py-2.5 dark:border-rojo-800 dark:bg-rojo-950">
           <p className="text-[11px] font-bold tracking-wide text-rojo-800 uppercase dark:text-rojo-200">
             Regla automática de elegibilidad
           </p>
-          <p className="text-sm text-rojo-900 dark:text-rojo-100">{REGLA_ELEGIBILIDAD_P6}</p>
+          <p className="text-xs text-rojo-900 dark:text-rojo-100">{REGLA_ELEGIBILIDAD_P6}</p>
         </div>
-      </section>
 
-      <p className="text-xs text-etiqueta">{LEYENDA_DOCUMENTOS_P6}</p>
-
-      {error ? (
-        <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
-          {error}
-          {camposInvalidos.length > 0
-            ? ` (${camposInvalidos.map((campo) => ROTULOS_CAMPO[campo]).join(", ")})`
-            : ""}
-        </p>
-      ) : null}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Guardar y continuar                                                 */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={!puedeContinuar}
-          className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
-        >
-          {enviando ? "Guardando…" : "Guardar y continuar →"}
-        </button>
-        {!puedeContinuar ? (
-          <p className="text-xs text-etiqueta">
-            Se habilita al completar los datos obligatorios y responder las ocho declaraciones.
-          </p>
-        ) : null}
+        <p className="text-xs text-etiqueta">{LEYENDA_DOCUMENTOS_P6}</p>
+      </div>
       </div>
     </div>
   );

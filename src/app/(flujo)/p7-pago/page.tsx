@@ -1,15 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
-import {
-  ADVERTENCIA_P7,
-  ADVERTENCIA_PAGO_NO_ES_FIRMA_P7,
-  LEYENDA_PROCESADOR_P7,
-  SEGURIDAD_P7,
-  SUBTITULO_P7,
-  TITULO_P7,
-  TITULO_SEGURIDAD_P7,
-} from "@/domain/textos-p7";
+import { ADVERTENCIA_P7, LEYENDA_PROCESADOR_P7, TITULO_P7 } from "@/domain/textos-p7";
 import { FormularioPagoP7 } from "./FormularioPagoP7";
 
 /**
@@ -43,45 +35,26 @@ export default function PantallaP7Pago() {
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos pasoActual={7} />} />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <BarraPlanDelExpediente
           enlaceTexto="Cambiar plan"
           enlaceHref="/p2-plan"
           formatoPremio="premio-anual"
         />
 
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold text-titulo sm:text-3xl">{TITULO_P7}</h1>
-          <p className="text-base text-azul-700 dark:text-azul-200">{SUBTITULO_P7}</p>
-          <p className="text-sm font-semibold text-naranja-700 dark:text-naranja-300">
-            {ADVERTENCIA_P7}
+        <header className="flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-4">
+          <h1 className="shrink-0 text-xl font-bold text-titulo sm:text-2xl">{TITULO_P7}</h1>
+          <p className="text-sm text-cuerpo">
+            <span className="font-semibold text-naranja-700 dark:text-naranja-300">
+              {ADVERTENCIA_P7}
+            </span>{" "}
+            {LEYENDA_PROCESADOR_P7}
           </p>
-          <p className="text-sm text-cuerpo">{LEYENDA_PROCESADOR_P7}</p>
         </header>
 
         <FormularioPagoP7 />
 
-        <section
-          aria-labelledby="p7-seguridad"
-          className="flex flex-col gap-3 rounded-xl border border-verde-300 bg-verde-50 p-4 dark:border-verde-700 dark:bg-verde-950"
-        >
-          <h2
-            id="p7-seguridad"
-            className="text-xs font-bold uppercase tracking-wide text-verde-800 dark:text-verde-200"
-          >
-            {TITULO_SEGURIDAD_P7}
-          </h2>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-verde-900 dark:text-verde-100">
-            {SEGURIDAD_P7.map((linea) => (
-              <li key={linea}>{linea}</li>
-            ))}
-          </ul>
-          <p className="text-sm font-semibold text-verde-900 dark:text-verde-100">
-            {ADVERTENCIA_PAGO_NO_ES_FIRMA_P7}
-          </p>
-        </section>
-
-        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-4">
+        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link
             href="/p6-declaraciones"
             className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"

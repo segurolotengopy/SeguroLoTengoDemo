@@ -14,7 +14,7 @@
  * cliente tiene que decir lo mismo, no parecerse.
  */
 import { ALTO_A4, ANCHO_A4, anchoDeTexto, partirEnLineas } from "./pdf";
-import type { Color, DocumentoPdf, Fuente, Pagina } from "./pdf";
+import type { Color, DocumentoPdf, Fuente, Pagina, SegmentoCamino } from "./pdf";
 import { generarMatrizQr } from "./qr";
 import type { EncabezadoDocumento, CampoDocumento } from "../domain/documentos";
 
@@ -22,18 +22,28 @@ import type { EncabezadoDocumento, CampoDocumento } from "../domain/documentos";
 // Paleta y métricas
 // ---------------------------------------------------------------------------
 
-export const NARANJA: Color = [0.878, 0.318, 0.118];
-export const AZUL: Color = [0.106, 0.196, 0.573];
-export const TINTA: Color = [0.13, 0.13, 0.15];
-export const ETIQUETA: Color = [0.42, 0.42, 0.45];
-export const BORDE: Color = [0.72, 0.72, 0.76];
-export const FONDO_SUAVE: Color = [0.968, 0.968, 0.98];
-export const FONDO_ELEGIDO: Color = [0.996, 0.945, 0.918];
-export const VERDE: Color = [0.043, 0.42, 0.243];
-export const FONDO_VERDE: Color = [0.937, 0.973, 0.949];
+/*
+ * Paleta de marca de los documentos, alineada con la de las pantallas
+ * (src/app/globals.css) y con docs/GUIA_DE_ESTILOS.md: naranja primario del
+ * sitio interseguros360.com, azul institucional de Alianza Garantía y los
+ * colores exactos de los dos isologos.
+ */
+export const NARANJA: Color = [0.741, 0.333, 0.059]; // #bd550f — primario Interseguros
+export const AZUL: Color = [0.169, 0.353, 0.62]; // #2b5a9e — azul Alianza
+export const TINTA: Color = [0.2, 0.2, 0.2]; // #333333 — texto principal
+export const ETIQUETA: Color = [0.42, 0.42, 0.42]; // #6b6b6b — rótulos
+export const BORDE: Color = [0.878, 0.878, 0.878]; // #e0e0e0 — bordes del sitio
+export const FONDO_SUAVE: Color = [0.957, 0.949, 0.937]; // #f4f2ef
+export const FONDO_ELEGIDO: Color = [0.992, 0.957, 0.925]; // #fdf4ec — naranja-50
+export const VERDE: Color = [0.263, 0.396, 0.098]; // #436519 — verde Alianza para texto
+export const FONDO_VERDE: Color = [0.965, 0.98, 0.925]; // #f6faec
 export const ROJO: Color = [0.71, 0.11, 0.11];
 export const FONDO_ROJO: Color = [0.996, 0.945, 0.945];
 export const BLANCO_PURO: Color = [1, 1, 1];
+
+/* Colores exclusivos de los isologos (no se usan para texto). */
+export const NARANJA_ISOLOGO: Color = [0.886, 0.4, 0.059]; // #e2660f
+export const VERDE_ISOLOGO: Color = [0.553, 0.776, 0.247]; // #8dc63f
 
 export const MARGEN = 34;
 export const ANCHO_UTIL = ANCHO_A4 - MARGEN * 2;
@@ -94,6 +104,111 @@ export function crearLienzo(
 }
 
 // ---------------------------------------------------------------------------
+// Isologos
+// ---------------------------------------------------------------------------
+
+/*
+ * Los isologos se dibujan como vectores del propio PDF —la misma geometría de
+ * los SVG de `public/marca/`, en un lienzo de diseño de 100×100— y no como
+ * imágenes embebidas: el generador no incrusta mapas de bits, y un camino
+ * vectorial produce siempre los mismos operadores, así que el determinismo
+ * (regla inviolable #4) queda intacto.
+ */
+
+/** Traslada y escala un camino diseñado en el lienzo 100×100. */
+function escalarCamino(
+  segmentos: readonly SegmentoCamino[],
+  x: number,
+  y: number,
+  lado: number,
+): SegmentoCamino[] {
+  const esc = lado / 100;
+  return segmentos.map((segmento): SegmentoCamino => {
+    if (segmento[0] === "z") return segmento;
+    if (segmento[0] === "c") {
+      return [
+        "c",
+        x + segmento[1] * esc,
+        y + segmento[2] * esc,
+        x + segmento[3] * esc,
+        y + segmento[4] * esc,
+        x + segmento[5] * esc,
+        y + segmento[6] * esc,
+      ];
+    }
+    return [segmento[0], x + segmento[1] * esc, y + segmento[2] * esc];
+  });
+}
+
+/* Cápsula del isologo de Interseguros (versión 2026-08-12): esquinas de
+   radio 15 salvo la inferior derecha, de radio 42 (Bézier con κ = 0,5523). */
+const CAPSULA_INTERSEGUROS: readonly SegmentoCamino[] = [
+  ["m", 19, 4],
+  ["l", 81, 4],
+  ["c", 89.28, 4, 96, 10.72, 96, 19],
+  ["l", 96, 54],
+  ["c", 96, 77.2, 77.2, 96, 54, 96],
+  ["l", 19, 96],
+  ["c", 10.72, 96, 4, 89.28, 4, 81],
+  ["l", 4, 19],
+  ["c", 4, 10.72, 10.72, 4, 19, 4],
+  ["z"],
+];
+
+/* Barra central calada: rectángulo redondeado de 20×60 con radio 6. En el
+   documento (fondo blanco) el calado se materializa pintándola de blanco. */
+const BARRA_INTERSEGUROS: readonly SegmentoCamino[] = [
+  ["m", 46, 20],
+  ["l", 54, 20],
+  ["c", 57.31, 20, 60, 22.69, 60, 26],
+  ["l", 60, 74],
+  ["c", 60, 77.31, 57.31, 80, 54, 80],
+  ["l", 46, 80],
+  ["c", 42.69, 80, 40, 77.31, 40, 74],
+  ["l", 40, 26],
+  ["c", 40, 22.69, 42.69, 20, 46, 20],
+  ["z"],
+];
+
+/** Isologo de Interseguros: cápsula naranja con la "I" calada. */
+export function dibujarIsologoInterseguros(pagina: Pagina, x: number, y: number, lado: number): void {
+  pagina.camino(escalarCamino(CAPSULA_INTERSEGUROS, x, y, lado), { relleno: NARANJA_ISOLOGO });
+  pagina.camino(escalarCamino(BARRA_INTERSEGUROS, x, y, lado), { relleno: BLANCO_PURO });
+}
+
+/** Isologo de Alianza Garantía: chevrón azul con triángulo verde. */
+export function dibujarIsologoAlianza(pagina: Pagina, x: number, y: number, lado: number): void {
+  const esc = lado / 100;
+  pagina.camino(
+    escalarCamino(
+      [
+        ["m", 12, 82],
+        ["l", 50, 18],
+        ["l", 88, 82],
+      ],
+      x,
+      y,
+      lado,
+    ),
+    { borde: AZUL, grosor: 17 * esc, redondeado: true },
+  );
+  pagina.camino(
+    escalarCamino(
+      [
+        ["m", 50, 48],
+        ["l", 30, 83],
+        ["l", 70, 83],
+        ["z"],
+      ],
+      x,
+      y,
+      lado,
+    ),
+    { relleno: VERDE_ISOLOGO, borde: VERDE_ISOLOGO, grosor: 7 * esc, redondeado: true },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Cabecera
 // ---------------------------------------------------------------------------
 
@@ -116,10 +231,18 @@ export function dibujarEncabezado(
   const derechaCaja = MARGEN + ANCHO_UTIL - LADO_QR - 6;
   const izquierdaCaja = derechaCaja - ANCHO_CAJA_CODIGO;
 
-  pagina.texto(MARGEN, 40, "ASEGURADORA", { fuente: "negrita", tamano: 6.5, color: ETIQUETA });
-  pagina.texto(MARGEN, 51, ENTIDAD_ASEGURADORA, { fuente: "negrita", tamano: 8.5, color: AZUL });
-  pagina.texto(MARGEN, 66, "INTERMEDIARIO", { fuente: "negrita", tamano: 6.5, color: ETIQUETA });
-  pagina.texto(MARGEN, 77, ENTIDAD_INTERMEDIARIO, { fuente: "negrita", tamano: 8.5, color: AZUL });
+  // Isologos institucionales a la izquierda de cada entidad (ver
+  // docs/GUIA_DE_ESTILOS.md: los documentos hacia el cliente llevan las dos
+  // marcas, igual que la cabecera de las pantallas).
+  const ISOLOGO = 16;
+  dibujarIsologoAlianza(pagina, MARGEN, 35, ISOLOGO);
+  dibujarIsologoInterseguros(pagina, MARGEN, 61, ISOLOGO);
+  const X_ENTIDAD = MARGEN + ISOLOGO + 6;
+
+  pagina.texto(X_ENTIDAD, 40, "ASEGURADORA", { fuente: "negrita", tamano: 6.5, color: ETIQUETA });
+  pagina.texto(X_ENTIDAD, 51, ENTIDAD_ASEGURADORA, { fuente: "negrita", tamano: 8.5, color: AZUL });
+  pagina.texto(X_ENTIDAD, 66, "INTERMEDIARIO", { fuente: "negrita", tamano: 6.5, color: ETIQUETA });
+  pagina.texto(X_ENTIDAD, 77, ENTIDAD_INTERMEDIARIO, { fuente: "negrita", tamano: 8.5, color: AZUL });
 
   // Caja de código: el vínculo entre los dos documentos del mismo acto de
   // firma queda impreso en los dos (fila 47 de la matriz de cumplimiento).

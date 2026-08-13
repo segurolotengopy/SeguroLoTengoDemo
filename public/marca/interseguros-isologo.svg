@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Isologo de Interseguros">
+  <!-- Isologo de Interseguros (versión 2026-08-12): cápsula naranja con la
+       "I" calada (transparente) y la esquina inferior derecha de radio
+       mayor. Ver docs/GUIA_DE_ESTILOS.md → "Logos e isologos". -->
+  <path
+    fill-rule="evenodd"
+    d="M 19 4 H 81 A 15 15 0 0 1 96 19 V 54 A 42 42 0 0 1 54 96 H 19 A 15 15 0 0 1 4 81 V 19 A 15 15 0 0 1 19 4 Z
+       M 46 20 H 54 A 6 6 0 0 1 60 26 V 74 A 6 6 0 0 1 54 80 H 46 A 6 6 0 0 1 40 74 V 26 A 6 6 0 0 1 46 20 Z"
+    fill="#e2660f"
+  />
+</svg>

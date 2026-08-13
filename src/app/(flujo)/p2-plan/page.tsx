@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HeaderInstitucional, StepperPasos } from "@/components/shared";
+import { EnlaceAclaracion, HeaderInstitucional, StepperPasos } from "@/components/shared";
 import { SelectorDePlanes } from "./SelectorDePlanes";
 
 /**
@@ -46,7 +46,7 @@ const BLOQUES_INFORMATIVOS = [
 function BandaEncabezado() {
   return (
     <div className="w-full border-b border-borde-tenue bg-superficie">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
+      <div className="mx-auto flex w-full max-w-pantalla flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
         <p className="text-sm font-bold tracking-wide text-titulo uppercase">
           SeguroLoTengo.com
         </p>
@@ -65,56 +65,45 @@ export default function PantallaP2Plan() {
       <HeaderInstitucional indicador={<StepperPasos pasoActual={2} />} />
       <BandaEncabezado />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <SelectorDePlanes />
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          {BLOQUES_INFORMATIVOS.map(({ titulo, detalle }) => (
-            <article
-              key={titulo}
-              className="flex flex-col gap-1 rounded-xl border border-borde-sutil bg-superficie p-4"
-            >
-              <h2 className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-                {titulo}
-              </h2>
-              <p className="text-sm text-cuerpo">{detalle}</p>
-            </article>
-          ))}
+        {/* Un solo recuadro con los cuatro bloques informativos. */}
+        <section className="rounded-lg border border-borde-sutil bg-superficie p-3">
+          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 xl:grid-cols-4">
+            {BLOQUES_INFORMATIVOS.map(({ titulo, detalle }) => (
+              <div key={titulo} className="flex flex-col gap-0.5">
+                <dt className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+                  {titulo}
+                </dt>
+                <dd className="text-xs text-cuerpo">{detalle}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <section
           id="documentacion-precontractual"
-          className="flex scroll-mt-4 flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie-suave p-5"
+          className="flex scroll-mt-4 flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie-suave p-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6"
         >
-          <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-            Información precontractual
-          </h2>
-          <p className="text-sm text-cuerpo">
-            El diagnóstico confirmado de cáncer impide la renovación; la póliza continúa hasta
-            finalizar la vigencia contratada.
-          </p>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <a
-              href="#documentacion-precontractual"
-              className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-            >
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+              Información precontractual
+            </h2>
+            <p className="text-sm text-cuerpo">
+              El diagnóstico confirmado de cáncer impide la renovación; la póliza continúa hasta
+              finalizar la vigencia contratada.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-x-6 gap-y-2 lg:justify-end">
+            <EnlaceAclaracion documento="documentacionPrecontractual">
               Ver documentación completa
-            </a>
-            <a
-              href="#documentacion-precontractual"
-              className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-            >
-              Consultas y reclamos
-            </a>
+            </EnlaceAclaracion>
+            <EnlaceAclaracion documento="consultasReclamos">Consultas y reclamos</EnlaceAclaracion>
           </div>
         </section>
 
-        <p className="text-xs text-etiqueta">
-          La aceptación contractual se realizará posteriormente mediante firma electrónica en
-          Code100.
-        </p>
-
-        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-4">
+        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link
             href="/p1-whatsapp"
             className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"

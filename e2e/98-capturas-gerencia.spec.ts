@@ -1,0 +1,154 @@
+import { mkdirSync } from "node:fs";
+import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { obtenerPersonaDemo } from "@/adapters/mock/personas";
+import { prepararEscenario } from "./support/demo-panel";
+import {
+  completarP1,
+  completarP2,
+  completarP3,
+  completarP4,
+  completarP5Aprobado,
+  completarP6,
+  completarP7Qr,
+  continuarAFirma,
+  enviarEnlaceYAbrir,
+  enviarP6,
+  firmarNormalmente,
+} from "./support/flujo";
+
+/**
+ * Capturas de las 11 pantallas del flujo (P1–P9, Pantalla A y Pantalla B)
+ * para el PDF de revisión de gerencia. **No es un test de la batería**: solo
+ * corre con `CAPTURAS_GERENCIA=1` y no verifica reglas de negocio — recorre
+ * los mismos caminos que los escenarios 01, 02 y 06 y fotografía cada
+ * pantalla completa a 1456 px de ancho (el lienzo de escritorio de
+ * referencia del mockup).
+ *
+ * Con `CAPTURAS_MOVIL=1` fotografía en cambio la vista de celular (390 px,
+ * emulación móvil a densidad 2x) y guarda en `pantallas/capturas-movil`.
+ */
+
+const MOVIL = process.env.CAPTURAS_MOVIL === "1";
+const DIR_CAPTURAS = MOVIL ? "pantallas/capturas-movil" : "pantallas/capturas";
+
+test.describe("capturas para gerencia", () => {
+  test.skip(
+    process.env.CAPTURAS_GERENCIA !== "1",
+    "Solo para generar el PDF de gerencia (CAPTURAS_GERENCIA=1).",
+  );
+
+  test.use(
+    MOVIL
+      ? {
+          viewport: { width: 390, height: 844 },
+          deviceScaleFactor: 2,
+          isMobile: true,
+          hasTouch: true,
+        }
+      : { viewport: { width: 1456, height: 900 } },
+  );
+
+  test.beforeAll(() => {
+    mkdirSync(DIR_CAPTURAS, { recursive: true });
+  });
+
+  async function capturar(page: Page, nombre: string): Promise<void> {
+    // Sin animaciones ni cursor de texto: la captura debe ser estable. Se
+    // oculta también el indicador de desarrollo de Next.js (nextjs-portal),
+    // que no forma parte de la pantalla.
+    await page.addStyleTag({
+      content:
+        "*{animation:none!important;transition:none!important;caret-color:transparent!important}" +
+        "nextjs-portal{display:none!important}",
+    });
+    await page.screenshot({
+      path: `${DIR_CAPTURAS}/${nombre}.jpg`,
+      type: "jpeg",
+      quality: 90,
+      fullPage: true,
+    });
+  }
+
+  test("P1 a P9 — camino feliz", async ({ page }) => {
+    test.setTimeout(240_000);
+    const persona = obtenerPersonaDemo("camino-feliz");
+    if (!persona) throw new Error("Fixture 'camino-feliz' no encontrado.");
+
+    await prepararEscenario(page, { personaId: persona.id });
+
+    await page.goto("/p1-whatsapp");
+    await capturar(page, "01-p1-whatsapp");
+
+    await completarP1(page, persona);
+    await capturar(page, "02-p2-plan");
+
+    await completarP2(page, persona);
+    await capturar(page, "03-p3-preparacion");
+
+    await completarP3(page);
+    await capturar(page, "04-p4-correo");
+
+    await completarP4(page, persona);
+    await capturar(page, "05-p5-identidad");
+
+    await completarP5Aprobado(page);
+    await capturar(page, "06-p6-declaraciones");
+
+    await completarP6(page, persona);
+    await enviarP6(page, /\/p7-pago$/);
+    await capturar(page, "07-p7-pago");
+
+    await completarP7Qr(page);
+    await continuarAFirma(page);
+    await expect(page).toHaveURL(/\/p8-firma$/);
+    await capturar(page, "08-p8-firma");
+
+    const idCode100 = await enviarEnlaceYAbrir(page);
+    await firmarNormalmente(page, idCode100);
+    await expect(page).toHaveURL(/\/p9-confirmacion$/);
+    await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
+    await capturar(page, "09-p9-confirmacion");
+  });
+
+  test("Pantalla A — derivación a revisión manual (PEP)", async ({ page }) => {
+    test.setTimeout(240_000);
+    const persona = obtenerPersonaDemo("pep-positivo");
+    if (!persona) throw new Error("Fixture 'pep-positivo' no encontrado.");
+
+    await prepararEscenario(page, { personaId: persona.id });
+    await completarP1(page, persona);
+    await completarP2(page, persona);
+    await completarP3(page);
+    await completarP4(page, persona);
+    await completarP5Aprobado(page);
+    await completarP6(page, persona);
+    await enviarP6(page, /\/revision-manual$/);
+
+    // Esperar el número de caso asíncrono antes de fotografiar.
+    await expect(page.getByText("EN ANÁLISIS")).toBeVisible();
+    await expect(page.locator("dd.font-mono.text-base.font-bold").first()).not.toHaveText("—");
+    await capturar(page, "10-pantalla-a-revision-manual");
+  });
+
+  test("Pantalla B — solicitud vencida", async ({ page }) => {
+    test.setTimeout(240_000);
+    const persona = obtenerPersonaDemo("no-firma");
+    if (!persona) throw new Error("Fixture 'no-firma' no encontrado.");
+
+    await prepararEscenario(page, { personaId: persona.id, plazoFirmaMs: 30_000 });
+    await completarP1(page, persona);
+    await completarP2(page, persona);
+    await completarP3(page);
+    await completarP4(page, persona);
+    await completarP5Aprobado(page);
+    await completarP6(page, persona);
+    await enviarP6(page, /\/p7-pago$/);
+    await completarP7Qr(page);
+    await continuarAFirma(page);
+
+    await expect(page).toHaveURL(/\/solicitud-vencida$/, { timeout: 60_000 });
+    await expect(page.getByText("VENCIDO · DEVOLUCIÓN EN TRÁMITE")).toBeVisible();
+    await capturar(page, "11-pantalla-b-solicitud-vencida");
+  });
+});

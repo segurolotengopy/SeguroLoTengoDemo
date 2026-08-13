@@ -57,7 +57,7 @@ export default function PantallaARevisionManual() {
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos variante="pantalla-a" />} />
 
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         {/* ---------------------------------------------------------------- */}
         {/* Encabezado rojo                                                   */}
         {/* ---------------------------------------------------------------- */}
@@ -78,10 +78,13 @@ export default function PantallaARevisionManual() {
           </div>
         </header>
 
+        {/* En pantallas anchas los recuadros van lado a lado, en angostas
+            apilados. */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* ---------------------------------------------------------------- */}
         {/* ESTADO DEL CASO — cuatro hitos                                    */}
         {/* ---------------------------------------------------------------- */}
-        <section className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5">
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Estado del caso
           </h2>
@@ -127,7 +130,7 @@ export default function PantallaARevisionManual() {
         {/* ---------------------------------------------------------------- */}
         {/* NO SE INICIÓ LA EMISIÓN                                           */}
         {/* ---------------------------------------------------------------- */}
-        <section className="flex flex-col gap-2 rounded-xl border border-rojo-300 bg-rojo-50 p-5 dark:border-rojo-700 dark:bg-rojo-950">
+        <section className="flex flex-col gap-2 rounded-lg border border-rojo-300 bg-rojo-50 p-4 dark:border-rojo-700 dark:bg-rojo-950">
           <h2 className="text-[11px] font-bold tracking-wide text-rojo-800 uppercase dark:text-rojo-200">
             {TITULO_SIN_EMISION}
           </h2>
@@ -146,7 +149,7 @@ export default function PantallaARevisionManual() {
         {/* ---------------------------------------------------------------- */}
         {/* INFORMACIÓN ENVIADA PARA EL ANÁLISIS + AUTORIZACIÓN YA OTORGADA   */}
         {/* ---------------------------------------------------------------- */}
-        <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             {TITULO_INFORMACION_ENVIADA}
           </h2>
@@ -178,7 +181,7 @@ export default function PantallaARevisionManual() {
         {/* ---------------------------------------------------------------- */}
         {/* ¿QUÉ OCURRIRÁ AHORA?                                              */}
         {/* ---------------------------------------------------------------- */}
-        <section className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5">
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             {TITULO_QUE_OCURRIRA}
           </h2>
@@ -200,7 +203,7 @@ export default function PantallaARevisionManual() {
         {/* ---------------------------------------------------------------- */}
         {/* Pie: contactos, regla del sistema y salida                        */}
         {/* ---------------------------------------------------------------- */}
-        <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Contactos
           </h2>
@@ -224,8 +227,9 @@ export default function PantallaARevisionManual() {
             {ROTULO_BOTON_FINALIZAR}
           </Link>
         </section>
+        </div>
 
-        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-4">
+        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <p className="text-sm font-semibold text-verde-700 dark:text-verde-300">
             {LEYENDA_NO_ES_RECHAZO}
           </p>

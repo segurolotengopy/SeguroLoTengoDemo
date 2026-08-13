@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { IsologoAlianza, IsologoInterseguros } from "./marcas";
 import { ToggleTema } from "./ToggleTema";
 
 /**
@@ -23,12 +24,7 @@ export interface HeaderInstitucionalProps {
 function MarcaAseguradora() {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <span
-        aria-hidden="true"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-azul-800 text-xs font-bold text-hueso-50 dark:bg-azul-500"
-      >
-        AG
-      </span>
+      <IsologoAlianza tamano={36} className="shrink-0" />
       <div className="min-w-0 leading-tight">
         <p className="text-[10px] font-semibold tracking-wide text-etiqueta uppercase">
           Aseguradora
@@ -44,12 +40,7 @@ function MarcaAseguradora() {
 function MarcaIntermediario() {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <span
-        aria-hidden="true"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-naranja-500 text-xs font-bold text-hueso-50"
-      >
-        IS
-      </span>
+      <IsologoInterseguros tamano={36} className="shrink-0" />
       <div className="min-w-0 leading-tight">
         <p className="text-[10px] font-semibold tracking-wide text-etiqueta uppercase">
           Intermediario
@@ -70,7 +61,7 @@ export function HeaderInstitucional({
     <header
       className={`w-full border-b border-borde-tenue bg-fondo ${className}`}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
+      <div className="mx-auto flex w-full max-w-pantalla flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
         {/* `min-w-0` para que el truncado de los nombres largos pueda actuar
             y el bloque no empuje al indicador fuera de la pantalla. */}
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">

@@ -713,6 +713,9 @@ describe("3. Inventario de rutas de la API", () => {
       "admin-consola/buscar",
       "admin-consola/expediente",
       "admin-consola/sesion",
+      // Remite el caso a Alianza (simulado): solo agrega evidencia
+      // append-only al expediente, nunca lo transiciona ni lo edita.
+      "admin-consola/enviar-alianza",
       "demo-panel/persona",
       // Actúan sobre el estado en memoria del Code100 simulado y sobre el
       // plazo que se le va a poner a los próximos pagos: no leen ni escriben

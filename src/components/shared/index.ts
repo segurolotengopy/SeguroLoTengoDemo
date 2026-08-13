@@ -1,5 +1,8 @@
 export { BandaDemo } from "./BandaDemo";
 
+export { EnlaceAclaracion } from "./AclaracionModal";
+export type { EnlaceAclaracionProps } from "./AclaracionModal";
+
 export { HeaderInstitucional } from "./HeaderInstitucional";
 export type { HeaderInstitucionalProps } from "./HeaderInstitucional";
 
@@ -20,6 +23,9 @@ export type { CamposOtpProps } from "./CamposOtp";
 
 export { VisorEvidencia } from "./VisorEvidencia";
 export type { VisorEvidenciaProps } from "./VisorEvidencia";
+
+export { IsologoAlianza, IsologoInterseguros } from "./marcas";
+export type { IsologoProps } from "./marcas";
 
 export { ToggleTema } from "./ToggleTema";
 export type { ToggleTemaProps } from "./ToggleTema";

@@ -37,7 +37,7 @@ export default async function ConsolaAdministrativa() {
     return (
       <div className="flex flex-1 flex-col bg-fondo">
         <HeaderInstitucional />
-        <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-4 py-10">
+        <main className="mx-auto flex w-full max-w-pantalla flex-1 flex-col items-center justify-center px-4 py-10">
           <FormularioClaveConsola />
         </main>
       </div>
@@ -57,9 +57,11 @@ export default async function ConsolaAdministrativa() {
         }
       />
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-titulo">Consola administrativa</h1>
+      {/* Ancho completo: la consola es una herramienta de escritorio y usa
+          toda la pantalla, con el panel de búsqueda a la izquierda. */}
+      <main className="flex w-full flex-col gap-4 px-4 py-4 sm:px-6">
+        <header className="flex flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-4">
+          <h1 className="shrink-0 text-xl font-bold text-titulo">Consola administrativa</h1>
           <p className="text-sm text-cuerpo">
             Auditoría de expedientes: estado, evidencias, derivaciones y vencimientos. Los datos son
             de solo lectura — desde acá no se edita ningún expediente.

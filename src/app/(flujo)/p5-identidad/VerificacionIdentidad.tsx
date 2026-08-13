@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EnlaceAclaracion } from "@/components/shared";
 // Desde `catalogo-identidad` y no desde el caso de uso: este es un componente
 // de cliente, e importar `verificacion-identidad.ts` arrastraría `node:crypto`
 // al bundle.
@@ -354,16 +355,19 @@ export function VerificacionIdentidad() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
+      {/* En pantallas anchas: captura a la izquierda, datos y botón a la
+          derecha; los bloques informativos van debajo del botón. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       {/* ------------------------------------------------------------------ */}
       {/* Bloque 1 — Captura documental y biométrica                          */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
         <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
           Captura documental y biométrica
         </h2>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           {TARJETAS.map(({ tipo, numero, titulo, detalle, boton }) => {
             const captura = capturas[tipo];
             const aprobada = captura?.aprobada === true;
@@ -372,7 +376,7 @@ export function VerificacionIdentidad() {
             return (
               <article
                 key={tipo}
-                className={`flex flex-col gap-2 rounded-xl border p-4 ${
+                className={`flex flex-col gap-2 rounded-lg border p-3 ${
                   aprobada
                     ? "border-verde-300 bg-verde-50 dark:border-verde-700 dark:bg-verde-950"
                     : rechazada
@@ -409,7 +413,7 @@ export function VerificacionIdentidad() {
                   type="button"
                   onClick={() => capturar(tipo, `${titulo} de cédula`)}
                   disabled={enProceso !== null}
-                  className="mt-auto inline-flex h-11 items-center justify-center rounded-lg border-2 border-verde-600 px-4 text-xs font-bold tracking-wide text-verde-700 uppercase transition-colors hover:bg-verde-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-verde-400 dark:text-verde-300 dark:hover:bg-verde-950"
+                  className="mt-auto inline-flex h-10 items-center justify-center rounded-lg border-2 border-verde-600 px-3 text-xs font-bold tracking-wide text-verde-700 uppercase transition-colors hover:bg-verde-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-verde-400 dark:text-verde-300 dark:hover:bg-verde-950"
                 >
                   {enProceso === tipo ? "Capturando…" : aprobada ? "Repetir" : boton}
                 </button>
@@ -447,19 +451,20 @@ export function VerificacionIdentidad() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Bloque 2 — Datos de identidad                                       */}
+      {/* Bloque 2 — Datos de identidad (columna derecha) + botón             */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-4 rounded-xl border border-borde-sutil bg-superficie p-5">
-        <div>
+      <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Datos de identidad
           </h2>
-          <p className="text-sm text-cuerpo">
+          <p className="text-xs text-cuerpo">
             Los datos se extraen de la cédula y se confirman con la selfie en vivo.
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {CAMPOS_BLOQUEADOS.map(({ id, etiqueta }) => (
             <div key={id} className="flex flex-col gap-1">
               <label
@@ -522,52 +527,6 @@ export function VerificacionIdentidad() {
           </div>
         </div>
 
-        {/* Edad calculada automáticamente */}
-        <div
-          className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
-            datos && !datos.edadEnRango
-              ? "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
-              : "border-azul-200 bg-azul-50 dark:border-azul-700 dark:bg-azul-950"
-          }`}
-        >
-          <div>
-            <p className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-              Edad calculada automáticamente
-            </p>
-            <p className="text-sm text-cuerpo">
-              Se calcula desde la fecha de nacimiento de la cédula y se incorpora al FIPF.
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-titulo tabular-nums">
-              {datos ? `${datos.edad} años` : "—"}
-            </p>
-            <p className="text-xs font-semibold text-rojo-700 dark:text-rojo-300">
-              Debe estar entre {EDAD_MINIMA_PERMITIDA} y {EDAD_MAXIMA_PERMITIDA} años.
-            </p>
-          </div>
-        </div>
-
-        {/* ¿Los datos no coinciden? */}
-        <div className="flex flex-col gap-2 rounded-lg border border-rojo-200 bg-rojo-50 px-4 py-3 dark:border-rojo-800 dark:bg-rojo-950">
-          <p className="text-[11px] font-bold tracking-wide text-rojo-800 uppercase dark:text-rojo-200">
-            ¿Los datos no coinciden?
-          </p>
-          <p className="text-sm text-rojo-900 dark:text-rojo-100">
-            Los campos extraídos de la cédula no se editan manualmente. Si algo no coincide, hay
-            que volver a fotografiar el documento. Si el error persiste, el proceso no va a poder
-            continuar de forma digital.
-          </p>
-          <button
-            type="button"
-            onClick={repetirCaptura}
-            disabled={enProceso !== null}
-            className="self-start text-sm font-semibold text-rojo-800 underline decoration-rojo-300 underline-offset-2 hover:text-rojo-900 disabled:opacity-50 dark:text-rojo-200 dark:decoration-rojo-600"
-          >
-            Repetir captura
-          </button>
-        </div>
-
         {error ? (
           <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
             {error}
@@ -580,14 +539,89 @@ export function VerificacionIdentidad() {
         ) : null}
       </section>
 
+      {/* Validar identidad y continuar — a la vista, sin scroll */}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={confirmar}
+          disabled={!puedeContinuar}
+          className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
+        >
+          {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
+        </button>
+        {!puedeContinuar ? (
+          <p className="text-xs text-etiqueta">
+            Se habilita con los cinco requisitos cumplidos, la autorización biométrica marcada y
+            una edad entre {EDAD_MINIMA_PERMITIDA} y {EDAD_MAXIMA_PERMITIDA} años según la cédula.
+          </p>
+        ) : null}
+      </div>
+      </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Debajo del botón: edad, datos que no coinciden y requisitos          */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+
+      {/* Edad calculada automáticamente */}
+      <div
+        className={`flex flex-col gap-1 rounded-lg border px-3 py-2.5 ${
+          datos && !datos.edadEnRango
+            ? "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
+            : "border-azul-200 bg-azul-50 dark:border-azul-700 dark:bg-azul-950"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+            Edad calculada automáticamente
+          </p>
+          <p className="text-lg font-bold text-titulo tabular-nums">
+            {datos ? `${datos.edad} años` : "—"}
+          </p>
+        </div>
+        <p className="text-xs text-cuerpo">
+          Se calcula desde la fecha de nacimiento de la cédula y se incorpora al FIPF. Debe estar
+          entre {EDAD_MINIMA_PERMITIDA} y {EDAD_MAXIMA_PERMITIDA} años.
+        </p>
+      </div>
+
+      {/* ¿Los datos no coinciden? */}
+      <div className="flex flex-col gap-1 rounded-lg border border-rojo-200 bg-rojo-50 px-3 py-2.5 dark:border-rojo-800 dark:bg-rojo-950">
+        <p className="text-[11px] font-bold tracking-wide text-rojo-800 uppercase dark:text-rojo-200">
+          ¿Los datos no coinciden?
+        </p>
+        <p className="text-xs text-rojo-900 dark:text-rojo-100">
+          Los campos extraídos de la cédula no se editan manualmente. Si algo no coincide, hay
+          que volver a fotografiar el documento. Si el error persiste, el proceso no va a poder
+          continuar de forma digital.
+        </p>
+        <button
+          type="button"
+          onClick={repetirCaptura}
+          disabled={enProceso !== null}
+          className="self-start text-sm font-semibold text-rojo-800 underline decoration-rojo-300 underline-offset-2 hover:text-rojo-900 disabled:opacity-50 dark:text-rojo-200 dark:decoration-rojo-600"
+        >
+          Repetir captura
+        </button>
+      </div>
+
       {/* ------------------------------------------------------------------ */}
       {/* Requisitos para continuar                                           */}
       {/* ------------------------------------------------------------------ */}
-      <section className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-5">
-        <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-          Requisitos para continuar
-        </h2>
-        <ul className="flex flex-col gap-2">
+      <section className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie px-3 py-2.5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+            Requisitos para continuar
+          </h2>
+          <EnlaceAclaracion
+            documento="requisitosIdentidad"
+            className="text-xs font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
+          >
+            Ver detalle
+          </EnlaceAclaracion>
+        </div>
+        <ul className="flex flex-col gap-1">
           {REQUISITOS_P5.map(({ id, rotulo }) => {
             const cumplido = requisitos[id];
             return (
@@ -611,12 +645,13 @@ export function VerificacionIdentidad() {
           })}
         </ul>
       </section>
+      </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* Registro de seguridad                                               */}
       {/* ------------------------------------------------------------------ */}
       {registro ? (
-        <section className="flex flex-col gap-2 rounded-xl border border-borde-sutil bg-superficie p-5">
+        <section className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Registro de seguridad
           </h2>
@@ -675,26 +710,6 @@ export function VerificacionIdentidad() {
           </dl>
         </section>
       ) : null}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Validar identidad y continuar                                       */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={confirmar}
-          disabled={!puedeContinuar}
-          className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
-        >
-          {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
-        </button>
-        {!puedeContinuar ? (
-          <p className="text-xs text-etiqueta">
-            Se habilita con los cinco requisitos cumplidos, la autorización biométrica marcada y
-            una edad entre {EDAD_MINIMA_PERMITIDA} y {EDAD_MAXIMA_PERMITIDA} años según la cédula.
-          </p>
-        ) : null}
-      </div>
     </div>
   );
 }
