@@ -124,7 +124,7 @@ describe("enviarCasoAAlianza", () => {
       async guardar(registro) {
         registros.push(registro);
       },
-      async listarPorExpediente(expedienteId) {
+      async obtenerHistorial(expedienteId) {
         return registros.filter((registro) => registro.expedienteId === expedienteId);
       },
     };
