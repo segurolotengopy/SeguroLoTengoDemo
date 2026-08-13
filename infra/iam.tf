@@ -68,6 +68,41 @@ resource "aws_iam_role_policy" "amplify_service_policy" {
           aws_secretsmanager_secret.app_secrets.arn
         ]
       },
+      # Verificación de identidad de P5 (ítems 31 y 32 de la tabla de
+      # integraciones externas). Son las APIs "sin almacenamiento" de
+      # Rekognition: no crean colecciones ni persisten vectores faciales del
+      # lado de AWS, así que no hay nada que apuntar por ARN.
+      #
+      # Resource = "*" NO es descuido: ni Rekognition ni Textract admiten
+      # permisos a nivel de recurso para estas operaciones. Acotar por ARN
+      # produce AccessDenied, no una política más estricta. El recorte real
+      # acá es la lista de acciones, que es la mínima del flujo.
+      {
+        Sid    = "RekognitionVerificacionIdentidad"
+        Effect = "Allow"
+        Action = [
+          # Prueba de vida (sesión de streaming desde el navegador).
+          "rekognition:CreateFaceLivenessSession",
+          "rekognition:StartFaceLivenessSession",
+          "rekognition:GetFaceLivenessSessionResults",
+          # Calidad de imagen y recorte previo (obligatorio con umbral 99).
+          "rekognition:DetectFaces",
+          # Coincidencia facial 1:1 entre la selfie y la foto de la cédula.
+          "rekognition:CompareFaces"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "TextractOcrCedula"
+        Effect = "Allow"
+        Action = [
+          # Solo OCR genérico. AnalyzeID queda fuera a propósito: está
+          # entrenado sobre documentos de EE.UU. y no sirve para la cédula
+          # paraguaya, así que ni siquiera se concede el permiso.
+          "textract:DetectDocumentText"
+        ]
+        Resource = "*"
+      },
       {
         Sid    = "CloudWatchLogsApp"
         Effect = "Allow"

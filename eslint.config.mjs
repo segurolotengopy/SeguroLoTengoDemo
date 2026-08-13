@@ -30,9 +30,16 @@ const eslintConfig = defineConfig([
   // src/repositories/" (y, por extensión, ningún SDK de AWS en general —
   // Secrets Manager incluido). Se aplica acá para que violarla sea un error
   // de lint, no solo una convención documentada.
+  //
+  // `src/adapters/` queda fuera porque CLAUDE.md tiene **dos** reglas de
+  // importación, no una: el acceso a datos va por `src/repositories/`, y los
+  // SDK de proveedores externos van por `src/adapters/`. Un SDK de servicio de
+  // AWS que es un *proveedor* del flujo —Rekognition para la biometría de P5,
+  // Textract para el OCR— es lo segundo, no lo primero, y su lugar correcto es
+  // el adaptador. Los de acceso a datos siguen prohibidos ahí (ver abajo).
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/repositories/**"],
+    ignores: ["src/repositories/**", "src/adapters/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -41,8 +48,34 @@ const eslintConfig = defineConfig([
             {
               group: ["@aws-sdk/*", "@aws-sdk"],
               message:
-                "El SDK de AWS solo se puede importar desde src/repositories/ (CLAUDE.md, regla dura de acceso a datos). " +
+                "El SDK de AWS solo se puede importar desde src/repositories/ (acceso a datos) o src/adapters/ (proveedores externos), según CLAUDE.md. " +
                 "Si necesitás DynamoDB o S3 acá, agregá o extendé un repositorio en src/repositories/ y consumilo desde ahí.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Contracara de lo anterior: un adaptador puede hablar con el SDK de su
+  // proveedor, pero **no** con el de la base ni el del almacenamiento. Si un
+  // adaptador necesitara persistir algo, va por un repositorio, igual que
+  // todos los demás.
+  {
+    files: ["src/adapters/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@aws-sdk/client-dynamodb",
+                "@aws-sdk/lib-dynamodb",
+                "@aws-sdk/client-s3",
+                "@aws-sdk/client-secrets-manager",
+              ],
+              message:
+                "Un adaptador puede importar el SDK de su proveedor externo, pero el acceso a datos (DynamoDB, S3, Secrets Manager) va por src/repositories/ (CLAUDE.md, regla dura de acceso a datos).",
             },
           ],
         },

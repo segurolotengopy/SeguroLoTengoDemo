@@ -162,6 +162,22 @@
         "logs:ListTagsForResource"
       ],
       "Resource": "arn:aws:logs:us-east-1:120005938663:log-group:/aws/amplify/*"
+    },
+    {
+      "Sid": "BudgetsSltDemo",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ViewBudget",
+        "budgets:CreateBudget",
+        "budgets:ModifyBudget",
+        "budgets:DeleteBudget",
+        "budgets:DescribeBudget",
+        "budgets:DescribeBudgets",
+        "budgets:TagResource",
+        "budgets:UntagResource",
+        "budgets:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:budgets::120005938663:budget/slt-demo-*"
     }
   ]
 }
