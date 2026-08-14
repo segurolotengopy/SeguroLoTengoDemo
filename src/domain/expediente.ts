@@ -42,7 +42,16 @@ const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExp
   // re-selección queda como una entrada más del historial append-only.
   PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "AUTORIZADO"],
   AUTORIZADO: ["CANAL_EMAIL_VERIFICADO"],
-  CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA"],
+  // La segunda salida es P5 sin poder verificar la identidad tras tres
+  // análisis fallidos: en vez de dejar a la persona repitiendo capturas que no
+  // van a alcanzar, el caso pasa a asistencia humana. No es la derivación de
+  // la regla #5 —esa sigue siendo exclusiva de las declaraciones de P6— y no
+  // bloquea la cédula: ver `ASISTENCIA_IDENTIDAD` en `tipos.ts`.
+  CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
+  // Terminal: desde asistencia no se vuelve al flujo digital de este
+  // expediente. La persona no queda bloqueada — puede empezar uno nuevo con la
+  // misma cédula, que es justamente lo que la distingue de DERIVADO_MANUAL.
+  ASISTENCIA_IDENTIDAD: [],
   IDENTIDAD_VERIFICADA: ["DERIVADO_MANUAL", "DECLARACIONES_OK"],
   // Terminal en el flujo digital (regla de negocio #5): no hay transición
   // posible desde acá hacia pago, firma ni emisión.

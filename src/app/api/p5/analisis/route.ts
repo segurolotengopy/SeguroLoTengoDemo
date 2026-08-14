@@ -62,6 +62,10 @@ export async function POST(request: Request): Promise<Response> {
       datos: resultado.datos,
       motivoRechazoCaptura: resultado.motivoRechazoCaptura,
       registroSeguridad: resultado.registroSeguridad,
+      // Presente solo si este análisis agotó los intentos: la pantalla lo usa
+      // para llevar a la persona a la pantalla de asistencia en vez de
+      // ofrecerle repetir una captura que ya no puede aprobar.
+      asistenciaIdentidad: resultado.asistenciaIdentidad ?? null,
     },
     { cookies: [{ nombre: COOKIE_SESION, valor: contexto.sesionId }] },
   );
