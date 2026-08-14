@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PanelPruebaDeVida } from "./PanelPruebaDeVida";
 import { EnlaceAclaracion } from "@/components/shared";
 // Desde `catalogo-identidad` y no desde el caso de uso: este es un componente
 // de cliente, e importar `verificacion-identidad.ts` arrastraría `node:crypto`
@@ -78,10 +79,18 @@ interface RespuestaAnalisis {
 }
 
 interface EstadoCaptura {
+  /**
+   * Base64 de la imagen capturada, salvo en la selfie con prueba de vida en
+   * vivo: ahí es la **referencia de la sesión** del proveedor. El navegador la
+   * trata igual —una cadena opaca que devuelve al servidor— y `enVivo`
+   * distingue cuál de las dos cosas es.
+   */
   readonly imagen: string;
   readonly aprobada: boolean;
   readonly pruebaDeVidaAprobada: boolean | null;
   readonly motivoRechazo: string | null;
+  /** `true` si `imagen` es una referencia de sesión y no bytes. */
+  readonly enVivo?: boolean;
 }
 
 type Capturas = Partial<Record<TipoCapturaP5, EstadoCaptura>>;
@@ -191,8 +200,25 @@ async function postear(ruta: string, cuerpo: unknown): Promise<RespuestaAnalisis
   return (await respuesta.json().catch(() => ({}))) as RespuestaAnalisis & RespuestaCaptura;
 }
 
-export function VerificacionIdentidad() {
+export interface VerificacionIdentidadProps {
+  /**
+   * `true` si el backend tiene prueba de vida por streaming (AWS Rekognition
+   * Face Liveness). Lo decide el servidor y baja como prop: la pantalla no
+   * tiene por qué adivinar en qué modo corre el backend, y en modo mock el
+   * componente de Amplify no se carga siquiera.
+   */
+  readonly pruebaDeVidaEnVivoDisponible?: boolean;
+}
+
+export function VerificacionIdentidad({
+  pruebaDeVidaEnVivoDisponible = false,
+}: VerificacionIdentidadProps = {}) {
   const [capturas, setCapturas] = useState<Capturas>({});
+  /** Sesión de prueba de vida abierta; mientras exista, el detector toma la pantalla. */
+  const [sesionEnVivo, setSesionEnVivo] = useState<{
+    readonly referencia: string;
+    readonly region: string;
+  } | null>(null);
   const [datos, setDatos] = useState<DatosIdentidad | null>(null);
   const [requisitosServidor, setRequisitosServidor] = useState<Record<IdRequisitoP5, boolean> | null>(
     null,
@@ -232,15 +258,32 @@ export function VerificacionIdentidad() {
     return (motivo && MENSAJES[motivo]) ?? porDefecto;
   }
 
+  /**
+   * Cómo viaja la selfie al servidor.
+   *
+   * Con prueba de vida en vivo lo que se manda es la **referencia de la
+   * sesión**, no una imagen: el video fue del navegador directo a Rekognition y
+   * el navegador nunca tuvo los bytes. El servidor consulta el resultado por
+   * esa referencia, que es lo único confiable — un cliente podría afirmar que
+   * aprobó sin haber hecho nada.
+   */
+  function cuerpoSelfie(actuales: Capturas): Record<string, string> | null {
+    const selfie = actuales.SELFIE;
+    if (!selfie?.imagen) return null;
+    return selfie.enVivo === true
+      ? { selfieSesion: selfie.imagen }
+      : { selfie: selfie.imagen };
+  }
+
   async function analizar(actuales: Capturas) {
     const frente = actuales.FRENTE?.imagen;
     const dorso = actuales.DORSO?.imagen;
-    const selfie = actuales.SELFIE?.imagen;
+    const selfie = cuerpoSelfie(actuales);
     if (!frente || !dorso || !selfie) return;
 
     setEnProceso("ANALISIS");
     try {
-      const datosRespuesta = await postear("/api/p5/analisis", { frente, dorso, selfie });
+      const datosRespuesta = await postear("/api/p5/analisis", { frente, dorso, ...selfie });
 
       if (!datosRespuesta.ok) {
         setError(mensajeDe(datosRespuesta.motivo, "No pudimos analizar las capturas."));
@@ -270,6 +313,87 @@ export function VerificacionIdentidad() {
       setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
     } finally {
       setEnProceso(null);
+    }
+  }
+
+  /** Abre la sesión de prueba de vida; el detector se monta cuando responde. */
+  async function iniciarPruebaDeVidaEnVivo() {
+    setEnProceso("SELFIE");
+    setError(null);
+    setAviso(null);
+    try {
+      const respuesta = await fetch("/api/p5/liveness-sesion", { method: "POST" });
+      const datos = (await respuesta.json().catch(() => ({}))) as {
+        ok?: boolean;
+        referenciaSesion?: string;
+        region?: string;
+        motivo?: string;
+      };
+
+      if (!datos.ok || !datos.referenciaSesion || !datos.region) {
+        setError(
+          datos.motivo === "PROVEEDOR_NO_DISPONIBLE"
+            ? "El servicio de verificación no está disponible ahora. Intentá de nuevo en unos minutos."
+            : "No pudimos iniciar la prueba de vida. Intentá de nuevo.",
+        );
+        return;
+      }
+
+      setSesionEnVivo({ referencia: datos.referenciaSesion, region: datos.region });
+    } catch {
+      setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      setEnProceso(null);
+    }
+  }
+
+  /**
+   * La sesión terminó: se le pide al servidor el veredicto por referencia.
+   * **No se manda ninguna puntuación desde el navegador**, a propósito.
+   */
+  async function registrarResultadoEnVivo(referenciaSesion: string) {
+    setSesionEnVivo(null);
+    setEnProceso("SELFIE");
+    setError(null);
+    try {
+      const respuesta = await postear("/api/p5/captura", {
+        tipo: "SELFIE",
+        selfieSesion: referenciaSesion,
+      });
+
+      if (!respuesta.ok) {
+        setError(mensajeDe(respuesta.motivo, "No pudimos registrar la prueba de vida."));
+        return;
+      }
+
+      const siguientes: Capturas = {
+        ...capturas,
+        SELFIE: {
+          imagen: referenciaSesion,
+          enVivo: true,
+          aprobada: respuesta.aprobada === true,
+          pruebaDeVidaAprobada: respuesta.pruebaDeVidaAprobada ?? null,
+          motivoRechazo: respuesta.motivoRechazo ?? null,
+        },
+      };
+      setCapturas(siguientes);
+      setDatos(null);
+      setRequisitosServidor(null);
+
+      if (respuesta.aprobada !== true) {
+        setError(
+          respuesta.motivoRechazo ??
+            "La prueba de vida no aprobó. Buscá mejor luz y volvé a intentar.",
+        );
+        return;
+      }
+
+      const completas = TARJETAS.every(({ tipo }) => siguientes[tipo]?.aprobada);
+      if (completas) await analizar(siguientes);
+    } catch {
+      setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      setEnProceso((actual) => (actual === "SELFIE" ? null : actual));
     }
   }
 
@@ -331,7 +455,7 @@ export function VerificacionIdentidad() {
       const respuesta = await postear("/api/p5/identidad", {
         frente: capturas.FRENTE?.imagen,
         dorso: capturas.DORSO?.imagen,
-        selfie: capturas.SELFIE?.imagen,
+        ...(cuerpoSelfie(capturas) ?? {}),
         paisNacimiento,
         estadoCivil,
         autorizacionBiometrica,
@@ -411,8 +535,12 @@ export function VerificacionIdentidad() {
 
                 <button
                   type="button"
-                  onClick={() => capturar(tipo, `${titulo} de cédula`)}
-                  disabled={enProceso !== null}
+                  onClick={() =>
+                    tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible
+                      ? iniciarPruebaDeVidaEnVivo()
+                      : capturar(tipo, `${titulo} de cédula`)
+                  }
+                  disabled={enProceso !== null || sesionEnVivo !== null}
                   className="mt-auto inline-flex h-10 items-center justify-center rounded-lg border-2 border-verde-600 px-3 text-xs font-bold tracking-wide text-verde-700 uppercase transition-colors hover:bg-verde-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-verde-400 dark:text-verde-300 dark:hover:bg-verde-950"
                 >
                   {enProceso === tipo ? "Capturando…" : aprobada ? "Repetir" : boton}
@@ -421,6 +549,22 @@ export function VerificacionIdentidad() {
             );
           })}
         </div>
+
+        {sesionEnVivo ? (
+          <PanelPruebaDeVida
+            referenciaSesion={sesionEnVivo.referencia}
+            region={sesionEnVivo.region}
+            alTerminar={() => registrarResultadoEnVivo(sesionEnVivo.referencia)}
+            alFallar={(mensaje) => {
+              setSesionEnVivo(null);
+              setError(mensaje);
+            }}
+            alCancelar={() => {
+              setSesionEnVivo(null);
+              setAviso("Cancelaste la prueba de vida. Podés volver a intentarlo.");
+            }}
+          />
+        ) : null}
 
         <label className="flex items-start gap-2.5 text-sm text-cuerpo">
           <input

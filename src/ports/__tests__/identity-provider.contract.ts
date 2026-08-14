@@ -54,7 +54,7 @@ export function runIdentityProviderContractTests(
 
     it("aprueba la prueba de vida en la captura de selfie en el camino feliz", async () => {
       const p = await proveedor();
-      const resultado = await p.capturarSelfieYPruebaDeVida("EXP-CONTRATO-1", IMAGEN_DE_PRUEBA);
+      const resultado = await p.capturarSelfieYPruebaDeVida("EXP-CONTRATO-1", { tipo: "VIDEO", video: IMAGEN_DE_PRUEBA });
 
       expect(resultado.pruebaDeVidaAprobada).toBe(true);
       expect(resultado.imagen.hashSha256.length).toBeGreaterThan(0);
@@ -63,7 +63,7 @@ export function runIdentityProviderContractTests(
     it("compara el rostro capturado contra la cédula y aprueba la coincidencia en el camino feliz", async () => {
       const p = await proveedor();
       await p.capturarFrenteCedula("EXP-CONTRATO-1", IMAGEN_DE_PRUEBA);
-      await p.capturarSelfieYPruebaDeVida("EXP-CONTRATO-1", IMAGEN_DE_PRUEBA);
+      await p.capturarSelfieYPruebaDeVida("EXP-CONTRATO-1", { tipo: "VIDEO", video: IMAGEN_DE_PRUEBA });
 
       const resultado = await p.compararRostro("EXP-CONTRATO-1");
 

@@ -49,6 +49,7 @@
 import { randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type {
+  CapturaSelfie,
   IdentityProvider,
   ImagenCapturada,
   MediaCapturada,
@@ -229,7 +230,12 @@ async function exigirExpedienteEnP5(
 export interface EntradaCapturaP5 {
   readonly expedienteId: string;
   readonly tipo: TipoCapturaP5;
-  readonly imagen: MediaCapturada;
+  /**
+   * Bytes de la captura para `FRENTE` y `DORSO`. Para `SELFIE` puede ser una
+   * `CapturaSelfie`, porque la prueba de vida en vivo no manda bytes al
+   * backend (ver `ImagenesP5.selfie`).
+   */
+  readonly imagen: MediaCapturada | CapturaSelfie;
   readonly contexto: ContextoPeticion;
 }
 
@@ -257,6 +263,29 @@ export type ResultadoCapturaP5 =
  * error del paso: devuelve `ok: true` con `aprobada: false` y su motivo, que
  * es lo que la tarjeta muestra junto al enlace para repetirla.
  */
+/**
+ * Lleva a `CapturaSelfie` lo que haya llegado en el campo de la selfie.
+ *
+ * Los bytes sueltos se siguen aceptando —es lo que manda el mock del demo— y
+ * se envuelven como `VIDEO`. La unión ya armada pasa tal cual. Existe para que
+ * el resto del dominio no tenga que preguntarse en qué forma vino.
+ */
+function normalizarSelfie(valor: MediaCapturada | CapturaSelfie): CapturaSelfie {
+  return valor instanceof Uint8Array ? { tipo: "VIDEO", video: valor } : valor;
+}
+
+/**
+ * `true` si la captura no trae nada utilizable. Para bytes es longitud cero;
+ * para una sesión de prueba de vida es una referencia vacía, que es el
+ * equivalente exacto: no hay nada que consultarle al proveedor.
+ */
+function capturaVacia(valor: MediaCapturada | CapturaSelfie): boolean {
+  if (valor instanceof Uint8Array) return valor.length === 0;
+  return valor.tipo === "VIDEO"
+    ? valor.video.length === 0
+    : valor.referenciaSesion.trim() === "";
+}
+
 export async function registrarCapturaP5(
   deps: DependenciasP5,
   entrada: EntradaCapturaP5,
@@ -264,7 +293,7 @@ export async function registrarCapturaP5(
   const reloj = resolverReloj(deps);
   const fecha = reloj.ahora();
 
-  if (entrada.imagen.length === 0) return { ok: false, motivo: "IMAGEN_VACIA" };
+  if (capturaVacia(entrada.imagen)) return { ok: false, motivo: "IMAGEN_VACIA" };
 
   const estado = await exigirExpedienteEnP5(deps, entrada.expedienteId);
   if (!estado.ok) return { ok: false, motivo: estado.motivo };
@@ -272,7 +301,7 @@ export async function registrarCapturaP5(
   if (entrada.tipo === "SELFIE") {
     const selfie = await deps.identidad.capturarSelfieYPruebaDeVida(
       entrada.expedienteId,
-      entrada.imagen,
+      normalizarSelfie(entrada.imagen),
     );
 
     await registrarEvidencia(deps, reloj, {
@@ -304,10 +333,15 @@ export async function registrarCapturaP5(
     };
   }
 
+  // Acá `entrada.tipo` ya no puede ser `SELFIE` (se resolvió arriba y
+  // retornó), así que el campo trae bytes. La aserción lo hace explícito en
+  // vez de propagar la unión a las dos caras del documento, que sí son
+  // siempre imágenes.
+  const bytesDocumento = entrada.imagen as MediaCapturada;
   const captura =
     entrada.tipo === "FRENTE"
-      ? await deps.identidad.capturarFrenteCedula(entrada.expedienteId, entrada.imagen)
-      : await deps.identidad.capturarDorsoCedula(entrada.expedienteId, entrada.imagen);
+      ? await deps.identidad.capturarFrenteCedula(entrada.expedienteId, bytesDocumento)
+      : await deps.identidad.capturarDorsoCedula(entrada.expedienteId, bytesDocumento);
 
   const aprobada = captura.calidadAprobada && captura.autenticidadAprobada;
 
@@ -347,7 +381,13 @@ export async function registrarCapturaP5(
 export interface ImagenesP5 {
   readonly frente: MediaCapturada;
   readonly dorso: MediaCapturada;
-  readonly selfie: MediaCapturada;
+  /**
+   * La selfie no son necesariamente bytes: con una prueba de vida por
+   * streaming (AWS Rekognition Face Liveness) el video va del navegador
+   * directo al proveedor y acá solo llega la referencia de la sesión. Ver
+   * `CapturaSelfie` en el puerto.
+   */
+  readonly selfie: CapturaSelfie;
 }
 
 interface VerificacionCompleta {
@@ -378,7 +418,10 @@ async function verificar(
 ): Promise<VerificacionCompleta> {
   const frente = await deps.identidad.capturarFrenteCedula(expedienteId, imagenes.frente);
   const dorso = await deps.identidad.capturarDorsoCedula(expedienteId, imagenes.dorso);
-  const selfie = await deps.identidad.capturarSelfieYPruebaDeVida(expedienteId, imagenes.selfie);
+  const selfie = await deps.identidad.capturarSelfieYPruebaDeVida(
+    expedienteId,
+    normalizarSelfie(imagenes.selfie),
+  );
   const ocr = await deps.identidad.extraerDatosCedula(expedienteId);
   const comparacion = await deps.identidad.compararRostro(expedienteId);
 
@@ -475,7 +518,7 @@ export async function analizarIdentidadP5(
   if (
     entrada.imagenes.frente.length === 0 ||
     entrada.imagenes.dorso.length === 0 ||
-    entrada.imagenes.selfie.length === 0
+    capturaVacia(entrada.imagenes.selfie)
   ) {
     return { ok: false, motivo: "CAPTURAS_INCOMPLETAS" };
   }
@@ -590,7 +633,7 @@ export async function confirmarIdentidadP5(
   if (
     entrada.imagenes.frente.length === 0 ||
     entrada.imagenes.dorso.length === 0 ||
-    entrada.imagenes.selfie.length === 0
+    capturaVacia(entrada.imagenes.selfie)
   ) {
     return { ok: false, motivo: "CAPTURAS_INCOMPLETAS" };
   }

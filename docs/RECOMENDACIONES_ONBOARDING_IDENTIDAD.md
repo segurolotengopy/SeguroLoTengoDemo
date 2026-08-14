@@ -172,7 +172,14 @@ Por eso el trabajo de este tramo quedó como **capacidades componibles** (`src/a
 
 Ese reparto además sirve al pedido de **reutilizar el módulo de onboarding en otros proyectos**: las capacidades reciben bytes y devuelven `DecisionBiometrica`, sin saber nada de expedientes ni de cédulas paraguayas. Lo específico de Paraguay está aislado en una sola función (`extraerCamposCedulaParaguaya`).
 
-Cuando se arme P5, el puerto debería aceptar una unión discriminada —`{ tipo: "VIDEO", bytes }` para el mock, `{ tipo: "SESION_LIVENESS", referencia }` para el real— en vez de `MediaCapturada` a secas. Toca el mock, el test de contrato y dos llamadas en `src/domain/verificacion-identidad.ts`: está acotado, pero es cambio de puerto y merece su propio commit.
+**Resuelto (2026-08-14).** El puerto acepta `CapturaSelfie`, unión de `{ tipo: "VIDEO", video }` y `{ tipo: "SESION_LIVENESS", referenciaSesion }`. Cada adaptador rechaza explícitamente la variante que no sabe atender —el mock, la sesión; el de AWS, los bytes— en vez de degradar en silencio: comparar una foto suelta y llamarla "prueba de vida" es exactamente lo que este control existe para impedir.
+
+Sobre eso se armó `src/adapters/live/identity-provider.ts`, la pantalla con `FaceLivenessDetector` y `POST /api/p5/liveness-sesion`. La pantalla elige el camino con `soportaSesionPruebaDeVida`, resuelto en el servidor: en modo mock el chunk de Amplify UI no se carga.
+
+Dos cosas que aparecieron al implementarlo y que no eran obvias:
+
+- **Un dorso con MRZ válido es legible por definición**, sin importar la confianza que declare Textract. La fuente OCR-B le baja la confianza al OCR, así que exigir el umbral de 90 en el dorso rechazaba justo los documentos que **sí** traen MRZ. Los dígitos verificadores son prueba más fuerte que un umbral estadístico; el umbral solo decide cuando no hay MRZ (formato anterior).
+- **Hace falta leer las dimensiones de la imagen** (`src/adapters/live/dimensiones-imagen.ts`): Rekognition devuelve el recuadro del rostro en proporción 0–1 y el umbral de tamaño mínimo está en píxeles. Sin las dimensiones reales, un rostro que ocupa media foto se leería como "menor a 50 px" y se rechazaría siempre.
 
 ---
 

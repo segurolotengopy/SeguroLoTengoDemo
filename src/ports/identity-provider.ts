@@ -50,15 +50,75 @@ export interface ResultadoOcrCedula {
   readonly confiable: boolean;
 }
 
+/**
+ * De dónde sale la selfie con prueba de vida. Es una unión y no `MediaCapturada`
+ * a secas porque los dos caminos posibles son genuinamente distintos:
+ *
+ * - `VIDEO` — el backend recibe los bytes. Es lo que hace el mock del demo, y
+ *   lo que haría un proveedor con API de foto simple.
+ * - `SESION_LIVENESS` — el video va del navegador **directo al proveedor** por
+ *   un canal de streaming, y el backend nunca lo ve: solo recibe la referencia
+ *   de la sesión y consulta el resultado. Es cómo funciona AWS Rekognition
+ *   Face Liveness, y por eso el puerto no puede asumir bytes.
+ *
+ * Un adaptador que no soporte una de las dos variantes tiene que rechazarla
+ * explícitamente, no ignorarla.
+ */
+export type CapturaSelfie =
+  | { readonly tipo: "VIDEO"; readonly video: MediaCapturada }
+  | { readonly tipo: "SESION_LIVENESS"; readonly referenciaSesion: string };
+
 export interface ResultadoSelfie {
   readonly pruebaDeVidaAprobada: boolean;
   readonly imagen: ImagenCapturada;
+  /**
+   * Confianza cruda de la prueba de vida, **escala 0–100**. `null` si el
+   * proveedor no la expone o si la sesión no llegó a producir un resultado.
+   *
+   * Va a la evidencia junto con el umbral aplicado: un `aprobada: true` suelto
+   * no permite reconstruir con qué criterio se aprobó
+   * (`src/domain/identidad-parametros.ts`).
+   */
+  readonly puntuacion: number | null;
 }
 
 export interface ResultadoComparacionFacial {
   readonly coincidenciaFacialAprobada: boolean;
-  /** Puntuación del proveedor si la expone; no es obligatoria para decidir aprobación. */
+  /**
+   * Similitud del proveedor si la expone; no es obligatoria para decidir
+   * aprobación. **Escala 0–100**, la de Rekognition: cualquier adaptador que
+   * hable otra escala normaliza antes de devolverla, porque un 0,97 comparado
+   * contra un umbral de 99 rechazaría lo que debería aprobar.
+   */
   readonly puntuacion: number | null;
+}
+
+/**
+ * Capacidad extra de los proveedores cuya prueba de vida es una sesión de
+ * streaming (`SESION_LIVENESS`): abrir la sesión antes de que el navegador
+ * empiece a transmitir.
+ *
+ * Va aparte de `IdentityProvider` porque no todos los proveedores la tienen —
+ * el mock del demo no la necesita— y un método opcional en la interfaz
+ * principal obligaría a todos a declarar que no lo implementan. Quien la
+ * necesite pregunta con `soportaSesionPruebaDeVida`.
+ */
+export interface SesionPruebaDeVida {
+  /** Referencia opaca de la sesión. En Rekognition, el `SessionId`. */
+  readonly referenciaSesion: string;
+  /** Vigencia declarada por el proveedor, en segundos. Un solo uso. */
+  readonly vigenciaSegundos: number;
+}
+
+export interface ProveedorSesionPruebaDeVida {
+  crearSesionPruebaDeVida(expedienteId: string): Promise<SesionPruebaDeVida>;
+}
+
+/** `true` si este proveedor puede abrir sesiones de prueba de vida en vivo. */
+export function soportaSesionPruebaDeVida(
+  proveedor: IdentityProvider,
+): proveedor is IdentityProvider & ProveedorSesionPruebaDeVida {
+  return typeof (proveedor as Partial<ProveedorSesionPruebaDeVida>).crearSesionPruebaDeVida === "function";
 }
 
 export interface IdentityProvider {
@@ -69,7 +129,10 @@ export interface IdentityProvider {
   /** Requiere que frente y dorso ya hayan sido capturados para este expediente. */
   extraerDatosCedula(expedienteId: string): Promise<ResultadoOcrCedula>;
 
-  capturarSelfieYPruebaDeVida(expedienteId: string, video: MediaCapturada): Promise<ResultadoSelfie>;
+  capturarSelfieYPruebaDeVida(
+    expedienteId: string,
+    captura: CapturaSelfie,
+  ): Promise<ResultadoSelfie>;
 
   /** Requiere que frente y selfie ya hayan sido capturados para este expediente. */
   compararRostro(expedienteId: string): Promise<ResultadoComparacionFacial>;

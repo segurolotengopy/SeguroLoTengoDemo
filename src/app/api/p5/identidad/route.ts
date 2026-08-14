@@ -18,7 +18,7 @@ import {
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
-import { decodificarImagen } from "@/app/api/p5/_imagenes";
+import { decodificarImagen, decodificarSelfie } from "@/app/api/p5/_imagenes";
 import { dependenciasP5 } from "@/app/api/p5/_dependencias";
 import { confirmarIdentidadP5 } from "@/domain/verificacion-identidad";
 
@@ -32,7 +32,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const frente = decodificarImagen(cuerpo.frente);
   const dorso = decodificarImagen(cuerpo.dorso);
-  const selfie = decodificarImagen(cuerpo.selfie);
+  const selfie = decodificarSelfie(cuerpo);
   if (!frente.ok || !dorso.ok || !selfie.ok) {
     return respuestaJson({ ok: false, motivo: "CAPTURAS_INCOMPLETAS" }, { status: 400 });
   }
@@ -44,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const resultado = await confirmarIdentidadP5(dependenciasP5(), {
     expedienteId,
-    imagenes: { frente: frente.imagen, dorso: dorso.imagen, selfie: selfie.imagen },
+    imagenes: { frente: frente.imagen, dorso: dorso.imagen, selfie: selfie.captura },
     paisNacimiento: typeof cuerpo.paisNacimiento === "string" ? cuerpo.paisNacimiento : "",
     estadoCivil: typeof cuerpo.estadoCivil === "string" ? cuerpo.estadoCivil : "",
     autorizacionBiometrica: cuerpo.autorizacionBiometrica === true,
