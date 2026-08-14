@@ -80,9 +80,53 @@ Tres cosas de esa política que conviene no "corregir" sin leer esto:
 
 **Región:** Face Liveness solo existe en `us-east-1`, `us-west-2`, `eu-west-1`, `ap-northeast-1` y `ap-south-1` — **no hay región sudamericana**. La demo ya está en `us-east-1`, así que no hay cambio de región, pero sí una consecuencia legal: las selfies de clientes paraguayos salen del continente y esa transferencia internacional de datos biométricos hay que declararla en el aviso de privacidad (Ley 7593/2025).
 
-## Pasos manuales que Terraform no puede hacer
+## Política de opt-out de servicios de IA (obligatoria antes de procesar imágenes reales)
 
-- **Política de opt-out de servicios de IA de AWS.** Que las imágenes de rostro y cédula no se usen para mejorar los servicios de AWS se configura como *AI services opt-out policy* a nivel de **AWS Organizations**, no de cuenta, y requiere la cuenta de gestión de la organización. El usuario `aab1-demo-deployer` no puede ni debe poder hacerlo. **Es condición de entrada antes de procesar la primera imagen de una persona real**, no un pendiente cosmético.
+Que las imágenes de rostro y cédula **no se usen para mejorar los servicios de AWS** se configura como *AI services opt-out policy* a nivel de **AWS Organizations**, no de cuenta. Con datos biométricos bajo la Ley 7593/2025 es condición de entrada, no un pendiente cosmético: sin esto, AWS puede almacenar contenido de clientes para mejora del servicio, incluso en una región distinta de la que se usa.
+
+El documento vive versionado en **`infra/politica-opt-out-ia.json`**. Opta por *no* participar en **todos** los servicios de IA, presentes y futuros (`default`), y bloquea cualquier excepción posterior con `@@operators_allowed_for_child_policies: ["@@none"]` en los tres niveles. Es el ejemplo 1 de la documentación de AWS, elegido sobre la variante por servicio a propósito: enumerar `rekognition` y `textract` dejaría fuera cualquier servicio de IA que AWS agregue después, y este proyecto ya prevé sumar proveedores.
+
+**No está en Terraform, y es deliberado.** El recurso existe (`aws_organizations_policy`), pero `aab1-demo-deployer` no tiene —ni debe tener— permisos de Organizations: incluirlo haría fallar con `AccessDenied` **todos** los `terraform apply` de la demo, incluidos los que no tienen nada que ver. Es una tarea de la cuenta de gestión, de una sola vez.
+
+### Cómo aplicarla (desde la cuenta de gestión de la organización)
+
+```bash
+# 1. ¿La cuenta ya está en una organización? Si responde AWSOrganizationsNotInUseException,
+#    hay que crearla primero: aws organizations create-organization --feature-set ALL
+aws organizations describe-organization
+
+# 2. Id del root (formato r-xxxx)
+aws organizations list-roots --query 'Roots[].{id:Id,politicas:PolicyTypes}' --output json
+
+# 3. Habilitar el tipo de política. Es de una sola vez por organización.
+#    OJO: el identificador es AISERVICES_OPT_OUT_POLICY, con guiones bajos —
+#    no AISERVICESOPTOUT_POLICY, que es lo que uno escribiría de memoria.
+aws organizations enable-policy-type --root-id <r-xxxx> --policy-type AISERVICES_OPT_OUT_POLICY
+
+# 4. Crear la política desde el archivo versionado
+aws organizations create-policy \
+  --name slt-opt-out-servicios-ia \
+  --description "Opt-out de uso de contenido para mejora de servicios de IA de AWS (datos biometricos, Ley 7593/2025)" \
+  --type AISERVICES_OPT_OUT_POLICY \
+  --content file://infra/politica-opt-out-ia.json
+
+# 5. Adjuntarla al root, para que alcance a la cuenta y a cualquiera que se sume después
+aws organizations attach-policy --policy-id <p-xxxx> --target-id <r-xxxx>
+```
+
+### Verificar que quedó activa
+
+```bash
+aws organizations describe-effective-policy \
+  --policy-type AISERVICES_OPT_OUT_POLICY \
+  --target-id 120005938663
+```
+
+La política efectiva tiene que mostrar `default` en `optOut`. Esto es lo que hay que guardar como evidencia de cumplimiento — no el hecho de haber corrido el `create-policy`.
+
+**Un efecto que conviene conocer antes de aplicarla:** al optar por no participar, los servicios **borran el contenido histórico** que hubieran almacenado con ese fin. Es lo que se busca, pero es irreversible.
+
+## Otros pasos manuales que Terraform no puede hacer
 - **Aplicar el JSON de `iam-policy-deployer-reference.json` sobre `SLTDemoDeployerPolicy` en AWS.** El archivo es la referencia versionada, no la fuente. **Hecho el 13/08/2026** (versión `v5`, con el bloque `BudgetsSltDemo`): hay que repetirlo cada vez que el archivo cambie, y el deployer **no puede hacerlo solo** —sus permisos de IAM llegan hasta `role/aab1-demo-*`— así que requiere credenciales de administración. **Cuidado: la política ya está en 5 versiones, que es el máximo de IAM.** El próximo cambio falla con `LimitExceeded` hasta que se borre una vieja (`aws iam delete-policy-version --version-id v1`).
 
 ### `TF_VAR_presupuesto_correo_alerta` es obligatoria
