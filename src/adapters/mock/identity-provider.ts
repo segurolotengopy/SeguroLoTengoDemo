@@ -189,7 +189,7 @@ export function crearIdentityProviderMock(
       // aprobadas no hay lectura confiable: el dominio tiene que pedir
       // repetir la captura en vez de aceptar datos.
       if (!sesion.frente?.aprobada || !sesion.dorso?.aprobada) {
-        return { datos: DATOS_VACIOS, confiable: false };
+        return { datos: DATOS_VACIOS, confiable: false, numeroCedulaSinConfirmar: null };
       }
 
       const persona = personaActiva();
@@ -209,6 +209,7 @@ export function crearIdentityProviderMock(
           nacionalidad: identidad.nacionalidad,
         },
         confiable: true,
+        numeroCedulaSinConfirmar: identidad.numeroCedula,
       };
     },
 

@@ -48,6 +48,22 @@ export interface ResultadoOcrCedula {
   readonly datos: DatosExtraidosCedula;
   /** Si es false, el dominio debe pedir repetir la captura en vez de aceptar los datos. */
   readonly confiable: boolean;
+  /**
+   * Número de cédula leído del frente, **incluso cuando `confiable` es false**.
+   * `null` si tampoco se pudo leer eso.
+   *
+   * Existe por la cédula del formato anterior, que no tiene MRZ: ahí el nombre
+   * y la fecha de nacimiento no se pueden obtener con garantías —y por eso
+   * `confiable` es false— pero el número impreso **sí** se lee sin ambigüedad.
+   * Con ese número el dominio puede consultar el registro civil
+   * (`RegistroCivilProvider`) y traer los datos de la fuente oficial, que es
+   * más fuerte que leerlos del plástico.
+   *
+   * **No es un dato utilizable por sí solo.** Es una pista para ir a buscar la
+   * verdad a otro lado, no un valor para persistir: nada de lo que dependa de
+   * este campo puede saltearse la confirmación del registro.
+   */
+  readonly numeroCedulaSinConfirmar: string | null;
 }
 
 /**

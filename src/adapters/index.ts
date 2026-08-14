@@ -13,7 +13,17 @@
  * sobre el global.
  */
 
-export type NombrePuerto = "OTP" | "IDENTITY" | "COMPLIANCE" | "PAYMENT" | "SIGNATURE" | "POLICY" | "EVIDENCE";
+export type NombrePuerto =
+  | "OTP"
+  | "IDENTITY"
+  | "COMPLIANCE"
+  | "PAYMENT"
+  | "SIGNATURE"
+  | "POLICY"
+  | "EVIDENCE"
+  // Octavo puerto: consulta al registro civil (ítem 33). Nació del piloto de
+  // tres formatos — es lo único que le da salida a la cédula sin MRZ.
+  | "REGISTRO_CIVIL";
 
 export type ModoIntegracion = "mock" | "live";
 

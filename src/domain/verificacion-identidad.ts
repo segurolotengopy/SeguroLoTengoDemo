@@ -67,6 +67,10 @@ import type {
   Identidad,
   RegistroEvidencia,
 } from "./tipos";
+import type {
+  RegistroCivilProvider,
+  ResultadoConsultaRegistroCivil,
+} from "../ports/registro-civil";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
 
 // ---------------------------------------------------------------------------
@@ -85,6 +89,16 @@ export interface DependenciasP5 {
    * donde el sistema conoce la cédula por primera vez.
    */
   readonly bloqueos: LectorExpedientesPorCedula;
+  /**
+   * Consulta al registro civil (ítem 33). **Opcional a propósito**: es el
+   * único camino por el que una cédula del formato anterior —sin MRZ— puede
+   * completar P5, pero un despliegue sin proveedor de registro tiene que
+   * seguir funcionando para el formato nuevo, no romperse entero.
+   *
+   * Sin ella, el formato anterior queda como estaba: sin datos confiables y
+   * sin poder continuar.
+   */
+  readonly registroCivil?: RegistroCivilProvider;
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
 }
@@ -95,6 +109,7 @@ export const ESTADO_REQUERIDO_P5: EstadoExpediente = "CANAL_EMAIL_VERIFICADO";
 export const PASO_EVIDENCIA_CAPTURA_P5 = "P5_CAPTURA_IDENTIDAD";
 export const PASO_EVIDENCIA_ANALISIS_P5 = "P5_ANALISIS_IDENTIDAD";
 export const PASO_EVIDENCIA_VERIFICACION_P5 = "P5_VERIFICACION_IDENTIDAD";
+export const PASO_EVIDENCIA_REGISTRO_CIVIL_P5 = "P5_CONSULTA_REGISTRO_CIVIL";
 
 /**
  * Los cinco requisitos, los tipos de captura y las opciones de país y estado
@@ -391,6 +406,13 @@ export interface ImagenesP5 {
 }
 
 interface VerificacionCompleta {
+  /**
+   * Resultado de la consulta al registro civil, `null` si no hizo falta (el
+   * documento tenía MRZ) o no se pudo (sin número legible o sin proveedor).
+   * Lo necesita el llamador para dejar evidencia y para distinguir un
+   * "no existe" de un "no contestó".
+   */
+  readonly registroCivil: ResultadoConsultaRegistroCivil | null;
   readonly requisitos: RequisitosP5;
   readonly datos: DatosIdentidadP5 | null;
   readonly frente: ImagenCapturada;
@@ -409,6 +431,61 @@ interface VerificacionCompleta {
  * `paisYEstadoCivilCompletos` se resuelve afuera: es el único requisito que no
  * depende del proveedor.
  */
+/**
+ * Consulta al registro civil por el número leído del frente.
+ *
+ * Devuelve `null` cuando no hay nada que consultar —sin número legible, o sin
+ * proveedor configurado—, que es distinto de haber consultado y no encontrar.
+ * Esa distinción la usa el llamador para decidir si deriva o si simplemente
+ * pide repetir la captura.
+ */
+async function consultarRegistroCivil(
+  deps: DependenciasP5,
+  numeroCedula: string | null,
+): Promise<ResultadoConsultaRegistroCivil | null> {
+  if (!deps.registroCivil || !numeroCedula) return null;
+  return deps.registroCivil.consultarPorCedula(numeroCedula);
+}
+
+/**
+ * Deja constancia de la consulta al registro civil, si hubo.
+ *
+ * Es evidencia obligatoria y no cosmética: cuando los datos de identidad salen
+ * del registro y no del documento, **el registro pasa a ser la fuente de la
+ * fecha de nacimiento que decide el corte de edad 18–64**. Un auditor tiene
+ * que poder ver que esa fecha vino de la fuente oficial, con qué referencia de
+ * consulta y cuándo.
+ *
+ * No se registra ningún dato personal devuelto por el registro: solo el
+ * estado, la referencia opaca de la consulta y el motivo si no estuvo
+ * disponible. El nombre y la fecha ya quedan en el expediente.
+ */
+async function registrarConsultaRegistroCivil(
+  deps: DependenciasP5,
+  reloj: Reloj,
+  entrada: {
+    readonly expedienteId: string;
+    readonly fecha: string;
+    readonly contexto: ContextoPeticion;
+    readonly consulta: ResultadoConsultaRegistroCivil | null;
+  },
+): Promise<void> {
+  if (!entrada.consulta) return;
+
+  const { consulta } = entrada;
+  await registrarEvidencia(deps, reloj, {
+    expedienteId: entrada.expedienteId,
+    paso: PASO_EVIDENCIA_REGISTRO_CIVIL_P5,
+    fecha: entrada.fecha,
+    contexto: entrada.contexto,
+    resultado: consulta.estado === "ENCONTRADO" ? "EXITOSO" : "FALLIDO",
+    detalle:
+      consulta.estado === "NO_DISPONIBLE"
+        ? { estado: consulta.estado, motivo: consulta.motivo }
+        : { estado: consulta.estado, referenciaConsulta: consulta.referenciaConsulta },
+  });
+}
+
 async function verificar(
   deps: DependenciasP5,
   expedienteId: string,
@@ -425,20 +502,36 @@ async function verificar(
   const ocr = await deps.identidad.extraerDatosCedula(expedienteId);
   const comparacion = await deps.identidad.compararRostro(expedienteId);
 
-  const datos: DatosIdentidadP5 | null = ocr.confiable
+  // Cédula del formato anterior: el OCR no puede dar nombre ni fecha con
+  // garantías, pero sí el número. Se va a buscar la verdad al registro civil.
+  const registro = ocr.confiable
+    ? null
+    : await consultarRegistroCivil(deps, ocr.numeroCedulaSinConfirmar);
+
+  const camposIdentidad = ocr.confiable
+    ? ocr.datos
+    : registro?.estado === "ENCONTRADO"
+      ? { ...registro.datos, nacionalidad: registro.datos.nacionalidad }
+      : null;
+
+  const datos: DatosIdentidadP5 | null = camposIdentidad
     ? {
-        ...ocr.datos,
-        edad: calcularEdadDesde(ocr.datos.fechaNacimiento, fechaReferencia),
-        edadEnRango: edadEnRangoPermitido(ocr.datos.fechaNacimiento, fechaReferencia),
+        ...camposIdentidad,
+        edad: calcularEdadDesde(camposIdentidad.fechaNacimiento, fechaReferencia),
+        edadEnRango: edadEnRangoPermitido(camposIdentidad.fechaNacimiento, fechaReferencia),
       }
     : null;
 
   return {
+    registroCivil: registro,
     requisitos: {
       // "Cédula vigente y legible": el documento aprobó autenticidad en las
-      // dos caras y el proveedor pudo leerlo con confianza.
+      // dos caras y **hay una fuente confiable de datos** — el MRZ, o el
+      // registro civil cuando el documento no tiene MRZ.
       cedulaVigenteYLegible:
-        frente.autenticidadAprobada && dorso.autenticidadAprobada && ocr.confiable,
+        frente.autenticidadAprobada &&
+        dorso.autenticidadAprobada &&
+        (ocr.confiable || registro?.estado === "ENCONTRADO"),
       frenteYDorsoAprobados: frente.calidadAprobada && dorso.calidadAprobada,
       pruebaDeVidaAprobada: selfie.pruebaDeVidaAprobada,
       coincidenciaFacial: comparacion.coincidenciaFacialAprobada,
@@ -537,6 +630,13 @@ export async function analizarIdentidadP5(
   const resultado = verificacion.datos?.edadEnRango && verificacion.coincidenciaFacialAprobada
     ? "EXITOSO"
     : "FALLIDO";
+
+  await registrarConsultaRegistroCivil(deps, reloj, {
+    expedienteId: entrada.expedienteId,
+    fecha,
+    contexto: entrada.contexto,
+    consulta: verificacion.registroCivil,
+  });
 
   await registrarEvidencia(deps, reloj, {
     expedienteId: entrada.expedienteId,
@@ -654,6 +754,17 @@ export async function confirmarIdentidadP5(
     new Date(fecha),
     paisYEstadoCivilCompletos,
   );
+
+  // La confirmación rehace la verificación entera, así que también rehace la
+  // consulta al registro: su evidencia se registra las dos veces, y eso es lo
+  // correcto — son dos consultas distintas, con dos referencias distintas, y
+  // la evidencia es append-only (regla inviolable #10).
+  await registrarConsultaRegistroCivil(deps, reloj, {
+    expedienteId: entrada.expedienteId,
+    fecha,
+    contexto: entrada.contexto,
+    consulta: verificacion.registroCivil,
+  });
 
   const pendientes = requisitosPendientes(verificacion.requisitos);
   const edadEnRango = verificacion.datos?.edadEnRango ?? false;

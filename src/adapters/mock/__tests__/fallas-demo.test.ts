@@ -31,15 +31,18 @@ afterEach(() => {
 });
 
 describe("fallas forzadas del panel de demo", () => {
-  it("son las cuatro de CLAUDE.md más la de captura, y ninguna más", () => {
+  it("son las de CLAUDE.md y ninguna más", () => {
     // `BANCARD_CAPTURA_FALLIDA` la agregó la auditoría de cumplimiento de
     // P8/P9: es la que permite ejercitar la fila 44 en vivo.
+    // `REGISTRO_CIVIL_CAIDO` la agregó el cruce contra el registro civil: sin
+    // ella no se puede mostrar que una caída **deriva** en vez de rechazar.
     expect([...FALLAS_DEMO].sort()).toEqual([
       "BANCARD_CAPTURA_FALLIDA",
       "BANCARD_TIMEOUT",
       "CODE100_RECHAZO",
       "OTP_EXPIRADO",
       "OTP_INTENTOS_AGOTADOS",
+      "REGISTRO_CIVIL_CAIDO",
     ]);
     expect(esFallaDemo("CUALQUIER_OTRA")).toBe(false);
   });

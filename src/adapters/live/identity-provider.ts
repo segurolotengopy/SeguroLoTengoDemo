@@ -284,7 +284,7 @@ export function crearIdentityProviderAws(
       };
 
       if (!sesion.frente?.aprobada || !sesion.dorso?.aprobada) {
-        return { datos: vacio, confiable: false };
+        return { datos: vacio, confiable: false, numeroCedulaSinConfirmar: null };
       }
 
       const mrz = sesion.mrz;
@@ -295,9 +295,19 @@ export function crearIdentityProviderAws(
       // Sin MRZ no hay de dónde sacar nombres, apellidos ni una fecha de
       // nacimiento confiable. El frente no tiene formato publicado, así que
       // reconocerlos por posición sería adivinar — y la fecha alimenta el corte
-      // de edad (regla inviolable #8). Se declara no confiable y P5 pide
-      // repetir la captura.
-      if (!mrz) return { datos: vacio, confiable: false };
+      // de edad (regla inviolable #8).
+      //
+      // Pero el **número** sí se lee sin ambigüedad, y con él el dominio puede
+      // ir a buscar los datos al registro civil, que es la fuente más fuerte
+      // que existe. Es el camino de la cédula del formato anterior: por eso
+      // acá se devuelve `confiable: false` **con** el número, y no vacío.
+      if (!mrz) {
+        return {
+          datos: vacio,
+          confiable: false,
+          numeroCedulaSinConfirmar: campos.numeroCedula,
+        };
+      }
 
       const fechaNacimiento = elegirFechaNacimiento(campos, mrz);
       const cruce = cruzarConMrz(
@@ -311,10 +321,14 @@ export function crearIdentityProviderAws(
       );
 
       if (!cruce.coincide || fechaNacimiento === null) {
-        return { datos: vacio, confiable: false };
+        // Frente y dorso se contradicen: acá el número del frente **no** es
+        // una pista utilizable, justamente porque es uno de los datos que no
+        // coinciden. Ir al registro con él sería confirmar el dato equivocado.
+        return { datos: vacio, confiable: false, numeroCedulaSinConfirmar: null };
       }
 
       return {
+        numeroCedulaSinConfirmar: mrz.numeroDocumento,
         datos: {
           // El MRZ es la fuente: viene con dígitos verificadores, el frente no.
           numeroCedula: mrz.numeroDocumento,
