@@ -197,15 +197,41 @@ efectiva="$(aws organizations describe-effective-policy \
   --policy-type "$TIPO_POLITICA" --target-id "$cuenta" \
   --query 'EffectivePolicy.PolicyContent' --output text)"
 
-valor="$(jq -r '.services.default.opt_out_policy["@@assign"] // "ausente"' <<<"$efectiva")"
-
-if [[ "$valor" != "optOut" ]]; then
+# La política EFECTIVA no tiene la forma del documento de origen, y confundir
+# las dos es fácil:
+#
+#   origen   → "opt_out_policy": { "@@assign": "optOut" }
+#   efectiva → "opt_out_policy": "optOut"
+#
+# AWS ya resolvió los operadores de herencia, así que el valor es un string
+# suelto. Además **expande `default` en cada servicio individual**, de modo que
+# buscar la clave `default` en la efectiva puede no encontrar nada aunque el
+# opt-out esté bien aplicado.
+#
+# Por eso se verifica lo que de verdad importa: que **no quede ningún servicio**
+# que no esté en `optOut`. Es más estricto que mirar `default` y no depende de
+# cómo AWS decida representar la herencia.
+servicios="$(jq -r '.services | length' <<<"$efectiva")"
+[[ "$servicios" != "0" ]] || {
   printf '%s\n' "$efectiva" >&2
-  fallar "La política efectiva no dice optOut para 'default' (dice: $valor).
+  fallar "La política efectiva no lista ningún servicio.
   AWS puede tardar unos segundos en propagarla: reintentá en un minuto."
+}
+
+sin_optout="$(jq -r '
+  [ .services
+    | to_entries[]
+    | select((.value.opt_out_policy // "ausente") != "optOut")
+    | .key ]
+  | join(", ")
+' <<<"$efectiva")"
+
+if [[ -n "$sin_optout" ]]; then
+  printf '%s\n' "$efectiva" >&2
+  fallar "Estos servicios NO quedaron en optOut: $sin_optout"
 fi
 
-ok "services.default = optOut"
+ok "$servicios servicios de IA, todos en optOut"
 
 paso "Listo"
 cat <<RESUMEN
