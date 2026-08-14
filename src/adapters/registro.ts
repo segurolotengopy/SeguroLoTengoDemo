@@ -17,6 +17,7 @@ import { TextractClient } from "@aws-sdk/client-textract";
 import type { IdentityProvider } from "../ports/identity-provider";
 import type { OtpProvider } from "../ports/otp-provider";
 import type { PaymentProvider } from "../ports/payment-provider";
+import type { RegistroCivilProvider } from "../ports/registro-civil";
 import type { PolicyIssuer } from "../ports/policy-issuer";
 import type { SignatureProvider } from "../ports/signature-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
@@ -26,6 +27,7 @@ import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 import { crearPaymentProviderMock } from "./mock/payment-provider";
 import { crearPolicyIssuerMock } from "./mock/policy-issuer";
+import { crearRegistroCivilMock } from "./mock/registro-civil";
 import { crearSignatureProviderMock } from "./mock/signature-provider";
 import { consumirFallaDemo } from "./mock/fallas-demo";
 import { plazoFirmaMs } from "./mock/plazo-firma-demo";
@@ -80,6 +82,31 @@ export function obtenerIdentityProvider(): IdentityProvider {
         rekognition: new RekognitionClient({ region }),
         textract: new TextractClient({ region }),
       });
+    },
+  });
+}
+
+/**
+ * `RegistroCivilProvider` (ítem 33) — la consulta al Departamento de
+ * Identificaciones que le da salida a la cédula del formato anterior.
+ *
+ * No hay adaptador oficial y **no se puede escribir todavía**: no existe el
+ * contrato de API del proveedor (convenio directo o intermediario tipo Didit),
+ * e inventar endpoints es exactamente lo que CLAUDE.md prohíbe. Misma
+ * situación que Code100 y Bancard.
+ */
+export function obtenerRegistroCivilProvider(): RegistroCivilProvider {
+  return resolverAdaptador("REGISTRO_CIVIL", {
+    mock: () =>
+      crearRegistroCivilMock({
+        caido: () => consumirFallaDemo("REGISTRO_CIVIL_CAIDO"),
+      }),
+    live: () => {
+      throw new Error(
+        "INTEGRATION_REGISTRO_CIVIL=live pero todavía no existe el adaptador oficial de " +
+          "RegistroCivilProvider (src/adapters/live/). Hace falta el contrato de API del " +
+          "proveedor: ver ítem 33 de docs/Tabla de Integraciones externas - Tabla.csv.",
+      );
     },
   });
 }

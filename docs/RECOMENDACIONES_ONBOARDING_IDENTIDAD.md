@@ -205,8 +205,8 @@ Lo grave no es el rechazo, es **la forma del rechazo**: las tres capturas le apr
 
 **Dos salidas, y conviene la primera:**
 
-1. **Cruzar contra el registro civil.** El frente del formato anterior **sí** da el número de cédula de forma confiable; con eso, una consulta al Departamento de Identificaciones (§7.7, Didit a USD 0,20) devuelve nombre y fecha de nacimiento desde la fuente oficial. Es *más fuerte* que cualquier OCR sobre un documento de treinta años, no un parche. Convierte el peor formato en el mejor validado.
-2. **Derivar a revisión manual** con evidencia conservada (§6), que es la salida que P5 hoy no tiene y que hace falta igual para cualquier fallo persistente.
+1. **Cruzar contra el registro civil.** El frente del formato anterior **sí** da el número de cédula de forma confiable; con eso, una consulta al Departamento de Identificaciones (§7.7, Didit a USD 0,20) devuelve nombre y fecha de nacimiento desde la fuente oficial. Es *más fuerte* que cualquier OCR sobre un documento de treinta años, no un parche. Convierte el peor formato en el mejor validado. **Implementado — ver §10.**
+2. **Derivar a revisión manual** con evidencia conservada (§6), que es la salida que P5 hoy no tiene y que hace falta igual para cualquier fallo persistente. **Sigue pendiente.**
 
 No son excluyentes: la 2 es la red de seguridad, la 1 es la solución.
 
@@ -228,6 +228,20 @@ Recorre un directorio organizado por formato (`formato-nuevo/`, `formato-anterio
 **Tamaño de muestra sugerido:** al menos 30 pares por formato. Con 30, una tasa de aprobación observada tiene un margen de error de ~±9 puntos, que alcanza para distinguir "funciona" de "no funciona" pero no para afinar un umbral. Si el formato anterior se va a atacar con registro civil, su muestra puede ser menor: lo que hay que medir ahí es la legibilidad del **número de cédula** en el frente, no el expediente completo.
 
 **Criterio de aceptación propuesto** (decisión de producto, sin fila en la matriz de cumplimiento): formato nuevo y residente por encima del 90 % de aprobación en primer intento. Por debajo de eso, el problema es de captura —guía en pantalla, encuadre, iluminación— antes que de proveedor, y cambiar de proveedor no lo va a arreglar.
+
+## 10. Cruce contra el registro civil (2026-08-14)
+
+Octavo puerto del sistema: `RegistroCivilProvider` (`src/ports/registro-civil.ts`), ítem 33 de la tabla de integraciones. Nació del piloto: es lo único que le da salida a la cédula del formato anterior.
+
+**Cómo funciona.** Cuando el OCR no es confiable pero el frente dejó legible el número de cédula, el dominio consulta al registro. Si encuentra, los datos de identidad —nombre, apellido, fecha de nacimiento, sexo, nacionalidad— salen de ahí y P5 continúa. El puerto recibe **solo el número de cédula**: el proveedor no necesita saber a qué producto ni a qué trámite corresponde la consulta.
+
+**Tres estados, no dos.** `ENCONTRADO`, `NO_ENCONTRADO` (el registro contestó y no existe) y `NO_DISPONIBLE` (no contestó). Colapsarlos sería caro en las dos direcciones: tratar `NO_DISPONIBLE` como `NO_ENCONTRADO` rechaza gente legítima cada vez que Identificaciones se cae; tratarlo como `ENCONTRADO` deja pasar a cualquiera justo en el momento que un atacante elegiría. Hoy los dos negativos impiden continuar, pero **quedan distinguidos en la evidencia**, que es lo que permitirá derivar solo el caso que corresponde cuando exista esa salida.
+
+**Consecuencia sobre la regla inviolable #8, que conviene decir en voz alta.** La regla dice que la edad se verifica *"contra la fecha de nacimiento extraída de la cédula, no contra un campo declarado"*. Cuando se usa este camino, la fecha viene **del registro civil**, no del documento. Es una lectura por el espíritu de la regla —nada declarado por la persona, y una fuente más autoritativa que el plástico— y no por su letra. Por eso cada consulta deja evidencia propia (`P5_CONSULTA_REGISTRO_CIVIL`) con su referencia, fecha, IP y resultado: un auditor tiene que poder ver de dónde salió esa fecha. **No tiene fila propia en la matriz de cumplimiento**; la fila 17 exige el cálculo automático de la edad, no la fuente del dato.
+
+**No hay adaptador oficial, y no se puede escribir todavía.** Falta el contrato de API del proveedor —convenio con Identificaciones o intermediario tipo Didit— e inventar endpoints es exactamente lo que las reglas del proyecto prohíben. Misma situación que Code100 y Bancard: puerto, mock y tests de contrato listos; el adaptador `live/` espera el documento del proveedor.
+
+**Qué NO resuelve.** No es autenticidad documental: dice que existe una persona con ese número y esos datos, no que el plástico sea genuino. Un impostor con el número ajeno pasa la consulta — lo que no pasa es la comparación facial contra la foto del documento, que sigue siendo obligatoria.
 
 ## Resumen ejecutivo
 

@@ -38,7 +38,8 @@ export type FallaDemo =
   | "OTP_INTENTOS_AGOTADOS"
   | "BANCARD_TIMEOUT"
   | "BANCARD_CAPTURA_FALLIDA"
-  | "CODE100_RECHAZO";
+  | "CODE100_RECHAZO"
+  | "REGISTRO_CIVIL_CAIDO";
 
 export const FALLAS_DEMO: readonly FallaDemo[] = [
   "OTP_EXPIRADO",
@@ -46,12 +47,19 @@ export const FALLAS_DEMO: readonly FallaDemo[] = [
   "BANCARD_TIMEOUT",
   "BANCARD_CAPTURA_FALLIDA",
   "CODE100_RECHAZO",
+  "REGISTRO_CIVIL_CAIDO",
 ];
 
 /** Rótulos y explicación para el panel; no se usan en el flujo P0–P9. */
 export const DESCRIPCION_FALLA_DEMO: Readonly<
   Record<FallaDemo, { readonly rotulo: string; readonly donde: string; readonly efecto: string }>
 > = {
+  REGISTRO_CIVIL_CAIDO: {
+    rotulo: "Registro civil caído",
+    donde: "P5, con una cédula del formato anterior (sin MRZ)",
+    efecto:
+      "La consulta al registro civil no responde y la persona no puede continuar. Queda distinguido en la evidencia de un 'no existe': una caída del registro no dice nada sobre ella. La derivación automática a revisión manual todavía no está implementada.",
+  },
   OTP_EXPIRADO: {
     rotulo: "OTP expirado",
     donde: "P1 o P4, al pedir el código",

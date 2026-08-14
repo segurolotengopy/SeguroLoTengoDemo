@@ -86,11 +86,11 @@ src/
 
   documentos/             \# generación de la Solicitud y el FIPF: PDF, QR, hash
 
-  ports/                  \# las 7 interfaces de proveedores externos
+  ports/                  \# las 8 interfaces de proveedores externos
 
   adapters/mock/          \# implementaciones simuladas
 
-  adapters/live/          \# implementaciones oficiales (vacío por ahora)
+  adapters/live/          \# implementaciones oficiales (Rekognition + Textract)
 
   repositories/           \# acceso a DynamoDB y S3, detrás de interfaces
 
@@ -153,9 +153,9 @@ Toda transición pasa por `src/domain/expediente.ts`. **Ningún Route Handler mo
 
 ## Arquitectura de puertos y adaptadores
 
-Los 7 proveedores externos viven detrás de interfaces en `src/ports/`:
+Los 8 proveedores externos viven detrás de interfaces en `src/ports/`:
 
-`OtpProvider` · `IdentityProvider` · `ComplianceProvider` · `PaymentProvider` · `SignatureProvider` · `PolicyIssuer` · `EvidenceStore`
+`OtpProvider` · `IdentityProvider` · `ComplianceProvider` · `PaymentProvider` · `SignatureProvider` · `PolicyIssuer` · `EvidenceStore` · `RegistroCivilProvider`
 
 **Regla dura:** ningún archivo fuera de `src/adapters/` puede importar un SDK de proveedor externo ni hacer fetch a una API externa. Todo pasa por el puerto. Lo mismo para el acceso a datos: nada llama al SDK de DynamoDB o S3 fuera de `src/repositories/`.
 
@@ -218,6 +218,10 @@ El adaptador de AWS (`src/adapters/live/identity-provider.ts`, `INTEGRATION_IDEN
 
 `src/domain/mrz.ts` lee el MRZ TD1 del dorso (ICAO Doc 9303) y cruza sus datos contra lo que el OCR leyó en el frente. Es la única verificación de autenticidad documental que tenemos con código propio; verifica **consistencia interna, no existencia** — un MRZ inventado con dígitos bien calculados pasa. La procedencia de cada número y el límite de cada control están en §7 de `docs/RECOMENDACIONES_ONBOARDING_IDENTIDAD.md`.
 
+**La cédula del formato anterior no tiene MRZ**, así que el OCR no puede dar nombre ni fecha de nacimiento con garantías (adivinarlos por posición violaría la regla #8). El número del frente **sí** se lee, y con él `RegistroCivilProvider` (ítem 33) trae los datos de la fuente oficial — más fuerte que leerlos del plástico. Consecuencia a tener presente: cuando esa consulta se usa, **la fecha que decide el corte de edad 18–64 viene del registro civil, no del documento**. Es una lectura de la regla #8 por su espíritu (nada declarado por la persona) y no por su letra, y por eso cada consulta deja evidencia propia (`P5_CONSULTA_REGISTRO_CIVIL`) con su referencia.
+
+Los tres estados de ese puerto no se pueden colapsar: `NO_ENCONTRADO` es una respuesta del registro, `NO_DISPONIBLE` es que no contestó. Hoy los dos impiden continuar, pero solo el segundo justificaría derivar a revisión manual — esa salida todavía no existe (§6 del documento).
+
 ## Consola administrativa
 
 Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de las 12 pantallas** ni del contador de 9 pasos. Especificación completa en `docs/CONSOLA_ADMINISTRATIVA.md` — leela antes de tocar esto. En resumen: búsqueda de expedientes, vista de datos y de envíos/respuestas a proveedores (incluidos los mocks), visibilidad de derivación a Pantalla A / vencimiento a Pantalla B, y reinicio con justificativo que **crea un expediente nuevo enlazado al anterior** — nunca reactiva ni cambia de estado el expediente original (`DERIVADO_MANUAL` sigue siendo terminal, regla inviolable #5). Introdujo la regla de negocio inviolable #11 (bloqueo de nuevo registro por cédula).
@@ -228,7 +232,7 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
-Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de firma de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **fallo de captura de Bancard**, rechazo de Code100), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de firma de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **fallo de captura de Bancard**, rechazo de Code100, **registro civil caído**), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
 
 Tres reglas de las palancas del panel, todas verificadas por tests: **se consumen en un solo intento** (se ve el error una vez y el reintento funciona); **ninguna inventa un camino** — cada fallo produce un estado real que rechaza la validación de siempre, no una rama especial del código; y **ninguna existe fuera de `DEMO_MODE`**, ni siquiera si quedó armada antes de apagar el flag. El plazo de firma, además, solo se puede acortar: alargarlo sería cambiarle a la persona una condición ya informada (fila 30 de la matriz).
 
