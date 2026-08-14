@@ -189,7 +189,11 @@ function otpFalso(): { provider: OtpProvider; lector: { obtener: (id: string) =>
 }
 
 const IMAGEN = new Uint8Array([1, 2, 3, 4]);
-const IMAGENES = { frente: IMAGEN, dorso: IMAGEN, selfie: IMAGEN };
+const IMAGENES = {
+  frente: IMAGEN,
+  dorso: IMAGEN,
+  selfie: { tipo: "VIDEO", video: IMAGEN },
+} as const;
 
 /** Un expediente que llegó a DERIVADO_MANUAL por el camino real: P6. */
 async function expedienteDerivado(): Promise<Expediente> {
@@ -729,6 +733,11 @@ describe("3. Inventario de rutas de la API", () => {
       "expediente/canales",
       "expediente/caso",
       "expediente/plan",
+      // Abre una sesión de prueba de vida contra el proveedor (AWS Rekognition
+      // Face Liveness). No lee ni escribe ningún expediente: solo necesita el
+      // id de sesión de la cookie para no abrir sesiones sin contexto. El
+      // veredicto se registra después, por `p5/captura`, que sí está en CASOS.
+      "p5/liveness-sesion",
       // Proyecta el bloque 1 de P7 desde el expediente; `leerResumenPagoP7`
       // devuelve null si no está en DECLARACIONES_OK o PAGO_CONFIRMADO.
       "p7/resumen",

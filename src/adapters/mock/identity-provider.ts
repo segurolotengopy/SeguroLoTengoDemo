@@ -212,9 +212,20 @@ export function crearIdentityProviderMock(
       };
     },
 
-    async capturarSelfieYPruebaDeVida(expedienteId, video): Promise<ResultadoSelfie> {
-      const capturada = imagenCapturada("SELFIE", video);
-      const pruebaDeVidaAprobada = video.length > 0;
+    async capturarSelfieYPruebaDeVida(expedienteId, captura): Promise<ResultadoSelfie> {
+      // El mock solo sabe hashear bytes. Una sesión de streaming
+      // (`SESION_LIVENESS`) la resuelve el proveedor real contra su propio
+      // servicio; simularla acá sería inventar un camino que no existe, así
+      // que se rechaza explícitamente en vez de ignorarse.
+      if (captura.tipo === "SESION_LIVENESS") {
+        throw new Error(
+          "El IdentityProvider mock no abre sesiones de prueba de vida en vivo: " +
+            "usá INTEGRATION_IDENTITY=live (AWS Rekognition Face Liveness) o el camino de bytes.",
+        );
+      }
+
+      const capturada = imagenCapturada("SELFIE", captura.video);
+      const pruebaDeVidaAprobada = captura.video.length > 0;
 
       sesionDe(expedienteId).selfie = {
         imagen: capturada,
@@ -222,7 +233,13 @@ export function crearIdentityProviderMock(
         pruebaDeVidaAprobada,
       };
 
-      return { pruebaDeVidaAprobada, imagen: capturada };
+      return {
+        pruebaDeVidaAprobada,
+        imagen: capturada,
+        // Escala 0-100, la del puerto. El mock no mide nada: informa un valor
+        // cómodamente por encima del umbral cuando aprueba, y ninguno cuando no.
+        puntuacion: pruebaDeVidaAprobada ? 95 : null,
+      };
     },
 
     async compararRostro(expedienteId): Promise<ResultadoComparacionFacial> {
@@ -236,11 +253,14 @@ export function crearIdentityProviderMock(
         return { coincidenciaFacialAprobada: false, puntuacion: null };
       }
 
+      // Escala 0-100 (la del puerto y la de Rekognition), no 0-1: antes esto
+      // devolvía 0,97 y 0,31, que contra el umbral de 99 de
+      // `identidad-parametros.ts` habrían rechazado siempre.
       if (escenario() === "NO_COINCIDE_CARA") {
-        return { coincidenciaFacialAprobada: false, puntuacion: 0.31 };
+        return { coincidenciaFacialAprobada: false, puntuacion: 31 };
       }
 
-      return { coincidenciaFacialAprobada: true, puntuacion: 0.97 };
+      return { coincidenciaFacialAprobada: true, puntuacion: 99.4 };
     },
   };
 }

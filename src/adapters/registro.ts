@@ -7,10 +7,13 @@
  * archivo sí, y es el único lugar donde un Route Handler pide "el proveedor
  * de OTP" sin saber si detrás hay un mock o Infobip.
  *
- * `src/adapters/live/` está vacío todavía: pedir modo `live` falla con un
- * error explícito en vez de caer silenciosamente al mock, que sería la peor
- * forma de enterarse en producción.
+ * Los puertos que todavía no tienen adaptador oficial fallan con un error
+ * explícito al pedir modo `live`, en vez de caer silenciosamente al mock, que
+ * sería la peor forma de enterarse en producción. `IDENTITY` ya lo tiene
+ * (AWS Rekognition + Textract).
  */
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { TextractClient } from "@aws-sdk/client-textract";
 import type { IdentityProvider } from "../ports/identity-provider";
 import type { OtpProvider } from "../ports/otp-provider";
 import type { PaymentProvider } from "../ports/payment-provider";
@@ -18,6 +21,7 @@ import type { PolicyIssuer } from "../ports/policy-issuer";
 import type { SignatureProvider } from "../ports/signature-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
 import { resolverAdaptador } from "./index";
+import { crearIdentityProviderAws } from "./live/identity-provider";
 import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 import { crearPaymentProviderMock } from "./mock/payment-provider";
@@ -52,14 +56,30 @@ export function obtenerOtpProvider(otpRepository: OtpRepository): OtpProvider {
   });
 }
 
+/**
+ * `IdentityProvider` de P5.
+ *
+ * En modo `live` es AWS Rekognition + Textract (ítems 31 y 32 de la tabla de
+ * integraciones). Los clientes del SDK se construyen acá, dentro del factory, y
+ * no a nivel de módulo: importar este archivo en modo `mock` —que es lo que
+ * hace toda la demo— no tiene por qué instanciar clientes de AWS ni resolver
+ * credenciales.
+ *
+ * La región sale de `AWS_REGION`, que Amplify expone en el runtime de cómputo.
+ * Ojo: **Face Liveness solo existe en `us-east-1`, `us-west-2`, `eu-west-1`,
+ * `ap-northeast-1` y `ap-south-1`** — no hay región sudamericana, así que una
+ * selfie de un cliente paraguayo sale del continente y esa transferencia
+ * internacional de datos biométricos hay que declararla (Ley 7593/2025).
+ */
 export function obtenerIdentityProvider(): IdentityProvider {
   return resolverAdaptador("IDENTITY", {
     mock: () => crearIdentityProviderMock(),
     live: () => {
-      throw new Error(
-        "INTEGRATION_IDENTITY=live pero todavía no existe el adaptador oficial de IdentityProvider " +
-          "(src/adapters/live/). Ver docs/Tabla de Integraciones externas - Tabla.csv.",
-      );
+      const region = process.env.AWS_REGION ?? "us-east-1";
+      return crearIdentityProviderAws({
+        rekognition: new RekognitionClient({ region }),
+        textract: new TextractClient({ region }),
+      });
     },
   });
 }

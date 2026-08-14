@@ -33,7 +33,7 @@ const AHORA = "2026-03-15T12:00:00.000Z";
 const IMAGENES: ImagenesP5 = {
   frente: new Uint8Array([1, 1, 1, 1]),
   dorso: new Uint8Array([2, 2, 2, 2]),
-  selfie: new Uint8Array([3, 3, 3, 3]),
+  selfie: { tipo: "VIDEO", video: new Uint8Array([3, 3, 3, 3]) },
 };
 
 const PAIS = "Paraguay";

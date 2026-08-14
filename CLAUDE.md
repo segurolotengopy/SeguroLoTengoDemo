@@ -212,6 +212,10 @@ Tres reglas, todas verificadas por tests:
 
 Bajar cualquiera de esos umbrales "para mejorar la conversión" pone la suite en rojo a propósito. Si hay que cambiarlos, se cambia también la versión de la política, porque si no se reescribiría retroactivamente el criterio con el que se aprobaron los expedientes viejos (regla inviolable #10).
 
+**La prueba de vida no viaja como bytes.** `CapturaSelfie` es una unión: `VIDEO` (bytes, el camino del mock) o `SESION_LIVENESS` (referencia de sesión). Con AWS Rekognition Face Liveness el video va del navegador **directo al proveedor** y el backend nunca lo ve — recibe un `SessionId` y consulta el resultado. Por eso el navegador nunca manda una puntuación: la manda el proveedor, al servidor, por referencia. Un cliente podría afirmar que aprobó sin haber hecho nada.
+
+El adaptador de AWS (`src/adapters/live/identity-provider.ts`, `INTEGRATION_IDENTITY=live`) **rechaza el camino de bytes** en vez de comparar una foto suelta y llamarla prueba de vida; el mock rechaza el de sesión. Cada uno declara lo que no sabe hacer. La pantalla elige según `soportaSesionPruebaDeVida`, que resuelve el servidor y baja como prop — así en modo mock el chunk de Amplify UI (289 kB gzip) no se carga siquiera. Ese chunk **solo** se importa por `next/dynamic` desde `PanelPruebaDeVida.tsx`: importarlo estático lo mete en el First Load de un producto mobile-first.
+
 `src/domain/mrz.ts` lee el MRZ TD1 del dorso (ICAO Doc 9303) y cruza sus datos contra lo que el OCR leyó en el frente. Es la única verificación de autenticidad documental que tenemos con código propio; verifica **consistencia interna, no existencia** — un MRZ inventado con dígitos bien calculados pasa. La procedencia de cada número y el límite de cada control están en §7 de `docs/RECOMENDACIONES_ONBOARDING_IDENTIDAD.md`.
 
 ## Consola administrativa

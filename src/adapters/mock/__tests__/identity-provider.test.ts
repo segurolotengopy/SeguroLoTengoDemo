@@ -33,7 +33,7 @@ async function recorrerP5(expedienteId: string) {
   const proveedor = crearIdentityProviderMock();
   const frente = await proveedor.capturarFrenteCedula(expedienteId, IMAGEN);
   const dorso = await proveedor.capturarDorsoCedula(expedienteId, IMAGEN);
-  const selfie = await proveedor.capturarSelfieYPruebaDeVida(expedienteId, IMAGEN);
+  const selfie = await proveedor.capturarSelfieYPruebaDeVida(expedienteId, { tipo: "VIDEO", video: IMAGEN });
   const ocr = await proveedor.extraerDatosCedula(expedienteId);
   const comparacion = await proveedor.compararRostro(expedienteId);
   return { frente, dorso, selfie, ocr, comparacion };
@@ -183,7 +183,7 @@ describe("IdentityProvider mock · hashes y repetición de captura", () => {
     const vacia = new Uint8Array();
 
     const frente = await proveedor.capturarFrenteCedula("EXP-VACIO", vacia);
-    const selfie = await proveedor.capturarSelfieYPruebaDeVida("EXP-VACIO", vacia);
+    const selfie = await proveedor.capturarSelfieYPruebaDeVida("EXP-VACIO", { tipo: "VIDEO", video: vacia });
 
     expect(frente.calidadAprobada).toBe(false);
     expect(frente.autenticidadAprobada).toBe(false);

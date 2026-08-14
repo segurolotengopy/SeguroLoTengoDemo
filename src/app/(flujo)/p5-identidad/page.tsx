@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { obtenerIdentityProvider } from "@/adapters/registro";
 import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
+import { soportaSesionPruebaDeVida } from "@/ports/identity-provider";
 import { VerificacionIdentidad } from "./VerificacionIdentidad";
 
 /**
@@ -20,7 +22,26 @@ export const metadata: Metadata = {
     "Paso 5 de 9: captura de cédula paraguaya, selfie en vivo con prueba de vida y coincidencia facial.",
 };
 
+/**
+ * Si el proveedor de identidad configurado tiene prueba de vida por streaming.
+ *
+ * Se resuelve **en el servidor** y baja como prop: la pantalla no tiene por qué
+ * adivinar en qué modo corre el backend, y en modo mock el chunk de Amplify UI
+ * no se carga siquiera. Se envuelve en try/catch porque `resolverAdaptador`
+ * tira si se pide un modo `live` que no existe para otro puerto — un error de
+ * configuración no debería dejar P5 en blanco, sino caer al camino simulado.
+ */
+function pruebaDeVidaEnVivoDisponible(): boolean {
+  try {
+    return soportaSesionPruebaDeVida(obtenerIdentityProvider());
+  } catch {
+    return false;
+  }
+}
+
 export default function PantallaP5Identidad() {
+  const enVivo = pruebaDeVidaEnVivoDisponible();
+
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos pasoActual={5} />} />
@@ -41,7 +62,7 @@ export default function PantallaP5Identidad() {
           </p>
         </header>
 
-        <VerificacionIdentidad />
+        <VerificacionIdentidad pruebaDeVidaEnVivoDisponible={enVivo} />
 
         <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link
