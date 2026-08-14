@@ -21,7 +21,7 @@ Consola operativa para que el equipo interno audite el estado de cada `Expedient
 Criterios combinables:
 
 - **Cédula o nombre del titular.**
-- **Número de propuesta / caso**: `PROP-xxxxx`, `FIPF-xxxxx`, o el número de caso de derivación (Pantalla A) — son correlativos distintos, la búsqueda debe aceptar cualquiera de los tres formatos.
+- **Número de propuesta / caso**: `PROP-xxxxx`, `FIPF-xxxxx`, el número de caso de derivación de Pantalla A (`CASO-…`) o el de asistencia de identidad (`ASIS-…`) — son correlativos distintos y la búsqueda acepta cualquiera. Los cuatro comparten el mismo campo porque el prefijo ya los distingue sin ambigüedad; obligar a elegir el tipo antes de buscar sería pedirle al staff que adivine.
 - **Estado del expediente** (según la máquina de estados de `CLAUDE.md`: `INICIADO`, `CANAL_WA_VERIFICADO`, ..., `DERIVADO_MANUAL`, `VENCIDO`, `EMITIDO`, etc.) **+ rango de fechas** (inicio o última actividad).
 - **Canal verificado** (WhatsApp o correo) — dato sensible: se busca por hash/últimos dígitos, nunca se muestra ni se filtra por el valor completo en claro.
 
@@ -55,4 +55,21 @@ Resultado: listado con identificador de expediente, titular (enmascarado salvo q
 - **Envíos a proveedores (sección 4, segundo bullet): no implementado.** La consola muestra el registro de evidencia (`EvidenceStore`), que ya trae paso, resultado, timestamp, IP y hashes. Lo que falta es la vista de payload de solicitud/respuesta por llamada a cada uno de los 7 puertos, incluidos los mocks — eso requiere que los adaptadores registren sus envíos, que hoy no lo hacen.
 - **Búsqueda por nombre a escala real.** Hoy es un filtro en memoria sobre el resultado de un criterio indexado (cédula, caso, o estado + fechas). DynamoDB no busca por substring; con volumen real hay que mover esto a un motor de texto.
 - **Búsqueda por canal verificado (hash / últimos dígitos), sección 3, cuarto criterio: no implementada.**
+
+## Cola de asistencia de identidad
+
+Botón propio en el bloque de búsqueda: fija el filtro por estado en `ASISTENCIA_IDENTIDAD` y lista la cola en un clic. Técnicamente es un filtro por estado como cualquier otro, pero merece el atajo porque es una **cola de trabajo** —casos esperando que alguien los atienda— y no una consulta puntual.
+
+**No es la misma cola que la derivación de Pantalla A, y conviene no mezclarlas:**
+
+| | Derivación (Pantalla A) | Asistencia de identidad |
+| :---- | :---- | :---- |
+| Estado | `DERIVADO_MANUAL` | `ASISTENCIA_IDENTIDAD` |
+| Caso | `CASO-…` | `ASIS-…` |
+| Quién la trabaja | Alianza: análisis de riesgo | Interseguros: soporte de captura |
+| ¿La cédula queda bloqueada? | **Sí** | **No** — la persona puede reintentar |
+
+Por eso la fila del listado muestra los dos números por separado y el badge de bloqueo **no** aparece en los casos de asistencia: mostrar "Bloquea" ahí sería falso y llevaría al staff a reiniciar expedientes que no lo necesitan.
+
+**Hueco corregido en el camino:** el selector de estados era una copia a mano de la lista del dominio y quedó desactualizado al agregarse `ASISTENCIA_IDENTIDAD` — había expedientes en ese estado que la consola no podía listar. Ahora se deriva de `ESTADOS_EXPEDIENTE`, cuya exhaustividad garantiza el compilador, con test.
 - **Test unitario dedicado del enmascarado del listado de búsqueda.** `armarResultados` y `filtrarPorNombre` (`src/domain/consola-administrativa.ts`) enmascaran titular y documento para la sección 3, pero no tienen prueba directa propia — hoy solo quedan cubiertos de forma indirecta por la suite de bloqueo (`derivado-manual-sin-salida.test.ts`). Anotado como pendiente en la auditoría de reglas inviolables del 2026-08-10. *(Resuelto el 2026-08-10: `src/domain/__tests__/consola-administrativa.test.ts` cubre enmascarado, campos del listado y filtro por nombre.)*

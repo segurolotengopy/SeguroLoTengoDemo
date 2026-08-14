@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ESTADOS_EXPEDIENTE } from "@/domain/tipos";
 import type { Expediente, RegistroEvidencia } from "@/domain/tipos";
 import { DetalleExpediente } from "./DetalleExpediente";
 
@@ -38,6 +39,7 @@ interface FilaResultado {
   readonly correoEnmascarado: string | null;
   readonly actualizadoEn: string;
   readonly numeroCasoDerivacion: string | null;
+  readonly numeroCasoAsistenciaIdentidad: string | null;
   readonly bloqueaRegistro: boolean;
   readonly expedienteAnteriorId: string | null;
 }
@@ -66,26 +68,24 @@ const CRITERIOS = [
   { id: "estado", rotulo: "Estado", ayuda: "Ej.: DERIVADO_MANUAL" },
 ] as const;
 
-const ESTADOS = [
-  "INICIADO",
-  "CANAL_WA_VERIFICADO",
-  "PLAN_SELECCIONADO",
-  "AUTORIZADO",
-  "CANAL_EMAIL_VERIFICADO",
-  "IDENTIDAD_VERIFICADA",
+/**
+ * Estados del selector, **derivados del dominio**. Antes eran una copia a mano
+ * y se desactualizó al agregar `ASISTENCIA_IDENTIDAD`: había expedientes en
+ * ese estado y la consola no ofrecía filtrarlos.
+ */
+const ESTADOS = ESTADOS_EXPEDIENTE;
+
+/** Estados terminales sin póliza: los que la especificación pide badgear. */
+const ESTADOS_BADGE = new Set([
   "DERIVADO_MANUAL",
-  "DECLARACIONES_OK",
-  "PAGO_CONFIRMADO",
-  "PAQUETE_GENERADO",
+  "ASISTENCIA_IDENTIDAD",
   "VENCIDO",
   "DEVOLUCION_EN_TRAMITE",
   "DEVUELTO",
-  "FIRMADO",
-  "EMITIDO",
-];
+]);
 
-/** Estados terminales sin póliza: los que la especificación pide badgear. */
-const ESTADOS_BADGE = new Set(["DERIVADO_MANUAL", "VENCIDO", "DEVOLUCION_EN_TRAMITE", "DEVUELTO"]);
+/** Cola de asistencia de identidad: el atajo de un clic al filtro por estado. */
+const ESTADO_ASISTENCIA = "ASISTENCIA_IDENTIDAD";
 
 const CLASE_CAMPO =
   "h-10 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-sm text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500";
@@ -100,6 +100,15 @@ export function Consola({ justificativos }: { justificativos: readonly OpcionJus
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
 
+  /** Atajo: fija el filtro por estado y busca la cola en un solo clic. */
+  async function abrirColaDeAsistencia() {
+    setCriterio("estado");
+    setValor(ESTADO_ASISTENCIA);
+    setDesde("");
+    setHasta("");
+    await buscar({ criterio: "estado", valor: ESTADO_ASISTENCIA });
+  }
+
   const [resultados, setResultados] = useState<readonly FilaResultado[] | null>(null);
   const [detalle, setDetalle] = useState<DetalleRespuesta | null>(null);
   const [filaFinalizar, setFilaFinalizar] = useState<FilaResultado | null>(null);
@@ -108,14 +117,22 @@ export function Consola({ justificativos }: { justificativos: readonly OpcionJus
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  async function buscar() {
+  /**
+   * `sobrescritos` permite disparar una búsqueda con valores que todavía no
+   * pasaron por `setState` — es lo que necesita el atajo de la cola de
+   * asistencia, que fija criterio y valor y busca en el mismo clic.
+   */
+  async function buscar(sobrescritos?: { criterio: typeof criterio; valor: string }) {
+    const criterioActivo = sobrescritos?.criterio ?? criterio;
+    const valorActivo = sobrescritos?.valor ?? valor;
+
     setBuscando(true);
     setError(null);
     setAviso(null);
     try {
-      const parametros = new URLSearchParams({ criterio, valor });
+      const parametros = new URLSearchParams({ criterio: criterioActivo, valor: valorActivo });
       if (nombre.trim()) parametros.set("nombre", nombre.trim());
-      if (criterio === "estado") {
+      if (criterioActivo === "estado") {
         if (desde) parametros.set("desde", desde);
         if (hasta) parametros.set("hasta", `${hasta}T23:59:59.999Z`);
       }
@@ -302,11 +319,27 @@ export function Consola({ justificativos }: { justificativos: readonly OpcionJus
 
           <button
             type="button"
-            onClick={buscar}
+            onClick={() => void buscar()}
             disabled={buscando || valor.trim() === ""}
             className="inline-flex h-10 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:opacity-40"
           >
             {buscando ? "Buscando…" : "Buscar"}
+          </button>
+
+          {/*
+            Cola de asistencia de identidad: es un filtro por estado, pero
+            merece un atajo porque es una **cola de trabajo** —casos esperando
+            que alguien los atienda— y no una consulta puntual. Distinta de la
+            derivación de Pantalla A: acá no hay riesgo que analizar, hay una
+            captura que resolver, y la persona no está bloqueada.
+          */}
+          <button
+            type="button"
+            onClick={() => void abrirColaDeAsistencia()}
+            disabled={buscando}
+            className="inline-flex h-10 items-center justify-center rounded-lg border-2 border-naranja-500 px-4 text-xs font-bold tracking-wide text-naranja-700 uppercase transition-colors hover:bg-naranja-50 disabled:opacity-40 dark:text-naranja-300 dark:hover:bg-naranja-950"
+          >
+            Cola de asistencia de identidad
           </button>
         </section>
 
@@ -377,6 +410,11 @@ export function Consola({ justificativos }: { justificativos: readonly OpcionJus
                       {fila.numeroCasoDerivacion ? (
                         <span className="block font-mono text-[11px] text-etiqueta">
                           {fila.numeroCasoDerivacion}
+                        </span>
+                      ) : null}
+                      {fila.numeroCasoAsistenciaIdentidad ? (
+                        <span className="block font-mono text-[11px] text-naranja-700 dark:text-naranja-300">
+                          {fila.numeroCasoAsistenciaIdentidad}
                         </span>
                       ) : null}
                     </td>

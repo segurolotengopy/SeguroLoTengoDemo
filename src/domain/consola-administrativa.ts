@@ -169,6 +169,12 @@ export interface FilaResultado {
   readonly correoEnmascarado: string | null;
   readonly actualizadoEn: string;
   readonly numeroCasoDerivacion: string | null;
+  /**
+   * Caso de asistencia de identidad (`ASIS-…`), si el expediente salió por P5
+   * sin poder verificar. Es una cola distinta de la derivación por
+   * elegibilidad y se muestra por separado.
+   */
+  readonly numeroCasoAsistenciaIdentidad: string | null;
   /** `true` si este expediente bloquea un registro nuevo con su cédula. */
   readonly bloqueaRegistro: boolean;
   readonly expedienteAnteriorId: string | null;
@@ -216,6 +222,7 @@ export function armarResultados(
       : null,
     actualizadoEn: expediente.actualizadoEn,
     numeroCasoDerivacion: expediente.numeroCasoDerivacion,
+    numeroCasoAsistenciaIdentidad: expediente.numeroCasoAsistenciaIdentidad,
     bloqueaRegistro: bloquean.has(expediente.id),
     expedienteAnteriorId: expediente.expedienteAnteriorId,
   }));

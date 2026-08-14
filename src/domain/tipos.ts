@@ -60,6 +60,42 @@ export type EstadoExpediente =
  * haber ningún camino de vuelta al flujo digital: DEVUELTO tampoco tiene
  * salida, y ninguno de los dos llega nunca a póliza.
  */
+/**
+ * Todos los estados del expediente, en orden de recorrido.
+ *
+ * **La exhaustividad la garantiza el compilador**, no la disciplina: el
+ * `Record<EstadoExpediente, true>` de abajo no compila si falta uno. Existe
+ * porque agregar un estado y olvidar actualizar una lista suelta es un error
+ * silencioso — pasó al agregar `ASISTENCIA_IDENTIDAD`, que quedó fuera del
+ * selector de la consola y por lo tanto invisible para el staff.
+ */
+const TODOS_LOS_ESTADOS: Readonly<Record<EstadoExpediente, true>> = {
+  INICIADO: true,
+  CANAL_WA_VERIFICADO: true,
+  PLAN_SELECCIONADO: true,
+  AUTORIZADO: true,
+  CANAL_EMAIL_VERIFICADO: true,
+  IDENTIDAD_VERIFICADA: true,
+  ASISTENCIA_IDENTIDAD: true,
+  DERIVADO_MANUAL: true,
+  DECLARACIONES_OK: true,
+  PAGO_CONFIRMADO: true,
+  PAQUETE_GENERADO: true,
+  VENCIDO: true,
+  DEVOLUCION_EN_TRAMITE: true,
+  DEVUELTO: true,
+  FIRMADO: true,
+  EMITIDO: true,
+};
+
+export const ESTADOS_EXPEDIENTE: readonly EstadoExpediente[] = Object.keys(
+  TODOS_LOS_ESTADOS,
+) as EstadoExpediente[];
+
+export function esEstadoExpediente(valor: unknown): valor is EstadoExpediente {
+  return typeof valor === "string" && valor in TODOS_LOS_ESTADOS;
+}
+
 export const ESTADOS_TERMINALES: readonly EstadoExpediente[] = [
   "DERIVADO_MANUAL",
   "ASISTENCIA_IDENTIDAD",

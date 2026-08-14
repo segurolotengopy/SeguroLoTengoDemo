@@ -101,6 +101,16 @@ export function crearExpedienteRepositoryDynamoDb(
     if (expediente.numeroCasoDerivacion) {
       claves.push(claveIndicePorValor("CASO", expediente.numeroCasoDerivacion, expediente.id));
     }
+    // El caso de asistencia de identidad comparte la partición "CASO" con el
+    // de derivación a propósito: son dos colas distintas pero un solo campo de
+    // búsqueda en la consola, y los prefijos (`CASO-` / `ASIS-`) ya los
+    // distinguen sin ambigüedad. Un índice aparte obligaría a la consola a
+    // adivinar en cuál buscar.
+    if (expediente.numeroCasoAsistenciaIdentidad) {
+      claves.push(
+        claveIndicePorValor("CASO", expediente.numeroCasoAsistenciaIdentidad, expediente.id),
+      );
+    }
     // El correlativo de la propuesta se acuña en P7 y no cambia más, así que
     // este índice tampoco puede quedar obsoleto. Los expedientes guardados
     // antes de que existiera lo ganan en su próxima escritura — misma
@@ -234,7 +244,11 @@ export function crearExpedienteRepositoryDynamoDb(
     async buscarPorNumeroCaso(numeroCaso: string): Promise<readonly Expediente[]> {
       const ids = await idsDeIndice(particionIndice("CASO", numeroCaso));
       const expedientes = await hidratar(ids);
-      return expedientes.filter((expediente) => expediente.numeroCasoDerivacion === numeroCaso);
+      return expedientes.filter(
+        (expediente) =>
+          expediente.numeroCasoDerivacion === numeroCaso ||
+          expediente.numeroCasoAsistenciaIdentidad === numeroCaso,
+      );
     },
 
     async buscarPorNumeroPropuesta(correlativo: string): Promise<readonly Expediente[]> {
