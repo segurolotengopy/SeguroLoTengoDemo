@@ -123,7 +123,16 @@ aws organizations describe-effective-policy \
   --target-id 120005938663
 ```
 
-La política efectiva tiene que mostrar `default` en `optOut`. **Eso es lo que hay que guardar como evidencia de cumplimiento** — no el hecho de haber corrido el script. El script lo verifica antes de darse por exitoso.
+**Ojo con la forma de la respuesta**, que no es la del documento de origen:
+
+| | `opt_out_policy` |
+| :---- | :---- |
+| Documento de origen (`politica-opt-out-ia.json`) | `{ "@@assign": "optOut" }` |
+| Política **efectiva** | `"optOut"` (string suelto) |
+
+AWS ya resolvió los operadores de herencia, y además **expande `default` en cada servicio individual** — buscar la clave `default` en la efectiva puede no encontrar nada aunque el opt-out esté perfectamente aplicado. Por eso el script verifica que **ningún servicio quede fuera de `optOut`**, que es más estricto y no depende de cómo AWS represente la herencia.
+
+Esa salida —todos los servicios en `optOut`— **es lo que hay que guardar como evidencia de cumplimiento**, no el hecho de haber corrido el script. El script no se da por exitoso hasta comprobarlo.
 
 **Un efecto que conviene conocer antes de aplicarla:** al optar por no participar, los servicios **borran el contenido histórico** que hubieran almacenado con ese fin. Es lo que se busca, pero es irreversible.
 
