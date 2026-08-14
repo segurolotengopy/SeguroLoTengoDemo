@@ -132,7 +132,9 @@ aws organizations describe-effective-policy \
 
 AWS ya resolvió los operadores de herencia, y además **expande `default` en cada servicio individual** — buscar la clave `default` en la efectiva puede no encontrar nada aunque el opt-out esté perfectamente aplicado. Por eso el script verifica que **ningún servicio quede fuera de `optOut`**, que es más estricto y no depende de cómo AWS represente la herencia.
 
-Esa salida —todos los servicios en `optOut`— **es lo que hay que guardar como evidencia de cumplimiento**, no el hecho de haber corrido el script. El script no se da por exitoso hasta comprobarlo.
+Esa salida —ningún servicio fuera de `optOut`— **es la evidencia de cumplimiento**, no el hecho de haber corrido el script. El script no se da por exitoso hasta comprobarlo.
+
+**Ya aplicado y registrado: ver `infra/evidencia-opt-out-ia.md`** (política efectiva vigente desde el 14/08/2026, anterior a cualquier procesamiento de imágenes reales). Ese archivo se regenera cuando cambie la política, se sume una cuenta a la organización, o antes de una auditoría.
 
 **Un efecto que conviene conocer antes de aplicarla:** al optar por no participar, los servicios **borran el contenido histórico** que hubieran almacenado con ese fin. Es lo que se busca, pero es irreversible.
 
