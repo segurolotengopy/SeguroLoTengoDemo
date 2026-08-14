@@ -83,7 +83,16 @@ Tres cosas de esa política que conviene no "corregir" sin leer esto:
 ## Pasos manuales que Terraform no puede hacer
 
 - **Política de opt-out de servicios de IA de AWS.** Que las imágenes de rostro y cédula no se usen para mejorar los servicios de AWS se configura como *AI services opt-out policy* a nivel de **AWS Organizations**, no de cuenta, y requiere la cuenta de gestión de la organización. El usuario `aab1-demo-deployer` no puede ni debe poder hacerlo. **Es condición de entrada antes de procesar la primera imagen de una persona real**, no un pendiente cosmético.
-- **Aplicar el JSON de `iam-policy-deployer-reference.json` sobre `SLTDemoDeployerPolicy` en AWS.** El archivo es la referencia versionada, no la fuente: sumó el bloque `BudgetsSltDemo`, y sin aplicarlo el `terraform apply` de los presupuestos falla con `AccessDenied`.
-- **Correo de alerta del presupuesto.** Pasar `TF_VAR_presupuesto_correo_alerta`; sin él los presupuestos se crean pero no avisan a nadie.
+- **Aplicar el JSON de `iam-policy-deployer-reference.json` sobre `SLTDemoDeployerPolicy` en AWS.** El archivo es la referencia versionada, no la fuente. **Hecho el 13/08/2026** (versión `v5`, con el bloque `BudgetsSltDemo`): hay que repetirlo cada vez que el archivo cambie, y el deployer **no puede hacerlo solo** —sus permisos de IAM llegan hasta `role/aab1-demo-*`— así que requiere credenciales de administración. **Cuidado: la política ya está en 5 versiones, que es el máximo de IAM.** El próximo cambio falla con `LimitExceeded` hasta que se borre una vieja (`aws iam delete-policy-version --version-id v1`).
+
+### `TF_VAR_presupuesto_correo_alerta` es obligatoria
+
+`terraform apply` **corta** si no está. Es a propósito y vale entenderlo antes de "arreglarlo": la variable tenía `default = ""` y las notificaciones salían de un `dynamic` condicional, así que un apply sin la variable **borraba las alertas en silencio** y dejaba dos presupuestos que no avisan a nadie. Ahora falta la variable y Terraform se detiene, que es el modo de falla correcto.
+
+```bash
+AWS_PROFILE=aab1-demo-deployer TF_VAR_presupuesto_correo_alerta=<correo> terraform apply
+```
+
+Conviene ponerlo en el `.tfvars` local (gitignoreado) para no depender de acordarse.
 - Conectar el repo de GitHub a la app de Amplify (manual, vía consola, salvo que se pase un token).
 - Migrar el state a un backend remoto si el equipo crece.

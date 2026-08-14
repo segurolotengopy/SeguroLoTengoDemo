@@ -26,19 +26,23 @@ variable "presupuesto_mensual_usd" {
 
 variable "presupuesto_correo_alerta" {
   description = <<-EOT
-    Correo que recibe las alertas de presupuesto. Vacío desactiva las
-    notificaciones (el presupuesto se sigue creando y se puede ver en la
-    consola, pero no avisa a nadie). Pasalo por TF_VAR_presupuesto_correo_alerta
-    o en el .tfvars local, que no se versiona.
+    Correo que recibe las alertas de presupuesto. Pasalo por
+    TF_VAR_presupuesto_correo_alerta o en el .tfvars local, que no se versiona.
+
+    **Sin default a propósito.** Antes tenía `default = ""` y las
+    notificaciones se creaban con un `dynamic` condicional. Eso hacía que un
+    `terraform apply` sin la variable **borrara las alertas en silencio**: el
+    bloque colapsaba a cero notificaciones y Terraform las eliminaba sin que
+    nada lo advirtiera, dejando dos presupuestos que no avisan a nadie. Un
+    presupuesto sin alerta es adorno, y el modo de falla correcto es ruidoso:
+    ahora Terraform pide el valor o corta.
   EOT
   type        = string
-  default     = ""
-}
 
-locals {
-  # Sin correo no tiene sentido crear notificaciones: AWS rechaza una
-  # notificación sin destinatarios.
-  notificar_presupuesto = var.presupuesto_correo_alerta != ""
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.presupuesto_correo_alerta))
+    error_message = "Tiene que ser una dirección de correo válida: es el único destinatario de las alertas de gasto."
+  }
 }
 
 # Presupuesto de la cuenta completa. Tres avisos escalonados: al 50% y al 80%
@@ -52,7 +56,7 @@ resource "aws_budgets_budget" "demo_mensual" {
   time_unit    = "MONTHLY"
 
   dynamic "notification" {
-    for_each = local.notificar_presupuesto ? [50, 80] : []
+    for_each = [50, 80]
     content {
       comparison_operator        = "GREATER_THAN"
       threshold                  = notification.value
@@ -62,15 +66,13 @@ resource "aws_budgets_budget" "demo_mensual" {
     }
   }
 
-  dynamic "notification" {
-    for_each = local.notificar_presupuesto ? [1] : []
-    content {
-      comparison_operator        = "GREATER_THAN"
-      threshold                  = 100
-      threshold_type             = "PERCENTAGE"
-      notification_type          = "FORECASTED"
-      subscriber_email_addresses = [var.presupuesto_correo_alerta]
-    }
+  # Al 100% de lo *proyectado*: avisa antes de pasarse, no después.
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = [var.presupuesto_correo_alerta]
   }
 }
 
@@ -92,14 +94,11 @@ resource "aws_budgets_budget" "identidad_mensual" {
     values = ["Amazon Rekognition", "Amazon Textract"]
   }
 
-  dynamic "notification" {
-    for_each = local.notificar_presupuesto ? [80] : []
-    content {
-      comparison_operator        = "GREATER_THAN"
-      threshold                  = notification.value
-      threshold_type             = "PERCENTAGE"
-      notification_type          = "ACTUAL"
-      subscriber_email_addresses = [var.presupuesto_correo_alerta]
-    }
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.presupuesto_correo_alerta]
   }
 }
