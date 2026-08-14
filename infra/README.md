@@ -88,31 +88,32 @@ El documento vive versionado en **`infra/politica-opt-out-ia.json`**. Opta por *
 
 **No está en Terraform, y es deliberado.** El recurso existe (`aws_organizations_policy`), pero `aab1-demo-deployer` no tiene —ni debe tener— permisos de Organizations: incluirlo haría fallar con `AccessDenied` **todos** los `terraform apply` de la demo, incluidos los que no tienen nada que ver. Es una tarea de la cuenta de gestión, de una sola vez.
 
-### Cómo aplicarla (desde la cuenta de gestión de la organización)
+### Cómo aplicarla
+
+**Estado verificado el 14/08/2026: la cuenta `120005938663` NO está en ninguna organización** (`AWSOrganizationsNotInUseException`). Hay que crear una, con la cuenta como única integrante. No hay vía documentada para el opt-out sin organización: es el mecanismo que AWS provee.
+
+Todo el flujo está en **`infra/aplicar-opt-out-ia.sh`**. Se corre una sola vez, con credenciales de **administración** (el deployer no sirve y el script lo rechaza):
 
 ```bash
-# 1. ¿La cuenta ya está en una organización? Si responde AWSOrganizationsNotInUseException,
-#    hay que crearla primero: aws organizations create-organization --feature-set ALL
-aws organizations describe-organization
-
-# 2. Id del root (formato r-xxxx)
-aws organizations list-roots --query 'Roots[].{id:Id,politicas:PolicyTypes}' --output json
-
-# 3. Habilitar el tipo de política. Es de una sola vez por organización.
-#    OJO: el identificador es AISERVICES_OPT_OUT_POLICY, con guiones bajos —
-#    no AISERVICESOPTOUT_POLICY, que es lo que uno escribiría de memoria.
-aws organizations enable-policy-type --root-id <r-xxxx> --policy-type AISERVICES_OPT_OUT_POLICY
-
-# 4. Crear la política desde el archivo versionado
-aws organizations create-policy \
-  --name slt-opt-out-servicios-ia \
-  --description "Opt-out de uso de contenido para mejora de servicios de IA de AWS (datos biometricos, Ley 7593/2025)" \
-  --type AISERVICES_OPT_OUT_POLICY \
-  --content file://infra/politica-opt-out-ia.json
-
-# 5. Adjuntarla al root, para que alcance a la cuenta y a cualquiera que se sume después
-aws organizations attach-policy --policy-id <p-xxxx> --target-id <r-xxxx>
+AWS_PROFILE=<perfil-admin> ./infra/aplicar-opt-out-ia.sh
 ```
+
+Es **idempotente**: cada paso verifica el estado antes de actuar, así que se puede reintentar sin miedo si algo falla a mitad de camino. Hace, en orden: crear la organización con `--feature-set ALL` (pidiendo confirmación, porque es el único paso estructural), habilitar `AISERVICES_OPT_OUT_POLICY` en el root, crear o sincronizar la política desde el JSON versionado, adjuntarla al root y **verificar la política efectiva**.
+
+Se adjunta al root y no a la cuenta a propósito: así alcanza también a cualquier cuenta que se sume a la organización más adelante, sin que nadie tenga que acordarse.
+
+Cuatro barreras, todas probadas:
+
+| Situación | Qué hace |
+| :---- | :---- |
+| Perfil apunta a otra cuenta de AWS | corta antes de tocar nada |
+| Perfil es `aab1-demo-deployer` o `aab1-demo-qa` | corta: son de mínimo privilegio |
+| Sin credenciales válidas | corta con instrucción de qué exportar |
+| El JSON no dice `optOut` | corta antes de subir nada |
+
+`--si` salta la confirmación, para uso desatendido.
+
+**Migrar de `CONSOLIDATED_BILLING` a `ALL` el script no lo hace solo**, aunque detecta el caso y lo avisa: es un cambio de una sola dirección y corresponde decidirlo, no que lo haga un script.
 
 ### Verificar que quedó activa
 
@@ -122,7 +123,7 @@ aws organizations describe-effective-policy \
   --target-id 120005938663
 ```
 
-La política efectiva tiene que mostrar `default` en `optOut`. Esto es lo que hay que guardar como evidencia de cumplimiento — no el hecho de haber corrido el `create-policy`.
+La política efectiva tiene que mostrar `default` en `optOut`. **Eso es lo que hay que guardar como evidencia de cumplimiento** — no el hecho de haber corrido el script. El script lo verifica antes de darse por exitoso.
 
 **Un efecto que conviene conocer antes de aplicarla:** al optar por no participar, los servicios **borran el contenido histórico** que hubieran almacenado con ese fin. Es lo que se busca, pero es irreversible.
 
