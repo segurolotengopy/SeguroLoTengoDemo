@@ -18,6 +18,25 @@ export type EstadoExpediente =
   | "CANAL_EMAIL_VERIFICADO"
   | "IDENTIDAD_VERIFICADA"
   | "DERIVADO_MANUAL"
+  /**
+   * P5 no pudo verificar la identidad después de varios intentos y el caso
+   * pasa a asistencia humana.
+   *
+   * **Es un estado distinto de `DERIVADO_MANUAL` a propósito**, aunque los dos
+   * terminen en atención humana. Tres razones:
+   *
+   * 1. `DERIVADO_MANUAL` significa "la elegibilidad se detuvo por salud o PEP"
+   *    (regla inviolable #5) y su pantalla lo dice: el hito 2 es
+   *    `Declaraciones recibidas ✓`. Quien falla en P5 nunca llegó a declarar
+   *    nada — reusar ese estado haría que la pantalla afirmara algo falso.
+   * 2. `DERIVADO_MANUAL` **bloquea la cédula** para un registro nuevo (regla
+   *    inviolable #11). Bloquear a alguien porque la cámara del teléfono no
+   *    daba sería desproporcionado: no hay ningún indicio en su contra.
+   *    `ASISTENCIA_IDENTIDAD` no está en esa lista, y hay un test que lo fija.
+   * 3. La consola necesita distinguir las dos colas: una es análisis de riesgo
+   *    de Alianza, la otra es soporte de captura.
+   */
+  | "ASISTENCIA_IDENTIDAD"
   | "DECLARACIONES_OK"
   | "PAGO_CONFIRMADO"
   | "PAQUETE_GENERADO"
@@ -43,6 +62,7 @@ export type EstadoExpediente =
  */
 export const ESTADOS_TERMINALES: readonly EstadoExpediente[] = [
   "DERIVADO_MANUAL",
+  "ASISTENCIA_IDENTIDAD",
   "DEVUELTO",
   "EMITIDO",
 ];
@@ -480,6 +500,19 @@ export interface Expediente {
    */
   readonly numeroCasoDerivacion: string | null;
   /**
+   * Análisis de P5 que no alcanzaron los cinco requisitos, acumulados.
+   * Al llegar a `INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA` el caso pasa a
+   * `ASISTENCIA_IDENTIDAD` en vez de dejar a la persona repitiendo capturas
+   * que no van a alcanzar.
+   */
+  readonly intentosIdentidadFallidos: number;
+  /**
+   * Número de caso de asistencia de identidad. Distinto del correlativo de la
+   * propuesta y del `numeroCasoDerivacion` de Pantalla A: son tres colas
+   * distintas y confundirlas haría imposible medir cualquiera de ellas.
+   */
+  readonly numeroCasoAsistenciaIdentidad: string | null;
+  /**
    * Correlativo de la propuesta / futura póliza (`00018425` en la
    * especificación), acuñado en P7 porque es la primera pantalla que lo
    * muestra (bloque `REFERENCIAS DE LA OPERACIÓN`).
@@ -535,6 +568,8 @@ export function crearExpedienteInicial(input: {
     declaraciones: null,
     motivoDerivacionManual: null,
     numeroCasoDerivacion: null,
+    intentosIdentidadFallidos: 0,
+    numeroCasoAsistenciaIdentidad: null,
     numeroPropuesta: null,
     facturacion: null,
     pago: null,

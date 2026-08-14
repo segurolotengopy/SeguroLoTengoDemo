@@ -76,6 +76,11 @@ interface RespuestaAnalisis {
   readonly motivoRechazoCaptura?: string | null;
   readonly registroSeguridad?: RegistroSeguridad;
   readonly estado?: string;
+  /**
+   * Número de caso si este análisis agotó los intentos y el expediente pasó a
+   * asistencia humana. Cuando llega, repetir la captura ya no sirve.
+   */
+  readonly asistenciaIdentidad?: string | null;
 }
 
 interface EstadoCaptura {
@@ -284,6 +289,14 @@ export function VerificacionIdentidad({
     setEnProceso("ANALISIS");
     try {
       const datosRespuesta = await postear("/api/p5/analisis", { frente, dorso, ...selfie });
+
+      // Se agotaron los intentos: el caso pasó a asistencia humana y el
+      // expediente ya no está en P5. Repetir la captura acá no llevaría a
+      // ningún lado, así que la pantalla cede el paso.
+      if (datosRespuesta.asistenciaIdentidad) {
+        window.location.assign("/asistencia-identidad");
+        return;
+      }
 
       if (!datosRespuesta.ok) {
         setError(mensajeDe(datosRespuesta.motivo, "No pudimos analizar las capturas."));

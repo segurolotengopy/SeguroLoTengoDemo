@@ -730,6 +730,10 @@ describe("3. Inventario de rutas de la API", () => {
       // Solo borra cookies del navegador: no toca el expediente en la base.
       "demo-panel/reiniciar",
       "demo-panel/sesion",
+      // Proyecta el caso de asistencia de identidad desde el propio expediente
+      // y responde 409 si no está en ASISTENCIA_IDENTIDAD. Un derivado no lo
+      // está, así que no lee ni escribe nada suyo.
+      "expediente/asistencia-identidad",
       "expediente/canales",
       "expediente/caso",
       "expediente/plan",

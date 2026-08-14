@@ -206,7 +206,7 @@ Lo grave no es el rechazo, es **la forma del rechazo**: las tres capturas le apr
 **Dos salidas, y conviene la primera:**
 
 1. **Cruzar contra el registro civil.** El frente del formato anterior **sí** da el número de cédula de forma confiable; con eso, una consulta al Departamento de Identificaciones (§7.7, Didit a USD 0,20) devuelve nombre y fecha de nacimiento desde la fuente oficial. Es *más fuerte* que cualquier OCR sobre un documento de treinta años, no un parche. Convierte el peor formato en el mejor validado. **Implementado — ver §10.**
-2. **Derivar a revisión manual** con evidencia conservada (§6), que es la salida que P5 hoy no tiene y que hace falta igual para cualquier fallo persistente. **Sigue pendiente.**
+2. **Derivar a revisión manual** con evidencia conservada (§6), que hace falta igual para cualquier fallo persistente. **Implementado — ver §11.**
 
 No son excluyentes: la 2 es la red de seguridad, la 1 es la solución.
 
@@ -242,6 +242,23 @@ Octavo puerto del sistema: `RegistroCivilProvider` (`src/ports/registro-civil.ts
 **No hay adaptador oficial, y no se puede escribir todavía.** Falta el contrato de API del proveedor —convenio con Identificaciones o intermediario tipo Didit— e inventar endpoints es exactamente lo que las reglas del proyecto prohíben. Misma situación que Code100 y Bancard: puerto, mock y tests de contrato listos; el adaptador `live/` espera el documento del proveedor.
 
 **Qué NO resuelve.** No es autenticidad documental: dice que existe una persona con ese número y esos datos, no que el plástico sea genuino. Un impostor con el número ajeno pasa la consulta — lo que no pasa es la comparación facial contra la foto del documento, que sigue siendo obligatoria.
+
+## 11. Salida de P5 a asistencia humana (2026-08-14)
+
+Cierra §6. Tras **tres** análisis fallidos el expediente pasa a `ASISTENCIA_IDENTIDAD`, con número de caso propio (`ASIS-…`) y pantalla propia.
+
+**Por qué un estado nuevo y no `DERIVADO_MANUAL`.** Reusarlo parecía lo barato y era lo equivocado, por dos razones que se descubren leyendo la especificación:
+
+1. La Pantalla A muestra `Declaraciones recibidas ✓` y su motivo es `[Salud / PEP / vínculo PEP]`. Quien falla en P5 **nunca llegó a P6**: la pantalla afirmaría algo falso sobre esa persona.
+2. `DERIVADO_MANUAL` **bloquea la cédula** (regla inviolable #11). Bloquear a alguien porque la cámara del teléfono no daba es desproporcionado — no hay ningún indicio en su contra, a diferencia de una derivación por salud o PEP. `ASISTENCIA_IDENTIDAD` está deliberadamente fuera de esa lista, con test.
+
+La regla #5 queda intacta: la derivación por elegibilidad sigue siendo exclusiva de P6, y la arista nueva sale de `CANAL_EMAIL_VERIFICADO`.
+
+**Corrección a §6 de este documento.** Ahí escribí que la derivación era *"consistente con la fila 19 de la matriz"*. Releída, la fila 19 es específicamente *"Derivar una respuesta PEP a análisis reforzado, sin rechazo automático"* (Res. SEPRELAD 50/20, art. 7). **No respalda una derivación por fallo de identidad.** Esta salida es decisión de producto, no obligación legal, y conviene no presentarla como si lo fuera.
+
+**Tres intentos**, igual que los de OTP de la regla #1: un número que el producto ya usa. Se cuentan análisis fallidos, no capturas rechazadas — una foto borrosa se repite sin drama; lo que agota es completar las tres capturas y que el análisis igual no alcance.
+
+**Lo que la pantalla tiene que decir y la Pantalla A no:** que la cédula **no** quedó bloqueada. Sin ese bloque la persona se va creyendo que quedó vetada, y perdimos una venta por un problema de iluminación.
 
 ## Resumen ejecutivo
 

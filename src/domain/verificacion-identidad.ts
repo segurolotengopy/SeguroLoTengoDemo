@@ -46,7 +46,7 @@
  * devuelve el OCR (`edadEnRangoPermitido`), nunca desde un campo declarado. No
  * hay ninguna entrada por la que pueda llegar una fecha de nacimiento distinta.
  */
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type {
   CapturaSelfie,
@@ -110,6 +110,37 @@ export const PASO_EVIDENCIA_CAPTURA_P5 = "P5_CAPTURA_IDENTIDAD";
 export const PASO_EVIDENCIA_ANALISIS_P5 = "P5_ANALISIS_IDENTIDAD";
 export const PASO_EVIDENCIA_VERIFICACION_P5 = "P5_VERIFICACION_IDENTIDAD";
 export const PASO_EVIDENCIA_REGISTRO_CIVIL_P5 = "P5_CONSULTA_REGISTRO_CIVIL";
+export const PASO_EVIDENCIA_ASISTENCIA_IDENTIDAD = "P5_DERIVACION_ASISTENCIA_IDENTIDAD";
+
+/**
+ * Análisis fallidos de P5 tras los cuales el caso pasa a asistencia humana.
+ *
+ * **Decisión de producto, sin fila en la matriz de cumplimiento.** La fila 19
+ * respalda derivar una respuesta PEP a análisis reforzado, que es otra cosa:
+ * no hay norma que exija esta salida. Lo que la justifica es que sin ella una
+ * persona con un documento que el sistema no sabe leer queda repitiendo
+ * capturas para siempre, y eso no es un rechazo: es un callejón sin salida.
+ *
+ * Tres, igual que los intentos de OTP de la regla inviolable #1 — un número
+ * que el producto ya usa y que la gente ya conoce.
+ */
+export const INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA = 3;
+
+/** Prefijo del número de caso de asistencia; distinto del de Pantalla A. */
+const PREFIJO_CASO_ASISTENCIA = "ASIS";
+
+/**
+ * Número de caso de asistencia de identidad.
+ *
+ * Mismo criterio que `generarNumeroCaso` de P6: CSPRNG y no contador, para no
+ * exponer cuántos casos hay. Prefijo propio porque son **tres colas distintas**
+ * —propuesta, derivación por elegibilidad y asistencia de identidad— y
+ * mezclarlas haría imposible medir cualquiera.
+ */
+export function generarNumeroCasoAsistencia(ahora: Date = new Date()): string {
+  const secuencia = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  return `${PREFIJO_CASO_ASISTENCIA}-${ahora.getUTCFullYear()}-${secuencia}`;
+}
 
 /**
  * Los cinco requisitos, los tipos de captura y las opciones de país y estado
@@ -584,6 +615,12 @@ export type ResultadoAnalisisP5 =
   | {
       readonly ok: true;
       readonly requisitos: RequisitosP5;
+      /**
+       * Número de caso de asistencia si este análisis agotó los intentos y el
+       * expediente pasó a `ASISTENCIA_IDENTIDAD`. `null` mientras quede margen
+       * para repetir la captura.
+       */
+      readonly asistenciaIdentidad?: string | null;
       /** `null` si el OCR no fue confiable: hay que repetir la captura. */
       readonly datos: DatosIdentidadP5 | null;
       readonly motivoRechazoCaptura: string | null;
@@ -657,13 +694,87 @@ export async function analizarIdentidadP5(
     },
   });
 
+  // Un análisis fallido acerca el caso a la asistencia humana. Se cuenta acá
+  // y no en `registrarCapturaP5` a propósito: una captura rechazada por
+  // borrosa es normal y se repite sin drama; lo que agota a la persona es
+  // completar las tres capturas y que el análisis igual no alcance.
+  const asistencia =
+    resultado === "FALLIDO"
+      ? await acumularIntentoFallido(deps, reloj, {
+          expedienteId: entrada.expedienteId,
+          expediente: estado.expediente,
+          fecha,
+          contexto: entrada.contexto,
+        })
+      : null;
+
   return {
     ok: true,
     requisitos: verificacion.requisitos,
     datos: verificacion.datos,
     motivoRechazoCaptura: verificacion.motivoRechazoCaptura,
     registroSeguridad: armarRegistroSeguridad(verificacion, fecha, entrada.contexto, resultado),
+    asistenciaIdentidad: asistencia,
   };
+}
+
+/**
+ * Suma un intento fallido y, al llegar al tope, deriva el caso a asistencia.
+ *
+ * Devuelve el número de caso si derivó, `null` si todavía queda margen. La
+ * pantalla usa eso para saber si tiene que mandar a la persona a la Pantalla
+ * de asistencia o si le ofrece repetir una vez más.
+ */
+async function acumularIntentoFallido(
+  deps: DependenciasP5,
+  reloj: Reloj,
+  entrada: {
+    readonly expedienteId: string;
+    readonly expediente: Expediente;
+    readonly fecha: string;
+    readonly contexto: ContextoPeticion;
+  },
+): Promise<string | null> {
+  const intentos = entrada.expediente.intentosIdentidadFallidos + 1;
+
+  if (intentos < INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA) {
+    await deps.expedientes.guardar({
+      ...entrada.expediente,
+      intentosIdentidadFallidos: intentos,
+      actualizadoEn: entrada.fecha,
+    });
+    return null;
+  }
+
+  const numeroCaso = generarNumeroCasoAsistencia(new Date(entrada.fecha));
+  const transicion = transicionarExpediente(
+    { ...entrada.expediente, intentosIdentidadFallidos: intentos },
+    "ASISTENCIA_IDENTIDAD",
+    { numeroCasoAsistenciaIdentidad: numeroCaso },
+    entrada.fecha,
+  );
+  // La transición solo puede fallar si el expediente se movió entre la lectura
+  // y esta escritura; en ese caso no se deriva y el flujo sigue su curso.
+  if (!transicion.ok) return null;
+
+  await deps.expedientes.guardar(transicion.expediente);
+
+  await registrarEvidencia(deps, reloj, {
+    expedienteId: entrada.expedienteId,
+    paso: PASO_EVIDENCIA_ASISTENCIA_IDENTIDAD,
+    fecha: entrada.fecha,
+    contexto: entrada.contexto,
+    resultado: "EXITOSO",
+    detalle: {
+      numeroCaso,
+      intentos,
+      // Sin datos de la persona: el caso se identifica por número, y el
+      // expediente ya tiene lo demás.
+      motivo: "IDENTIDAD_NO_VERIFICABLE",
+    },
+  });
+
+  return numeroCaso;
 }
 
 // ---------------------------------------------------------------------------

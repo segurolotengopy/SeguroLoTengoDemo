@@ -131,7 +131,11 @@ Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley
 
 INICIADO → CANAL\_WA\_VERIFICADO → PLAN\_SELECCIONADO → AUTORIZADO
 
-  → CANAL\_EMAIL\_VERIFICADO → IDENTIDAD\_VERIFICADA
+  → CANAL\_EMAIL\_VERIFICADO
+
+     ├─ ASISTENCIA\_IDENTIDAD (terminal, NO bloquea la cédula)
+
+     └─ IDENTIDAD\_VERIFICADA
 
      ├─ DERIVADO\_MANUAL (terminal) → Pantalla A
 
@@ -221,6 +225,20 @@ El adaptador de AWS (`src/adapters/live/identity-provider.ts`, `INTEGRATION_IDEN
 **La cédula del formato anterior no tiene MRZ**, así que el OCR no puede dar nombre ni fecha de nacimiento con garantías (adivinarlos por posición violaría la regla #8). El número del frente **sí** se lee, y con él `RegistroCivilProvider` (ítem 33) trae los datos de la fuente oficial — más fuerte que leerlos del plástico. Consecuencia a tener presente: cuando esa consulta se usa, **la fecha que decide el corte de edad 18–64 viene del registro civil, no del documento**. Es una lectura de la regla #8 por su espíritu (nada declarado por la persona) y no por su letra, y por eso cada consulta deja evidencia propia (`P5_CONSULTA_REGISTRO_CIVIL`) con su referencia.
 
 Los tres estados de ese puerto no se pueden colapsar: `NO_ENCONTRADO` es una respuesta del registro, `NO_DISPONIBLE` es que no contestó. Hoy los dos impiden continuar, pero solo el segundo justificaría derivar a revisión manual — esa salida todavía no existe (§6 del documento).
+
+## Salida de P5 a asistencia humana
+
+Tras **tres** análisis fallidos (`INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA`), P5 deriva el expediente a `ASISTENCIA_IDENTIDAD` con su propio número de caso (`ASIS-…`) y su propia pantalla, `/asistencia-identidad`. Sin esa salida, quien tiene un documento que el sistema no sabe leer repite capturas indefinidamente: no es un rechazo, es un callejón sin salida.
+
+**Es un estado distinto de `DERIVADO_MANUAL`, y no se pueden mezclar.** Tres razones, todas con test:
+
+- `DERIVADO_MANUAL` significa "la elegibilidad se detuvo por salud o PEP" (regla #5) y su pantalla muestra `Declaraciones recibidas ✓`. Quien falla en P5 nunca declaró nada — reusar ese estado haría que la pantalla afirmara algo falso.
+- `DERIVADO_MANUAL` **bloquea la cédula** (regla #11). `ASISTENCIA_IDENTIDAD` **no**, a propósito: bloquear a alguien porque la cámara no daba sería desproporcionado, no hay ningún indicio en su contra. Puede empezar un expediente nuevo cuando quiera.
+- Son dos colas de trabajo distintas: análisis de riesgo de Alianza contra soporte de captura.
+
+La regla #5 queda intacta: la derivación por elegibilidad sigue siendo exclusiva de las declaraciones de P6, y la arista nueva sale de `CANAL_EMAIL_VERIFICADO`, no de `IDENTIDAD_VERIFICADA`.
+
+**Decisión de producto, sin fila en la matriz de cumplimiento.** La fila 19 respalda derivar una respuesta PEP a análisis reforzado, que es otra cosa.
 
 ## Consola administrativa
 

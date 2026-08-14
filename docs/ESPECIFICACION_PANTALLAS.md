@@ -280,6 +280,44 @@ Encabezado rojo: `Tu solicitud requiere una revisión adicional` — por la info
 
 ---
 
+## Pantalla de asistencia de identidad (agregado 2026-08-14)
+
+**No forma parte de las 12 pantallas originales.** Es una decisión de producto posterior, sin fila en la matriz de cumplimiento, y nace de un callejón sin salida real: quien no logra verificar su identidad en P5 —documento gastado, formato anterior sin MRZ, cámara pobre— repetía capturas indefinidamente. P5 decía *"si persiste el error, el proceso no podrá continuar digitalmente"*, y eso en la práctica era una pared sin puerta.
+
+Se llega **desde P5** tras **tres análisis fallidos**. **No lleva contador de pasos.**
+
+**No es la Pantalla A y no debe confundirse con ella:**
+
+| | Pantalla A | Asistencia de identidad |
+| :---- | :---- | :---- |
+| Se llega desde | P6, declaración incompatible o PEP | P5, identidad no verificable |
+| Estado | `DERIVADO_MANUAL` | `ASISTENCIA_IDENTIDAD` |
+| Motivo | Salud / PEP / vínculo PEP | Falla técnica de lectura o comparación |
+| ¿Bloquea la cédula? | **Sí** (regla inviolable #11) | **No** — puede reintentar |
+| Número de caso | `CASO-AAAA-NNNNNN` | `ASIS-AAAA-NNNNNN` |
+
+Encabezado naranja: `No pudimos verificar tu identidad automáticamente` — no es un rechazo y no hay nada anotado en contra de la persona; el sistema no logró leer el documento o confirmar la selfie. A la derecha: `SEGURO DE VIDA ONCOLÓGICO / ASISTENCIA DE IDENTIDAD`.
+
+**`ESTADO DEL CASO`** (cuatro hitos, veraces para este camino): 1. Canales verificados ✓ WhatsApp y correo · 2. Verificación de identidad ⚠ No se pudo completar automáticamente · 3. Asistencia de un asesor ⋯ Pendiente de contacto · 4. Continuar la contratación ⋯ Se retoma cuando la identidad quede verificada.
+
+*(Ojo: los hitos de la Pantalla A dicen `Declaraciones recibidas ✓`. Acá sería falso — la persona nunca llegó a P6.)*
+
+**`CASO DE ASISTENCIA`:** número de caso `ASIS-…`, WhatsApp y correo verificados **enmascarados**. **No muestra identidad**, porque en este camino no la hay: el expediente llegó acá justamente porque no se pudo verificar.
+
+**Bloque verde `PODÉS VOLVER A INTENTARLO`:** la cédula no quedó bloqueada; con mejor luz, una fotografía más nítida o el documento vigente a mano, se puede empezar de nuevo. **Es el bloque que distingue esta pantalla de una derivación** — sin él la persona se va creyendo que quedó vetada.
+
+**`QUÉ CONVIENE REVISAR ANTES DE REINTENTAR`:** iluminación y reflejos, documento completo en el recuadro, rostro de frente sin lentes ni barbijo, y renovar la cédula si está muy gastada o vencida. Salen de los motivos de rechazo reales; **nunca mencionan umbrales ni puntuaciones**, que son para la evidencia.
+
+**Bloque rojo `NO SE INICIÓ NINGUNA CONTRATACIÓN`:** no se generó póliza, no se pidió firma, no se realizó ni autorizó ningún pago.
+
+**`TE PODEMOS AYUDAR`:** contacto de Interseguros (asistencia y seguimiento). No se muestra el de Alianza: no hay riesgo que analizar, hay una captura que resolver.
+
+**Pie:** botones `VOLVER A INTENTAR` (a P1) y `Volver al inicio`. Leyendas: no poder verificar automáticamente no significa que no se pueda contratar; y el número de caso de asistencia es distinto del correlativo de una propuesta y del caso de una revisión por elegibilidad.
+
+**Regla del sistema:** `ASISTENCIA_IDENTIDAD` es terminal en ese expediente —no continúa a pago, firma ni emisión— pero **no bloquea la cédula**: la persona puede iniciar un expediente nuevo. Es la diferencia central con `DERIVADO_MANUAL`.
+
+---
+
 ## P8 · Paso 8 de 9 — Revisión y firma final
 
 Título: `Revisión y firma final` — revisá los documentos cerrados y firmalos en un único proceso seguro de Code100. **La aceptación contractual ocurre al firmar en Code100, no al presionar un botón del portal.**
