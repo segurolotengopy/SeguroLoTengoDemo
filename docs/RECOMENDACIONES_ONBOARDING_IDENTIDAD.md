@@ -183,12 +183,59 @@ Dos cosas que aparecieron al implementarlo y que no eran obvias:
 
 ---
 
+## 9. Piloto de tres formatos de cédula (2026-08-14)
+
+El ítem 9 de la tabla de integraciones pide un piloto con formato nuevo, formato anterior y cédula de residente antes de contratar. **La mitad de ese piloto no necesitaba cédulas reales**: alcanzaba con preguntarle al código qué hace con cada formato. Eso ya está hecho y fijado con tests en `src/adapters/live/__tests__/tres-formatos-cedula.test.ts`.
+
+### Resultado por formato
+
+| Formato | Resultado | Por qué |
+| :---- | :---- | :---- |
+| **Nuevo** (MRZ TD1, emisor PRY) | **Pasa** | El MRZ da número, nombres y fecha de nacimiento con dígitos verificadores |
+| **Residente** (emisor PRY, nacionalidad extranjera) | **Pasa** | La emite Paraguay; lo extranjero es solo la nacionalidad del titular |
+| **Anterior** (sin MRZ) | **No puede completar P5** | Sin MRZ no hay fuente confiable de nombre ni de fecha de nacimiento |
+
+Sobre el **residente**, una advertencia que costó un falso hallazgo durante este trabajo: es fácil modelarlo con estado emisor extranjero, y así `cruzarConMrz` lo rechaza por `ESTADO_EMISOR_NO_ES_PARAGUAY`. Está mal modelado — **la cédula de residente la emite Paraguay**. Lo que P5 rechaza es pasaporte y documento extranjero, no a un residente con cédula paraguaya. Hay un test para cada lado de esa distinción.
+
+### El formato anterior es el hallazgo que importa
+
+Y no es un umbral mal calibrado. Con el frente y el dorso leídos **con confianza 100**, el resultado es el mismo: `extraerDatosCedula` devuelve `confiable: false`. El problema no es que el OCR lea con poca confianza, es que **no hay estructura que leer** — el frente de la cédula no tiene formato publicado, así que reconocer nombre y fecha por posición sería adivinar, y esa fecha decide el corte de edad 18–64 (regla inviolable #8). Hay un test que fija exactamente esto, para que nadie intente "arreglarlo" bajando `CONFIANZA_MINIMA_OCR`.
+
+Lo grave no es el rechazo, es **la forma del rechazo**: las tres capturas le aprueban a la persona —foto buena, documento no falso, sin motivo de rechazo— y recién en el análisis se le pide repetir una captura que nunca va a alcanzar. Es el callejón sin salida que anticipaba §6, ahora confirmado y con nombre.
+
+**Dos salidas, y conviene la primera:**
+
+1. **Cruzar contra el registro civil.** El frente del formato anterior **sí** da el número de cédula de forma confiable; con eso, una consulta al Departamento de Identificaciones (§7.7, Didit a USD 0,20) devuelve nombre y fecha de nacimiento desde la fuente oficial. Es *más fuerte* que cualquier OCR sobre un documento de treinta años, no un parche. Convierte el peor formato en el mejor validado.
+2. **Derivar a revisión manual** con evidencia conservada (§6), que es la salida que P5 hoy no tiene y que hace falta igual para cualquier fallo persistente.
+
+No son excluyentes: la 2 es la red de seguridad, la 1 es la solución.
+
+### Lo que el piloto con cédulas reales todavía tiene que medir
+
+Queda lo que ningún test puede contestar: **tasa de aprobación con fotos de verdad**, sacadas por personas de verdad, con documentos gastados y luz de casa. Para eso está `scripts/piloto-cedulas.ts`:
+
+```bash
+AWS_PROFILE=<perfil> npm run piloto:cedulas -- <directorio>
+```
+
+Recorre un directorio organizado por formato (`formato-nuevo/`, `formato-anterior/`, `residente/`), con pares `<nombre>-frente.jpg` y `<nombre>-dorso.jpg`, los pasa por el adaptador oficial con los mismos umbrales que P5, e informa tasa de aprobación por formato y por etapa, con los motivos de rechazo agrupados.
+
+- **Usa AWS de verdad**: ~USD 0,005 por muestra. Cien muestras son medio dólar. No hay modo seco, porque medir un OCR simulado no mediría nada.
+- **El informe no contiene nombres ni números de cédula** — solo agregados y motivos— para que se pueda pegar en un correo sin exponer a nadie.
+- **Las imágenes no van al repo.** Son cédulas de personas reales.
+- No mide prueba de vida ni coincidencia facial: eso necesita a la persona frente a la cámara y es un piloto presencial aparte.
+
+**Tamaño de muestra sugerido:** al menos 30 pares por formato. Con 30, una tasa de aprobación observada tiene un margen de error de ~±9 puntos, que alcanza para distinguir "funciona" de "no funciona" pero no para afinar un umbral. Si el formato anterior se va a atacar con registro civil, su muestra puede ser menor: lo que hay que medir ahí es la legibilidad del **número de cédula** en el frente, no el expediente completo.
+
+**Criterio de aceptación propuesto** (decisión de producto, sin fila en la matriz de cumplimiento): formato nuevo y residente por encima del 90 % de aprobación en primer intento. Por debajo de eso, el problema es de captura —guía en pantalla, encuadre, iluminación— antes que de proveedor, y cambiar de proveedor no lo va a arreglar.
+
 ## Resumen ejecutivo
 
-1. Rekognition + Textract + MRZ propio para demo/piloto: costo despreciable, control total, el puerto ya lo soporta.
-2. Gestión temprana del convenio con fuente oficial (Identificaciones).
-3. RFP corto Sumsub vs. Entrust vs. Regula para producción, decidido por tasa de aprobación real con los tres formatos de cédula.
+1. Rekognition + Textract + MRZ propio para demo/piloto: costo despreciable, control total, el puerto ya lo soporta. **Implementado.**
+2. Gestión temprana del convenio con fuente oficial (Identificaciones). Sube de prioridad tras el piloto (§9): el cruce contra registro civil dejó de ser solo el nivel más fuerte de autenticidad y pasó a ser **la forma de que el formato anterior de cédula pueda contratar**.
+3. RFP corto Sumsub vs. Entrust vs. Regula para producción, decidido por tasa de aprobación real con los tres formatos de cédula. El instrumental de medición está listo (`scripts/piloto-cedulas.ts`); faltan las cédulas reales.
 4. La autenticidad documental es la brecha que ningún plan puede ignorar: AWS no la resuelve — hace falta fuente oficial o proveedor especializado.
+5. **El formato anterior de cédula no puede completar P5 hoy** (§9), y no es un problema de calibración. Es lo primero a resolver de esta lista, porque hoy esas personas quedan en un callejón sin salida dentro de la pantalla.
 
 ---
 

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "verify": "npm run typecheck && npm run lint && npm test"
+    "verify": "npm run typecheck && npm run lint && npm test",
+    "piloto:cedulas": "tsx scripts/piloto-cedulas.ts"
   },
   "dependencies": {
     "@aws-amplify/core": "^6.18.0",
@@ -36,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.23",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   },
