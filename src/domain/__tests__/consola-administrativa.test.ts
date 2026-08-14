@@ -18,6 +18,7 @@ import {
   enviarCasoAAlianza,
   filtrarPorNombre,
 } from "../consola-administrativa";
+import { ESTADOS_EXPEDIENTE, esEstadoExpediente } from "../tipos";
 import type { Expediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
 import {
@@ -242,5 +243,50 @@ describe("enviarCasoAAlianza", () => {
 
     expect(resultado).toEqual({ ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" });
     expect(registros).toHaveLength(0);
+  });
+});
+
+describe("cola de asistencia de identidad en la consola", () => {
+  it("todos los estados del tipo son buscables, sin listas escritas a mano", () => {
+    // Este test existe por un error real: `ASISTENCIA_IDENTIDAD` se agregó al
+    // tipo y quedó fuera del selector de la consola, que era una copia a mano.
+    // Había expedientes en ese estado y el staff no podía listarlos.
+    expect(ESTADOS_EXPEDIENTE).toContain("ASISTENCIA_IDENTIDAD");
+    expect(ESTADOS_EXPEDIENTE).toContain("DERIVADO_MANUAL");
+    // 16 estados: si alguien agrega uno, esta cuenta obliga a mirar el resto.
+    expect(ESTADOS_EXPEDIENTE).toHaveLength(16);
+  });
+
+  it("el reconocedor de estados acepta los del tipo y rechaza el resto", () => {
+    expect(esEstadoExpediente("ASISTENCIA_IDENTIDAD")).toBe(true);
+    expect(esEstadoExpediente("INVENTADO")).toBe(false);
+    expect(esEstadoExpediente(null)).toBe(false);
+  });
+
+  it("la fila expone el caso de asistencia por separado del de derivación", () => {
+    // Son dos colas distintas: análisis de riesgo de Alianza contra soporte de
+    // captura. Mezclarlas en un solo campo haría imposible medir cualquiera.
+    const enAsistencia: Expediente = {
+      ...crearExpediente("EXP-ASIS"),
+      estado: "ASISTENCIA_IDENTIDAD",
+      numeroCasoAsistenciaIdentidad: "ASIS-2026-000123",
+    };
+    const [fila] = armarResultados([enAsistencia]);
+
+    expect(fila.numeroCasoAsistenciaIdentidad).toBe("ASIS-2026-000123");
+    expect(fila.numeroCasoDerivacion).toBeNull();
+  });
+
+  it("un expediente en asistencia NO aparece como bloqueante", () => {
+    // La diferencia central con DERIVADO_MANUAL: la persona puede reintentar,
+    // así que la consola no debe mostrarlo como si la cédula estuviera trabada.
+    const enAsistencia: Expediente = {
+      ...crearExpediente("EXP-ASIS-2"),
+      estado: "ASISTENCIA_IDENTIDAD",
+      numeroCasoAsistenciaIdentidad: "ASIS-2026-000124",
+    };
+    const [fila] = armarResultados([enAsistencia]);
+
+    expect(fila.bloqueaRegistro).toBe(false);
   });
 });

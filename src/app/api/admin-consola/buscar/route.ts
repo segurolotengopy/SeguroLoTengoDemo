@@ -25,28 +25,21 @@ import {
   filtrarPorNombre,
 } from "@/domain/consola-administrativa";
 import { correlativoDeCodigo } from "@/domain/documentos";
+import { ESTADOS_EXPEDIENTE } from "@/domain/tipos";
 import type { EstadoExpediente, Expediente } from "@/domain/tipos";
 import { crearExpedienteRepository } from "@/repositories";
 
 export const dynamic = "force-dynamic";
 
-const ESTADOS_VALIDOS: readonly EstadoExpediente[] = [
-  "INICIADO",
-  "CANAL_WA_VERIFICADO",
-  "PLAN_SELECCIONADO",
-  "AUTORIZADO",
-  "CANAL_EMAIL_VERIFICADO",
-  "IDENTIDAD_VERIFICADA",
-  "DERIVADO_MANUAL",
-  "DECLARACIONES_OK",
-  "PAGO_CONFIRMADO",
-  "PAQUETE_GENERADO",
-  "VENCIDO",
-  "DEVOLUCION_EN_TRAMITE",
-  "DEVUELTO",
-  "FIRMADO",
-  "EMITIDO",
-];
+/**
+ * Estados buscables: **todos**, derivados del tipo.
+ *
+ * Antes era una lista escrita a mano y se desactualizó al agregar
+ * `ASISTENCIA_IDENTIDAD`: el estado existía, había expedientes en él, y la
+ * consola no podía listarlos. Ahora agregar un estado al tipo lo hace buscable
+ * automáticamente.
+ */
+const ESTADOS_VALIDOS: readonly EstadoExpediente[] = ESTADOS_EXPEDIENTE;
 
 function esEstado(valor: string): valor is EstadoExpediente {
   return (ESTADOS_VALIDOS as readonly string[]).includes(valor);
