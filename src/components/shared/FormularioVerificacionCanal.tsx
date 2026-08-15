@@ -108,6 +108,11 @@ export interface FormularioVerificacionCanalProps {
 
   /** Validación local, solo para habilitar el botón. */
   validarDestino: (valor: string) => boolean;
+  /**
+   * Compone el valor que viaja al servidor a partir de lo tipeado (P1 le
+   * antepone el prefijo del país seleccionado). Si no se pasa, viaja tal cual.
+   */
+  componerDestino?: (valor: string) => string;
 }
 
 export function FormularioVerificacionCanal({
@@ -136,6 +141,7 @@ export function FormularioVerificacionCanal({
   textoContinuar,
   notaContinuar,
   validarDestino,
+  componerDestino,
 }: FormularioVerificacionCanalProps) {
   const [destino, setDestino] = useState("");
   const [autorizado, setAutorizado] = useState(false);
@@ -182,7 +188,7 @@ export function FormularioVerificacionCanal({
     setAviso(null);
     try {
       const { datos } = await postear(rutas.enviar, {
-        [campoDestino]: destino,
+        [campoDestino]: componerDestino ? componerDestino(destino) : destino,
         ...(requiereAutorizacion ? { autorizacionAceptada: autorizado } : {}),
       });
 

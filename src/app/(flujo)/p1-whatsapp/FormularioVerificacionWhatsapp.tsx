@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { FormularioVerificacionCanal } from "@/components/shared";
-import { normalizarCelularParaguayo, PREFIJO_PAIS_PARAGUAY } from "@/domain/telefono";
+import { normalizarCelularRegional, paisPorIso, PAISES_CELULAR } from "@/domain/telefono";
 // Desde `textos-p1` y no desde el caso de uso: este es un componente de
 // cliente, e importar el caso de uso arrastraría `node:crypto` al bundle.
 import { TEXTO_AUTORIZACION_P1 } from "@/domain/textos-p1";
@@ -12,19 +13,16 @@ import { TEXTO_AUTORIZACION_P1 } from "@/domain/textos-p1";
  * La mecánica es la de `FormularioVerificacionCanal`, compartida con P4; acá
  * viven solo los textos y las rutas de P1, más el selector de país y el
  * checkbox de autorización, que P4 no tiene.
+ *
+ * El selector ofrece los países de la región desde el 2026-08-14 (decisión de
+ * producto para el demo — la especificación original contemplaba solo
+ * Paraguay, y su sección de P1 quedó anotada). El número viaja al servidor
+ * con el prefijo del país elegido; la validación fina es del dominio
+ * (`normalizarCelularRegional`). Envío real hoy: solo +595 y +591
+ * (prefijos habilitados de WhatsApp-Modular); el resto funciona en mock.
  */
 
-const MENSAJES_P1: Readonly<Record<string, string>> = {
-  AUTORIZACION_REQUERIDA: "Necesitás autorizar el uso del número para continuar.",
-  DESTINO_INVALIDO:
-    "Revisá el número: tiene que ser un celular paraguayo, por ejemplo 981 000 000.",
-  PROPOSITO_INCORRECTO: "Ese código no sirve para verificar el WhatsApp.",
-  ESTADO_INVALIDO: "Este proceso ya no está en el paso de verificación de WhatsApp.",
-  SESION_INVALIDA: "Se perdió la sesión. Volvé a ingresar tu número.",
-};
-
-/** Paraguay es el único país habilitado: la especificación no contempla otro prefijo. */
-function SelectorPais() {
+function SelectorPais(props: { iso: string; onCambio: (iso: string) => void }) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor="p1-pais" className="text-xs font-semibold text-etiqueta">
@@ -32,17 +30,32 @@ function SelectorPais() {
       </label>
       <select
         id="p1-pais"
-        disabled
-        value="PY"
-        className="h-11 rounded-lg border border-borde-sutil bg-superficie-suave px-3 text-sm font-semibold text-titulo"
+        value={props.iso}
+        onChange={(evento) => props.onCambio(evento.target.value)}
+        className="h-11 rounded-lg border border-borde-sutil bg-superficie px-3 text-sm font-semibold text-titulo"
       >
-        <option value="PY">Paraguay {PREFIJO_PAIS_PARAGUAY}</option>
+        {PAISES_CELULAR.map((pais) => (
+          <option key={pais.iso} value={pais.iso}>
+            {pais.nombre} {pais.prefijo}
+          </option>
+        ))}
       </select>
     </div>
   );
 }
 
 export function FormularioVerificacionWhatsapp() {
+  const [isoPais, setIsoPais] = useState("PY");
+  const pais = paisPorIso(isoPais) ?? PAISES_CELULAR[0];
+
+  const mensajes: Readonly<Record<string, string>> = {
+    AUTORIZACION_REQUERIDA: "Necesitás autorizar el uso del número para continuar.",
+    DESTINO_INVALIDO: `Revisá el número: tiene que ser un celular válido de ${pais.nombre}, por ejemplo ${pais.ejemplo}.`,
+    PROPOSITO_INCORRECTO: "Ese código no sirve para verificar el WhatsApp.",
+    ESTADO_INVALIDO: "Este proceso ya no está en el paso de verificación de WhatsApp.",
+    SESION_INVALIDA: "Se perdió la sesión. Volvé a ingresar tu número.",
+  };
+
   return (
     <FormularioVerificacionCanal
       idPrefijo="p1"
@@ -54,10 +67,10 @@ export function FormularioVerificacionWhatsapp() {
       campoDestino="numero"
       paso1Titulo="Paso 1 — Ingresá tu número"
       etiquetaDestino="Número de WhatsApp"
-      placeholderDestino="Ej.: 981 000 000"
+      placeholderDestino={`Ej.: ${pais.ejemplo}`}
       tipoCampo="tel"
       autoCompleteCampo="tel-national"
-      prefijoCampo={<SelectorPais />}
+      prefijoCampo={<SelectorPais iso={isoPais} onCambio={setIsoPais} />}
       textoAutorizacion={TEXTO_AUTORIZACION_P1}
       botonEnviar="Enviar código"
       paso2Titulo="Paso 2 — Ingresá el código recibido"
@@ -68,8 +81,9 @@ export function FormularioVerificacionWhatsapp() {
       avisoEnviado="Te enviamos un código por WhatsApp."
       avisoReenviado="Te enviamos un código nuevo. El anterior dejó de servir."
       avisoVerificado="WhatsApp verificado."
-      mensajes={MENSAJES_P1}
-      validarDestino={(valor) => normalizarCelularParaguayo(valor).ok}
+      mensajes={mensajes}
+      validarDestino={(valor) => normalizarCelularRegional(`${pais.prefijo} ${valor}`).ok}
+      componerDestino={(valor) => `${pais.prefijo} ${valor}`}
       advertencias={
         <>
           <p className="font-semibold text-titulo">No compartas el código con nadie.</p>
