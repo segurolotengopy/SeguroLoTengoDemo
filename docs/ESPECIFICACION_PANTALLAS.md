@@ -50,7 +50,7 @@ Título: `Verificá tu WhatsApp personal`. Subtítulo azul: será el primer cana
 
 **Paso 1 — Ingresá tu número:**
 
-- Selector de país (Paraguay `+595`) y campo de número, placeholder `Ej.: 981 000 000`.  
+- Selector de país y campo de número, placeholder con el ejemplo del país elegido (`Ej.: 981 000 000` para Paraguay). *Actualización 2026-08-14 (decisión de producto, pruebas del demo con celulares del exterior): el selector ofrece los países de la región — Paraguay por defecto, Bolivia y vecinos — con validación estricta para Paraguay y Bolivia. La versión original contemplaba solo Paraguay (`+595`). El envío real por WhatsApp-Modular cubre hoy `+595` y `+591`; el resto opera en modo simulado.*  
 - Botón `ENVIAR CÓDIGO` (contorno verde).  
 - Checkbox obligatorio: *Autorizo usar este número para verificar el canal, proteger el acceso y continuar el proceso. No autoriza publicidad.*
 

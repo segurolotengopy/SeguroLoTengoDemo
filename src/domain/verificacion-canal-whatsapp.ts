@@ -27,7 +27,7 @@ import type {
   ResultadoEnvioCanal,
   ResultadoVerificacionCanal,
 } from "./verificacion-canal";
-import { enmascararCelular, normalizarCelularParaguayo } from "./telefono";
+import { enmascararCelular, normalizarCelularRegional } from "./telefono";
 // Los literales viven aparte (`textos-p1.ts`) para que la pantalla pueda
 // mostrarlos sin importar este módulo de servidor. Se re-exportan porque la
 // evidencia de este paso los usa y quien lea el caso de uso los espera acá.
@@ -65,8 +65,11 @@ export const CANAL_WHATSAPP_P1: ConfiguracionCanal = {
   estadoRequerido: "INICIADO",
   estadoDestino: "CANAL_WA_VERIFICADO",
   campoCanal: "canalWhatsapp",
+  // Regional desde 2026-08-14 (pruebas del demo con celulares de Bolivia y
+  // vecinos): la pantalla manda el número con el prefijo del país elegido, y
+  // un número sin prefijo sigue siendo Paraguay, como siempre.
   normalizar: (entrada) => {
-    const resultado = normalizarCelularParaguayo(entrada);
+    const resultado = normalizarCelularRegional(entrada);
     return resultado.ok ? { ok: true, valor: resultado.e164 } : { ok: false };
   },
   enmascarar: enmascararCelular,
