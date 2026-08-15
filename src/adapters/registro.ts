@@ -21,9 +21,15 @@ import type { RegistroCivilProvider } from "../ports/registro-civil";
 import type { PolicyIssuer } from "../ports/policy-issuer";
 import type { SignatureProvider } from "../ports/signature-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
+import { SESv2Client } from "@aws-sdk/client-sesv2";
 import type { LectorMetadataOtp } from "../domain/verificacion-canal";
 import { resolverAdaptador } from "./index";
 import { crearIdentityProviderAws } from "./live/identity-provider";
+import {
+  crearEnviadorSes,
+  crearOtpProviderCorreoSes,
+  dividirOtpPorCanal,
+} from "./live/otp-provider-correo-ses";
 import {
   crearOtpFirmaRemotoWhatsAppModular,
   crearOtpProviderWhatsAppModular,
@@ -46,6 +52,32 @@ import { plazoFirmaMs } from "./mock/plazo-firma-demo";
  * `consumirFallaDemo` devuelve siempre `false`, así que en un despliegue normal
  * estas funciones son constantes: ningún adaptador puede fallar por esta vía.
  */
+/**
+ * Flag granular del OTP de correo, aparte de `INTEGRATION_OTP`: el canal de
+ * WhatsApp (WhatsApp-Modular) y el de correo (Amazon SES) se habilitan por
+ * separado porque dependen de credenciales distintas — Meta de un lado, la
+ * identidad SES verificada del otro. `INTEGRATION_OTP_EMAIL=live` exige
+ * `OTP_EMAIL_FROM` (remitente verificado en SES); cualquier otro valor deja
+ * el correo en mock.
+ */
+function modoOtpEmail(): "mock" | "live" {
+  return process.env.INTEGRATION_OTP_EMAIL === "live" ? "live" : "mock";
+}
+
+function crearCorreoSesDesdeEntorno(otpRepository: OtpRepository): OtpProvider {
+  const remitente = process.env.OTP_EMAIL_FROM;
+  if (!remitente) {
+    throw new Error(
+      "INTEGRATION_OTP_EMAIL=live requiere OTP_EMAIL_FROM (remitente verificado en Amazon SES).",
+    );
+  }
+  const region = process.env.AWS_REGION ?? "us-east-1";
+  return crearOtpProviderCorreoSes({
+    otpRepository,
+    enviador: crearEnviadorSes({ cliente: new SESv2Client({ region }), remitente }),
+  });
+}
+
 export function obtenerOtpProvider(otpRepository: OtpRepository): OtpProvider {
   const mock = () =>
     crearOtpProviderMock({
@@ -57,16 +89,24 @@ export function obtenerOtpProvider(otpRepository: OtpRepository): OtpProvider {
       },
     });
 
+  // El OTP de correo (P4) por Amazon SES (ítem 4 de la tabla, Infobip como
+  // backup) — independiente del canal de WhatsApp.
+  const correo = () => (modoOtpEmail() === "live" ? crearCorreoSesDesdeEntorno(otpRepository) : mock());
+
   return resolverAdaptador("OTP", {
-    mock,
+    // Celular en mock: si el correo está en live, se divide por canal (el
+    // canal persistido del OTP decide quién verifica y reenvía).
+    mock: () =>
+      modoOtpEmail() === "live"
+        ? dividirOtpPorCanal({ celular: mock(), correo: correo(), otpRepository })
+        : mock(),
     // WhatsApp-Modular (ítem 3 de la tabla de integraciones): el OTP de P1
     // sale de verdad por el `otp-service` (Meta Cloud API o su dry-run). El
-    // de P4 sigue en el mock — WhatsApp-Modular no envía correo — y por eso
-    // el adaptador vivo recibe al mock como delegado de correo.
+    // de P4 va por SES si está habilitado; si no, por el mock.
     live: () =>
       crearOtpProviderWhatsAppModular({
         cliente: crearClienteWhatsAppModularDesdeEntorno(),
-        correo: mock(),
+        correo: correo(),
       }),
   });
 }

@@ -42,6 +42,16 @@
       "Resource": [
         "arn:aws:secretsmanager:us-east-1:120005938663:secret:slt-demo-app-secrets-wX3mDq"
       ]
+    },
+    {
+      "Sid": "SesEnvioOtpCorreo",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail"
+      ],
+      "Resource": [
+        "arn:aws:ses:us-east-1:120005938663:identity/*"
+      ]
     }
   ]
 }
