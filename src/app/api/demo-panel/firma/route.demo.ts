@@ -26,6 +26,7 @@ import {
   cerrarSinFirmarMock,
   firmarEnCode100Mock,
 } from "@/adapters/mock/signature-provider";
+import { obtenerOtpFirmaRemoto } from "@/adapters/registro";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +53,13 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "PEDIDO_INVALIDO" }, { status: 400 });
   }
 
+  // Con INTEGRATION_OTP=live el OTP de firma viaja por WhatsApp-Modular
+  // (propósito SIGNATURE_P7A) al destino de la sesión, y el panel no muestra
+  // ningún código: está en el WhatsApp de la persona.
+  const otpRemoto = obtenerOtpFirmaRemoto();
+
   if (cuerpo.accion === "ABRIR") {
-    const resultado = abrirEnlaceDeFirmaMock(idCode100);
+    const resultado = await abrirEnlaceDeFirmaMock(idCode100, { otpRemoto });
     return resultado.ok
       ? respuestaJson({ ok: true, expiraEn: resultado.expiraEn })
       : respuestaJson({ ok: false, motivo: resultado.motivo }, { status: 409 });
@@ -71,8 +77,9 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "CODIGO_REQUERIDO" }, { status: 400 });
   }
 
-  const resultado = firmarEnCode100Mock(idCode100, codigo, {
+  const resultado = await firmarEnCode100Mock(idCode100, codigo, {
     fallarAMitadDelSellado: cuerpo.fallarAMitad === true,
+    otpRemoto,
   });
 
   if (!resultado.ok) {

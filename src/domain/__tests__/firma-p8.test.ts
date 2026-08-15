@@ -185,11 +185,11 @@ function armar(expediente: Expediente = expedienteEnPaqueteGenerado()): Entorno 
  * se ve expirado. Todos los tests firman en AHORA; el que avanza el reloj lo
  * hace después de firmar.
  */
-function firmarEnCode100(idCode100: string, opciones: { fallarAMitadDelSellado?: boolean } = {}) {
+async function firmarEnCode100(idCode100: string, opciones: { fallarAMitadDelSellado?: boolean } = {}) {
   const ahora = () => new Date(AHORA);
-  abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true, ahora });
+  await abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true, ahora });
   const codigo = obtenerCodigoFirmaDemo(idCode100)?.codigo ?? "";
-  return firmarEnCode100Mock(idCode100, codigo, { ...opciones, ahora });
+  return await firmarEnCode100Mock(idCode100, codigo, { ...opciones, ahora });
 }
 
 async function pedirEnlace(entorno: Entorno, canal: unknown = "WHATSAPP") {
@@ -342,7 +342,7 @@ describe("P8 · confirmar la firma", () => {
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
 
-    expect(firmarEnCode100(enlace.acto.idCode100).ok).toBe(true);
+    expect((await firmarEnCode100(enlace.acto.idCode100)).ok).toBe(true);
     const resultado = await sondear(entorno);
 
     expect(resultado.ok).toBe(true);
@@ -360,7 +360,7 @@ describe("P8 · confirmar la firma", () => {
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
-    firmarEnCode100(enlace.acto.idCode100);
+    await firmarEnCode100(enlace.acto.idCode100);
 
     const primera = await sondear(entorno);
     const historialTrasPrimera = entorno.repositorio.actual().historial.length;
@@ -393,7 +393,7 @@ describe("P8 · confirmar la firma", () => {
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
-    firmarEnCode100(enlace.acto.idCode100);
+    await firmarEnCode100(enlace.acto.idCode100);
 
     await sondear(entorno);
 
@@ -411,9 +411,9 @@ describe("P8 · confirmar la firma", () => {
     if (!enlace.ok) throw new Error("no se abrió el acto");
 
     const ahora = () => new Date(AHORA);
-    abrirEnlaceDeFirmaMock(enlace.acto.idCode100, { retenerCodigoParaPanelDemo: true, ahora });
+    await abrirEnlaceDeFirmaMock(enlace.acto.idCode100, { retenerCodigoParaPanelDemo: true, ahora });
     const codigo = obtenerCodigoFirmaDemo(enlace.acto.idCode100)?.codigo ?? "";
-    firmarEnCode100Mock(enlace.acto.idCode100, codigo, { ahora });
+    await firmarEnCode100Mock(enlace.acto.idCode100, codigo, { ahora });
     await sondear(entorno);
 
     expect(codigo).not.toBe("");
@@ -437,7 +437,7 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
 
-    const fallido = firmarEnCode100(enlace.acto.idCode100, { fallarAMitadDelSellado: true });
+    const fallido = await firmarEnCode100(enlace.acto.idCode100, { fallarAMitadDelSellado: true });
     expect(fallido.ok).toBe(false);
 
     const resultado = await sondear(entorno);
@@ -471,12 +471,12 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
 
-    firmarEnCode100(enlace.acto.idCode100, { fallarAMitadDelSellado: true });
+    await firmarEnCode100(enlace.acto.idCode100, { fallarAMitadDelSellado: true });
     await sondear(entorno);
     expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
 
     const codigo = obtenerCodigoFirmaDemo(enlace.acto.idCode100)?.codigo ?? "";
-    const reintento = firmarEnCode100Mock(enlace.acto.idCode100, codigo, {
+    const reintento = await firmarEnCode100Mock(enlace.acto.idCode100, codigo, {
       ahora: () => new Date(AHORA),
     });
     expect(reintento.ok).toBe(true);
@@ -624,7 +624,7 @@ describe("P8 · plazo para firmar", () => {
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
-    firmarEnCode100(enlace.acto.idCode100);
+    await firmarEnCode100(enlace.acto.idCode100);
     await sondear(entorno);
 
     entorno.avanzarReloj("2026-08-11T00:00:00.000Z");
@@ -669,7 +669,7 @@ describe("P8 · garantía de pago con tarjeta de crédito", () => {
     const entorno = armar(expedienteConCredito());
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
-    firmarEnCode100(enlace.acto.idCode100);
+    await firmarEnCode100(enlace.acto.idCode100);
 
     const resultado = await sondear(entorno);
 
@@ -689,7 +689,7 @@ describe("P8 · garantía de pago con tarjeta de crédito", () => {
     const entorno = armar(expedienteConCredito());
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
-    firmarEnCode100(enlace.acto.idCode100);
+    await firmarEnCode100(enlace.acto.idCode100);
 
     await sondear(entorno);
 

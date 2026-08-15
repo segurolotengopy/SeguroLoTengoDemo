@@ -104,13 +104,53 @@ function coincideConHash(codigoIngresado: string, hashPersistido: string): boole
   return timingSafeEqual(calculado, persistido);
 }
 
-/** OTP de firma vivo dentro de una sesión de Code100 simulada. */
-interface OtpDeFirma {
-  readonly hash: string;
-  readonly emitidoEn: string;
-  readonly expiraEn: string;
-  intentos: number;
+/**
+ * Delegado opcional para que el OTP de firma viaje por un canal real en vez
+ * de quedarse en el registro del panel: hoy lo implementa WhatsApp-Modular
+ * (`src/adapters/live/otp-provider.ts`, propósito `SIGNATURE_P7A`) cuando
+ * `INTEGRATION_OTP=live`. La simulación de Code100 sigue siendo esta — lo
+ * único que se terceriza es emitir y verificar el código, que en el flujo
+ * real también es un tercero (Code100) quien lo hace.
+ */
+export interface OtpFirmaRemoto {
+  /** Emite y envía el código al destino. Nunca devuelve el código. */
+  solicitar(
+    destinoE164: string,
+  ): Promise<
+    | { readonly ok: true; readonly otpId: string; readonly expiraEn: string }
+    | { readonly ok: false; readonly detalle: string }
+  >;
+  verificar(
+    otpId: string,
+    codigo: string,
+  ): Promise<
+    | { readonly ok: true }
+    | { readonly ok: false; readonly motivo: "CODIGO_INCORRECTO"; readonly intentosRestantes: number }
+    | { readonly ok: false; readonly motivo: "OTP_EXPIRADO" | "INTENTOS_AGOTADOS" | "FALLA_DEL_PROVEEDOR" }
+  >;
 }
+
+/**
+ * OTP de firma vivo dentro de una sesión de Code100 simulada. `LOCAL` es el
+ * camino histórico (HMAC en la sesión, código visible en el panel de demo);
+ * `REMOTO` es el emitido por WhatsApp-Modular — de ese código acá solo existe
+ * el identificador opaco, y el panel no tiene nada que mostrar: el código va
+ * en el WhatsApp de la persona.
+ */
+type OtpDeFirma =
+  | {
+      readonly tipo: "LOCAL";
+      readonly hash: string;
+      readonly emitidoEn: string;
+      readonly expiraEn: string;
+      intentos: number;
+    }
+  | {
+      readonly tipo: "REMOTO";
+      readonly otpId: string;
+      readonly emitidoEn: string;
+      readonly expiraEn: string;
+    };
 
 export interface SesionFirmaMock {
   readonly idCode100: string;
@@ -380,16 +420,22 @@ export function crearSignatureProviderMock(
 
 export type ResultadoAperturaDemo =
   | { readonly ok: true; readonly expiraEn: string }
-  | { readonly ok: false; readonly motivo: "NO_ENCONTRADA" | "YA_CERRADA" | "EXPIRADA" };
+  | { readonly ok: false; readonly motivo: "NO_ENCONTRADA" | "YA_CERRADA" | "EXPIRADA" | "ERROR_ENVIO" };
 
 /**
  * La persona abre el enlace: Code100 emite el OTP de firma y lo pide en su
- * pantalla. El código en claro solo llega al registro del panel de demo.
+ * pantalla. Con `otpRemoto` (WhatsApp-Modular) y canal WHATSAPP, el código
+ * viaja de verdad por WhatsApp y acá solo queda su identificador; si no, se
+ * emite localmente y el código en claro solo llega al registro del panel.
  */
-export function abrirEnlaceDeFirmaMock(
+export async function abrirEnlaceDeFirmaMock(
   idCode100: string,
-  opciones: { readonly ahora?: () => Date; readonly retenerCodigoParaPanelDemo?: boolean } = {},
-): ResultadoAperturaDemo {
+  opciones: {
+    readonly ahora?: () => Date;
+    readonly retenerCodigoParaPanelDemo?: boolean;
+    readonly otpRemoto?: OtpFirmaRemoto | null;
+  } = {},
+): Promise<ResultadoAperturaDemo> {
   const ahora = opciones.ahora ?? (() => new Date());
   const retener = opciones.retenerCodigoParaPanelDemo ?? process.env.DEMO_MODE === "true";
 
@@ -405,11 +451,25 @@ export function abrirEnlaceDeFirmaMock(
     return { ok: false, motivo: "EXPIRADA" };
   }
 
+  // Camino remoto: WhatsApp-Modular emite el código con propósito
+  // SIGNATURE_P7A (independiente del de P1, regla inviolable #1) y lo manda
+  // al mismo destino del enlace. Solo aplica al canal WHATSAPP: para correo
+  // no hay riel remoto y se sigue emitiendo local.
+  if (opciones.otpRemoto && sesion.canal === "WHATSAPP") {
+    const remoto = await opciones.otpRemoto.solicitar(sesion.destino);
+    if (!remoto.ok) return { ok: false, motivo: "ERROR_ENVIO" };
+    sesion.otp = { tipo: "REMOTO", otpId: remoto.otpId, emitidoEn, expiraEn: remoto.expiraEn };
+    sesion.actualizadoEn = emitidoEn;
+    // Nada para el panel: el código no existe en este proceso (viaja por
+    // WhatsApp), que es exactamente el punto de usar el canal real.
+    return { ok: true, expiraEn: remoto.expiraEn };
+  }
+
   const codigo = generarCodigoOtp();
   const expiraEn = new Date(instante.getTime() + VIGENCIA_OTP_MS).toISOString();
 
   // Solo el HMAC queda en la sesión (regla inviolable #2).
-  sesion.otp = { hash: hmacOtp(codigo), emitidoEn, expiraEn, intentos: 0 };
+  sesion.otp = { tipo: "LOCAL", hash: hmacOtp(codigo), emitidoEn, expiraEn, intentos: 0 };
   sesion.actualizadoEn = emitidoEn;
 
   if (retener) {
@@ -444,14 +504,15 @@ export type ResultadoFirmaDemo =
  * y la segunda no. Lo importante es lo que pasa entonces: como nada se escribió
  * todavía, la sesión queda sin firma y con los dos documentos sin firmar.
  */
-export function firmarEnCode100Mock(
+export async function firmarEnCode100Mock(
   idCode100: string,
   codigoIngresado: string,
   opciones: {
     readonly ahora?: () => Date;
     readonly fallarAMitadDelSellado?: boolean;
+    readonly otpRemoto?: OtpFirmaRemoto | null;
   } = {},
-): ResultadoFirmaDemo {
+): Promise<ResultadoFirmaDemo> {
   const ahora = opciones.ahora ?? (() => new Date());
 
   const sesion = sesiones.get(idCode100);
@@ -467,16 +528,38 @@ export function firmarEnCode100Mock(
 
   const otp = sesion.otp;
   if (!otp) return { ok: false, motivo: "ENLACE_NO_ABIERTO" };
-  if (firmadoEn >= otp.expiraEn) return { ok: false, motivo: "OTP_EXPIRADO" };
-  if (otp.intentos >= INTENTOS_MAXIMOS_OTP) return { ok: false, motivo: "INTENTOS_AGOTADOS" };
 
-  if (!coincideConHash(codigoIngresado, otp.hash)) {
-    otp.intentos += 1;
-    sesion.actualizadoEn = firmadoEn;
-    const intentosRestantes = Math.max(0, INTENTOS_MAXIMOS_OTP - otp.intentos);
-    return intentosRestantes === 0
-      ? { ok: false, motivo: "INTENTOS_AGOTADOS" }
-      : { ok: false, motivo: "CODIGO_INCORRECTO", intentosRestantes };
+  if (otp.tipo === "REMOTO") {
+    // El código lo tiene WhatsApp-Modular: vigencia, uso único e intentos los
+    // aplica él (misma política que la regla inviolable #1). Sin delegado no
+    // hay forma legítima de verificar — jamás se aprueba por omisión.
+    if (!opciones.otpRemoto) return { ok: false, motivo: "FALLA_DEL_PROVEEDOR" };
+    const verificacion = await opciones.otpRemoto.verificar(otp.otpId, codigoIngresado);
+    if (!verificacion.ok) {
+      sesion.actualizadoEn = firmadoEn;
+      if (verificacion.motivo === "CODIGO_INCORRECTO") {
+        return verificacion.intentosRestantes === 0
+          ? { ok: false, motivo: "INTENTOS_AGOTADOS" }
+          : {
+              ok: false,
+              motivo: "CODIGO_INCORRECTO",
+              intentosRestantes: verificacion.intentosRestantes,
+            };
+      }
+      return { ok: false, motivo: verificacion.motivo };
+    }
+  } else {
+    if (firmadoEn >= otp.expiraEn) return { ok: false, motivo: "OTP_EXPIRADO" };
+    if (otp.intentos >= INTENTOS_MAXIMOS_OTP) return { ok: false, motivo: "INTENTOS_AGOTADOS" };
+
+    if (!coincideConHash(codigoIngresado, otp.hash)) {
+      otp.intentos += 1;
+      sesion.actualizadoEn = firmadoEn;
+      const intentosRestantes = Math.max(0, INTENTOS_MAXIMOS_OTP - otp.intentos);
+      return intentosRestantes === 0
+        ? { ok: false, motivo: "INTENTOS_AGOTADOS" }
+        : { ok: false, motivo: "CODIGO_INCORRECTO", intentosRestantes };
+    }
   }
 
   // --- Sellado atómico ---------------------------------------------------
