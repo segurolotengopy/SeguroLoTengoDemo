@@ -9,7 +9,7 @@
  * Archivo con guion bajo: App Router solo enruta `route.ts`, así que esto no
  * queda expuesto como endpoint.
  */
-import { obtenerOtpProvider } from "@/adapters/registro";
+import { obtenerLectorOtp, obtenerOtpProvider } from "@/adapters/registro";
 import type { DependenciasP1 } from "@/domain/verificacion-canal-whatsapp";
 import { crearEvidenceStore, crearExpedienteRepository, crearOtpRepository } from "@/repositories";
 
@@ -18,11 +18,12 @@ export function dependenciasP1(): DependenciasP1 {
 
   return {
     otpProvider: obtenerOtpProvider(otpRepository),
-    // El mismo repositorio cumple el rol de lector de metadata del OTP
-    // (`LectorMetadataOtp`): el caso de uso necesita saber a qué expediente y
-    // a qué número pertenece un otpId, cosa que el puerto `OtpProvider` no
-    // expone a propósito.
-    lectorOtp: otpRepository,
+    // Lector de metadata del OTP (`LectorMetadataOtp`): el caso de uso
+    // necesita saber a qué expediente y a qué número pertenece un otpId, cosa
+    // que el puerto `OtpProvider` no expone a propósito. Se pide al
+    // composition root junto con el provider porque en modo live
+    // (WhatsApp-Modular) los otpId de P1 no viven en el repositorio local.
+    lectorOtp: obtenerLectorOtp(otpRepository),
     expedientes: crearExpedienteRepository(),
     evidencias: crearEvidenceStore(),
   };

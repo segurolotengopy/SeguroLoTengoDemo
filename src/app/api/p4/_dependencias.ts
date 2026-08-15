@@ -10,7 +10,7 @@
  * Archivo con guion bajo: App Router solo enruta `route.ts`, así que esto no
  * queda expuesto como endpoint.
  */
-import { obtenerOtpProvider } from "@/adapters/registro";
+import { obtenerLectorOtp, obtenerOtpProvider } from "@/adapters/registro";
 import type { DependenciasP4 } from "@/domain/verificacion-canal-correo";
 import { crearEvidenceStore, crearExpedienteRepository, crearOtpRepository } from "@/repositories";
 
@@ -19,7 +19,9 @@ export function dependenciasP4(): DependenciasP4 {
 
   return {
     otpProvider: obtenerOtpProvider(otpRepository),
-    lectorOtp: otpRepository,
+    // Mismo criterio que P1: provider y lector salen juntos del composition
+    // root para hablar del mismo universo de otpId en modo mock y live.
+    lectorOtp: obtenerLectorOtp(otpRepository),
     expedientes: crearExpedienteRepository(),
     evidencias: crearEvidenceStore(),
   };

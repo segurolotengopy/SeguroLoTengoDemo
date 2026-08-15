@@ -8,6 +8,33 @@
       "port": 3000
     },
     {
+      "name": "whatsapp-modular-otp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "/home/andres-alberdi/WhatsApp-Modular"],
+      "port": 8080
+    },
+    {
+      "name": "segurolotengo-dev-live-otp",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "INTEGRATION_MODE=mock",
+        "INTEGRATION_OTP=live",
+        "WHATSAPP_MODULAR_URL=http://127.0.0.1:8080",
+        "WHATSAPP_MODULAR_TOKEN=dev-bearer-token",
+        "DEMO_MODE=true",
+        "ADMIN_CONSOLE_ENABLED=true",
+        "AWS_PROFILE=aab1-demo-qa",
+        "AWS_REGION=us-east-1",
+        "DYNAMODB_TABLE=slt-demo-expedientes",
+        "S3_BUCKET=slt-demo-evidencias-9e0e93f3",
+        "APP_SECRETS_ARN=arn:aws:secretsmanager:us-east-1:120005938663:secret:slt-demo-app-secrets-wX3mDq",
+        "npm",
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
       "name": "segurolotengo-dev-mock-aws",
       "runtimeExecutable": "env",
       "runtimeArgs": [
