@@ -1,5 +1,17 @@
 # Mensajería real para la demo a gerencia — qué falta y quién lo hace
 
+**Actualización 2026-08-16 (b) — CORREO real FUNCIONANDO.** Identidad
+`segurolotengo.py@gmail.com` verificada en SES (us-east-1) y política en
+línea `SLTDemoQaSesEnvioOtp` (`ses:SendEmail`) adjunta al usuario
+`aab1-demo-qa`. Verificado de punta a punta con el adaptador de producción:
+el código se generó en `OtpRepository` (solo el hash en DynamoDB) y se
+entregó por SES (`referenciaEnvio: SES-…`). Con `INTEGRATION_OTP_EMAIL=live`
++ `OTP_EMAIL_FROM`, P4 manda el OTP a casillas reales. Límite vigente: la
+cuenta está en **sandbox de SES**, así que cada destinatario debe estar
+verificado como identidad; para el piloto, pedir "production access" (caso
+de soporte, ~24 h) y migrar a un dominio propio con DKIM — un remitente
+gmail sin firma propia puede caer en spam.
+
 **Actualización 2026-08-16 — WhatsApp real FUNCIONANDO.** Fase 0 de Meta
 completada (app, número de prueba, token permanente de System User) y el
 `otp-service` desplegado 24/7 en la VM de OCI con TLS:
