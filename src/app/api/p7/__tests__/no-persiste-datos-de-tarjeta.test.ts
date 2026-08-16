@@ -284,9 +284,15 @@ describe("P7 · ningún dato de tarjeta se persiste (runtime)", () => {
     const consulta = await proveedor.consultarEstadoPago(operacion.referenciaBancard);
     expect(consulta?.ultimos4Digitos).toHaveLength(4);
 
-    // …y el expediente no tiene dónde ponerlos.
-    expect(JSON.stringify(expediente)).not.toContain("ultimos4");
-    expect(JSON.stringify(expediente)).not.toContain(consulta?.ultimos4Digitos ?? "0042");
+    // …y el expediente no tiene dónde ponerlos: ni una clave con ese nombre,
+    // ni ninguna hoja cuyo valor SEA esos 4 dígitos. Comparación exacta por
+    // hoja y no substring del JSON, por la misma razón documentada en
+    // `desarmar`: 4 dígitos aparecen por casualidad dentro de cualquier UUID
+    // o hash del expediente lo bastante seguido como para volver el test
+    // inestable (falló así en CI el 2026-08-16).
+    const { claves, hojas } = desarmar(expediente);
+    expect(claves.some((clave) => /ultimos_?4/i.test(clave))).toBe(false);
+    expect(hojas).not.toContain(consulta?.ultimos4Digitos ?? "0042");
   });
 
   it("el RUC de 8 dígitos se persiste sin que el detector lo tome por un PAN", async () => {
