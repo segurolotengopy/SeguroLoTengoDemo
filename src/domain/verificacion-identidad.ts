@@ -373,9 +373,13 @@ export async function registrarCapturaP5(
       pruebaDeVidaAprobada: selfie.pruebaDeVidaAprobada,
       referencia: selfie.imagen.referencia,
       hashSha256: selfie.imagen.hashSha256,
+      // El proveedor explica el rechazo si sabe por qué (una foto suelta
+      // permite decir "no había rostro"); si no, queda el genérico, que es lo
+      // que corresponde a una sesión de prueba de vida por streaming.
       motivoRechazo: selfie.pruebaDeVidaAprobada
         ? null
-        : "La prueba de vida no se completó. Seguí los movimientos que indica la pantalla.",
+        : (selfie.motivoRechazo ??
+          "La prueba de vida no se completó. Seguí los movimientos que indica la pantalla."),
     };
   }
 

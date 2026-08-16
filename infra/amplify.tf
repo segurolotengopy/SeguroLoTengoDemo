@@ -56,6 +56,44 @@ resource "aws_amplify_app" "slt_demo" {
     DYNAMODB_TABLE  = aws_dynamodb_table.expedientes.name
     S3_BUCKET       = aws_s3_bucket.evidencias.bucket
     APP_SECRETS_ARN = aws_secretsmanager_secret.app_secrets.arn
+
+    # Verificación de identidad de P5 con AWS de verdad: Textract para el OCR
+    # de la cédula y Rekognition para calidad de rostro y coincidencia facial.
+    # Los permisos ya están en el rol de servicio (aws_iam_role_policy en
+    # infra/iam.tf, Sids RekognitionVerificacionIdentidad y TextractOcrCedula).
+    INTEGRATION_IDENTITY = "live"
+
+    # Cómo se toma la selfie. `camara-demo` = foto de la cámara del navegador,
+    # SIN prueba de vida, con umbral facial de demostración (90 en vez de 99) y
+    # OCR aproximado cuando la cédula no tiene MRZ.
+    #
+    # ⚠️ Es apto SOLO para demostración, y el adaptador lo hace cumplir: tira
+    # si DEMO_MODE no es "true". Para el piloto hay que sacar esta variable —
+    # sin ella, P5 usa Rekognition Face Liveness, que es prueba de vida real.
+    INTEGRATION_IDENTITY_SELFIE = "camara-demo"
+
+    # Documentos que P5 acepta. Sin esta variable, solo Paraguay, que es lo que
+    # dice docs/ESPECIFICACION_PANTALLAS.md. Sumar Bolivia es una decisión de
+    # demostración sin fila en la matriz de cumplimiento — el producto se vende
+    # en Paraguay.
+    IDENTITY_PAISES_CEDULA = "PY,BO"
+
+    # Los tres OTP por canales reales, para que la demostración no dependa del
+    # panel: P1 y el de firma por WhatsApp-Modular, P4 por Amazon SES.
+    #
+    # El bearer del otp-service NO va acá: es una credencial, y las variables
+    # de la app son visibles con lectura de consola y terminan escritas en
+    # `.env.production` dentro del artefacto de build. Vive en el secret
+    # slt-demo-app-secrets, bajo la clave WHATSAPP_MODULAR_TOKEN, y lo lee
+    # `obtenerWhatsAppModularToken()` en runtime.
+    INTEGRATION_OTP      = "live"
+    WHATSAPP_MODULAR_URL = "https://wamodular.duckdns.org"
+
+    # ⚠️ SES está en sandbox: solo entrega a direcciones verificadas como
+    # identidad. Con este flag prendido y un destinatario sin verificar, P4
+    # falla con MessageRejected en vez de mandar. Ver docs/CONFIGURACION_SES.md.
+    INTEGRATION_OTP_EMAIL = "live"
+    OTP_EMAIL_FROM        = var.otp_email_remitente
   }
 
   lifecycle {

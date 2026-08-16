@@ -40,6 +40,7 @@ import {
 } from "@/domain/textos-p8";
 import { TEXTOS_MEDIOS_DE_PAGO_P7 } from "@/domain/textos-p7";
 import type { CanalFirma, MedioDePago } from "@/domain/tipos";
+import { PanelFirmadorSimulado } from "./PanelFirmadorSimulado";
 
 /**
  * Bloques 1, 2 y 3 de P8 · Revisión y firma final.
@@ -178,9 +179,19 @@ function TarjetaDocumento({
   );
 }
 
-export function FirmaP8() {
+export interface FirmaP8Props {
+  /**
+   * `true` si el firmador simulado está disponible (`DEMO_MODE=true`). Lo
+   * resuelve el servidor y baja como prop: la pantalla no lee variables de
+   * entorno, y con el flag apagado el chunk del modal no se descarga nunca.
+   */
+  readonly firmadorSimuladoDisponible?: boolean;
+}
+
+export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {}) {
   const router = useRouter();
 
+  const [firmadorAbierto, setFirmadorAbierto] = useState(false);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [canal, setCanal] = useState<CanalFirma>(CANAL_FIRMA_POR_DEFECTO);
   const [acto, setActo] = useState<ActoVisible | null>(null);
@@ -592,6 +603,50 @@ export function FirmaP8() {
             ⏳ {ESTADO_ESPERANDO_CODE100_P8}
             <span className="block font-mono text-xs text-etiqueta">ID {acto.idCode100}</span>
           </p>
+        ) : null}
+
+        {/* Atajo de demostración: abre la ventana del firmador acá mismo en
+            vez de obligar a pasar por el panel de demo. Solo con DEMO_MODE. */}
+        {firmadorSimuladoDisponible && acto && !firmado ? (
+          <div className="flex flex-col gap-1 rounded-lg border border-dashed border-naranja-400 bg-naranja-50 px-3 py-2.5 dark:border-naranja-600 dark:bg-naranja-950">
+            <p className="text-[11px] font-bold tracking-wide text-naranja-900 uppercase dark:text-naranja-200">
+              Solo demostración
+            </p>
+            <p className="text-xs text-naranja-900 dark:text-naranja-100">
+              En el servicio real abrís el enlace que te llegó por{" "}
+              {ROTULO_CANAL_P8[acto.canal]} y firmás en el sitio de Code100. Acá podés abrir esa
+              misma ventana sin salir de la demostración.
+            </p>
+            <button
+              type="button"
+              onClick={() => setFirmadorAbierto(true)}
+              className="mt-1 inline-flex h-10 items-center justify-center self-start rounded-lg border-2 border-naranja-500 px-4 text-xs font-bold tracking-wide text-naranja-900 uppercase transition-colors hover:bg-naranja-100 dark:text-naranja-200 dark:hover:bg-naranja-900"
+            >
+              Abrir el firmador de Code100
+            </button>
+          </div>
+        ) : null}
+
+        {firmadorSimuladoDisponible && firmadorAbierto && acto ? (
+          <PanelFirmadorSimulado
+            idCode100={acto.idCode100}
+            destino={`${ROTULO_CANAL_P8[acto.canal]} ${acto.destinoEnmascarado}`}
+            alFirmar={() => {
+              setFirmadorAbierto(false);
+              // No se marca `firmado` acá: quien lo confirma es el sondeo
+              // contra el proveedor, igual que con la ventana real. Se le da
+              // un empujón para no esperar al próximo tick.
+              void sondear().catch(() => undefined);
+            }}
+            alRechazar={() => {
+              setFirmadorAbierto(false);
+              // Mismo criterio: el rechazo lo informa el proveedor. El sondeo
+              // devuelve FIRMA_NO_COMPLETADA y limpia el acto, que es lo que
+              // vuelve a habilitar el botón de pedir enlace.
+              void sondear().catch(() => undefined);
+            }}
+            alCerrar={() => setFirmadorAbierto(false)}
+          />
         ) : null}
 
         {capturaPendiente ? (

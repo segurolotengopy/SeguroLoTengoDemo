@@ -43,8 +43,21 @@ frontend:
         #
         # `ADMIN_CONSOLE_ENABLED` es el flag de /admin-consola: con el flag
         # ausente o distinto de "true", esa ruta responde 404.
+        #
+        # Las tres de identidad gobiernan P5: `INTEGRATION_IDENTITY=live`
+        # enchufa Rekognition + Textract de verdad (el rol de cómputo ya tiene
+        # los permisos), `INTEGRATION_IDENTITY_SELFIE=camara-demo` cambia la
+        # prueba de vida por una verificación de presencia —solo demostración,
+        # el adaptador exige DEMO_MODE— e `IDENTITY_PAISES_CEDULA` dice qué
+        # documentos se aceptan. Ninguna es un secreto.
+        #
+        # Las cuatro de mensajería habilitan los tres OTP por canales reales.
+        # `WHATSAPP_MODULAR_URL` es a dónde apuntar, no una credencial: el
+        # bearer del otp-service vive en Secrets Manager bajo la clave
+        # `WHATSAPP_MODULAR_TOKEN`, justamente porque acá terminaría escrito en
+        # `.env.production` dentro del artefacto de build.
         - |
-          for var in DEMO_MODE ADMIN_CONSOLE_ENABLED DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN; do
+          for var in DEMO_MODE ADMIN_CONSOLE_ENABLED DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN INTEGRATION_IDENTITY INTEGRATION_IDENTITY_SELFIE IDENTITY_PAISES_CEDULA INTEGRATION_OTP WHATSAPP_MODULAR_URL INTEGRATION_OTP_EMAIL OTP_EMAIL_FROM; do
             if [ -n "${!var:-}" ]; then echo "$var=${!var}" >> .env.production; fi
           done
         - npm run build

@@ -96,6 +96,20 @@ export interface ResultadoSelfie {
    * (`src/domain/identidad-parametros.ts`).
    */
   readonly puntuacion: number | null;
+  /**
+   * Qué hacer para que la próxima captura salga bien, en el idioma de la
+   * persona. `null` o ausente si aprobó, o si el proveedor no distingue
+   * motivos y alcanza con el mensaje genérico del dominio.
+   *
+   * Es opcional porque los proveedores de prueba de vida por streaming no lo
+   * necesitan: ahí el detector guía a la persona en tiempo real y el backend
+   * recibe un veredicto ya explicado. Un proveedor que reciba una foto suelta
+   * sí sabe por qué la rechazó —no había rostro, había dos, estaba oscura— y
+   * ese detalle es lo único que evita que la persona repita la misma captura
+   * fallida. Sin este campo, `ResultadoSelfie` era el único resultado del
+   * puerto que no podía explicarse, mientras `ResultadoCapturaCedula` sí.
+   */
+  readonly motivoRechazo?: string | null;
 }
 
 export interface ResultadoComparacionFacial {

@@ -18,10 +18,14 @@ import {
   MENSAJE_CALIDAD_ROSTRO,
   RECORTE_ROSTRO_OBLIGATORIO,
   UMBRAL_COINCIDENCIA_FACIAL,
+  UMBRAL_COINCIDENCIA_FACIAL_DEMO,
   UMBRAL_PRUEBA_DE_VIDA,
   VERSION_POLITICA_IDENTIDAD,
+  VERSION_POLITICA_IDENTIDAD_DEMO,
   decidir,
   decidirCoincidenciaFacial,
+  decidirCoincidenciaFacialDemo,
+  decidirPresenciaDemo,
   decidirPruebaDeVida,
   detalleEvidencia,
   evaluarCalidadRostro,
@@ -279,5 +283,57 @@ describe("umbrales de calidad, contra la tabla de AWS §3.3.1", () => {
     // AWS no acota este eje; lo controlamos igual porque el retrato de
     // referencia de la cédula sí exige pose frontal en los tres ejes.
     expect(CALIDAD_ROSTRO.rollMaximoGrados).toBe(30);
+  });
+});
+
+describe("política de demostración", () => {
+  it("no toca los umbrales de producción", () => {
+    // Es la propiedad que hace aceptable tener dos políticas: la de
+    // demostración se agrega al lado, nunca encima. Si alguien "aprovechara"
+    // para bajar el 99, este test se pone en rojo.
+    expect(UMBRAL_COINCIDENCIA_FACIAL).toBe(99);
+    expect(UMBRAL_PRUEBA_DE_VIDA).toBe(80);
+  });
+
+  it("el umbral de demostración es más bajo, y lo dice su versión", () => {
+    expect(UMBRAL_COINCIDENCIA_FACIAL_DEMO).toBeLessThan(UMBRAL_COINCIDENCIA_FACIAL);
+    expect(VERSION_POLITICA_IDENTIDAD_DEMO).not.toBe(VERSION_POLITICA_IDENTIDAD);
+    expect(VERSION_POLITICA_IDENTIDAD_DEMO).toContain("DEMO");
+  });
+
+  it("sigue por encima de lo que AWS llama caso regular menos un margen", () => {
+    // 90 está por debajo del 95 de "regular use cases" de AWS §6.1 — es
+    // deliberado y es lo que lo hace inapto para producción — pero no es un
+    // valor cualquiera: un umbral por debajo de 80 aceptaría pares distintos.
+    expect(UMBRAL_COINCIDENCIA_FACIAL_DEMO).toBeGreaterThanOrEqual(90);
+  });
+
+  it("sella cada decisión de demostración con su propia versión", () => {
+    // Sin esto, un expediente aprobado con criterio de demostración diría en
+    // la evidencia que se aprobó con el criterio de producción.
+    const decision = decidirCoincidenciaFacialDemo(94, null);
+
+    expect(decision.aprobada).toBe(true);
+    expect(decision.umbral).toBe(UMBRAL_COINCIDENCIA_FACIAL_DEMO);
+    expect(decision.versionPolitica).toBe(VERSION_POLITICA_IDENTIDAD_DEMO);
+  });
+
+  it("una puntuación ausente nunca aprueba, tampoco en demostración", () => {
+    expect(decidirCoincidenciaFacialDemo(null, null).aprobada).toBe(false);
+  });
+
+  it("la presencia no se disfraza de prueba de vida", () => {
+    // El umbral 0 y la puntuación nula dejan escrito en la evidencia que acá
+    // no se comparó nada contra el 80 de la prueba de vida real.
+    const presencia = decidirPresenciaDemo(true);
+
+    expect(presencia.aprobada).toBe(true);
+    expect(presencia.puntuacion).toBeNull();
+    expect(presencia.umbral).not.toBe(UMBRAL_PRUEBA_DE_VIDA);
+    expect(presencia.versionPolitica).toBe(VERSION_POLITICA_IDENTIDAD_DEMO);
+  });
+
+  it("la presencia rechaza cuando la calidad no aprueba", () => {
+    expect(decidirPresenciaDemo(false).aprobada).toBe(false);
   });
 });

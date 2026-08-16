@@ -31,6 +31,7 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 | `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` | Matriz normativa (Número, Categoría R1–R8, Título, Norma y Artículo). Fuente de verdad regulatoria del proyecto — ver "Regla de trabajo con los documentos" abajo. |
 | `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf` | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable. |
 | `Cumplimiento SeguroLoTengo.pdf` | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario. |
+| `CONFIGURACION_SES.md` | Guía operativa del OTP de correo (P4) sobre Amazon SES: sandbox y sus tres límites, verificación de remitente y destinatarios, salida a producción, deliverability con dominio propio, y el reparto de permisos entre el rol de cómputo y el usuario local. Leela antes de tocar `INTEGRATION_OTP_EMAIL` o `infra/ses-correo-otp.tf`. |
 | `SeguroLoTengo_Asistente_IA_y_Configuracion.pdf` | Especificación del asistente Terra — **fuera de alcance de esta demo por ahora**, ver sección "Asistente IA (Terra)" más abajo. |
 
 ---
@@ -226,6 +227,22 @@ El adaptador de AWS (`src/adapters/live/identity-provider.ts`, `INTEGRATION_IDEN
 
 Los tres estados de ese puerto no se pueden colapsar: `NO_ENCONTRADO` es una respuesta del registro, `NO_DISPONIBLE` es que no contestó. Hoy los dos impiden continuar, pero solo el segundo justificaría derivar a revisión manual — esa salida todavía no existe (§6 del documento).
 
+### Camino de demostración con cámara (`identity-provider-camara.ts`)
+
+Segundo adaptador de AWS, para **demostrar el recorrido a distancia con cédulas reales**. Usa las mismas APIs (Textract + Rekognition) y se elige con `INTEGRATION_IDENTITY=live` más `INTEGRATION_IDENTITY_SELFIE=camara-demo`. **No reemplaza ni modifica al de producción**, que sigue exigiendo Face Liveness.
+
+Tiene tres relajaciones, y las tres están selladas en la evidencia con `VERSION_POLITICA_IDENTIDAD_DEMO`:
+
+1. **Sin prueba de vida** — `decidirPresenciaDemo` verifica que haya un rostro único, nítido y sin oclusión. Es *presencia*, no vida: una foto impresa frente a la cámara pasaría. Se llama distinto a propósito, para que la evidencia no afirme haber verificado algo que nadie verificó.
+2. **Umbral facial 90 (`UMBRAL_COINCIDENCIA_FACIAL_DEMO`), no 99.** El 99 compara contra el retrato digital de la cédula; acá el retrato es una foto de un plástico con reflejos, y a 99 se rechaza al propio titular. **`UMBRAL_COINCIDENCIA_FACIAL` sigue en 99 y sus tests siguen en verde** — bajar *ese* sigue poniendo la suite en rojo a propósito.
+3. **OCR aproximado sin MRZ** (`cedula-aproximada.ts`), con heurísticas de rótulo y "la fecha más antigua es la de nacimiento". Con MRZ presente no se usa: el MRZ trae dígitos verificadores y siempre gana.
+
+**El constructor tira si `DEMO_MODE` no es `"true"`.** Las tres relajaciones juntas permitirían firmar un seguro de vida con la foto de otra persona, así que un despliegue de producción que apuntara acá por error no arranca en vez de aprobar identidades con criterio de demo. Las referencias de evidencia llevan prefijo `DEMO-` para que se distingan de un vistazo en la consola administrativa.
+
+Qué documentos se aceptan lo decide `src/domain/documento-regional.ts` (dominio, no adaptador: es regla de negocio). Reconoce cédula paraguaya y boliviana por marcadores impresos —información pública, sin proveedor de pago— y **no verifica autenticidad documental**: solo descarta que la fotografía sea de algo que no es una cédula. Por defecto acepta **solo Paraguay**; `IDENTITY_PAISES_CEDULA=PY,BO` suma Bolivia, que es una **decisión de demostración sin fila en la matriz de cumplimiento** y contradice a `ESPECIFICACION_PANTALLAS.md` ("No se admite pasaporte ni documento extranjero").
+
+Las tres capturas salen siempre de la cámara (`CapturaConCamara.tsx`), nunca de un archivo — `CAPTURA_SOLO_DESDE_CAMARA`. Requiere HTTPS: `navigator.mediaDevices` no existe en un origen inseguro, así que la demostración a distancia va por el dominio de Amplify.
+
 ## Salida de P5 a asistencia humana
 
 Tras **tres** análisis fallidos (`INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA`), P5 deriva el expediente a `ASISTENCIA_IDENTIDAD` con su propio número de caso (`ASIS-…`) y su propia pantalla, `/asistencia-identidad`. Sin esa salida, quien tiene un documento que el sistema no sabe leer repite capturas indefinidamente: no es un rechazo, es un callejón sin salida.
@@ -251,6 +268,10 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
 Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de firma de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **fallo de captura de Bancard**, rechazo de Code100, **registro civil caído**), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+
+**El acto de firma también se puede completar sin abrir el panel**, desde el modal de P8 (`ModalFirmadorSimulado.tsx` + `/api/p8/firmador-simulado`, extensión `route.demo.ts`). Es la misma simulación de Code100, presentada como lo que es —la ventana del proveedor, no una pantalla de SeguroLoTengo— y existe para no tener que mostrar la consola de trucos en una demostración por pantalla compartida. **Nunca muestra el código**: lo recibe tipeado (regla inviolable #2). A diferencia del endpoint del panel, no acepta `idCode100` del cliente: lo saca del expediente de la sesión, y esa es la propiedad que reemplaza a la clave del panel.
+
+El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. Lleva además la palanca de **cortar el sellado a la mitad** (regla inviolable #3), que va visualmente separada, rotulada `Solo demostración` y con borde punteado: un control que inyecta una falla no puede parecerse a uno que la persona usaría. Se consume en un solo intento, como las del panel.
 
 Tres reglas de las palancas del panel, todas verificadas por tests: **se consumen en un solo intento** (se ve el error una vez y el reintento funciona); **ninguna inventa un camino** — cada fallo produce un estado real que rechaza la validación de siempre, no una rama especial del código; y **ninguna existe fuera de `DEMO_MODE`**, ni siquiera si quedó armada antes de apagar el flag. El plazo de firma, además, solo se puede acortar: alargarlo sería cambiarle a la persona una condición ya informada (fila 30 de la matriz).
 

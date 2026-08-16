@@ -14,7 +14,7 @@ import {
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
-import { decodificarImagen } from "@/app/api/p5/_imagenes";
+import { decodificarImagen, decodificarSelfie } from "@/app/api/p5/_imagenes";
 import { dependenciasP5 } from "@/app/api/p5/_dependencias";
 import { registrarCapturaP5 } from "@/domain/verificacion-identidad";
 import type { TipoCapturaP5 } from "@/domain/verificacion-identidad";
@@ -37,10 +37,19 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "TIPO_INVALIDO" }, { status: 400 });
   }
 
-  const imagen = decodificarImagen(cuerpo.imagen);
-  if (!imagen.ok) {
-    return respuestaJson({ ok: false, motivo: imagen.motivo }, { status: 400 });
+  // La selfie es el único tipo que puede llegar de dos formas: bytes de la
+  // foto, o la referencia de una sesión de prueba de vida en vivo cuyo video
+  // nunca pasó por acá (ver `CapturaSelfie` en el puerto). Frente y dorso son
+  // siempre bytes.
+  const recibida =
+    cuerpo.tipo === "SELFIE" ? decodificarSelfie(cuerpo) : decodificarImagen(cuerpo.imagen);
+  if (!recibida.ok) {
+    return respuestaJson({ ok: false, motivo: recibida.motivo }, { status: 400 });
   }
+
+  // El dominio acepta las dos formas (`MediaCapturada | CapturaSelfie`) y
+  // normaliza adentro; acá solo hay que no aplastarlas a una.
+  const imagen = "captura" in recibida ? recibida.captura : recibida.imagen;
 
   const { contexto, expedienteId } = resolverContextoHttp(request);
   if (!expedienteId) {
@@ -50,7 +59,7 @@ export async function POST(request: Request): Promise<Response> {
   const resultado = await registrarCapturaP5(dependenciasP5(), {
     expedienteId,
     tipo: cuerpo.tipo,
-    imagen: imagen.imagen,
+    imagen,
     contexto,
   });
 
