@@ -1,5 +1,10 @@
 # Mensajería real para la demo a gerencia — qué falta y quién lo hace
 
+**Actualización 2026-08-16 (c) — RECORRIDO COMPLETO verificado.** Se recorrió
+P0→P9 entero con los tres OTP por canales reales y sin panel; terminó en
+`EMITIDO` (propuesta 45020093). Detalle, evidencias y las reglas que
+verificó: `docs/ENSAYO_GENERAL_CANALES_REALES.md`.
+
 **Actualización 2026-08-16 (b) — CORREO real FUNCIONANDO.** Identidad
 `segurolotengo.py@gmail.com` verificada en SES (us-east-1) y política en
 línea `SLTDemoQaSesEnvioOtp` (`ses:SendEmail`) adjunta al usuario
