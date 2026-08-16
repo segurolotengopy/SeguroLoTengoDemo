@@ -44,9 +44,33 @@ function SelectorPais(props: { iso: string; onCambio: (iso: string) => void }) {
   );
 }
 
-export function FormularioVerificacionWhatsapp() {
+export function FormularioVerificacionWhatsapp(props: {
+  /**
+   * Número de pruebas de Meta al que la persona debe escribir ANTES de pedir
+   * el código, o `null` fuera del canal real. Lo resuelve el servidor
+   * (page.tsx) según `INTEGRATION_OTP` y `WHATSAPP_NUMERO_PRUEBA`: es una
+   * condición operativa de la fase de pruebas (modo interino
+   * `template_header` + destinatarios registrados), no parte de la
+   * especificación de P1 — desaparece sola cuando el flag se apaga.
+   */
+  numeroPruebaWhatsApp?: string | null;
+}) {
   const [isoPais, setIsoPais] = useState("PY");
   const pais = paisPorIso(isoPais) ?? PAISES_CELULAR[0];
+
+  const avisoPaso1 = props.numeroPruebaWhatsApp ? (
+    <div className="rounded-lg border border-azul-200 bg-azul-50 p-3 text-sm text-cuerpo dark:border-azul-700 dark:bg-azul-950">
+      <p className="font-semibold text-azul-800 dark:text-azul-200">
+        Fase de pruebas: primero iniciá vos la conversación.
+      </p>
+      <p>
+        Antes de pedir el código, mandá un mensaje por WhatsApp (un «hola» alcanza) al número de
+        pruebas <span className="font-bold whitespace-nowrap">{props.numeroPruebaWhatsApp}</span>.
+        Así el código te llega sin demoras. Solo reciben códigos los celulares registrados como
+        destinatarios de prueba.
+      </p>
+    </div>
+  ) : null;
 
   const mensajes: Readonly<Record<string, string>> = {
     AUTORIZACION_REQUERIDA: "Necesitás autorizar el uso del número para continuar.",
@@ -71,6 +95,7 @@ export function FormularioVerificacionWhatsapp() {
       tipoCampo="tel"
       autoCompleteCampo="tel-national"
       prefijoCampo={<SelectorPais iso={isoPais} onCambio={setIsoPais} />}
+      avisoPaso1={avisoPaso1}
       textoAutorizacion={TEXTO_AUTORIZACION_P1}
       botonEnviar="Enviar código"
       paso2Titulo="Paso 2 — Ingresá el código recibido"
