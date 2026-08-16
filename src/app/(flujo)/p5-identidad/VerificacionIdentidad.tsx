@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CapturaConCamara } from "./CapturaConCamara";
 import { PanelPruebaDeVida } from "./PanelPruebaDeVida";
 import { EnlaceAclaracion } from "@/components/shared";
 // Desde `catalogo-identidad` y no desde el caso de uso: este es un componente
@@ -25,11 +26,15 @@ import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
  * nacimiento extraída del documento (regla inviolable #8); acá no se calcula
  * nada ni existe un campo declarado del que pudiera salir.
  *
- * Las capturas son simuladas, como todo el resto de las integraciones del
- * demo: el botón genera una imagen en un `canvas` y la manda al proveedor
- * mock, que la hashea de verdad. Cuando exista el adaptador oficial, lo único
- * que cambia acá es de dónde salen los bytes (cámara del dispositivo o SDK del
- * proveedor).
+ * Las tres capturas salen de la **cámara del dispositivo** (`CapturaConCamara`),
+ * nunca de un archivo: `CAPTURA_SOLO_DESDE_CAMARA` lo declara como regla del
+ * proceso. Lo que cambia entre modos no es de dónde salen los bytes, sino qué
+ * hace el proveedor con ellos — el mock los hashea y decide por persona de
+ * prueba, el de AWS los analiza de verdad.
+ *
+ * La selfie es el único caso con dos caminos, y lo decide el servidor:
+ * `pruebaDeVidaEnVivoDisponible` manda al detector de streaming (prueba de
+ * vida real); sin él, va por la misma cámara que el documento.
  */
 
 interface DatosIdentidad {
@@ -140,11 +145,20 @@ const TARJETAS: readonly {
   {
     tipo: "SELFIE",
     numero: 3,
-    titulo: "Selfie en vivo",
-    detalle: "Seguí los movimientos para la prueba de vida.",
-    boton: "Iniciar verificación",
+    titulo: "Selfie",
+    // El detalle y el botón dependen del camino: con prueba de vida en vivo
+    // hay movimientos que seguir; con la cámara, solo hay que encuadrarse.
+    detalle: "Tu rostro dentro del óvalo, de frente y con buena luz.",
+    boton: "Tomar selfie",
   },
 ];
+
+/** Textos de la tarjeta de selfie cuando el proveedor tiene prueba de vida en vivo. */
+const TARJETA_SELFIE_EN_VIVO = {
+  titulo: "Selfie en vivo",
+  detalle: "Seguí los movimientos para la prueba de vida.",
+  boton: "Iniciar verificación",
+} as const;
 
 const CAMPOS_BLOQUEADOS: readonly {
   readonly id: keyof DatosIdentidad;
@@ -171,31 +185,6 @@ function valorDelCampo(datos: DatosIdentidad | null, id: keyof DatosIdentidad): 
   return typeof valor === "boolean" ? "" : String(valor);
 }
 
-/**
- * Captura simulada: una imagen real (bytes de PNG) generada en el navegador,
- * distinta en cada intento. El proveedor mock la hashea igual que haría el
- * oficial con una foto de verdad, así el hash que va a la evidencia no es un
- * valor de mentira.
- */
-function generarCapturaSimulada(etiqueta: string): string {
-  const lienzo = document.createElement("canvas");
-  lienzo.width = 480;
-  lienzo.height = 300;
-  const contexto = lienzo.getContext("2d");
-  if (!contexto) return "";
-
-  contexto.fillStyle = "#163654";
-  contexto.fillRect(0, 0, lienzo.width, lienzo.height);
-  contexto.fillStyle = "#ffffff";
-  contexto.font = "bold 26px sans-serif";
-  contexto.fillText(etiqueta, 24, 130);
-  contexto.font = "16px sans-serif";
-  contexto.fillText("Captura simulada · SeguroLoTengo", 24, 170);
-  contexto.fillText(new Date().toISOString(), 24, 200);
-
-  return lienzo.toDataURL("image/png");
-}
-
 async function postear(ruta: string, cuerpo: unknown): Promise<RespuestaAnalisis & RespuestaCaptura> {
   const respuesta = await fetch(ruta, {
     method: "POST",
@@ -219,6 +208,8 @@ export function VerificacionIdentidad({
   pruebaDeVidaEnVivoDisponible = false,
 }: VerificacionIdentidadProps = {}) {
   const [capturas, setCapturas] = useState<Capturas>({});
+  /** Toma de cámara abierta; mientras exista, el visor ocupa la pantalla. */
+  const [camaraAbierta, setCamaraAbierta] = useState<TipoCapturaP5 | null>(null);
   /** Sesión de prueba de vida abierta; mientras exista, el detector toma la pantalla. */
   const [sesionEnVivo, setSesionEnVivo] = useState<{
     readonly referencia: string;
@@ -410,12 +401,16 @@ export function VerificacionIdentidad({
     }
   }
 
-  async function capturar(tipo: TipoCapturaP5, etiqueta: string) {
+  /**
+   * Registra una captura ya tomada con la cámara. La imagen llega en base64
+   * desde `CapturaConCamara`; acá no se genera ninguna.
+   */
+  async function capturar(tipo: TipoCapturaP5, imagen: string) {
+    setCamaraAbierta(null);
     setEnProceso(tipo);
     setError(null);
     setAviso(null);
     try {
-      const imagen = generarCapturaSimulada(etiqueta);
       const respuesta = await postear("/api/p5/captura", { tipo, imagen });
 
       if (!respuesta.ok) {
@@ -505,7 +500,10 @@ export function VerificacionIdentidad({
         </h2>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          {TARJETAS.map(({ tipo, numero, titulo, detalle, boton }) => {
+          {TARJETAS.map((tarjeta) => {
+            const { tipo, numero } = tarjeta;
+            const enVivo = tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible;
+            const { titulo, detalle, boton } = enVivo ? TARJETA_SELFIE_EN_VIVO : tarjeta;
             const captura = capturas[tipo];
             const aprobada = captura?.aprobada === true;
             const rechazada = captura !== undefined && !aprobada;
@@ -548,12 +546,19 @@ export function VerificacionIdentidad({
 
                 <button
                   type="button"
-                  onClick={() =>
-                    tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible
-                      ? iniciarPruebaDeVidaEnVivo()
-                      : capturar(tipo, `${titulo} de cédula`)
-                  }
-                  disabled={enProceso !== null || sesionEnVivo !== null}
+                  onClick={() => {
+                    setError(null);
+                    setAviso(null);
+                    // La selfie tiene dos caminos según el proveedor: sesión de
+                    // prueba de vida en vivo, o foto de la cámara. El frente y
+                    // el dorso siempre son foto.
+                    if (tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible) {
+                      void iniciarPruebaDeVidaEnVivo();
+                      return;
+                    }
+                    setCamaraAbierta(tipo);
+                  }}
+                  disabled={enProceso !== null || sesionEnVivo !== null || camaraAbierta !== null}
                   className="mt-auto inline-flex h-10 items-center justify-center rounded-lg border-2 border-verde-600 px-3 text-xs font-bold tracking-wide text-verde-700 uppercase transition-colors hover:bg-verde-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-verde-400 dark:text-verde-300 dark:hover:bg-verde-950"
                 >
                   {enProceso === tipo ? "Capturando…" : aprobada ? "Repetir" : boton}
@@ -562,6 +567,14 @@ export function VerificacionIdentidad({
             );
           })}
         </div>
+
+        {camaraAbierta ? (
+          <CapturaConCamara
+            tipo={camaraAbierta}
+            alCapturar={(imagen) => capturar(camaraAbierta, imagen)}
+            alCancelar={() => setCamaraAbierta(null)}
+          />
+        ) : null}
 
         {sesionEnVivo ? (
           <PanelPruebaDeVida

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
 import {
   ADVERTENCIA_ACEPTACION_P8,
   LEYENDAS_FINALES_P8,
@@ -57,7 +58,7 @@ export default function PantallaP8Firma() {
           </p>
         </header>
 
-        <FirmaP8 />
+        <FirmaP8 firmadorSimuladoDisponible={esModoDemo()} />
 
         <section
           aria-labelledby="p8-despues"

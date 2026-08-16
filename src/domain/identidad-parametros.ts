@@ -383,3 +383,95 @@ export const CAMPOS_CRUZADOS_CON_MRZ = ["numeroCedula", "fechaNacimiento", "sexo
  * o un endpoint que acepte una imagen de cédula, tiene que respetarlo igual.
  */
 export const CAPTURA_SOLO_DESDE_CAMARA = true;
+
+// ---------------------------------------------------------------------------
+// Política de DEMOSTRACIÓN — no es la de producción
+// ---------------------------------------------------------------------------
+
+/**
+ * Versión de la política del camino de demostración con cámara del navegador.
+ *
+ * Existe separada de `VERSION_POLITICA_IDENTIDAD` justamente para que la
+ * evidencia diga **con qué política se aprobó cada expediente**. Un expediente
+ * decidido acá queda sellado con `IDP-DEMO-…` y nunca se puede confundir con
+ * uno decidido con la política de producción, ni en la consola administrativa
+ * ni en una auditoría. Eso es lo que hace aceptable tener dos.
+ */
+export const VERSION_POLITICA_IDENTIDAD_DEMO = "IDP-DEMO-2026-08-16";
+
+/**
+ * Umbral de coincidencia facial del camino de demostración, escala 0–100.
+ *
+ * **90, no 99, y solo para demostrar.** El 99 de
+ * `UMBRAL_COINCIDENCIA_FACIAL` está calibrado para comparar la selfie contra
+ * el **retrato digital** de la cédula, que es lo que devuelve un lector de
+ * chip o una fuente oficial. Acá el retrato sale de una **fotografía de un
+ * plástico** tomada con la cámara de un celular: reflejos del policarbonato,
+ * la trama de seguridad impresa encima de la cara, el ángulo y el enfoque
+ * bajan la similitud de un par legítimo a un rango típico de 85–97. Con 99, la
+ * persona correcta se rechaza a sí misma, y una demostración que rechaza al
+ * titular no demuestra nada.
+ *
+ * 90 sigue siendo alto: AWS §6.1 da 95 para casos regulares y 99 para casos
+ * sensibles, así que esto está por debajo de "regular" y **no es apto para
+ * producción**. Ese es el punto — está atado a `DEMO_MODE` en el adaptador que
+ * lo usa, y la versión de política de arriba lo deja escrito en cada evidencia.
+ *
+ * No toca `UMBRAL_COINCIDENCIA_FACIAL`: el número de producción sigue en 99 y
+ * sus tests siguen verdes. Bajar *ese* seguiría poniendo la suite en rojo a
+ * propósito, como dice CLAUDE.md.
+ */
+export const UMBRAL_COINCIDENCIA_FACIAL_DEMO = 90;
+
+/**
+ * Decisión de coincidencia facial bajo la política de demostración.
+ *
+ * Sella `versionPolitica` con `VERSION_POLITICA_IDENTIDAD_DEMO`, no con la de
+ * producción: sin eso, la evidencia diría que se aprobó con un criterio que no
+ * es el que se aplicó.
+ */
+export function decidirCoincidenciaFacialDemo(
+  similitud: number | null,
+  versionModeloProveedor: string | null,
+): DecisionBiometrica {
+  return {
+    aprobada: similitud !== null && similitud >= UMBRAL_COINCIDENCIA_FACIAL_DEMO,
+    puntuacion: similitud,
+    umbral: UMBRAL_COINCIDENCIA_FACIAL_DEMO,
+    versionModeloProveedor,
+    versionPolitica: VERSION_POLITICA_IDENTIDAD_DEMO,
+  };
+}
+
+/**
+ * Decisión de **presencia** — el sustituto de la prueba de vida en el camino
+ * de demostración con cámara.
+ *
+ * Hay que ser explícito con lo que esto es: **no es una prueba de vida**. Una
+ * foto sacada con la cámara del navegador no distingue a una persona de una
+ * fotografía impresa sostenida frente al lente. Lo único que verifica es que
+ * en el cuadro haya **un** rostro humano, único, nítido, iluminado y sin
+ * oclusión — o sea, que alguien haya apuntado la cámara a una cara.
+ *
+ * Se llama presencia y no vida a propósito, y por eso tiene su propia función
+ * en vez de reusar `decidirPruebaDeVida`: si esto devolviera una decisión con
+ * el umbral 80 de la prueba de vida real, la evidencia afirmaría haber
+ * verificado algo que nadie verificó. La prueba de vida de verdad es
+ * Rekognition Face Liveness (`INTEGRATION_IDENTITY=live`), y sigue siendo el
+ * único camino apto para el piloto y para producción.
+ *
+ * `calidadAprobada` viene de `evaluarCalidadRostro`, que ya aplica los
+ * umbrales de AWS §3.3.1. No hay puntuación cruda que reportar: la decisión es
+ * la conjunción de los cinco controles de calidad, no un número.
+ */
+export function decidirPresenciaDemo(calidadAprobada: boolean): DecisionBiometrica {
+  return {
+    aprobada: calidadAprobada,
+    puntuacion: null,
+    // Sin puntuación no hay umbral numérico que aplicar; 0 lo deja explícito
+    // en la evidencia en vez de simular que se comparó contra algo.
+    umbral: 0,
+    versionModeloProveedor: null,
+    versionPolitica: VERSION_POLITICA_IDENTIDAD_DEMO,
+  };
+}

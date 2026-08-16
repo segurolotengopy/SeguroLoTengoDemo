@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { obtenerIdentityProvider } from "@/adapters/registro";
+import { obtenerIdentityProvider, paisesDeCedulaAceptados } from "@/adapters/registro";
+import { NOMBRE_PAIS } from "@/domain/documento-regional";
 import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
 import { soportaSesionPruebaDeVida } from "@/ports/identity-provider";
 import { VerificacionIdentidad } from "./VerificacionIdentidad";
@@ -31,6 +32,21 @@ export const metadata: Metadata = {
  * tira si se pide un modo `live` que no existe para otro puerto — un error de
  * configuración no debería dejar P5 en blanco, sino caer al camino simulado.
  */
+/**
+ * Cómo se nombran los documentos admitidos en el encabezado.
+ *
+ * Se deriva de la configuración y no está escrito a mano porque el texto
+ * anterior ("cédula paraguaya vigente… no se admite documento extranjero")
+ * dejaría de ser cierto en cuanto se habilite otro país, y una pantalla que
+ * afirma un requisito que el sistema no aplica es peor que una sin aviso.
+ */
+function textoDocumentosAceptados(): string {
+  const nombres = paisesDeCedulaAceptados().map((pais) => NOMBRE_PAIS[pais]);
+  return nombres.length > 1
+    ? `cédula de identidad de ${nombres.slice(0, -1).join(", ")} o ${nombres.at(-1)}`
+    : `cédula de identidad de ${nombres[0]}`;
+}
+
 function pruebaDeVidaEnVivoDisponible(): boolean {
   try {
     return soportaSesionPruebaDeVida(obtenerIdentityProvider());
@@ -54,10 +70,9 @@ export default function PantallaP5Identidad() {
             Verificá tu identidad
           </h1>
           <p className="text-sm text-cuerpo">
-            Vas a fotografiar tu cédula paraguaya vigente y a hacer una selfie en vivo.{" "}
+            Vas a fotografiar tu {textoDocumentosAceptados()} vigente y a hacer una selfie.{" "}
             <span className="font-semibold">
-              No se admite pasaporte ni documento extranjero. Esta pantalla no contiene
-              declaraciones, pago ni firma.
+              No se admite pasaporte. Esta pantalla no contiene declaraciones, pago ni firma.
             </span>
           </p>
         </header>

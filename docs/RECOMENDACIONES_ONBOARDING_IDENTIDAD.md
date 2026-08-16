@@ -260,6 +260,43 @@ La regla #5 queda intacta: la derivación por elegibilidad sigue siendo exclusiv
 
 **Lo que la pantalla tiene que decir y la Pantalla A no:** que la cédula **no** quedó bloqueada. Sin ese bloque la persona se va creyendo que quedó vetada, y perdimos una venta por un problema de iluminación.
 
+## 12. Camino de demostración con cámara, sin prueba de vida (2026-08-16)
+
+Nace de una necesidad concreta: mostrarle el recorrido a la gerencia, que está en otra ciudad, con **cédulas reales fotografiadas en el momento**. El camino de producción no sirve para eso — Face Liveness necesita el componente de streaming de Amplify y una calibración que no se resuelve en una videollamada — y el mock tampoco, porque aprueba cualquier imagen y no demuestra nada.
+
+Se agregó un **segundo** adaptador de AWS (`src/adapters/live/identity-provider-camara.ts`), no una opción del existente. La distinción importa: el adaptador de producción rechaza el camino de bytes a propósito, porque comparar una foto suelta y llamarla prueba de vida es justo lo que ese control existe para impedir. Meterle un flag lo habría convertido en un adaptador que a veces miente sobre lo que verificó.
+
+### Las tres relajaciones, y cuál es peligrosa
+
+| Relajación | Qué se pierde | Riesgo real |
+| :---- | :---- | :---- |
+| Presencia en lugar de prueba de vida | Detección de ataque de presentación | **Alto.** Una foto impresa frente a la cámara pasa. Es la única de las tres explotable por un atacante. |
+| Umbral facial 90 en vez de 99 | Margen contra falso acepte | Medio. 90 sigue rechazando pares distintos; está por debajo del 95 que AWS llama "caso regular". |
+| OCR aproximado sin MRZ | Verificación con dígitos verificadores | Bajo para el fraude, medio para la corrección: puede leer mal una fecha y equivocar el corte de edad. |
+
+El umbral 90 **no es negociable hacia abajo y no es un ajuste de conversión**: existe porque el retrato contra el que se compara es una fotografía de un plástico con reflejos y trama de seguridad impresa sobre la cara, no el retrato digital para el que AWS calibró el 99. La similitud típica de un par legítimo en esas condiciones cae a 85–97; con 99, la demostración rechazaría al titular correcto delante de la cámara, que es la peor cosa que puede pasar en una demostración.
+
+### Qué lo mantiene contenido
+
+- **`DEMO_MODE=true` o no arranca.** El constructor tira. Las tres relajaciones juntas permitirían firmar un seguro de vida con la foto de otra persona; un flag mal puesto no puede terminar en producción silenciosamente.
+- **Política propia versionada** (`VERSION_POLITICA_IDENTIDAD_DEMO`). Cada decisión queda sellada con ella, así que ningún expediente resuelto acá se puede confundir después con uno resuelto con la política de producción — que es la condición para que tener dos políticas sea aceptable y no un agujero (regla inviolable #10).
+- **Referencias de evidencia con prefijo `DEMO-`**, visibles en la consola administrativa sin tener que leer la versión de política.
+- **`UMBRAL_COINCIDENCIA_FACIAL` sigue en 99**, con sus tests intactos.
+
+### Reconocimiento de documento paraguayo y boliviano
+
+`src/domain/documento-regional.ts`. Vive en el dominio porque **qué documentos acepta el producto es regla de negocio**, no un detalle de Textract.
+
+Lo que hace es modesto y conviene no venderlo de más: busca marcadores impresos —el nombre del país, el tipo de documento, el organismo emisor, el código de país del MRZ— y exige **dos** para dar por reconocido el país. Eso alcanza para que la fotografía de un vaso o de una pared no pase por cédula, que era el objetivo declarado. **No detecta una cédula falsificada ni adulterada**: la brecha de §2 y §3 de este documento sigue abierta y solo la cierra fuente oficial o proveedor documental especializado.
+
+Dos marcadores y no cuatro porque el error caro acá es el falso rechazo: el OCR de una foto de celular con reflejos pierde líneas con facilidad, y una cédula buena rechazada es una venta perdida, mientras que un falso positivo todavía tiene por delante el rostro en el documento, la comparación facial y el corte de edad.
+
+**Aceptar cédula boliviana es decisión de demostración.** No hay fila en la matriz de cumplimiento que la respalde y contradice a `ESPECIFICACION_PANTALLAS.md`, que para P5 dice "No se admite pasaporte ni documento extranjero". Por eso el default del código es solo Paraguay y Bolivia hay que pedirla explícitamente (`IDENTITY_PAISES_CEDULA=PY,BO`).
+
+### Qué falta para el piloto
+
+Sacar `INTEGRATION_IDENTITY_SELFIE` del entorno. Sin esa variable, P5 vuelve sola a Face Liveness y a los umbrales de producción — no hay que revertir código.
+
 ## Resumen ejecutivo
 
 1. Rekognition + Textract + MRZ propio para demo/piloto: costo despreciable, control total, el puerto ya lo soporta. **Implementado.**

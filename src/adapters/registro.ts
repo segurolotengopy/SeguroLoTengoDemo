@@ -23,8 +23,11 @@ import type { SignatureProvider } from "../ports/signature-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
 import { SESv2Client } from "@aws-sdk/client-sesv2";
 import type { LectorMetadataOtp } from "../domain/verificacion-canal";
+import { PAISES_ACEPTADOS_POR_DEFECTO } from "../domain/documento-regional";
+import type { PaisDocumento } from "../domain/documento-regional";
 import { resolverAdaptador } from "./index";
 import { crearIdentityProviderAws } from "./live/identity-provider";
+import { crearIdentityProviderCamaraDemo } from "./live/identity-provider-camara";
 import {
   crearEnviadorSes,
   crearOtpProviderCorreoSes,
@@ -160,12 +163,56 @@ export function obtenerIdentityProvider(): IdentityProvider {
     mock: () => crearIdentityProviderMock(),
     live: () => {
       const region = process.env.AWS_REGION ?? "us-east-1";
-      return crearIdentityProviderAws({
+      const clientes = {
         rekognition: new RekognitionClient({ region }),
         textract: new TextractClient({ region }),
-      });
+      };
+
+      return modoSelfie() === "camara-demo"
+        ? crearIdentityProviderCamaraDemo({ ...clientes, paisesAceptados: paisesDeCedulaAceptados() })
+        : crearIdentityProviderAws(clientes);
     },
   });
+}
+
+/**
+ * Cómo se toma la selfie en `INTEGRATION_IDENTITY=live`.
+ *
+ * - `liveness` (default) — Rekognition Face Liveness: sesión de streaming del
+ *   navegador al proveedor. Es el camino de producción y el único con prueba
+ *   de vida real.
+ * - `camara-demo` — foto de la cámara del navegador, sin prueba de vida, con
+ *   umbral facial de demostración y OCR aproximado. Existe para demostrar el
+ *   recorrido con cédulas reales a distancia; el propio adaptador exige
+ *   `DEMO_MODE=true` y tira si no lo está.
+ *
+ * Es una variable aparte y no un tercer valor de `INTEGRATION_IDENTITY` a
+ * propósito: `mock`/`live` responde "¿hay un proveedor externo de verdad del
+ * otro lado?", y en los dos casos de acá la respuesta es sí (Rekognition y
+ * Textract, con costo real). Lo que cambia es el rigor del control, que es
+ * otra pregunta.
+ */
+function modoSelfie(): "liveness" | "camara-demo" {
+  return process.env.INTEGRATION_IDENTITY_SELFIE === "camara-demo" ? "camara-demo" : "liveness";
+}
+
+/**
+ * Países cuya cédula acepta el camino de demostración, vía
+ * `IDENTITY_PAISES_CEDULA` (por ejemplo `PY,BO`).
+ *
+ * Por defecto, solo Paraguay: es lo que dice `docs/ESPECIFICACION_PANTALLAS.md`
+ * para P5 ("No se admite pasaporte ni documento extranjero"). Aceptar cédula
+ * boliviana es una **decisión de demostración**, sin fila que la respalde en la
+ * matriz de cumplimiento, y por eso hay que pedirla explícitamente en el
+ * entorno en vez de heredarla.
+ */
+export function paisesDeCedulaAceptados(): readonly PaisDocumento[] {
+  const declarados = (process.env.IDENTITY_PAISES_CEDULA ?? "")
+    .split(",")
+    .map((valor) => valor.trim().toUpperCase())
+    .filter((valor): valor is PaisDocumento => valor === "PY" || valor === "BO");
+
+  return declarados.length > 0 ? declarados : PAISES_ACEPTADOS_POR_DEFECTO;
 }
 
 /**
