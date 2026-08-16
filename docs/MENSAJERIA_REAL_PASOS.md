@@ -1,6 +1,20 @@
 # Mensajería real para la demo a gerencia — qué falta y quién lo hace
 
-Estado al 2026-08-14. El **código está completo en las dos vías** (rama
+**Actualización 2026-08-16 — WhatsApp real FUNCIONANDO.** Fase 0 de Meta
+completada (app, número de prueba, token permanente de System User) y el
+`otp-service` desplegado 24/7 en la VM de OCI con TLS:
+`WHATSAPP_MODULAR_URL=https://wamodular.duckdns.org` (ya apuntado en
+`segurolotengo-dev-mensajeria-real`; el bearer va en `.env.local`, nunca en
+el repo). El OTP viaja con el modo interino `template_header` (plantilla
+aprobada `requerimiento` — desajuste de categoría aceptado y documentado por
+el dueño en `ESTADO.md` de WhatsApp-Modular: solo número de prueba,
+bloqueado con `NODE_ENV=production`, se elimina al aprobarse la plantilla
+AUTHENTICATION con la Business Verification). Los destinatarios deben estar
+registrados como números de prueba en la app de Meta (máx. 5). La sección
+de Meta de abajo queda como referencia histórica; lo aún pendiente:
+Business Verification (Bloque 6) y la plantilla definitiva.
+
+Estado original al 2026-08-14. El **código está completo en las dos vías** (rama
 `feat/otp-whatsapp-modular`): con los flags activados, el demo envía los OTP a
 destinatarios reales y el flujo se completa **sin el panel de demo**. Lo que
 resta son pasos de credenciales/consola que requieren cuentas del dueño

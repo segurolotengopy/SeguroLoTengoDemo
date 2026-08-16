@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { resolverModoIntegracion } from "@/adapters/index";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
 import { FormularioVerificacionWhatsapp } from "./FormularioVerificacionWhatsapp";
 
@@ -60,7 +61,19 @@ export default function PantallaP1Whatsapp() {
           </p>
         </header>
 
-        <FormularioVerificacionWhatsapp />
+        <FormularioVerificacionWhatsapp
+          // Aviso de la fase de pruebas del canal real (modo interino
+          // template_header de WhatsApp-Modular): la entrega es confiable
+          // cuando el destinatario inició la conversación con el número de
+          // pruebas de Meta. Solo aparece con el canal real activo Y el
+          // número configurado; en mock, o cuando llegue la plantilla
+          // AUTHENTICATION definitiva, se apaga solo quitando la variable.
+          numeroPruebaWhatsApp={
+            resolverModoIntegracion("OTP") === "live"
+              ? (process.env.WHATSAPP_NUMERO_PRUEBA ?? null)
+              : null
+          }
+        />
 
         <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link

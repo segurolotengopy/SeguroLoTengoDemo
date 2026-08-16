@@ -83,6 +83,13 @@ export interface FormularioVerificacionCanalProps {
   autoCompleteCampo: string;
   /** Prefijo fijo a la izquierda del campo (el selector de país de P1). */
   prefijoCampo?: ReactNode;
+  /**
+   * Aviso opcional arriba del campo del paso 1 (P1 lo usa para la
+   * instrucción de iniciar la conversación en la fase de pruebas del canal
+   * real). No es parte de la especificación: quien lo pasa decide cuándo
+   * corresponde mostrarlo.
+   */
+  avisoPaso1?: ReactNode;
   /** Checkbox obligatorio antes de enviar. Si no se pasa, no hay checkbox. */
   textoAutorizacion?: string;
   botonEnviar: string;
@@ -125,6 +132,7 @@ export function FormularioVerificacionCanal({
   tipoCampo,
   autoCompleteCampo,
   prefijoCampo,
+  avisoPaso1,
   textoAutorizacion,
   botonEnviar,
   paso2Titulo,
@@ -289,6 +297,8 @@ export function FormularioVerificacionCanal({
         <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
           {paso1Titulo}
         </h2>
+
+        {avisoPaso1}
 
         <div className="flex flex-wrap items-end gap-3">
           {prefijoCampo}
