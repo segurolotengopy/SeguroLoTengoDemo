@@ -403,3 +403,56 @@ describe("normalización y enmascarado del correo", () => {
     expect(normalizarCorreo("sin@dominio").ok).toBe(false);
   });
 });
+
+describe("diagnóstico de un envío fallido", () => {
+  it("conserva en la evidencia la causa que reportó el proveedor", async () => {
+    // Sin esto, un envío fallido queda registrado como `ERROR_ENVIO` a secas.
+    // El adaptador sí calcula la causa —`SES: AccessDeniedException`, un
+    // código `WM-…`— y se perdía: no se escribe ni se loguea en ningún otro
+    // lado, así que un fallo en el despliegue era imposible de diagnosticar
+    // sin acceso a CloudWatch. Costó una demo a ciegas descubrirlo.
+    const banco = crearBanco();
+    const evidencias = banco.deps.evidencias as ReturnType<typeof crearEvidenciasEnMemoria>;
+
+    const deps: DependenciasVerificacionCanal = {
+      ...banco.deps,
+      otpProvider: {
+        ...banco.deps.otpProvider,
+        async enviarOtp() {
+          return { ok: false as const, motivo: "ERROR_ENVIO" as const, detalle: "SES: AccessDeniedException" };
+        },
+      },
+    };
+
+    const resultado = await enviarOtpWhatsapp(deps, {
+      expedienteId: null,
+      otpIdPrevio: null,
+      numeroIngresado: NUMERO,
+      autorizacionAceptada: true,
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(false);
+
+    const ultima = evidencias.registros.at(-1);
+    expect(ultima?.resultado).toBe("FALLIDO");
+    expect(ultima?.detalle).toContain("AccessDeniedException");
+  });
+
+  it("no arrastra la causa cuando el envío salió bien", async () => {
+    const banco = crearBanco();
+    const evidencias = banco.deps.evidencias as ReturnType<typeof crearEvidenciasEnMemoria>;
+
+    await enviarOtpWhatsapp(banco.deps, {
+      expedienteId: null,
+      otpIdPrevio: null,
+      numeroIngresado: NUMERO,
+      autorizacionAceptada: true,
+      contexto: CONTEXTO,
+    });
+
+    const ultima = evidencias.registros.at(-1);
+    expect(ultima?.resultado).toBe("EXITOSO");
+    expect(ultima?.detalle).not.toContain("causa");
+  });
+});
