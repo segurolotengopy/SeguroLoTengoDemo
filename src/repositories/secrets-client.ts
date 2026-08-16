@@ -22,6 +22,22 @@ export interface SecretosApp {
    * así que compartir clave haría imposible revocar una sin la otra.
    */
   readonly ADMIN_CONSOLE_KEY: string;
+  /**
+   * Bearer del `otp-service` de WhatsApp-Modular (`INTEGRATION_OTP=live`).
+   *
+   * **Opcional**, a diferencia de los otros tres: el despliegue puede correr
+   * el OTP de celular en mock, y en desarrollo local el token viene por
+   * `WHATSAPP_MODULAR_TOKEN` en `.env.local`. Declararlo obligatorio rompería
+   * el arranque de todo entorno que no use WhatsApp real — incluidos los que
+   * ya existen, porque `infra/secrets.tf` tiene `ignore_changes` y no puede
+   * agregarle esta clave al secret de un despliegue vivo.
+   *
+   * Está acá y no en las variables de entorno de Amplify porque es una
+   * credencial: las variables de la app son visibles para cualquiera con
+   * lectura de consola, y terminan escritas en `.env.production` dentro del
+   * artefacto de build.
+   */
+  readonly WHATSAPP_MODULAR_TOKEN?: string;
 }
 
 function esSecretosApp(valor: unknown): valor is SecretosApp {
@@ -30,7 +46,9 @@ function esSecretosApp(valor: unknown): valor is SecretosApp {
   return (
     typeof registro.DEMO_PANEL_KEY === "string" &&
     typeof registro.OTP_PEPPER === "string" &&
-    typeof registro.ADMIN_CONSOLE_KEY === "string"
+    typeof registro.ADMIN_CONSOLE_KEY === "string" &&
+    (registro.WHATSAPP_MODULAR_TOKEN === undefined ||
+      typeof registro.WHATSAPP_MODULAR_TOKEN === "string")
   );
 }
 
@@ -93,4 +111,23 @@ export async function obtenerDemoPanelKey(): Promise<string> {
 /** Clave que protege `/admin-consola`. Nunca la usa el flujo P0–P9. */
 export async function obtenerAdminConsoleKey(): Promise<string> {
   return (await obtenerSecretosApp()).ADMIN_CONSOLE_KEY;
+}
+
+/**
+ * Bearer del otp-service de WhatsApp-Modular.
+ *
+ * Tira con un mensaje accionable si la clave no está en el secret: fallar con
+ * el nombre exacto de lo que falta es mejor que un 401 del proveedor, que
+ * desde el lado del flujo se ve igual que "WhatsApp no anda".
+ */
+export async function obtenerWhatsAppModularToken(): Promise<string> {
+  const token = (await obtenerSecretosApp()).WHATSAPP_MODULAR_TOKEN;
+  if (!token) {
+    throw new Error(
+      "INTEGRATION_OTP=live sin WHATSAPP_MODULAR_TOKEN: agregá esa clave al secret " +
+        "slt-demo-app-secrets (Terraform no puede, tiene ignore_changes sobre secret_string) " +
+        "o definila como variable de entorno en desarrollo local.",
+    );
+  }
+  return token;
 }

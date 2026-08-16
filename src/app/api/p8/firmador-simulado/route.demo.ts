@@ -43,13 +43,17 @@
  */
 import { COOKIE_SESION, leerJson, resolverContextoHttp, respuestaJson } from "@/app/api/_http/contexto-peticion";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
-import { abrirEnlaceDeFirmaMock, firmarEnCode100Mock } from "@/adapters/mock/signature-provider";
+import {
+  abrirEnlaceDeFirmaMock,
+  cerrarSinFirmarMock,
+  firmarEnCode100Mock,
+} from "@/adapters/mock/signature-provider";
 import { obtenerOtpFirmaRemoto } from "@/adapters/registro";
 import { crearExpedienteRepository } from "@/repositories";
 
 export const dynamic = "force-dynamic";
 
-const ACCIONES = ["ABRIR", "FIRMAR"] as const;
+const ACCIONES = ["ABRIR", "FIRMAR", "RECHAZAR"] as const;
 type Accion = (typeof ACCIONES)[number];
 
 function esAccion(valor: unknown): valor is Accion {
@@ -93,12 +97,33 @@ export async function POST(request: Request): Promise<Response> {
       : respuestaJson({ ok: false, motivo: resultado.motivo }, { status: 409, cookies });
   }
 
+  // Rechazar es lo que hace la persona que abre el enlace y decide no firmar.
+  // Cierra la sesión sin firma y el sondeo de P8 lo informa como acto no
+  // completado; desde ahí se puede pedir un enlace nuevo.
+  if (cuerpo.accion === "RECHAZAR") {
+    const cerrada = cerrarSinFirmarMock(
+      acto.idCode100,
+      "RECHAZADA",
+      "La persona rechazó la firma en la ventana del firmador.",
+    );
+    return cerrada
+      ? respuestaJson({ ok: true }, { cookies })
+      : respuestaJson({ ok: false, motivo: "YA_CERRADA" }, { status: 409, cookies });
+  }
+
   const codigo = typeof cuerpo.codigo === "string" ? cuerpo.codigo.trim() : "";
   if (codigo === "") {
     return respuestaJson({ ok: false, motivo: "CODIGO_REQUERIDO" }, { status: 400, cookies });
   }
 
-  const resultado = await firmarEnCode100Mock(acto.idCode100, codigo, { otpRemoto });
+  const resultado = await firmarEnCode100Mock(acto.idCode100, codigo, {
+    otpRemoto,
+    // Palanca de demostración de la regla inviolable #3: corta el sellado con
+    // la primera huella calculada y la segunda no. Lo que hay que mirar es lo
+    // que pasa después — como nada se escribió todavía, la sesión queda **sin
+    // firma y con los dos documentos sin firmar**, no con uno solo.
+    fallarAMitadDelSellado: cuerpo.fallarAMitad === true,
+  });
 
   if (!resultado.ok) {
     return respuestaJson(

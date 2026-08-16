@@ -77,6 +77,23 @@ resource "aws_amplify_app" "slt_demo" {
     # demostración sin fila en la matriz de cumplimiento — el producto se vende
     # en Paraguay.
     IDENTITY_PAISES_CEDULA = "PY,BO"
+
+    # Los tres OTP por canales reales, para que la demostración no dependa del
+    # panel: P1 y el de firma por WhatsApp-Modular, P4 por Amazon SES.
+    #
+    # El bearer del otp-service NO va acá: es una credencial, y las variables
+    # de la app son visibles con lectura de consola y terminan escritas en
+    # `.env.production` dentro del artefacto de build. Vive en el secret
+    # slt-demo-app-secrets, bajo la clave WHATSAPP_MODULAR_TOKEN, y lo lee
+    # `obtenerWhatsAppModularToken()` en runtime.
+    INTEGRATION_OTP      = "live"
+    WHATSAPP_MODULAR_URL = "https://wamodular.duckdns.org"
+
+    # ⚠️ SES está en sandbox: solo entrega a direcciones verificadas como
+    # identidad. Con este flag prendido y un destinatario sin verificar, P4
+    # falla con MessageRejected en vez de mandar. Ver docs/CONFIGURACION_SES.md.
+    INTEGRATION_OTP_EMAIL = "live"
+    OTP_EMAIL_FROM        = var.otp_email_remitente
   }
 
   lifecycle {

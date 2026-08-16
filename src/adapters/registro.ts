@@ -39,6 +39,7 @@ import {
   lectorConMetadataWhatsAppModular,
 } from "./live/otp-provider";
 import { crearClienteWhatsAppModularDesdeEntorno } from "./live/whatsapp-modular";
+import { obtenerWhatsAppModularToken } from "../repositories/secrets-client";
 import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 import type { OtpFirmaRemoto } from "./mock/signature-provider";
@@ -108,7 +109,7 @@ export function obtenerOtpProvider(otpRepository: OtpRepository): OtpProvider {
     // de P4 va por SES si está habilitado; si no, por el mock.
     live: () =>
       crearOtpProviderWhatsAppModular({
-        cliente: crearClienteWhatsAppModularDesdeEntorno(),
+        cliente: crearClienteWhatsAppModularDesdeEntorno(process.env, obtenerWhatsAppModularToken),
         correo: correo(),
       }),
   });
@@ -139,7 +140,7 @@ export function obtenerLectorOtp(otpRepository: OtpRepository): LectorMetadataOt
 export function obtenerOtpFirmaRemoto(): OtpFirmaRemoto | null {
   return resolverAdaptador<OtpFirmaRemoto | null>("OTP", {
     mock: () => null,
-    live: () => crearOtpFirmaRemotoWhatsAppModular(crearClienteWhatsAppModularDesdeEntorno()),
+    live: () => crearOtpFirmaRemotoWhatsAppModular(crearClienteWhatsAppModularDesdeEntorno(process.env, obtenerWhatsAppModularToken)),
   });
 }
 

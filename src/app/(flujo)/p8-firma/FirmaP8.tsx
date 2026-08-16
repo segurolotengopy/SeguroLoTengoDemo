@@ -638,6 +638,13 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
               // un empujón para no esperar al próximo tick.
               void sondear().catch(() => undefined);
             }}
+            alRechazar={() => {
+              setFirmadorAbierto(false);
+              // Mismo criterio: el rechazo lo informa el proveedor. El sondeo
+              // devuelve FIRMA_NO_COMPLETADA y limpia el acto, que es lo que
+              // vuelve a habilitar el botón de pedir enlace.
+              void sondear().catch(() => undefined);
+            }}
             alCerrar={() => setFirmadorAbierto(false)}
           />
         ) : null}

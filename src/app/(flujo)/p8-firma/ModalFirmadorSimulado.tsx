@@ -33,7 +33,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CamposOtp } from "@/components/shared";
 import { LONGITUD_CODIGO_OTP } from "@/domain/reglas-otp";
 
-type Paso = "ABRIENDO" | "CODIGO" | "FIRMANDO" | "FIRMADO";
+type Paso = "ABRIENDO" | "CODIGO" | "FIRMANDO" | "FIRMADO" | "RECHAZADA";
 
 const MENSAJES: Readonly<Record<string, string>> = {
   CODIGO_INCORRECTO: "El código no es correcto.",
@@ -63,6 +63,11 @@ export interface ModalFirmadorSimuladoProps {
   readonly destino: string;
   /** La firma se completó: P8 deja de mostrar el modal y sigue sondeando. */
   readonly alFirmar: () => void;
+  /**
+   * La persona rechazó firmar. P8 tiene que enterarse por el sondeo, igual
+   * que con la ventana real, para poder ofrecer pedir un enlace nuevo.
+   */
+  readonly alRechazar: () => void;
   readonly alCerrar: () => void;
 }
 
@@ -70,11 +75,14 @@ export default function ModalFirmadorSimulado({
   idCode100,
   destino,
   alFirmar,
+  alRechazar,
   alCerrar,
 }: ModalFirmadorSimuladoProps) {
   const [paso, setPaso] = useState<Paso>("ABRIENDO");
   const [codigo, setCodigo] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** Palanca de demostración de la regla atómica; se consume en un solo intento. */
+  const [cortarSellado, setCortarSellado] = useState(false);
 
   const pedir = useCallback(async (cuerpo: Record<string, unknown>): Promise<Respuesta> => {
     const respuesta = await fetch("/api/p8/firmador-simulado", {
@@ -120,7 +128,14 @@ export default function ModalFirmadorSimulado({
     setPaso("FIRMANDO");
     setError(null);
     try {
-      const datos = await pedir({ accion: "FIRMAR", codigo: valor });
+      const datos = await pedir({
+        accion: "FIRMAR",
+        codigo: valor,
+        ...(cortarSellado ? { fallarAMitad: true } : {}),
+      });
+      // Se consume en un solo intento, como las palancas del panel: se ve el
+      // corte una vez y el reintento firma normal.
+      setCortarSellado(false);
 
       if (!datos.ok) {
         const base = MENSAJES[datos.motivo ?? ""] ?? "No pudimos completar la firma.";
@@ -141,6 +156,21 @@ export default function ModalFirmadorSimulado({
     } catch {
       setError("No pudimos conectarnos con el firmador.");
       setPaso("CODIGO");
+    }
+  }
+
+  async function rechazar() {
+    setError(null);
+    try {
+      const datos = await pedir({ accion: "RECHAZAR" });
+      if (!datos.ok) {
+        setError(MENSAJES[datos.motivo ?? ""] ?? "No pudimos registrar el rechazo.");
+        return;
+      }
+      setPaso("RECHAZADA");
+      alRechazar();
+    } catch {
+      setError("No pudimos conectarnos con el firmador.");
     }
   }
 
@@ -182,6 +212,13 @@ export default function ModalFirmadorSimulado({
           </p>
         ) : null}
 
+        {paso === "RECHAZADA" ? (
+          <p role="status" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
+            Rechazaste la firma. Los documentos quedaron sin firmar y podés pedir un enlace nuevo
+            desde SeguroLoTengo.
+          </p>
+        ) : null}
+
         {(paso === "CODIGO" || paso === "FIRMANDO") && (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
@@ -213,6 +250,40 @@ export default function ModalFirmadorSimulado({
             >
               {paso === "FIRMANDO" ? "Firmando…" : "Firmar los dos documentos"}
             </button>
+
+            {/* Rechazar sí es una acción real del firmador: la persona abre el
+                enlace y decide no firmar. Va acá, con peso visual de acción
+                secundaria. */}
+            <button
+              type="button"
+              onClick={rechazar}
+              disabled={paso === "FIRMANDO"}
+              className="self-center text-sm font-semibold text-rojo-700 underline decoration-rojo-300 underline-offset-2 hover:text-rojo-900 disabled:opacity-50 dark:text-rojo-300 dark:decoration-rojo-600"
+            >
+              No firmar y rechazar
+            </button>
+
+            {/* Esto NO es del firmador: es una palanca de demostración, y por
+                eso va separada, rotulada y con borde punteado. Un botón que
+                inyecta una falla no puede parecerse a uno que la persona
+                usaría. */}
+            <label className="flex items-start gap-2.5 rounded-lg border border-dashed border-borde-sutil bg-superficie-suave px-3 py-2.5 text-xs text-cuerpo">
+              <input
+                type="checkbox"
+                checked={cortarSellado}
+                onChange={(evento) => setCortarSellado(evento.target.checked)}
+                disabled={paso === "FIRMANDO"}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-naranja-500"
+              />
+              <span>
+                <span className="block font-bold tracking-wide text-etiqueta uppercase">
+                  Solo demostración
+                </span>
+                Cortar el sellado a la mitad. Sirve para mostrar la regla atómica: la firma falla y
+                los <strong>dos</strong> documentos quedan sin firmar, nunca uno solo. Se consume en
+                un intento.
+              </span>
+            </label>
           </div>
         )}
 

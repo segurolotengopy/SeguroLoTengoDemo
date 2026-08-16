@@ -18,11 +18,13 @@ const ACTO = {
 
 const abrir = vi.fn();
 const firmar = vi.fn();
+const cerrarSinFirmar = vi.fn();
 const obtenerPorId = vi.fn();
 
 vi.mock("@/adapters/mock/signature-provider", () => ({
   abrirEnlaceDeFirmaMock: (...args: unknown[]) => abrir(...args),
   firmarEnCode100Mock: (...args: unknown[]) => firmar(...args),
+  cerrarSinFirmarMock: (...args: unknown[]) => cerrarSinFirmar(...args),
 }));
 
 vi.mock("@/adapters/registro", () => ({
@@ -58,6 +60,7 @@ beforeEach(() => {
       hashFipfFirmado: "b".repeat(64),
     },
   });
+  cerrarSinFirmar.mockReset().mockReturnValue(true);
   obtenerPorId.mockReset().mockResolvedValue({ actoDeFirma: ACTO });
 });
 
@@ -138,12 +141,60 @@ describe("regla inviolable #2", () => {
 });
 
 describe("acciones admitidas", () => {
-  it("no expone RECHAZAR, que es una palanca del panel de demo", async () => {
-    // Rechazar la firma es una demostración de falla y vive en el panel. Acá
-    // la ventana solo hace lo que haría la persona: abrir y firmar.
+  it("rechaza la firma sobre el acto del expediente de la sesión", async () => {
+    const respuesta = await POST(peticion({ accion: "RECHAZAR", idCode100: "C100-DE-OTRA-PERSONA" }));
+
+    expect(respuesta.status).toBe(200);
+    expect(cerrarSinFirmar).toHaveBeenCalledWith(ACTO.idCode100, "RECHAZADA", expect.any(String));
+    // El rechazo no firma nada: son caminos excluyentes.
+    expect(firmar).not.toHaveBeenCalled();
+  });
+
+  it("informa el conflicto si el acto ya estaba cerrado", async () => {
+    cerrarSinFirmar.mockReturnValue(false);
+
     const respuesta = await POST(peticion({ accion: "RECHAZAR" }));
+    const cuerpo = (await respuesta.json()) as { motivo?: string };
+
+    expect(respuesta.status).toBe(409);
+    expect(cuerpo.motivo).toBe("YA_CERRADA");
+  });
+
+  it("ignora acciones que no existen", async () => {
+    const respuesta = await POST(peticion({ accion: "BORRAR_TODO" }));
 
     expect(respuesta.status).toBe(400);
+    expect(cerrarSinFirmar).not.toHaveBeenCalled();
+    expect(firmar).not.toHaveBeenCalled();
+  });
+
+  it("pasa el corte del sellado solo cuando se pide explícitamente", async () => {
+    await POST(peticion({ accion: "FIRMAR", codigo: "123456" }));
+    expect(firmar).toHaveBeenCalledWith(
+      ACTO.idCode100,
+      "123456",
+      expect.objectContaining({ fallarAMitadDelSellado: false }),
+    );
+
+    firmar.mockClear();
+    await POST(peticion({ accion: "FIRMAR", codigo: "123456", fallarAMitad: true }));
+    expect(firmar).toHaveBeenCalledWith(
+      ACTO.idCode100,
+      "123456",
+      expect.objectContaining({ fallarAMitadDelSellado: true }),
+    );
+  });
+
+  it("solo acepta el corte con el booleano exacto, no con cualquier valor", async () => {
+    // `cuerpo.fallarAMitad === true` y no un chequeo laxo: una cadena
+    // cualquiera colada en el JSON no puede inyectar una falla.
+    await POST(peticion({ accion: "FIRMAR", codigo: "123456", fallarAMitad: "sí" }));
+
+    expect(firmar).toHaveBeenCalledWith(
+      ACTO.idCode100,
+      "123456",
+      expect.objectContaining({ fallarAMitadDelSellado: false }),
+    );
   });
 
   it("devuelve las dos huellas juntas al firmar (regla inviolable #3)", async () => {

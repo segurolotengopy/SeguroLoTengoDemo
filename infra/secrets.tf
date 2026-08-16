@@ -37,6 +37,19 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
     DEMO_PANEL_KEY    = random_password.panel_key.result
     OTP_PEPPER        = random_password.otp_pepper.result
     ADMIN_CONSOLE_KEY = random_password.admin_console_key.result
+    # Bearer del otp-service de WhatsApp-Modular (INTEGRATION_OTP=live). No lo
+    # genera Terraform: lo elige el dueño del otp-service, así que acá va vacío
+    # y el valor real se carga a mano (ver el OJO de abajo — con ignore_changes,
+    # en un despliegue que ya existe esta clave NO aparece sola):
+    #
+    #   aws secretsmanager put-secret-value --secret-id slt-demo-app-secrets \
+    #     --secret-string "$(aws secretsmanager get-secret-value \
+    #        --secret-id slt-demo-app-secrets --query SecretString --output text \
+    #        | jq --arg t "<bearer>" '.WHATSAPP_MODULAR_TOKEN = $t')"
+    #
+    # La app lo trata como opcional (`SecretosApp`): sin él, el OTP de celular
+    # simplemente no puede ir por WhatsApp real, pero nada más se rompe.
+    WHATSAPP_MODULAR_TOKEN = ""
   })
 
   # Evita que Terraform pise una rotación manual del secret hecha desde la

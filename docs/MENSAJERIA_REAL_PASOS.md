@@ -1,5 +1,18 @@
 # Mensajería real para la demo a gerencia — qué falta y quién lo hace
 
+> **Para todo lo de SES, la guía operativa detallada es
+> [`CONFIGURACION_SES.md`](./CONFIGURACION_SES.md)**: sandbox, verificación de
+> destinatarios, salida a producción, deliverability y permisos. Este documento
+> queda como bitácora del estado y del camino de WhatsApp.
+>
+> **Actualización 2026-08-16 (d) — los tres OTP habilitados en el despliegue.**
+> `INTEGRATION_OTP=live` e `INTEGRATION_OTP_EMAIL=live` quedaron en las
+> variables de la app de Amplify. El bearer del otp-service dejó de leerse solo
+> del entorno: desplegado sale del secret `slt-demo-app-secrets`, clave
+> `WHATSAPP_MODULAR_TOKEN` (`obtenerWhatsAppModularToken()`), porque las
+> variables de Amplify son visibles con lectura de consola y terminan escritas
+> en `.env.production` dentro del artefacto de build.
+
 **Actualización 2026-08-16 (c) — RECORRIDO COMPLETO verificado.** Se recorrió
 P0→P9 entero con los tres OTP por canales reales y sin panel; terminó en
 `EMITIDO` (propuesta 45020093). Detalle, evidencias y las reglas que

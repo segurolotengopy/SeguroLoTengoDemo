@@ -31,8 +31,16 @@ export type PropositoWhatsAppModular = "PHONE_VERIFICATION" | "SIGNATURE_P7A";
 export interface ConfiguracionClienteWm {
   /** Origen del servicio, sin barra final. Ej.: `http://127.0.0.1:8080`. */
   readonly baseUrl: string;
-  /** Bearer de la API (Fase 0: token compartido; Fase 1: JWT). */
-  readonly token: string;
+  /**
+   * Bearer de la API (Fase 0: token compartido; Fase 1: JWT).
+   *
+   * Admite una función además de un valor porque desplegado el token vive en
+   * Secrets Manager y no en el entorno: resolverlo dentro de la llamada —que
+   * ya es asíncrona— evita volver asíncrono al composition root entero, que es
+   * síncrono a propósito. El resultado no se cachea acá; de eso se ocupa
+   * `obtenerSecretosApp`, que cachea la promesa del secret completo.
+   */
+  readonly token: string | (() => Promise<string>);
   /** Inyectable para tests: nunca se hace red real en la suite. */
   readonly fetchFn?: typeof fetch;
   readonly timeoutMs?: number;
@@ -115,11 +123,12 @@ export function crearClienteWhatsAppModular(config: ConfiguracionClienteWm): Cli
     encabezadosExtra: Record<string, string> = {},
   ): Promise<{ status: number; cuerpo: unknown } | { status: null; detalle: string }> {
     try {
+      const token = typeof config.token === "string" ? config.token : await config.token();
       const respuesta = await fetchFn(`${base}${ruta}`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${config.token}`,
+          authorization: `Bearer ${token}`,
           ...encabezadosExtra,
         },
         body: JSON.stringify(cuerpo),
@@ -220,9 +229,21 @@ export function crearClienteWhatsAppModular(config: ConfiguracionClienteWm): Cli
 }
 
 /**
- * Configuración desde el entorno. Ambas variables son obligatorias con
- * `INTEGRATION_OTP=live`: fallar acá con nombre de variable es mejor que un
- * fetch a `undefined` en el primer envío.
+ * Configuración desde el entorno.
+ *
+ * `WHATSAPP_MODULAR_URL` es obligatoria siempre: no es un secreto, es a dónde
+ * se apunta, y fallar acá con el nombre de la variable es mejor que un fetch a
+ * `undefined` en el primer envío.
+ *
+ * El **token** tiene dos orígenes, en este orden:
+ *
+ * 1. `WHATSAPP_MODULAR_TOKEN` del entorno — el camino de desarrollo local,
+ *    donde vive en `.env.local` y nunca en el repo.
+ * 2. `tokenDeRespaldo` — el camino desplegado, donde el bearer está en Secrets
+ *    Manager. Se pasa como función y se resuelve dentro de cada llamada.
+ *
+ * El orden importa: con la variable presente gana ella, así una prueba local
+ * contra el dry-run no depende de que Secrets Manager tenga nada.
  *
  * En el dry-run local de WhatsApp-Modular el bearer por defecto del servicio
  * es `dev-bearer-token` (sus DEV_DEFAULTS) — el valor igual se pasa explícito
@@ -230,13 +251,15 @@ export function crearClienteWhatsAppModular(config: ConfiguracionClienteWm): Cli
  */
 export function crearClienteWhatsAppModularDesdeEntorno(
   entorno: Readonly<Record<string, string | undefined>> = process.env,
+  tokenDeRespaldo?: () => Promise<string>,
 ): ClienteWhatsAppModular {
   const baseUrl = entorno.WHATSAPP_MODULAR_URL;
-  const token = entorno.WHATSAPP_MODULAR_TOKEN;
+  const token = entorno.WHATSAPP_MODULAR_TOKEN ?? tokenDeRespaldo;
+
   if (!baseUrl || !token) {
     const faltantes = [
       ...(baseUrl ? [] : ["WHATSAPP_MODULAR_URL"]),
-      ...(token ? [] : ["WHATSAPP_MODULAR_TOKEN"]),
+      ...(token ? [] : ["WHATSAPP_MODULAR_TOKEN (entorno o Secrets Manager)"]),
     ].join(", ");
     throw new Error(
       `INTEGRATION_OTP=live requiere configurar ${faltantes} (otp-service de WhatsApp-Modular).`,
