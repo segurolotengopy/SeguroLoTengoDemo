@@ -59,12 +59,31 @@ variable "otp_email_remitente" {
 # después importarla. Está anotado como pendiente, no como bloqueante.
 # ---------------------------------------------------------------------------
 locals {
-  otp_email_identity_arn = "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/${var.otp_email_remitente}"
+  # ---------------------------------------------------------------------------
+  # `identity/*` y NO el ARN de la identidad exacta. No es pereza: acotarlo a
+  # `identity/segurolotengo.py@gmail.com` **no funciona** — probado contra la
+  # cuenta real, con la evidencia del expediente diciendo
+  # `causa=SES: AccessDeniedException` mientras el mismo envío, con el mismo
+  # remitente y el mismo destinatario, salía bien desde el usuario
+  # `aab1-demo-qa`, cuya política de referencia
+  # (`iam-policy-qa-reference.json`, Sid SesEnvioOtpCorreo) usa el comodín.
+  #
+  # La lección, que costó una demostración a ciegas: una política más estricta
+  # que la que se sabe que anda no es "más segura", es **rota**. Y una rota
+  # falla en runtime, en el peor momento, con un mensaje que no dice cuál de
+  # las dos cosas pasó.
+  #
+  # Sigue acotado a la región y a la cuenta. Lo que se pierde es la garantía de
+  # "solo desde esta casilla"; recuperarla es posible con una condición
+  # `ses:FromAddress` sobre este mismo statement, pero eso hay que **probarlo
+  # contra la cuenta** antes de dejarlo, no razonarlo — que es exactamente el
+  # error que se cometió acá.
+  # ---------------------------------------------------------------------------
+  otp_email_identity_arn = "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*"
 }
 
 # El rol de Amplify es a la vez build y cómputo SSR (ver amplify.tf): este
-# permiso es el que usa el Route Handler de P4 desplegado. Acotado a la
-# identidad del remitente: enviar "desde" cualquier otra identidad falla.
+# permiso es el que usa el Route Handler de P4 desplegado.
 resource "aws_iam_role_policy" "amplify_ses_envio_otp" {
   name = "aab1-demo-ses-envio-otp"
   role = aws_iam_role.amplify_service_role.id

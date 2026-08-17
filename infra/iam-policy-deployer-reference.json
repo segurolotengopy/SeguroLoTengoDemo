@@ -178,6 +178,48 @@
         "budgets:ListTagsForResource"
       ],
       "Resource": "arn:aws:budgets::120005938663:budget/slt-demo-*"
+    },
+    {
+      "Sid": "CloudWatchLogsLecturaAmplifyDemo",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents",
+        "logs:FilterLogEvents",
+        "logs:StartQuery",
+        "logs:StopQuery",
+        "logs:GetQueryResults"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:120005938663:log-group:/aws/amplify/*",
+        "arn:aws:logs:us-east-1:120005938663:log-group:/aws/amplify/*:log-stream:*"
+      ]
+    },
+    {
+      "Sid": "SesIdentidadesSltDemo",
+      "Effect": "Allow",
+      "Action": [
+        "ses:GetAccount",
+        "ses:ListEmailIdentities",
+        "ses:GetEmailIdentity",
+        "ses:CreateEmailIdentity",
+        "ses:DeleteEmailIdentity",
+        "ses:TagResource",
+        "ses:UntagResource",
+        "ses:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamSimularPoliticasAab1Demo",
+      "Effect": "Allow",
+      "Action": [
+        "iam:SimulatePrincipalPolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::120005938663:role/aab1-demo-*",
+        "arn:aws:iam::120005938663:user/aab1-demo-*"
+      ]
     }
   ]
 }

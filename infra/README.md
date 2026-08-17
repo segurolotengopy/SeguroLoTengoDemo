@@ -141,6 +141,23 @@ Esa salida —ningún servicio fuera de `optOut`— **es la evidencia de cumplim
 ## Otros pasos manuales que Terraform no puede hacer
 - **Aplicar el JSON de `iam-policy-deployer-reference.json` sobre `SLTDemoDeployerPolicy` en AWS.** El archivo es la referencia versionada, no la fuente. **Hecho el 13/08/2026** (versión `v5`, con el bloque `BudgetsSltDemo`): hay que repetirlo cada vez que el archivo cambie, y el deployer **no puede hacerlo solo** —sus permisos de IAM llegan hasta `role/aab1-demo-*`— así que requiere credenciales de administración. **Cuidado: la política ya está en 5 versiones, que es el máximo de IAM.** El próximo cambio falla con `LimitExceeded` hasta que se borre una vieja (`aws iam delete-policy-version --version-id v1`).
 
+  **Pendiente al 16/08/2026 — tres bloques nuevos sin aplicar**, agregados tras una demostración que se diagnosticó a ciegas:
+
+  | Sid | Para qué | Qué costó no tenerlo |
+  | :---- | :---- | :---- |
+  | `CloudWatchLogsLecturaAmplifyDemo` | leer logs del cómputo SSR | el bloque existente solo tiene acciones de **gestión** (crear, borrar, retención, tags), ninguna de lectura: un fallo en runtime no se podía diagnosticar con ningún perfil de mínimo privilegio |
+  | `SesIdentidadesSltDemo` | ver y gestionar identidades de SES | no se podía verificar si un destinatario estaba verificado, ni importar la identidad del remitente al state |
+  | `IamSimularPoliticasAab1Demo` | `iam:SimulatePrincipalPolicy` | un `AccessDenied` del rol de cómputo se resolvió por comparación manual de políticas; con esto era un comando |
+
+  Los tres son de **lectura y diagnóstico**, salvo la gestión de identidades de SES. Aplicarlos requiere administración y **borrar antes una versión vieja** de la política:
+
+  ```bash
+  aws iam delete-policy-version --policy-arn arn:aws:iam::120005938663:policy/SLTDemoDeployerPolicy --version-id v1
+  aws iam create-policy-version --policy-arn arn:aws:iam::120005938663:policy/SLTDemoDeployerPolicy --policy-document file://infra/iam-policy-deployer-reference.json --set-as-default
+  ```
+
+  Con `SesIdentidadesSltDemo` aplicado se puede además cerrar el pendiente de `ses-correo-otp.tf`: volver a declarar `aws_sesv2_email_identity` e importar la identidad creada a mano, en vez de construir el ARN.
+
 ### `TF_VAR_presupuesto_correo_alerta` es obligatoria
 
 `terraform apply` **corta** si no está. Es a propósito y vale entenderlo antes de "arreglarlo": la variable tenía `default = ""` y las notificaciones salían de un `dynamic` condicional, así que un apply sin la variable **borraba las alertas en silencio** y dejaba dos presupuestos que no avisan a nadie. Ahora falta la variable y Terraform se detiene, que es el modo de falla correcto.
