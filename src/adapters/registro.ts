@@ -23,9 +23,11 @@ import type { SignatureProvider } from "../ports/signature-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
 import { SESv2Client } from "@aws-sdk/client-sesv2";
 import type { LectorMetadataOtp } from "../domain/verificacion-canal";
+import type { IntegracionEvidencia } from "../domain/evidencia";
 import { PAISES_ACEPTADOS_POR_DEFECTO } from "../domain/documento-regional";
 import type { PaisDocumento } from "../domain/documento-regional";
-import { resolverAdaptador } from "./index";
+import { resolverAdaptador, resolverModoIntegracion } from "./index";
+import type { NombrePuerto } from "./index";
 import { crearIdentityProviderAws } from "./live/identity-provider";
 import { crearIdentityProviderCamaraDemo } from "./live/identity-provider-camara";
 import {
@@ -275,6 +277,44 @@ export function obtenerSignatureProvider(): SignatureProvider {
       );
     },
   });
+}
+
+/**
+ * Cómo se describe cada integración en el visor de evidencia (panel de demo y
+ * consola administrativa).
+ *
+ * Vive acá porque el composition root es **el único** que sabe qué adaptador
+ * quedó activo. Antes el visor rotulaba todo como
+ * `<proveedor previsto> (mock en demo)`, un literal fijo: con los canales
+ * reales habilitados eso pasó a ser falso, y una consola de cumplimiento que
+ * afirma "mock" sobre una llamada que salió de verdad es peor que una sin
+ * rótulo — el auditor la lee al revés.
+ *
+ * Se resuelve en el servidor y baja como prop: el visor es un componente de
+ * cliente y no puede —ni debe— leer variables de entorno.
+ */
+export function describirIntegraciones(): Record<IntegracionEvidencia, string> {
+  const describir = (puerto: NombrePuerto, previsto: string, enVivo: () => string): string =>
+    resolverModoIntegracion(puerto) === "live" ? enVivo() : `${previsto} · simulado`;
+
+  return {
+    OtpProvider: describir("OTP", "Infobip", () =>
+      modoOtpEmail() === "live"
+        ? "WhatsApp-Modular + Amazon SES · real"
+        : "WhatsApp-Modular · real, correo simulado",
+    ),
+    IdentityProvider: describir("IDENTITY", "Entrust/Onfido", () =>
+      // La distinción importa: el camino con cámara no hace prueba de vida y
+      // usa el umbral facial de demostración. Rotularlo igual que el de
+      // producción escondería justo lo que un auditor necesita ver.
+      modoSelfie() === "camara-demo"
+        ? "AWS Rekognition + Textract · real, política de demostración"
+        : "AWS Rekognition + Textract · real",
+    ),
+    PaymentProvider: describir("PAYMENT", "Bancard", () => "Bancard · real"),
+    SignatureProvider: describir("SIGNATURE", "Code100", () => "Code100 · real"),
+    PolicyIssuer: describir("POLICY", "SEBAOT (Alianza)", () => "SEBAOT (Alianza) · real"),
+  };
 }
 
 export function obtenerPolicyIssuer(): PolicyIssuer {

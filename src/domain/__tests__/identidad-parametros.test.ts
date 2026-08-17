@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import {
   ANTIABUSO_PRUEBA_DE_VIDA,
   CALIDAD_ROSTRO,
+  CAPTURA_SOLO_DESDE_CAMARA,
   CONFIANZA_MINIMA_OCR,
   MENSAJE_CALIDAD_ROSTRO,
   RECORTE_ROSTRO_OBLIGATORIO,
@@ -27,6 +28,7 @@ import {
   decidirCoincidenciaFacialDemo,
   decidirPresenciaDemo,
   decidirPruebaDeVida,
+  origenCapturaAdmitido,
   detalleEvidencia,
   evaluarCalidadRostro,
 } from "../identidad-parametros";
@@ -335,5 +337,36 @@ describe("política de demostración", () => {
 
   it("la presencia rechaza cuando la calidad no aprueba", () => {
     expect(decidirPresenciaDemo(false).aprobada).toBe(false);
+  });
+});
+
+describe("origen de la captura", () => {
+  it("la cámara siempre vale, en cualquier modo", () => {
+    for (const tipo of ["FRENTE", "DORSO", "SELFIE"] as const) {
+      expect(origenCapturaAdmitido(tipo, "CAMARA", false)).toBe(true);
+      expect(origenCapturaAdmitido(tipo, "CAMARA", true)).toBe(true);
+    }
+  });
+
+  it("fuera del modo demostración no se admite ningún archivo", () => {
+    // `CAPTURA_SOLO_DESDE_CAMARA` es la regla del proceso: un archivo puede
+    // ser la foto de una foto, un PDF de una cédula ajena o una imagen
+    // generada.
+    expect(CAPTURA_SOLO_DESDE_CAMARA).toBe(true);
+    for (const tipo of ["FRENTE", "DORSO", "SELFIE"] as const) {
+      expect(origenCapturaAdmitido(tipo, "ARCHIVO", false)).toBe(false);
+    }
+  });
+
+  it("en demostración se admite archivo solo para el documento", () => {
+    expect(origenCapturaAdmitido("FRENTE", "ARCHIVO", true)).toBe(true);
+    expect(origenCapturaAdmitido("DORSO", "ARCHIVO", true)).toBe(true);
+  });
+
+  it("la selfie no acepta archivo ni siquiera en demostración", () => {
+    // Es el ancla biométrica del expediente: un archivo acá permitiría
+    // verificar la identidad con la fotografía de otra persona, que es
+    // exactamente el fraude que P5 existe para impedir.
+    expect(origenCapturaAdmitido("SELFIE", "ARCHIVO", true)).toBe(false);
   });
 });

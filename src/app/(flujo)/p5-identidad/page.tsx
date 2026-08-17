@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { obtenerIdentityProvider, paisesDeCedulaAceptados } from "@/adapters/registro";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
 import { NOMBRE_PAIS } from "@/domain/documento-regional";
 import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
 import { soportaSesionPruebaDeVida } from "@/ports/identity-provider";
@@ -77,7 +78,10 @@ export default function PantallaP5Identidad() {
           </p>
         </header>
 
-        <VerificacionIdentidad pruebaDeVidaEnVivoDisponible={enVivo} />
+        <VerificacionIdentidad
+          pruebaDeVidaEnVivoDisponible={enVivo}
+          subidaDeArchivoDisponible={esModoDemo()}
+        />
 
         <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link

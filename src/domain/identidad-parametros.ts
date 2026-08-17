@@ -384,6 +384,48 @@ export const CAMPOS_CRUZADOS_CON_MRZ = ["numeroCedula", "fechaNacimiento", "sexo
  */
 export const CAPTURA_SOLO_DESDE_CAMARA = true;
 
+/**
+ * De dónde salieron los bytes de una captura.
+ *
+ * Existe como dato de primera clase —y no como un booleano suelto en la
+ * pantalla— porque **va a la evidencia**. Un expediente cuyo documento se
+ * subió como archivo no es equivalente a uno fotografiado en vivo, y quien lo
+ * audite después tiene que poder distinguirlos sin preguntarle a nadie.
+ */
+export type OrigenCaptura = "CAMARA" | "ARCHIVO";
+
+/**
+ * Si un origen es admisible para un tipo de captura.
+ *
+ * La regla de producción es `CAPTURA_SOLO_DESDE_CAMARA`: subir un archivo
+ * permite mandar la foto de una foto, un PDF de una cédula ajena o una imagen
+ * generada, y mientras no haya proveedor documental especializado exigir la
+ * cámara es el control de autenticidad más efectivo que tenemos.
+ *
+ * `modoDemo` abre **una sola** excepción, y acotada:
+ *
+ * - Solo `FRENTE` y `DORSO`. **La selfie nunca**, en ningún modo. Es el ancla
+ *   biométrica de todo el expediente: aceptar un archivo ahí permitiría
+ *   verificar la identidad con la fotografía de otra persona, que es
+ *   exactamente el fraude que P5 existe para impedir. Una cédula subida se
+ *   sigue comparando contra un rostro capturado en vivo.
+ * - Solo con `DEMO_MODE=true`, resuelto por quien llama (el dominio no lee
+ *   variables de entorno).
+ *
+ * Por qué existe la excepción: en una demostración a distancia no siempre se
+ * tiene la cédula en la mano, y sin esto el recorrido se corta en P5. Es
+ * comodidad de demostración, no una capacidad del producto — no hay fila en la
+ * matriz de cumplimiento que la respalde, y la evidencia la deja marcada.
+ */
+export function origenCapturaAdmitido(
+  tipo: "FRENTE" | "DORSO" | "SELFIE",
+  origen: OrigenCaptura,
+  modoDemo: boolean,
+): boolean {
+  if (origen === "CAMARA") return true;
+  return modoDemo && tipo !== "SELFIE";
+}
+
 // ---------------------------------------------------------------------------
 // Política de DEMOSTRACIÓN — no es la de producción
 // ---------------------------------------------------------------------------

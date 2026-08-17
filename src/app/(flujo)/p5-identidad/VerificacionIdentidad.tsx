@@ -26,11 +26,19 @@ import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
  * nacimiento extraída del documento (regla inviolable #8); acá no se calcula
  * nada ni existe un campo declarado del que pudiera salir.
  *
- * Las tres capturas salen de la **cámara del dispositivo** (`CapturaConCamara`),
- * nunca de un archivo: `CAPTURA_SOLO_DESDE_CAMARA` lo declara como regla del
- * proceso. Lo que cambia entre modos no es de dónde salen los bytes, sino qué
- * hace el proveedor con ellos — el mock los hashea y decide por persona de
- * prueba, el de AWS los analiza de verdad.
+ * Las tres capturas salen de la **cámara del dispositivo** (`CapturaConCamara`):
+ * `CAPTURA_SOLO_DESDE_CAMARA` lo declara como regla del proceso. Lo que cambia
+ * entre modos no es de dónde salen los bytes, sino qué hace el proveedor con
+ * ellos — el mock los hashea y decide por persona de prueba, el de AWS los
+ * analiza de verdad.
+ *
+ * **Única excepción, y solo con `DEMO_MODE=true`:** el frente y el dorso se
+ * pueden subir como archivo (`subidaDeArchivoDisponible`), porque en una
+ * demostración a distancia no siempre se tiene la cédula en la mano. La selfie
+ * **nunca** — es el ancla biométrica, y un archivo ahí permitiría verificar la
+ * identidad con la cara de otra persona. Esta prop solo decide si el botón se
+ * dibuja; quien lo impide de verdad es el servidor (`origenCapturaAdmitido`),
+ * porque esconder un botón no impide armar la petición a mano.
  *
  * La selfie es el único caso con dos caminos, y lo decide el servidor:
  * `pruebaDeVidaEnVivoDisponible` manda al detector de streaming (prueba de
@@ -202,10 +210,21 @@ export interface VerificacionIdentidadProps {
    * componente de Amplify no se carga siquiera.
    */
   readonly pruebaDeVidaEnVivoDisponible?: boolean;
+  /**
+   * `true` con `DEMO_MODE=true`: habilita subir el frente y el dorso como
+   * archivo en vez de fotografiarlos.
+   *
+   * Es **comodidad de demostración**, no una capacidad del producto: la regla
+   * del proceso es `CAPTURA_SOLO_DESDE_CAMARA`, porque un archivo puede ser la
+   * foto de una foto o una cédula ajena. Esta prop solo decide si el botón se
+   * dibuja; quien lo impide de verdad es el servidor.
+   */
+  readonly subidaDeArchivoDisponible?: boolean;
 }
 
 export function VerificacionIdentidad({
   pruebaDeVidaEnVivoDisponible = false,
+  subidaDeArchivoDisponible = false,
 }: VerificacionIdentidadProps = {}) {
   const [capturas, setCapturas] = useState<Capturas>({});
   /** Toma de cámara abierta; mientras exista, el visor ocupa la pantalla. */
@@ -405,13 +424,37 @@ export function VerificacionIdentidad({
    * Registra una captura ya tomada con la cámara. La imagen llega en base64
    * desde `CapturaConCamara`; acá no se genera ninguna.
    */
-  async function capturar(tipo: TipoCapturaP5, imagen: string) {
+  /**
+   * Lee un archivo elegido y lo manda como si fuera una captura.
+   *
+   * Solo existe en modo demostración y solo para el documento — la guarda de
+   * verdad está en el servidor (`origenCapturaAdmitido`), esto es la interfaz.
+   */
+  function elegirArchivo(tipo: TipoCapturaP5) {
+    const entrada = document.createElement("input");
+    entrada.type = "file";
+    entrada.accept = "image/jpeg,image/png";
+    entrada.onchange = () => {
+      const archivo = entrada.files?.[0];
+      if (!archivo) return;
+      const lector = new FileReader();
+      lector.onload = () => {
+        const leido = typeof lector.result === "string" ? lector.result : "";
+        if (leido) void capturar(tipo, leido, "ARCHIVO");
+      };
+      lector.onerror = () => setError("No pudimos leer el archivo. Probá con otro.");
+      lector.readAsDataURL(archivo);
+    };
+    entrada.click();
+  }
+
+  async function capturar(tipo: TipoCapturaP5, imagen: string, origen: "CAMARA" | "ARCHIVO" = "CAMARA") {
     setCamaraAbierta(null);
     setEnProceso(tipo);
     setError(null);
     setAviso(null);
     try {
-      const respuesta = await postear("/api/p5/captura", { tipo, imagen });
+      const respuesta = await postear("/api/p5/captura", { tipo, imagen, origen });
 
       if (!respuesta.ok) {
         setError(mensajeDe(respuesta.motivo, "No pudimos registrar la captura."));
@@ -563,6 +606,20 @@ export function VerificacionIdentidad({
                 >
                   {enProceso === tipo ? "Capturando…" : aprobada ? "Repetir" : boton}
                 </button>
+
+                {/* Subir archivo: solo demostración, solo el documento. La
+                    selfie no lo ofrece nunca — es el ancla biométrica, y un
+                    archivo ahí permitiría verificar con la cara de otro. */}
+                {subidaDeArchivoDisponible && tipo !== "SELFIE" ? (
+                  <button
+                    type="button"
+                    onClick={() => elegirArchivo(tipo)}
+                    disabled={enProceso !== null || sesionEnVivo !== null || camaraAbierta !== null}
+                    className="inline-flex items-center justify-center rounded-lg border border-dashed border-borde-sutil px-2 py-1 text-[11px] font-semibold text-etiqueta transition-colors hover:bg-superficie-suave disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Solo demo · subir archivo
+                  </button>
+                ) : null}
               </article>
             );
           })}

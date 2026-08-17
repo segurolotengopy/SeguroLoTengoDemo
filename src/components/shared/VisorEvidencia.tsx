@@ -3,6 +3,7 @@ import {
   integracionDelPaso,
   resumenPorIntegracion,
 } from "@/domain/evidencia";
+import type { IntegracionEvidencia } from "@/domain/evidencia";
 import type { Firma, PaqueteDocumental, RegistroEvidencia } from "@/domain/tipos";
 
 /**
@@ -25,6 +26,18 @@ import type { Firma, PaqueteDocumental, RegistroEvidencia } from "@/domain/tipos
 
 export interface VisorEvidenciaProps {
   readonly expedienteId: string;
+  /**
+   * Cómo se describe cada integración: proveedor y si la llamada salió de
+   * verdad o de un simulador. Lo resuelve el servidor
+   * (`describirIntegraciones()` en el composition root) y baja como prop,
+   * porque este es un componente de cliente y no puede leer el entorno.
+   *
+   * Antes acá había un literal fijo, `<proveedor previsto> (mock en demo)`.
+   * Con los canales reales habilitados pasó a ser falso: una consola de
+   * cumplimiento que rotula "mock" una llamada que salió de verdad se lee al
+   * revés, que es peor que no rotular nada.
+   */
+  readonly descripcionIntegraciones: Record<IntegracionEvidencia, string>;
   readonly evidencias: readonly RegistroEvidencia[];
   readonly paqueteDocumental: PaqueteDocumental | null;
   readonly firma: Firma | null;
@@ -68,6 +81,7 @@ export function VisorEvidencia({
   evidencias,
   paqueteDocumental,
   firma,
+  descripcionIntegraciones,
 }: VisorEvidenciaProps) {
   const resumen = resumenPorIntegracion(evidencias);
 
@@ -98,7 +112,7 @@ export function VisorEvidencia({
                     <BadgeResultado resultado={fila.ultimoResultado} />
                   </div>
                   <p className="text-xs text-etiqueta">
-                    {fila.integracion} · {rotulo.proveedorPrevisto} (mock en demo)
+                    {fila.integracion} · {descripcionIntegraciones[fila.integracion]}
                   </p>
                   <p className="text-xs text-cuerpo tabular-nums">
                     {fila.total} {fila.total === 1 ? "llamada" : "llamadas"} · {fila.exitosos}{" "}
