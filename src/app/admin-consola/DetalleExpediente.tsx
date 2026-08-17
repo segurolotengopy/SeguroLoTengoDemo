@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { VisorEvidencia } from "@/components/shared";
+import type { IntegracionEvidencia } from "@/domain/evidencia";
 import { formatearGuaranies, PLANES } from "@/domain/catalogo";
 import { TEXTOS_DECLARACIONES_P6 } from "@/domain/textos-p6";
 import { DECLARACIONES_P6 } from "@/domain/elegibilidad";
@@ -53,10 +54,13 @@ export function DetalleExpediente({
   detalle,
   justificativos,
   onReiniciado,
+  descripcionIntegraciones,
 }: {
   detalle: DetalleRespuesta;
   justificativos: readonly OpcionJustificativo[];
   onReiniciado: () => void;
+  /** Viene del servidor por la cadena page → Consola → acá; ver VisorEvidencia. */
+  descripcionIntegraciones: Record<IntegracionEvidencia, string>;
 }) {
   const expediente = detalle.expediente;
   const [justificativo, setJustificativo] = useState("");
@@ -346,6 +350,7 @@ export function DetalleExpediente({
       {/* Visor de evidencia — mismo componente que el panel de demo (§4) */}
       <Bloque titulo="Visor de evidencia">
         <VisorEvidencia
+          descripcionIntegraciones={descripcionIntegraciones}
           expedienteId={expediente.id}
           evidencias={detalle.evidencias ?? []}
           paqueteDocumental={expediente.paqueteDocumental}

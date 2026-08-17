@@ -241,7 +241,9 @@ Tiene tres relajaciones, y las tres están selladas en la evidencia con `VERSION
 
 Qué documentos se aceptan lo decide `src/domain/documento-regional.ts` (dominio, no adaptador: es regla de negocio). Reconoce cédula paraguaya y boliviana por marcadores impresos —información pública, sin proveedor de pago— y **no verifica autenticidad documental**: solo descarta que la fotografía sea de algo que no es una cédula. Por defecto acepta **solo Paraguay**; `IDENTITY_PAISES_CEDULA=PY,BO` suma Bolivia, que es una **decisión de demostración sin fila en la matriz de cumplimiento** y contradice a `ESPECIFICACION_PANTALLAS.md` ("No se admite pasaporte ni documento extranjero").
 
-Las tres capturas salen siempre de la cámara (`CapturaConCamara.tsx`), nunca de un archivo — `CAPTURA_SOLO_DESDE_CAMARA`. Requiere HTTPS: `navigator.mediaDevices` no existe en un origen inseguro, así que la demostración a distancia va por el dominio de Amplify.
+Las tres capturas salen de la cámara (`CapturaConCamara.tsx`) — `CAPTURA_SOLO_DESDE_CAMARA`. Requiere HTTPS: `navigator.mediaDevices` no existe en un origen inseguro, así que la demostración a distancia va por el dominio de Amplify.
+
+**Única excepción, y solo con `DEMO_MODE=true`:** el frente y el dorso se pueden subir como archivo. **La selfie nunca**, en ningún modo — es el ancla biométrica, y un archivo ahí permitiría verificar la identidad con la cara de otra persona. Lo decide `origenCapturaAdmitido()` en el dominio, y **quien lo hace cumplir es el Route Handler**, no la pantalla: esconder el botón es cosmético, cualquiera arma la petición a mano. El origen (`CAMARA` / `ARCHIVO`) va a la evidencia, así que un expediente con documento subido nunca queda registrado como fotografiado en vivo. Es comodidad de demostración, sin fila en la matriz de cumplimiento.
 
 ## Salida de P5 a asistencia humana
 

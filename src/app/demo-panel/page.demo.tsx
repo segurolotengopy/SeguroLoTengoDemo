@@ -19,6 +19,7 @@ import {
   listarSesionesFirmaMock,
   obtenerCodigoFirmaDemo,
 } from "@/adapters/mock/signature-provider";
+import { describirIntegraciones } from "@/adapters/registro";
 import { HeaderInstitucional, VisorEvidencia } from "@/components/shared";
 import { enmascararCorreo } from "@/domain/correo";
 import { enmascararCelular } from "@/domain/telefono";
@@ -271,6 +272,7 @@ export default async function PanelDeDemo() {
             </p>
           ) : (
             <VisorEvidencia
+              descripcionIntegraciones={describirIntegraciones()}
               expedienteId={expedienteId}
               evidencias={evidencias}
               paqueteDocumental={expedienteActivo?.paqueteDocumental ?? null}

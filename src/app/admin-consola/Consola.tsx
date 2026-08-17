@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ESTADOS_EXPEDIENTE } from "@/domain/tipos";
 import type { Expediente, RegistroEvidencia } from "@/domain/tipos";
 import { DetalleExpediente } from "./DetalleExpediente";
+import type { IntegracionEvidencia } from "@/domain/evidencia";
 
 /**
  * Búsqueda y listado de la consola administrativa
@@ -93,7 +94,14 @@ const CLASE_CAMPO =
 const CLASE_ACCION =
   "text-xs font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 disabled:opacity-40 dark:text-azul-200 dark:decoration-azul-500";
 
-export function Consola({ justificativos }: { justificativos: readonly OpcionJustificativo[] }) {
+export function Consola({
+  justificativos,
+  descripcionIntegraciones,
+}: {
+  justificativos: readonly OpcionJustificativo[];
+  /** Resuelto en el servidor; solo se transporta hasta VisorEvidencia. */
+  descripcionIntegraciones: Record<IntegracionEvidencia, string>;
+}) {
   const [criterio, setCriterio] = useState<(typeof CRITERIOS)[number]["id"]>("cedula");
   const [valor, setValor] = useState("");
   const [nombre, setNombre] = useState("");
@@ -515,6 +523,7 @@ export function Consola({ justificativos }: { justificativos: readonly OpcionJus
             <DetalleExpediente
               detalle={detalle}
               justificativos={justificativos}
+              descripcionIntegraciones={descripcionIntegraciones}
               onReiniciado={() => {
                 void abrirDetalle(detalle.expediente!.id);
                 void buscar();

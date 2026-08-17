@@ -60,6 +60,7 @@ import { esEstadoCivil, esPaisNacimiento, requisitosPendientes } from "./catalog
 import type { IdRequisitoP5, RequisitosP5, TipoCapturaP5 } from "./catalogo-identidad";
 import { transicionarExpediente } from "./expediente";
 import { calcularEdadDesde, edadEnRangoPermitido } from "./tipos";
+import type { OrigenCaptura } from "./identidad-parametros";
 import type {
   CapturaBiometrica,
   EstadoExpediente,
@@ -282,6 +283,13 @@ export interface EntradaCapturaP5 {
    * backend (ver `ImagenesP5.selfie`).
    */
   readonly imagen: MediaCapturada | CapturaSelfie;
+  /**
+   * De dónde salieron los bytes. Por defecto `CAMARA`, que es la regla del
+   * proceso (`CAPTURA_SOLO_DESDE_CAMARA`); `ARCHIVO` solo lo admite el modo
+   * demostración y solo para el documento — quien llama ya lo validó con
+   * `origenCapturaAdmitido`.
+   */
+  readonly origen?: OrigenCaptura;
   readonly contexto: ContextoPeticion;
 }
 
@@ -407,6 +415,10 @@ export async function registrarCapturaP5(
       hash: captura.imagen.hashSha256,
       calidad: captura.calidadAprobada,
       autenticidad: captura.autenticidadAprobada,
+      // Un documento subido como archivo no equivale a uno fotografiado en
+      // vivo. La evidencia es append-only (regla #10): acá queda para
+      // siempre cuál de las dos cosas fue.
+      origen: entrada.origen ?? "CAMARA",
       ...(captura.motivoRechazo ? { motivo: captura.motivoRechazo } : {}),
     },
   });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { HeaderInstitucional } from "@/components/shared";
+import { describirIntegraciones } from "@/adapters/registro";
 import { JUSTIFICATIVOS_REINICIO } from "@/domain/consola-administrativa";
 import { COOKIE_CONSOLA, consolaHabilitada, sesionConsolaValida } from "./_sesion";
 import { Consola } from "./Consola";
@@ -68,7 +69,10 @@ export default async function ConsolaAdministrativa() {
           </p>
         </header>
 
-        <Consola justificativos={JUSTIFICATIVOS_REINICIO.map((j) => ({ ...j }))} />
+        <Consola
+          justificativos={JUSTIFICATIVOS_REINICIO.map((j) => ({ ...j }))}
+          descripcionIntegraciones={describirIntegraciones()}
+        />
       </main>
     </div>
   );
