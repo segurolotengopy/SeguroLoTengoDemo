@@ -344,7 +344,20 @@ export async function enviarOtpDeCanal(
       contexto: entrada.contexto,
       resultado: "FALLIDO",
       versionTextoAceptado: config.versionTextoAceptado,
-      detalle: { destinoEnmascarado, motivo: envio.motivo },
+      // El `detalle` del proveedor se conserva. Sin esto, un envío fallido
+      // queda registrado como `ERROR_ENVIO` a secas y la causa —que el
+      // adaptador sí calculó: `SES: AccessDeniedException`, `WM-1050`, lo que
+      // sea— se pierde para siempre. No se loguea en ningún otro lado, así
+      // que era la diferencia entre diagnosticar en un minuto y a ciegas.
+      //
+      // Es seguro para la evidencia: los adaptadores devuelven acá el nombre
+      // del error o el código del proveedor, nunca el OTP ni el destino sin
+      // enmascarar (regla inviolable #2).
+      detalle: {
+        destinoEnmascarado,
+        motivo: envio.motivo,
+        ...(envio.motivo === "ERROR_ENVIO" ? { causa: envio.detalle } : {}),
+      },
     });
     return envio.motivo === "REENVIO_BLOQUEADO"
       ? {
@@ -417,7 +430,20 @@ export async function reenviarOtpDeCanal(
       contexto: entrada.contexto,
       resultado: "FALLIDO",
       versionTextoAceptado: null,
-      detalle: { destinoEnmascarado, motivo: envio.motivo },
+      // El `detalle` del proveedor se conserva. Sin esto, un envío fallido
+      // queda registrado como `ERROR_ENVIO` a secas y la causa —que el
+      // adaptador sí calculó: `SES: AccessDeniedException`, `WM-1050`, lo que
+      // sea— se pierde para siempre. No se loguea en ningún otro lado, así
+      // que era la diferencia entre diagnosticar en un minuto y a ciegas.
+      //
+      // Es seguro para la evidencia: los adaptadores devuelven acá el nombre
+      // del error o el código del proveedor, nunca el OTP ni el destino sin
+      // enmascarar (regla inviolable #2).
+      detalle: {
+        destinoEnmascarado,
+        motivo: envio.motivo,
+        ...(envio.motivo === "ERROR_ENVIO" ? { causa: envio.detalle } : {}),
+      },
     });
     return envio.motivo === "REENVIO_BLOQUEADO"
       ? {
