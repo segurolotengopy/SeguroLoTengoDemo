@@ -57,8 +57,20 @@ export async function POST(request: Request): Promise<Response> {
   // foto, o la referencia de una sesión de prueba de vida en vivo cuyo video
   // nunca pasó por acá (ver `CapturaSelfie` en el puerto). Frente y dorso son
   // siempre bytes.
+  //
+  // Este endpoint recibe **una** captura por vez y la manda siempre en
+  // `imagen`, sea frente, dorso o selfie. `decodificarSelfie` en cambio espera
+  // el campo `selfie`, porque lo comparte con `/analisis` e `/identidad`, que
+  // mandan las tres juntas y necesitan distinguirlas por nombre.
+  //
+  // Adaptar acá es lo que faltaba: al enrutar la selfie por `decodificarSelfie`
+  // sin traducir el campo, toda captura de selfie por cámara se rechazaba con
+  // `IMAGEN_INVALIDA` antes de llegar al dominio — la pantalla la mostraba
+  // eternamente como "pendiente".
   const recibida =
-    cuerpo.tipo === "SELFIE" ? decodificarSelfie(cuerpo) : decodificarImagen(cuerpo.imagen);
+    cuerpo.tipo === "SELFIE"
+      ? decodificarSelfie({ ...cuerpo, selfie: cuerpo.selfie ?? cuerpo.imagen })
+      : decodificarImagen(cuerpo.imagen);
   if (!recibida.ok) {
     return respuestaJson({ ok: false, motivo: recibida.motivo }, { status: 400 });
   }
