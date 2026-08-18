@@ -97,6 +97,72 @@ export const CALIDAD_ROSTRO = {
 } as const;
 
 /**
+ * Umbrales de calidad del **retrato impreso en el documento**, que no son los
+ * de una selfie y no pueden serlo.
+ *
+ * `CALIDAD_ROSTRO` viene de AWS §3.3.1 y está calibrado para una fotografía de
+ * una persona tomada con la cámara frontal. El retrato de una cédula es otra
+ * cosa: mide unos dos centímetros, está impreso con trama de seguridad encima,
+ * laminado en policarbonato que refleja, y se fotografía a 20 cm con un
+ * teléfono. Rekognition le devuelve una nitidez muy por debajo de 25 aunque la
+ * foto del documento sea perfectamente legible.
+ *
+ * Aplicar el umbral de selfie acá **rechaza cédulas buenas de forma sistemática**:
+ * en la primera prueba con una cédula boliviana real el anverso se rechazó
+ * cinco veces seguidas con "la imagen salió borrosa", incluida una captura de
+ * un escaneado.
+ *
+ * Qué se conserva y qué no:
+ *
+ * - **Se conserva** que haya un rostro, y uno solo. Es lo que distingue una
+ *   cédula de un papel cualquiera, y lo que después se compara con la selfie.
+ * - **Se conserva la oclusión**: si el retrato está tapado no sirve para
+ *   comparar.
+ * - **Se relajan nitidez y brillo**, porque son las que el soporte físico
+ *   degrada por construcción.
+ * - **Se suelta la pose**: el retrato impreso siempre es frontal; si
+ *   Rekognition informa una pose rara sobre una foto de 2 cm, el dato dice más
+ *   del tamaño del recorte que del documento.
+ *
+ * El control que de verdad protege acá no es este: es la **coincidencia
+ * facial** contra la selfie. Un retrato demasiado malo para comparar no pasa
+ * ese umbral, y ese rechazo sí es informativo.
+ */
+export const CALIDAD_RETRATO_DOCUMENTO = {
+  /** Piso mínimo para descartar una imagen inutilizable, no para exigir calidad. */
+  nitidezMinima: 3,
+  brilloMinimo: 10,
+  /** Mismo piso de AWS: por debajo de 50 px de lado no hay rostro comparable. */
+  ladoMinimoRostroPx: CALIDAD_ROSTRO.ladoMinimoRostroPx,
+} as const;
+
+/**
+ * Evalúa el retrato del documento con `CALIDAD_RETRATO_DOCUMENTO`.
+ *
+ * Devuelve los mismos motivos que `evaluarCalidadRostro` para que la pantalla
+ * y la evidencia no tengan que distinguir dos vocabularios.
+ */
+export function evaluarCalidadRetratoDocumento(
+  medicion: MedicionCalidadRostro,
+): ResultadoCalidadRostro {
+  const motivos: MotivoCalidadRostro[] = [];
+
+  if (medicion.nitidez < CALIDAD_RETRATO_DOCUMENTO.nitidezMinima) motivos.push("IMAGEN_BORROSA");
+  if (medicion.brillo < CALIDAD_RETRATO_DOCUMENTO.brilloMinimo) {
+    motivos.push("ILUMINACION_INSUFICIENTE");
+  }
+
+  const demasiadoChico =
+    medicion.anchoRostroPx < CALIDAD_RETRATO_DOCUMENTO.ladoMinimoRostroPx ||
+    medicion.altoRostroPx < CALIDAD_RETRATO_DOCUMENTO.ladoMinimoRostroPx;
+  if (demasiadoChico) motivos.push("ROSTRO_DEMASIADO_CHICO");
+
+  if (medicion.rostroOcluido) motivos.push("ROSTRO_OCLUIDO");
+
+  return { aprobada: motivos.length === 0, motivos };
+}
+
+/**
  * Medición cruda de un rostro, tal como la devuelve un detector facial. Es la
  * entrada de `evaluarCalidadRostro`: el adaptador traduce la respuesta de su
  * proveedor a esta forma y el dominio decide.

@@ -141,3 +141,57 @@ describe("mensajeDocumentoNoReconocido", () => {
     expect(mensaje).not.toContain("SEGIP");
   });
 });
+
+/**
+ * Cédula boliviana del formato anterior (sigue circulando junto al del SEGIP
+ * de 2023). Valores inventados; lo que importa es la estructura, que rompía el
+ * reconocimiento en un documento real.
+ */
+describe("cédula boliviana del formato anterior", () => {
+  const ANVERSO = [
+    "ESTADO PLURINACIONAL DE BOLIVIA",
+    "CÉDULA DE IDENTIDAD",
+    "BIO",
+    "serie",
+    "42333",
+    "sección",
+    "42222",
+    "No. 1234567",
+    "Emitida el 14 de Mayo de 2021",
+  ];
+
+  const REVERSO = [
+    "EL SERVICIO GENERAL DE IDENTIFICACIÓN PERSONAL",
+    "CERTIFICA: Que la firma, fotografía e impresión pertenece",
+    "Nacido el 30 de Diciembre de 1967",
+    "Estado Civil CASADO",
+    "Profesión/Ocupación BACHILLER",
+    "Domicilio AV. SIEMPREVIVA 742",
+    "DOCUMENTOS REGISTRADOS",
+  ];
+
+  it("reconoce el anverso", () => {
+    expect(reconocerDocumentoRegional(ANVERSO, "FRENTE", ["PY", "BO"]).pais).toBe("BO");
+  });
+
+  it("reconoce el reverso, que no tiene los rótulos del formato nuevo", () => {
+    // No trae GRUPO SANGUÍNEO ni NPIOC, y escribe "Profesión/Ocupación" con
+    // barra en vez de "u". Con los marcadores del formato 2023 no se reconocía.
+    expect(reconocerDocumentoRegional(REVERSO, "DORSO", ["PY", "BO"]).pais).toBe("BO");
+  });
+
+  it("toma el número rotulado y no la serie que aparece antes", () => {
+    // El anverso imprime "serie 42333" y "sección 42222" ARRIBA del número
+    // real. Quedarse con la primera corrida de dígitos devolvía la serie.
+    expect(reconocerDocumentoRegional(ANVERSO, "FRENTE", ["BO"]).numeroDetectado).toBe("1234567");
+  });
+
+  it("sin rótulo, elige la corrida de dígitos más larga", () => {
+    const senales = reconocerDocumentoRegional(
+      ["ESTADO PLURINACIONAL DE BOLIVIA", "CÉDULA DE IDENTIDAD", "42333", "1234567"],
+      "FRENTE",
+      ["BO"],
+    );
+    expect(senales.numeroDetectado).toBe("1234567");
+  });
+});

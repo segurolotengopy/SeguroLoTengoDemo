@@ -80,6 +80,44 @@ const MENSAJES_ERROR: Readonly<Record<string, string>> = {
   SecurityError: "El navegador bloqueó la cámara por seguridad. La página tiene que abrirse por HTTPS.",
 };
 
+const ERROR_SIN_REPRODUCIR =
+  "El navegador no dejó iniciar la cámara. Cerrá esta ventana, volvé a abrirla y, si sigue, probá con otro navegador.";
+const ERROR_SIN_IMAGEN =
+  "La cámara se abrió pero no está entregando imagen. Cerrá esta ventana y volvé a intentar.";
+const ERROR_SIN_LIENZO =
+  "Este navegador no permite procesar la foto. Probá con Chrome o Safari actualizados.";
+
+/**
+ * Espera a que el video entregue su primer cuadro, con tope.
+ *
+ * `play()` puede resolver antes de que haya imagen: en ese instante
+ * `videoWidth` sigue en 0 y capturar produce un lienzo vacío. El tope evita
+ * quedarse esperando para siempre si la cámara nunca entrega nada.
+ */
+function esperarDimensiones(elemento: HTMLVideoElement, topeMs = 4000): Promise<void> {
+  if (elemento.videoWidth > 0) return Promise.resolve();
+
+  return new Promise((resolver) => {
+    const listar = () => {
+      if (elemento.videoWidth > 0) terminar();
+    };
+    const terminar = () => {
+      clearInterval(temporizador);
+      clearTimeout(vencimiento);
+      elemento.removeEventListener("loadedmetadata", listar);
+      elemento.removeEventListener("playing", listar);
+      resolver();
+    };
+
+    elemento.addEventListener("loadedmetadata", listar);
+    elemento.addEventListener("playing", listar);
+    // Sondeo además de los eventos: en algunos navegadores móviles
+    // `loadedmetadata` llega antes de que `videoWidth` tenga valor.
+    const temporizador = setInterval(listar, 120);
+    const vencimiento = setTimeout(terminar, topeMs);
+  });
+}
+
 const ERROR_SIN_SOPORTE =
   "Este navegador no permite usar la cámara desde esta página. Abrila por HTTPS, o probá con Chrome o Safari actualizados.";
 
@@ -135,9 +173,32 @@ export function CapturaConCamara({ tipo, alCapturar, alCancelar }: CapturaConCam
         }
 
         flujo.current = obtenido;
-        if (video.current) {
-          video.current.srcObject = obtenido;
-          await video.current.play().catch(() => undefined);
+        const elemento = video.current;
+        if (!elemento) return;
+
+        elemento.srcObject = obtenido;
+
+        // `play()` puede rechazar (iOS bloquea el autoplay en varios
+        // escenarios). Antes se tragaba el error y se marcaba listo igual: el
+        // botón quedaba habilitado sobre un video que nunca arrancó, y al
+        // tocarlo no pasaba nada. Ahora el fallo se dice.
+        try {
+          await elemento.play();
+        } catch {
+          if (!cancelado) setError(ERROR_SIN_REPRODUCIR);
+          return;
+        }
+
+        // **No alcanza con que `play()` resuelva**: hasta que no llega el
+        // primer cuadro, `videoWidth` es 0 y no hay nada que capturar. Se
+        // espera a tener dimensiones reales antes de habilitar el botón, que
+        // es la causa raíz de la captura que no hacía nada.
+        await esperarDimensiones(elemento);
+        if (cancelado) return;
+
+        if (elemento.videoWidth === 0 || elemento.videoHeight === 0) {
+          setError(ERROR_SIN_IMAGEN);
+          return;
         }
         setListo(true);
       } catch (fallo) {
@@ -159,9 +220,15 @@ export function CapturaConCamara({ tipo, alCapturar, alCancelar }: CapturaConCam
     const elemento = video.current;
     if (!elemento || !listo) return;
 
+    // Los tres `return` de esta función eran mudos y dejaban a la persona
+    // tocando un botón que no hacía absolutamente nada — el peor modo de
+    // falla posible. Ahora cada salida dice qué pasó.
     const anchoFuente = elemento.videoWidth;
     const altoFuente = elemento.videoHeight;
-    if (anchoFuente === 0 || altoFuente === 0) return;
+    if (anchoFuente === 0 || altoFuente === 0) {
+      setError(ERROR_SIN_IMAGEN);
+      return;
+    }
 
     // Mismo cálculo que el marco que la persona ve en pantalla: lo que quedó
     // dentro del marco es exactamente lo que se recorta.
@@ -180,7 +247,10 @@ export function CapturaConCamara({ tipo, alCapturar, alCancelar }: CapturaConCam
     lienzo.height = Math.round(recorte.alto * escala);
 
     const contexto = lienzo.getContext("2d");
-    if (!contexto) return;
+    if (!contexto) {
+      setError(ERROR_SIN_LIENZO);
+      return;
+    }
 
     // La selfie se dibuja **sin espejar**, aunque la vista previa sí lo esté:
     // el espejo es una comodidad visual, y lo que se manda a comparar tiene
@@ -198,6 +268,14 @@ export function CapturaConCamara({ tipo, alCapturar, alCancelar }: CapturaConCam
     );
 
     const imagen = lienzo.toDataURL("image/jpeg", CALIDAD_JPEG);
+    // Un data URL de pocos bytes significa que el lienzo salió vacío; mandarlo
+    // haría que el servidor rechace por "imagen inválida" sin que se entienda
+    // por qué.
+    if (imagen.length < 1000) {
+      setError(ERROR_SIN_IMAGEN);
+      return;
+    }
+
     detener();
     alCapturar(imagen);
   }

@@ -105,3 +105,74 @@ describe("extraerCamposAproximados", () => {
     });
   });
 });
+
+/**
+ * Cédula boliviana del **formato anterior**, que sigue circulando.
+ *
+ * Este bloque nace de una prueba con un documento real que no completó P5. Sus
+ * tres particularidades rompían el parser a la vez: fechas escritas en
+ * palabras, datos personales en el reverso, y el nombre corrido sin rótulos de
+ * nombres/apellidos.
+ *
+ * Los valores son inventados; lo que se reproduce es la **estructura**.
+ */
+describe("cédula boliviana del formato anterior", () => {
+  const ANVERSO = lineas(
+    "ESTADO PLURINACIONAL DE BOLIVIA",
+    "CÉDULA DE IDENTIDAD",
+    "BIO",
+    "serie",
+    "42333",
+    "sección",
+    "42222",
+    "No. 1234567",
+    "Emitida el 14 de Mayo de 2021",
+    "Expira el 14 de Mayo de 2031",
+  );
+
+  const REVERSO = lineas(
+    "EL SERVICIO GENERAL DE IDENTIFICACIÓN PERSONAL",
+    "CERTIFICA: Que la firma, fotografía",
+    "e impresión pertenece",
+    "A:  ROSA MARIA PEREIRA SUAREZ",
+    "Nacido el 30 de Diciembre de 1967",
+    "En LA PAZ - MURILLO",
+    "Estado Civil CASADO",
+    "Domicilio AV. SIEMPREVIVA 742",
+  );
+
+  it("lee la fecha de nacimiento escrita en palabras", () => {
+    // Sin esto no se extraía ninguna fecha: el formato anterior no imprime
+    // ninguna en números, y sin fecha no hay corte de edad.
+    const campos = extraerCamposAproximados([...ANVERSO, ...REVERSO], "BO");
+    expect(campos.fechaNacimiento).toBe("1967-12-30");
+  });
+
+  it("prefiere la fecha rotulada por 'Nacido el' sobre emisión y vencimiento", () => {
+    const campos = extraerCamposAproximados([...ANVERSO, ...REVERSO], "BO");
+    // La más antigua también sería 1967, así que se comprueba que las otras
+    // dos fechas se hayan leído y descartado, no ignorado.
+    expect(campos.fechasEncontradas).toContain("2021-05-14");
+    expect(campos.fechasEncontradas).toContain("2031-05-14");
+  });
+
+  it("parte el nombre corrido del reverso en nombres y apellidos", () => {
+    // El reverso no separa los campos: dice "…pertenece / A: NOMBRE COMPLETO".
+    const campos = extraerCamposAproximados([...ANVERSO, ...REVERSO], "BO");
+    expect(campos.nombres).toBe("ROSA MARIA");
+    expect(campos.apellidos).toBe("PEREIRA SUAREZ");
+  });
+
+  it("no toma el rótulo 'A' como parte del nombre", () => {
+    const campos = extraerCamposAproximados(REVERSO, "BO");
+    expect(campos.nombres?.startsWith("A ")).toBe(false);
+  });
+
+  it("no confunde la línea del organismo emisor con un nombre", () => {
+    // "EL SERVICIO GENERAL DE IDENTIFICACION PERSONAL" también son puras
+    // letras y espacios: el ancla en "PERTENECE" es lo que lo evita.
+    const campos = extraerCamposAproximados(REVERSO, "BO");
+    expect(campos.nombres).not.toContain("SERVICIO");
+    expect(campos.apellidos).not.toContain("PERSONAL");
+  });
+});
