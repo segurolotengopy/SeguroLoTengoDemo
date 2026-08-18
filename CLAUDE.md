@@ -38,18 +38,6 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 
 ## Comandos
 
-npm run dev          \# desarrollo local
-
-npm run build        \# build de producción
-
-npm run lint         \# ESLint
-
-npm run typecheck    \# tsc \--noEmit
-
-npm test             \# tests unitarios y de contrato
-
-npm run test:e2e     \# Playwright, escenarios completos
-
 Antes de cualquier commit: `npm run typecheck && npm run lint && npm test` deben pasar.
 
 ---
@@ -62,42 +50,6 @@ Antes de cualquier commit: `npm run typecheck && npm run lint && npm test` deben
 - **S3** para evidencias y PDFs generados  
 - **AWS Amplify Hosting** (plataforma WEB\_COMPUTE) para deploy  
 - **Playwright** para E2E, **Vitest** para unitarios
-
----
-
-## Estructura
-
-src/
-
-  app/                    \# App Router: una carpeta por pantalla
-
-    (flujo)/p1-whatsapp/  ... hasta p9-confirmacion
-
-    revision-manual/      \# Pantalla A
-
-    solicitud-vencida/    \# Pantalla B
-
-    demo-panel/           \# panel de control del demo (solo con DEMO\_MODE=true)
-
-    api/                  \# Route Handlers
-
-  components/shared/      \# cabecera, stepper, barra de plan, campos OTP
-
-  domain/                 \# máquina de estados, reglas de elegibilidad, tipos
-
-  documentos/             \# generación de la Solicitud y el FIPF: PDF, QR, hash
-
-  ports/                  \# las 8 interfaces de proveedores externos
-
-  adapters/mock/          \# implementaciones simuladas
-
-  adapters/live/          \# implementaciones oficiales (Rekognition + Textract)
-
-  repositories/           \# acceso a DynamoDB y S3, detrás de interfaces
-
-docs/                     \# especificación de pantallas y decisiones
-
-infra/                    \# Terraform
 
 ---
 
