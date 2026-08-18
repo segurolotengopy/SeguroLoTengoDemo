@@ -187,6 +187,24 @@ function texto(campo: string): string {
  * Acepta las líneas separadas por saltos o pegadas en 90 caracteres corridos,
  * porque un OCR puede devolver cualquiera de las dos formas.
  */
+/**
+ * Primer carácter admitido en la línea 1 de un TD1 (ICAO Doc 9303 Parte 5,
+ * §4.2.2.2): el código de documento de una tarjeta de identidad empieza con
+ * `I`, `A` o `C`.
+ *
+ * **Este control existe por un falso positivo real, no por rigor formal.** El
+ * fondo de seguridad de la cédula boliviana del formato anterior es microtexto
+ * repetido — `ESTADOPLURINACIONALDEBOLIVIAESTADOPLURINACIONAL…` — y el OCR lo
+ * devuelve como líneas largas de mayúsculas sin espacios. Cuando tres de esas
+ * líneas sumaban justo 90 caracteres, se leían como un MRZ, sus verificadores
+ * no cerraban y el dorso quedaba rechazado por "código no consistente" en una
+ * cédula que **no tiene MRZ**. Peor: dependía de cómo cortara las líneas el
+ * OCR, así que el mismo documento pasaba o fallaba entre intentos.
+ *
+ * Exigir el código de documento corta eso de raíz: `ESTADO…` empieza con `E`.
+ */
+const TD1_CODIGOS_DOCUMENTO = /^[IAC]/;
+
 export function normalizarLineasTd1(crudo: string): readonly string[] | null {
   const limpio = crudo.toUpperCase().replace(/[^A-Z0-9<\n]/g, "");
   const porSaltos = limpio
@@ -196,13 +214,17 @@ export function normalizarLineasTd1(crudo: string): readonly string[] | null {
 
   if (
     porSaltos.length === TD1_CANTIDAD_LINEAS &&
-    porSaltos.every((linea) => linea.length === TD1_LARGO_LINEA)
+    porSaltos.every((linea) => linea.length === TD1_LARGO_LINEA) &&
+    TD1_CODIGOS_DOCUMENTO.test(porSaltos[0])
   ) {
     return porSaltos;
   }
 
   const corrido = limpio.replace(/\n/g, "");
-  if (corrido.length === TD1_LARGO_LINEA * TD1_CANTIDAD_LINEAS) {
+  if (
+    corrido.length === TD1_LARGO_LINEA * TD1_CANTIDAD_LINEAS &&
+    TD1_CODIGOS_DOCUMENTO.test(corrido)
+  ) {
     return [
       corrido.slice(0, 30),
       corrido.slice(30, 60),

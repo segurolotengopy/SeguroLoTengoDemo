@@ -33,6 +33,26 @@ import type { LineaReconocida } from "./textract-cedula";
 const PATRON_FECHA = /\b(\d{2})[/.-](\d{2})[/.-](\d{2,4})\b/;
 
 /**
+ * Meses en palabras, para la fecha escrita en texto.
+ *
+ * La cédula boliviana del formato anterior **no imprime fechas en números**:
+ * dice `Nacido el 30 de Diciembre de 1967`, `Emitida el 14 de Mayo de 2021`.
+ * Sin esto no se extrae ninguna fecha de ese documento, y sin fecha de
+ * nacimiento no hay corte de edad — el recorrido se corta con "no pudimos leer
+ * los datos de la cédula" aunque el OCR haya leído todo bien.
+ */
+const MESES: Readonly<Record<string, number>> = {
+  ENERO: 1, FEBRERO: 2, MARZO: 3, ABRIL: 4, MAYO: 5, JUNIO: 6,
+  JULIO: 7, AGOSTO: 8, SEPTIEMBRE: 9, SETIEMBRE: 9, OCTUBRE: 10,
+  NOVIEMBRE: 11, DICIEMBRE: 12,
+};
+
+/** `30 DE DICIEMBRE DE 1967`, ya normalizado a mayúsculas sin tildes. */
+const PATRON_FECHA_EN_PALABRAS = new RegExp(
+  String.raw`\b(\d{1,2})\s+DE\s+(` + Object.keys(MESES).join("|") + String.raw`)\s+DE\s+(\d{4})\b`,
+);
+
+/**
  * Rótulos que anteceden a cada campo, por país. Se buscan **normalizados**.
  *
  * El valor puede estar en la misma línea después del rótulo (`NOMBRES: MONICA`)
@@ -49,7 +69,10 @@ const ROTULOS: Readonly<Record<PaisDocumento, Readonly<Record<string, readonly s
   BO: {
     nombres: ["NOMBRES", "NOMBRE"],
     apellidos: ["APELLIDOS", "APELLIDO"],
-    fechaNacimiento: ["FECHA DE NACIMIENTO", "NACIMIENTO"],
+    // `NACIDO EL` es el del formato anterior, que no rotula "fecha de
+    // nacimiento" en ningún lado: el dorso dice `Nacido el 30 de Diciembre de
+    // 1967`.
+    fechaNacimiento: ["FECHA DE NACIMIENTO", "NACIMIENTO", "NACIDO EL", "NACIDA EL"],
     sexo: ["SEXO"],
   },
 };
@@ -106,6 +129,84 @@ function aIso(dia: string, mes: string, anio: string): string | null {
   return fecha.toISOString().slice(0, 10);
 }
 
+/** Lee una fecha de un texto, en cualquiera de las dos formas. `null` si no hay. */
+function fechaDeTexto(texto: string): string | null {
+  const numerica = texto.match(PATRON_FECHA);
+  if (numerica) return aIso(numerica[1], numerica[2], numerica[3]);
+
+  const enPalabras = texto.match(PATRON_FECHA_EN_PALABRAS);
+  if (!enPalabras) return null;
+  return aIso(
+    enPalabras[1].padStart(2, "0"),
+    String(MESES[enPalabras[2]]).padStart(2, "0"),
+    enPalabras[3],
+  );
+}
+
+/**
+ * Palabras que delatan una línea institucional del documento, no un nombre.
+ *
+ * Hacen falta porque el reverso está lleno de líneas que son puras letras y
+ * espacios —"EL SERVICIO GENERAL DE IDENTIFICACION PERSONAL"— y pasarían
+ * cualquier prueba de forma.
+ */
+const PALABRAS_NO_PERSONALES = [
+  "SERVICIO",
+  "CERTIFICA",
+  "IDENTIFICACION",
+  "PERSONAL",
+  "PLURINACIONAL",
+  "BOLIVIA",
+  "PARAGUAY",
+  "ESTADO",
+  "DOCUMENTOS",
+  "REGISTRADOS",
+  "DOMICILIO",
+  "PERTENECE",
+  "IMPRESION",
+  "FOTOGRAFIA",
+  "FIRMA",
+  "CEDULA",
+  "IDENTIDAD",
+  "DIRECTOR",
+  "DIRECTORA",
+];
+
+/** Una línea que parece un nombre completo: solo letras y espacios, 2 a 6 palabras. */
+function pareceNombreCompleto(texto: string): boolean {
+  if (!/^[A-ZÑ ]+$/.test(texto)) return false;
+  if (PALABRAS_NO_PERSONALES.some((palabra) => texto.includes(palabra))) return false;
+  const palabras = texto.split(" ").filter((p) => p.length >= 2);
+  return palabras.length >= 2 && palabras.length <= 6 && texto.length >= 6;
+}
+
+/**
+ * Nombre completo del dorso de la cédula boliviana del formato anterior.
+ *
+ * Ese dorso **no separa nombres de apellidos**: dice "…que la firma, fotografía
+ * e impresión pertenece / A: JAVIER ANDRES …" en una sola línea corrida. No hay
+ * rótulo `NOMBRES` que buscar, así que se ancla en `PERTENECE` y se toma la
+ * primera línea posterior que parezca un nombre.
+ *
+ * El corte entre nombres y apellidos es una **convención, no un dato**: en
+ * Bolivia el orden es nombres + apellido paterno + apellido materno, así que se
+ * asignan los dos últimos tokens a los apellidos. Con un solo apellido queda
+ * mal repartido, y es un precio que solo se paga en el camino de demostración.
+ */
+function nombreCompletoBoliviano(textos: readonly string[]): string | null {
+  // **Después** del ancla, no desde el ancla: la línea que dice "PERTENECE" es
+  // también puras letras y espacios, y se colaba como nombre.
+  const ancla = textos.findIndex((texto) => texto.includes("PERTENECE"));
+  const desde = ancla === -1 ? 0 : ancla + 1;
+
+  for (const texto of textos.slice(desde)) {
+    // "A: JAVIER ANDRES …" — se saca el prefijo del rótulo si vino pegado.
+    const limpio = texto.replace(/^A\s*[:.]?\s*/, "").trim();
+    if (pareceNombreCompleto(limpio)) return limpio;
+  }
+  return null;
+}
+
 /**
  * Busca el valor que sigue a un rótulo: primero en la misma línea, después en
  * la siguiente.
@@ -155,19 +256,27 @@ export function extraerCamposAproximados(
 
   const fechasEncontradas: string[] = [];
   for (const texto of textos) {
-    const encontrada = texto.match(PATRON_FECHA);
-    if (!encontrada) continue;
-    const iso = aIso(encontrada[1], encontrada[2], encontrada[3]);
-    if (iso) fechasEncontradas.push(iso);
+    const numerica = texto.match(PATRON_FECHA);
+    if (numerica) {
+      const iso = aIso(numerica[1], numerica[2], numerica[3]);
+      if (iso) fechasEncontradas.push(iso);
+      continue;
+    }
+    const enPalabras = texto.match(PATRON_FECHA_EN_PALABRAS);
+    if (enPalabras) {
+      const iso = aIso(
+        enPalabras[1].padStart(2, "0"),
+        String(MESES[enPalabras[2]]).padStart(2, "0"),
+        enPalabras[3],
+      );
+      if (iso) fechasEncontradas.push(iso);
+    }
   }
 
   const fechaRotulada = valorTrasRotulo(textos, rotulos.fechaNacimiento);
-  const encontradaEnRotulo = fechaRotulada?.match(PATRON_FECHA) ?? null;
+  const desdeRotulo = fechaRotulada === null ? null : fechaDeTexto(fechaRotulada);
   const fechaNacimiento =
-    (encontradaEnRotulo
-      ? aIso(encontradaEnRotulo[1], encontradaEnRotulo[2], encontradaEnRotulo[3])
-      : null) ??
-    (fechasEncontradas.length > 0 ? [...fechasEncontradas].sort()[0] : null);
+    desdeRotulo ?? (fechasEncontradas.length > 0 ? [...fechasEncontradas].sort()[0] : null);
 
   const sexoCrudo = valorTrasRotulo(textos, rotulos.sexo);
   const sexo =
@@ -179,9 +288,24 @@ export function extraerCamposAproximados(
           ? "F"
           : null;
 
+  // Camino rotulado (formato nuevo) y, si no hay, el nombre corrido del dorso
+  // boliviano del formato anterior.
+  let nombres = valorTrasRotulo(textos, rotulos.nombres);
+  let apellidos = valorTrasRotulo(textos, rotulos.apellidos);
+
+  if (pais === "BO" && (nombres === null || apellidos === null)) {
+    const completo = nombreCompletoBoliviano(textos);
+    if (completo) {
+      const palabras = completo.split(" ").filter((p) => p !== "");
+      const corte = Math.max(1, palabras.length - 2);
+      nombres = nombres ?? palabras.slice(0, corte).join(" ");
+      apellidos = apellidos ?? palabras.slice(corte).join(" ");
+    }
+  }
+
   return {
-    nombres: valorTrasRotulo(textos, rotulos.nombres),
-    apellidos: valorTrasRotulo(textos, rotulos.apellidos),
+    nombres,
+    apellidos,
     fechaNacimiento,
     sexo,
     fechasEncontradas,

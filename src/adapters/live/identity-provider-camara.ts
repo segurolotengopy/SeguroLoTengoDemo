@@ -50,6 +50,7 @@ import {
   MENSAJE_CALIDAD_ROSTRO,
   decidirCoincidenciaFacialDemo,
   decidirPresenciaDemo,
+  evaluarCalidadRetratoDocumento,
 } from "../../domain/identidad-parametros";
 import {
   NACIONALIDAD_POR_PAIS,
@@ -229,16 +230,21 @@ export function crearIdentityProviderCamaraDemo(
       );
     }
 
-    const calidadAprobada = rostro.calidad.aprobada;
-    sesion.frente = { imagen, bytes, aprobada: calidadAprobada, lineas: ocr.lineas, senales };
+    // `detectarYMedirRostro` ya evaluó con los umbrales de selfie
+    // (`CALIDAD_ROSTRO`); acá se vuelve a decidir sobre la misma medición con
+    // los del retrato impreso. Son dos objetos distintos a propósito: el
+    // retrato de una cédula fotografiada nunca alcanza la nitidez de una
+    // selfie, y exigírsela rechaza documentos perfectamente legibles.
+    const calidad = evaluarCalidadRetratoDocumento(rostro.medicion);
+    sesion.frente = { imagen, bytes, aprobada: calidad.aprobada, lineas: ocr.lineas, senales };
 
     return {
-      calidadAprobada,
+      calidadAprobada: calidad.aprobada,
       autenticidadAprobada: true,
       imagen,
-      motivoRechazo: calidadAprobada
+      motivoRechazo: calidad.aprobada
         ? null
-        : rostro.calidad.motivos.map((motivo) => MENSAJE_CALIDAD_ROSTRO[motivo]).join(" "),
+        : calidad.motivos.map((motivo) => MENSAJE_CALIDAD_ROSTRO[motivo]).join(" "),
     };
   }
 
@@ -347,7 +353,10 @@ export function crearIdentityProviderCamaraDemo(
       // Camino de demostración: sin MRZ, se adivina con heurísticas de rótulo.
       // Producción devuelve vacío acá (regla inviolable #8); esto es lo que
       // hace que este adaptador no sea el de producción.
-      const campos = extraerCamposAproximados(sesion.frente.lineas, pais);
+      const campos = extraerCamposAproximados(
+        [...sesion.frente.lineas, ...sesion.dorso.lineas],
+        pais,
+      );
       const numeroCedula = sesion.frente.senales.numeroDetectado;
 
       // El número y la fecha son los dos únicos campos sin los cuales el

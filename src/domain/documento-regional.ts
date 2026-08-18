@@ -112,6 +112,11 @@ const MARCADORES: Readonly<Record<PaisDocumento, Readonly<Record<CaraDocumento, 
       "PRY",
     ],
   },
+  // Bolivia tiene **dos formatos vigentes en paralelo** y los marcadores
+  // sirven para los dos: el del SEGIP desde el 01/11/2023 (SERIE/SECCIÓN, tres
+  // fechas, zona legible por máquina) y el anterior, que sigue circulando —
+  // rotula "serie"/"sección" en el anverso y pone los datos personales en el
+  // reverso, con las fechas escritas en palabras y sin MRZ.
   BO: {
     FRENTE: [
       "ESTADO PLURINACIONAL DE BOLIVIA",
@@ -120,14 +125,26 @@ const MARCADORES: Readonly<Record<PaisDocumento, Readonly<Record<CaraDocumento, 
       "SEGIP",
       "BOLIVIA",
       "SECCION",
+      "SERIE",
       "FECHA DE EXPIRACION",
+      // Formato anterior: las fechas del anverso van en palabras.
+      "EMITIDA EL",
+      "EXPIRA EL",
     ],
     DORSO: [
       "ESTADO PLURINACIONAL DE BOLIVIA",
+      "SERVICIO GENERAL DE IDENTIFICACION PERSONAL",
+      // El reverso del formato anterior escribe "Profesión/Ocupación" con
+      // barra, no "u"; se buscan las dos formas.
       "PROFESION U OCUPACION",
+      "PROFESION/OCUPACION",
+      "PROFESION",
       "GRUPO SANGUINEO",
       "LUGAR DE NACIMIENTO",
       "ESTADO CIVIL",
+      "DOMICILIO",
+      "NACIDO EL",
+      "DOCUMENTOS REGISTRADOS",
       "NPIOC",
       "SEGIP",
       "BOL",
@@ -205,13 +222,43 @@ export function reconocerDocumentoRegional(
     return { pais: null, marcadoresEncontrados: [], numeroDetectado: null };
   }
 
-  const encontrado = texto.match(PATRON_NUMERO[mejor.pais]);
-
   return {
     pais: mejor.pais,
     marcadoresEncontrados: mejor.encontrados,
-    numeroDetectado: encontrado ? encontrado[1].replace(/\./g, "") : null,
+    numeroDetectado: numeroDe(texto, mejor.pais),
   };
+}
+
+/**
+ * Número rotulado: `No. 2441214`, `Nº 2441214`, `NRO 2441214`.
+ *
+ * Se busca **antes** que el patrón suelto porque el anverso boliviano del
+ * formato anterior imprime `serie 42333` y `sección 42222` **arriba** del
+ * número real, y quedarse con la primera corrida de dígitos devolvía la serie
+ * como si fuera la cédula.
+ */
+const PATRON_NUMERO_ROTULADO = /\bN(?:RO|UMERO|[O°º])?\.?\s*:?\s*(\d{1,3}(?:\.\d{3})+|\d{5,8})\b/;
+
+/**
+ * Elige el número de cédula del texto.
+ *
+ * Orden: rotulado primero; si no hay rótulo, **la corrida de dígitos más
+ * larga**, no la primera. Un número de cédula tiene más dígitos que una serie
+ * o una sección, así que ante varios candidatos el más largo es la mejor
+ * apuesta — y sigue siendo eso, una apuesta: el valor viaja como
+ * `numeroDetectado`, que el puerto define como pista sin confirmar.
+ */
+function numeroDe(texto: string, pais: PaisDocumento): string | null {
+  const rotulado = texto.match(PATRON_NUMERO_ROTULADO);
+  if (rotulado) return rotulado[1].replace(/\./g, "");
+
+  const patron = new RegExp(PATRON_NUMERO[pais].source, "g");
+  const candidatos = [...texto.matchAll(patron)]
+    .map((coincidencia) => coincidencia[1].replace(/\./g, ""))
+    .filter((valor) => valor !== "");
+  if (candidatos.length === 0) return null;
+
+  return candidatos.reduce((mejor, actual) => (actual.length > mejor.length ? actual : mejor));
 }
 
 /** Nacionalidad que corresponde a cada país, tal como va al FIPF. */

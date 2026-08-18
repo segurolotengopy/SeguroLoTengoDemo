@@ -265,3 +265,24 @@ describe("cruzarConMrz", () => {
     expect(cruce.motivos).toContain("ESTADO_EMISOR_NO_ES_PARAGUAY");
   });
 });
+
+describe("microtexto de seguridad que no es un MRZ", () => {
+  it("no toma el fondo repetido de la cédula boliviana por un MRZ", () => {
+    // El fondo de seguridad es "ESTADOPLURINACIONALDEBOLIVIA…" repetido, y el
+    // OCR lo devuelve como líneas largas de mayúsculas sin espacios. Cuando
+    // sumaban 90 caracteres se leían como TD1, los verificadores no cerraban y
+    // el dorso quedaba rechazado por "código no consistente" en un documento
+    // que no tiene MRZ. Peor: dependía de cómo cortara las líneas el OCR, así
+    // que el mismo documento pasaba o fallaba entre intentos.
+    const microtexto = "ESTADOPLURINACIONALDEBOLIVIAES".repeat(3);
+    expect(microtexto.length).toBe(90);
+    expect(normalizarLineasTd1(microtexto)).toBeNull();
+  });
+
+  it("sigue aceptando un TD1 real, que empieza con el código de documento", () => {
+    // ICAO Doc 9303 Parte 5: una tarjeta de identidad empieza con I, A o C.
+    const linea1 = "IDPRY9323336<<9<<<<<<<<<<<<<<<";
+    expect(linea1.length).toBe(30);
+    expect(normalizarLineasTd1(`${linea1}\n${"0".repeat(30)}\n${"A".repeat(30)}`)).not.toBeNull();
+  });
+});
