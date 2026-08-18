@@ -76,7 +76,9 @@ export function FormularioVerificacionWhatsapp(props: {
     AUTORIZACION_REQUERIDA: "Necesitás autorizar el uso del número para continuar.",
     DESTINO_INVALIDO: `Revisá el número: tiene que ser un celular válido de ${pais.nombre}, por ejemplo ${pais.ejemplo}.`,
     PROPOSITO_INCORRECTO: "Ese código no sirve para verificar el WhatsApp.",
-    ESTADO_INVALIDO: "Este proceso ya no está en el paso de verificación de WhatsApp.",
+    // Dice qué hacer, no qué pasó: el botón de reencaminado aparece debajo con
+    // el paso exacto donde quedó el trámite.
+    ESTADO_INVALIDO: "Ya empezaste este trámite y avanzaste más allá de este paso. Podés seguir desde donde quedaste.",
     SESION_INVALIDA: "Se perdió la sesión. Volvé a ingresar tu número.",
   };
 

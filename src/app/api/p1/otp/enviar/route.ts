@@ -11,6 +11,7 @@
  * viajar el código — ni siquiera en modo demo, donde el código se lee solo
  * desde el panel. Verificado en `../../__tests__/no-filtra-codigo-otp.test.ts`.
  */
+import { destinoDelExpediente } from "@/domain/rutas-flujo";
 import { dependenciasP1 } from "@/app/api/p1/_dependencias";
 import {
   COOKIE_EXPEDIENTE,
@@ -58,6 +59,9 @@ export async function POST(request: Request): Promise<Response> {
       {
         ok: false,
         motivo: resultado.motivo,
+        // El expediente quedó en otro paso: se devuelve a dónde ir, para que
+        // la pantalla reencamine en vez de solo avisar (`rutas-flujo.ts`).
+        ...(resultado.estado ? { destino: destinoDelExpediente(resultado.estado) } : {}),
         ...(resultado.segundosRestantes === undefined
           ? {}
           : { segundosRestantes: resultado.segundosRestantes }),

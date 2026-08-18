@@ -65,6 +65,11 @@ export interface DetalleRespuesta {
 
 const CRITERIOS = [
   { id: "cedula", rotulo: "Cédula", ayuda: "Ej.: 9.323.336" },
+  // Celular y correo van primero después de la cédula porque son los únicos
+  // datos que existen antes de P5: quien llama trabado en los primeros pasos
+  // todavía no tiene cédula cargada.
+  { id: "celular", rotulo: "Celular", ayuda: "Ej.: +595 981 000 123 o 0981000123" },
+  { id: "correo", rotulo: "Correo", ayuda: "Ej.: persona@correo.com" },
   { id: "caso", rotulo: "Número de caso", ayuda: "Ej.: CASO-2026-418302" },
   { id: "estado", rotulo: "Estado", ayuda: "Ej.: DERIVADO_MANUAL" },
 ] as const;

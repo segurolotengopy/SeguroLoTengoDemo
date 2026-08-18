@@ -154,6 +154,17 @@ export type ResultadoEnvioCanal =
       readonly motivo: MotivoRechazoEnvio;
       readonly expedienteId: string | null;
       readonly segundosRestantes?: number;
+      /**
+       * Estado en que quedó el expediente cuando el rechazo es
+       * `ESTADO_INVALIDO`.
+       *
+       * Va en el resultado —y no solo en la evidencia— para que la pantalla
+       * pueda **reencaminar** en vez de limitarse a avisar. El servidor sabe
+       * dónde quedó el trámite; sin este dato la persona queda trabada
+       * leyendo "este proceso ya no está en el paso de…", que es cierto e
+       * inútil (ver `rutas-flujo.ts`).
+       */
+      readonly estado?: EstadoExpediente;
     };
 
 export type MotivoRechazoVerificacion =
@@ -294,7 +305,12 @@ export async function enviarOtpDeCanal(
         versionTextoAceptado: config.versionTextoAceptado,
         detalle: { destinoEnmascarado, motivo: "ESTADO_INVALIDO", estado: existente.estado },
       });
-      return { ok: false, motivo: "ESTADO_INVALIDO", expedienteId: existente.id };
+      return {
+        ok: false,
+        motivo: "ESTADO_INVALIDO",
+        expedienteId: existente.id,
+        estado: existente.estado,
+      };
     }
     expediente = existente;
   } else {
