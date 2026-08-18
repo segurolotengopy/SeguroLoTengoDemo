@@ -100,9 +100,11 @@ describe("en modo demostración", () => {
   it("NO acepta un archivo para la selfie", async () => {
     // La selfie es el ancla biométrica: un archivo acá permitiría verificar la
     // identidad con la fotografía de otra persona. No hay modo que lo habilite.
-    // Cuerpo bien formado para una selfie (`selfie`, no `imagen`), para que
-    // el rechazo sea por origen y no por decodificación.
-    const respuesta = await POST(peticion({ tipo: "SELFIE", selfie: IMAGEN, origen: "ARCHIVO" }));
+    // Se manda `imagen`, que es el campo que usa la pantalla para las tres
+    // capturas. El test decía `selfie` y por eso ejercitaba un camino que el
+    // cliente nunca recorre — así se le escapó que la selfie por cámara
+    // llegaba rota.
+    const respuesta = await POST(peticion({ tipo: "SELFIE", imagen: IMAGEN, origen: "ARCHIVO" }));
     const cuerpo = (await respuesta.json()) as { motivo?: string };
 
     expect(respuesta.status).toBe(400);
@@ -135,6 +137,40 @@ describe("valor por omisión", () => {
     expect(registrarCaptura).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ origen: "CAMARA" }),
+    );
+  });
+});
+
+describe("la selfie por cámara usa el mismo campo que el resto", () => {
+  beforeEach(() => {
+    vi.stubEnv("DEMO_MODE", "true");
+  });
+
+  it("acepta la selfie mandada en `imagen`, como hace la pantalla", async () => {
+    // Regresión: al enrutar la selfie por `decodificarSelfie` —que espera el
+    // campo `selfie`— sin traducir desde `imagen`, toda captura de selfie por
+    // cámara se rechazaba con IMAGEN_INVALIDA antes de llegar al dominio, y la
+    // pantalla la mostraba para siempre como "pendiente".
+    const respuesta = await POST(peticion({ tipo: "SELFIE", imagen: IMAGEN }));
+
+    expect(respuesta.status).toBe(200);
+    expect(registrarCaptura).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tipo: "SELFIE" }),
+    );
+  });
+
+  it("sigue aceptando la referencia de sesión de prueba de vida", async () => {
+    // El otro camino del puerto: el video fue del navegador directo al
+    // proveedor y acá solo llega la referencia.
+    const respuesta = await POST(peticion({ tipo: "SELFIE", selfieSesion: "sesion-abc-123" }));
+
+    expect(respuesta.status).toBe(200);
+    expect(registrarCaptura).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        imagen: expect.objectContaining({ tipo: "SESION_LIVENESS" }),
+      }),
     );
   });
 });
