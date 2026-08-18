@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CapturaConCamara } from "./CapturaConCamara";
+import { CapturaConCamara, type ResultadoEnvioCaptura } from "./CapturaConCamara";
 import { PanelPruebaDeVida } from "./PanelPruebaDeVida";
 import { EnlaceAclaracion } from "@/components/shared";
 // Desde `catalogo-identidad` y no desde el caso de uso: este es un componente
@@ -440,7 +440,11 @@ export function VerificacionIdentidad({
       const lector = new FileReader();
       lector.onload = () => {
         const leido = typeof lector.result === "string" ? lector.result : "";
-        if (leido) void capturar(tipo, leido, "ARCHIVO");
+        if (!leido) return;
+        // Sin visor abierto no hay dónde mostrar el motivo: lo toma la pantalla.
+        void capturar(tipo, leido, "ARCHIVO").then((resultado) => {
+          if (!resultado.ok) setError(resultado.mensaje);
+        });
       };
       lector.onerror = () => setError("No pudimos leer el archivo. Probá con otro.");
       lector.readAsDataURL(archivo);
@@ -448,8 +452,22 @@ export function VerificacionIdentidad({
     entrada.click();
   }
 
-  async function capturar(tipo: TipoCapturaP5, imagen: string, origen: "CAMARA" | "ARCHIVO" = "CAMARA") {
-    setCamaraAbierta(null);
+  /**
+   * Manda una captura y **devuelve** qué pasó, en vez de escribirlo en la
+   * pantalla.
+   *
+   * El motivo de rechazo tiene que aparecer donde está la persona: adentro del
+   * visor, con la cámara abierta, lista para repetir. Antes el visor se cerraba
+   * antes de postear y el mensaje quedaba en una tarjeta detrás, así que había
+   * que volver a abrir la cámara para reintentar.
+   *
+   * Por eso el visor solo se cierra en el camino que aprueba.
+   */
+  async function capturar(
+    tipo: TipoCapturaP5,
+    imagen: string,
+    origen: "CAMARA" | "ARCHIVO" = "CAMARA",
+  ): Promise<ResultadoEnvioCaptura> {
     setEnProceso(tipo);
     setError(null);
     setAviso(null);
@@ -457,8 +475,10 @@ export function VerificacionIdentidad({
       const respuesta = await postear("/api/p5/captura", { tipo, imagen, origen });
 
       if (!respuesta.ok) {
-        setError(mensajeDe(respuesta.motivo, "No pudimos registrar la captura."));
-        return;
+        return {
+          ok: false,
+          mensaje: mensajeDe(respuesta.motivo, "No pudimos registrar la captura."),
+        };
       }
 
       const siguientes: Capturas = {
@@ -476,14 +496,19 @@ export function VerificacionIdentidad({
       setRequisitosServidor(null);
 
       if (respuesta.aprobada !== true) {
-        setError(respuesta.motivoRechazo ?? "La captura no aprobó los controles. Repetila.");
-        return;
+        return {
+          ok: false,
+          mensaje: respuesta.motivoRechazo ?? "La captura no aprobó los controles. Repetila.",
+        };
       }
+
+      setCamaraAbierta(null);
 
       const completas = TARJETAS.every(({ tipo: t }) => siguientes[t]?.aprobada);
       if (completas) await analizar(siguientes);
+      return { ok: true };
     } catch {
-      setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
+      return { ok: false, mensaje: "No pudimos conectarnos. Revisá tu conexión e intentá de nuevo." };
     } finally {
       setEnProceso((actual) => (actual === tipo ? null : actual));
     }
