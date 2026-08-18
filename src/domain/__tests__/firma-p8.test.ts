@@ -188,7 +188,7 @@ function armar(expediente: Expediente = expedienteEnPaqueteGenerado()): Entorno 
 async function firmarEnCode100(idCode100: string, opciones: { fallarAMitadDelSellado?: boolean } = {}) {
   const ahora = () => new Date(AHORA);
   await abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true, ahora });
-  const codigo = obtenerCodigoFirmaDemo(idCode100)?.codigo ?? "";
+  const codigo = ((await obtenerCodigoFirmaDemo(idCode100)))?.codigo ?? "";
   return await firmarEnCode100Mock(idCode100, codigo, { ...opciones, ahora });
 }
 
@@ -244,7 +244,7 @@ describe("P8 · enviar el enlace de firma", () => {
     if (!resultado.ok) return;
 
     // El destino real está en la sesión de Code100 y sale del expediente…
-    const sesion = obtenerSesionFirmaMock(resultado.acto.idCode100);
+    const sesion = await obtenerSesionFirmaMock(resultado.acto.idCode100);
     expect(sesion?.destino).toBe(entorno.repositorio.actual().canalWhatsapp?.valor);
     // …y lo que vuelve a la pantalla está enmascarado.
     expect(resultado.acto.destinoEnmascarado).not.toBe(sesion?.destino);
@@ -258,7 +258,7 @@ describe("P8 · enviar el enlace de firma", () => {
 
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
-    expect(obtenerSesionFirmaMock(resultado.acto.idCode100)?.destino).toBe(
+    expect((await obtenerSesionFirmaMock(resultado.acto.idCode100))?.destino).toBe(
       entorno.repositorio.actual().canalEmail?.valor,
     );
   });
@@ -412,7 +412,7 @@ describe("P8 · confirmar la firma", () => {
 
     const ahora = () => new Date(AHORA);
     await abrirEnlaceDeFirmaMock(enlace.acto.idCode100, { retenerCodigoParaPanelDemo: true, ahora });
-    const codigo = obtenerCodigoFirmaDemo(enlace.acto.idCode100)?.codigo ?? "";
+    const codigo = ((await obtenerCodigoFirmaDemo(enlace.acto.idCode100)))?.codigo ?? "";
     await firmarEnCode100Mock(enlace.acto.idCode100, codigo, { ahora });
     await sondear(entorno);
 
@@ -446,7 +446,7 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
     expect(resultado.firmado).toBe(false);
-    expect(obtenerSesionFirmaMock(enlace.acto.idCode100)?.firma).toBeNull();
+    expect((await obtenerSesionFirmaMock(enlace.acto.idCode100))?.firma).toBeNull();
 
     // 2. El expediente sigue sin firma y sin haber avanzado.
     const expediente = entorno.repositorio.actual();
@@ -475,7 +475,7 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
     await sondear(entorno);
     expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
 
-    const codigo = obtenerCodigoFirmaDemo(enlace.acto.idCode100)?.codigo ?? "";
+    const codigo = ((await obtenerCodigoFirmaDemo(enlace.acto.idCode100)))?.codigo ?? "";
     const reintento = await firmarEnCode100Mock(enlace.acto.idCode100, codigo, {
       ahora: () => new Date(AHORA),
     });

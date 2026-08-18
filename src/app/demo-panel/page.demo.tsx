@@ -111,8 +111,9 @@ export default async function PanelDeDemo() {
   // Estado de los actos de firma simulados. El código en claro sale del
   // registro en memoria del adaptador mock, igual que los OTP de P1 y P4: en la
   // sesión simulada solo queda su HMAC (regla inviolable #2).
-  const sesionesFirma: readonly SesionFirmaVisible[] = listarSesionesFirmaMock().map((sesion) => {
-    const codigo = obtenerCodigoFirmaDemo(sesion.idCode100);
+  const sesionesFirma: readonly SesionFirmaVisible[] = await Promise.all(
+    (await listarSesionesFirmaMock()).map(async (sesion) => {
+    const codigo = await obtenerCodigoFirmaDemo(sesion.idCode100);
     const estado: SesionFirmaVisible["estado"] = sesion.firma
       ? "FIRMADA"
       : sesion.fallo
@@ -140,7 +141,8 @@ export default async function PanelDeDemo() {
       hashSolicitudFirmada: sesion.firma?.hashSolicitudFirmada ?? null,
       hashFipfFirmado: sesion.firma?.hashFipfFirmado ?? null,
     };
-  });
+    }),
+  );
 
   const armadas = new Set(fallasArmadasDemo());
   const fallas = FALLAS_DEMO.map((falla) => ({

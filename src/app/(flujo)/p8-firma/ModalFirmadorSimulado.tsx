@@ -44,6 +44,13 @@ const MENSAJES: Readonly<Record<string, string>> = {
   YA_CERRADA: "Este acto de firma ya se cerró.",
   NO_ENCONTRADA: "No encontramos el acto de firma. Pedí el enlace de nuevo.",
   FALLA_DEL_PROVEEDOR: "El proveedor del código no respondió. Intentá de nuevo en unos segundos.",
+  // Faltaba, y era justo el que aparecía cuando el envío del código fallaba:
+  // se caía al genérico "No pudimos abrir el firmador", que no dice nada.
+  ERROR_ENVIO:
+    "No pudimos enviarte el código de firma. Revisá que el WhatsApp del expediente pueda recibir mensajes y volvé a intentar.",
+  EXPIRADA: "El enlace de firma venció. Cerrá esta ventana y pedí uno nuevo.",
+  PEDIDO_INVALIDO: "No pudimos procesar el pedido. Cerrá esta ventana y volvé a intentar.",
+  CODIGO_REQUERIDO: "Ingresá el código de 6 dígitos.",
   FIRMA_NO_INICIADA: "Todavía no pediste el enlace de firma.",
   EXPEDIENTE_NO_ENCONTRADO: "Se perdió la sesión. Volvé a empezar.",
   SESION_INVALIDA: "Se perdió la sesión. Volvé a empezar.",

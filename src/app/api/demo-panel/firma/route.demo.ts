@@ -66,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (cuerpo.accion === "RECHAZAR") {
-    const cerrada = cerrarSinFirmarMock(idCode100, "RECHAZADA", "Rechazada desde el panel de demo.");
+    const cerrada = await cerrarSinFirmarMock(idCode100, "RECHAZADA", "Rechazada desde el panel de demo.");
     return cerrada
       ? respuestaJson({ ok: true })
       : respuestaJson({ ok: false, motivo: "YA_CERRADA" }, { status: 409 });

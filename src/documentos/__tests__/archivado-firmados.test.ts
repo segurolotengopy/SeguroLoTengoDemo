@@ -52,7 +52,7 @@ async function expedienteFirmado(): Promise<{ expediente: Expediente; firmas: Si
   });
 
   await abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: true });
-  const codigo = obtenerCodigoFirmaDemo(iniciada.idCode100)?.codigo ?? "";
+  const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
   const firmado = await firmarEnCode100Mock(iniciada.idCode100, codigo);
   if (!firmado.ok) throw new Error("no se pudo firmar en el mock");
 

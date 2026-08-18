@@ -22,6 +22,7 @@ import {
   VIGENCIA_ENLACE_FIRMA_MS,
   abrirEnlaceDeFirmaMock,
   cerrarSinFirmarMock,
+  configurarAlmacenFirmaDemo,
   crearSignatureProviderMock,
   firmarEnCode100Mock,
   limpiarSesionesFirmaMock,
@@ -60,17 +61,17 @@ function crearProveedor(ahora?: () => Date): SignatureProvider {
 async function completar(idCode100: string, opciones: { fallarAMitadDelSellado?: boolean } = {}) {
   const apertura = await abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true });
   expect(apertura.ok).toBe(true);
-  const codigo = obtenerCodigoFirmaDemo(idCode100)?.codigo;
+  const codigo = (await obtenerCodigoFirmaDemo(idCode100))?.codigo;
   if (!codigo) throw new Error("El panel de demo no retuvo el código de firma.");
   return await firmarEnCode100Mock(idCode100, codigo, opciones);
 }
 
-beforeEach(() => {
-  limpiarSesionesFirmaMock();
+beforeEach(async () => {
+  await limpiarSesionesFirmaMock();
 });
 
-afterEach(() => {
-  limpiarSesionesFirmaMock();
+afterEach(async () => {
+  await limpiarSesionesFirmaMock();
 });
 
 runSignatureProviderContractTests({
@@ -86,7 +87,7 @@ describe("MockSignatureProvider · un solo acto para los dos documentos", () => 
     const proveedor = crearProveedor();
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
 
-    const sesion = obtenerSesionFirmaMock(iniciada.idCode100);
+    const sesion = await obtenerSesionFirmaMock(iniciada.idCode100);
     expect(sesion?.paquete.solicitud.codigo).toBe("PROP-00018425");
     expect(sesion?.paquete.fipf.codigo).toBe("FIPF-00018425");
   });
@@ -119,7 +120,7 @@ describe("MockSignatureProvider · un solo acto para los dos documentos", () => 
     expect(resultado.motivo).toBe("FALLA_DEL_PROVEEDOR");
 
     // Ni la Solicitud ni el FIPF: la sesión no tiene firma en absoluto.
-    const sesion = obtenerSesionFirmaMock(iniciada.idCode100);
+    const sesion = await obtenerSesionFirmaMock(iniciada.idCode100);
     expect(sesion?.firma).toBeNull();
 
     // Y los documentos siguen con su huella original, sin firmar.
@@ -140,7 +141,7 @@ describe("MockSignatureProvider · un solo acto para los dos documentos", () => 
     expect(fallido.ok).toBe(false);
 
     // El OTP no se consumió con el intento fallido: el mismo código sirve.
-    const codigo = obtenerCodigoFirmaDemo(iniciada.idCode100)?.codigo ?? "";
+    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
     const reintento = await firmarEnCode100Mock(iniciada.idCode100, codigo);
 
     expect(reintento.ok).toBe(true);
@@ -182,7 +183,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
 
     // Todavía no se abrió: no hay código.
-    expect(obtenerCodigoFirmaDemo(iniciada.idCode100)).toBeNull();
+    expect(await obtenerCodigoFirmaDemo(iniciada.idCode100)).toBeNull();
 
     const apertura = await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
       ahora: () => instante,
@@ -193,7 +194,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
     if (!apertura.ok) return;
     expect(new Date(apertura.expiraEn).getTime() - instante.getTime()).toBe(VIGENCIA_OTP_MS);
 
-    const codigo = obtenerCodigoFirmaDemo(iniciada.idCode100)?.codigo ?? "";
+    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
     expect(codigo).toMatch(new RegExp(`^\\d{${LONGITUD_CODIGO_OTP}}$`));
   });
 
@@ -202,7 +203,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
     await abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: true });
 
-    const codigo = obtenerCodigoFirmaDemo(iniciada.idCode100)?.codigo ?? "";
+    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
     expect(codigo).not.toBe("");
 
     // Ni en lo que devuelve el puerto…
@@ -210,7 +211,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
     expect(JSON.stringify(await proveedor.confirmarResultado(iniciada.idCode100))).not.toContain(codigo);
 
     // …ni en el estado interno de la sesión, que solo guarda el HMAC.
-    const sesion = obtenerSesionFirmaMock(iniciada.idCode100);
+    const sesion = await obtenerSesionFirmaMock(iniciada.idCode100);
     expect(JSON.stringify(sesion)).not.toContain(codigo);
     expect(sesion?.otp?.tipo).toBe("LOCAL");
     expect(sesion?.otp?.tipo === "LOCAL" ? sesion.otp.hash : "").toMatch(/^[0-9a-f]{64}$/);
@@ -222,7 +223,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
 
     await abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: false });
 
-    expect(obtenerCodigoFirmaDemo(iniciada.idCode100)).toBeNull();
+    expect(await obtenerCodigoFirmaDemo(iniciada.idCode100)).toBeNull();
   });
 
   it("es de uso único: el mismo código no vuelve a firmar", async () => {
@@ -230,7 +231,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
     const codigo = await (async () => {
       await abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: true });
-      return obtenerCodigoFirmaDemo(iniciada.idCode100)?.codigo ?? "";
+      return (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
     })();
 
     expect((await firmarEnCode100Mock(iniciada.idCode100, codigo)).ok).toBe(true);
@@ -245,7 +246,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
     const proveedor = crearProveedor();
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
     await abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: true });
-    const correcto = obtenerCodigoFirmaDemo(iniciada.idCode100)?.codigo ?? "";
+    const correcto = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
     const incorrecto = correcto === "000000" ? "111111" : "000000";
 
     for (let intento = 1; intento < INTENTOS_MAXIMOS_OTP; intento += 1) {
@@ -273,7 +274,7 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
       ahora: () => emision,
       retenerCodigoParaPanelDemo: true,
     });
-    const codigo = obtenerCodigoFirmaDemo(iniciada.idCode100)?.codigo ?? "";
+    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
 
     const tarde = new Date(emision.getTime() + VIGENCIA_OTP_MS + 1_000);
     const resultado = await firmarEnCode100Mock(iniciada.idCode100, codigo, { ahora: () => tarde });
@@ -305,20 +306,20 @@ describe("MockSignatureProvider · vigencia del enlace y cierres", () => {
     expect(resultado.estado).toBe("NO_FIRMADO");
     if (resultado.estado !== "NO_FIRMADO") return;
     expect(resultado.motivo).toBe("EXPIRADA");
-    expect(obtenerSesionFirmaMock(iniciada.idCode100)?.firma).toBeNull();
+    expect((await obtenerSesionFirmaMock(iniciada.idCode100))?.firma).toBeNull();
   });
 
   it("rechazar cierra el acto sin firmar nada", async () => {
     const proveedor = crearProveedor();
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
 
-    expect(cerrarSinFirmarMock(iniciada.idCode100)).toBe(true);
+    expect(await cerrarSinFirmarMock(iniciada.idCode100)).toBe(true);
 
     const resultado = await proveedor.confirmarResultado(iniciada.idCode100);
     expect(resultado.estado).toBe("NO_FIRMADO");
     if (resultado.estado !== "NO_FIRMADO") return;
     expect(resultado.motivo).toBe("RECHAZADA");
-    expect(obtenerSesionFirmaMock(iniciada.idCode100)?.firma).toBeNull();
+    expect((await obtenerSesionFirmaMock(iniciada.idCode100))?.firma).toBeNull();
   });
 
   it("una falla forzada al abrir el acto no crea ninguna sesión", async () => {
@@ -373,8 +374,8 @@ describe("OTP de firma por canal remoto (WhatsApp-Modular, INTEGRATION_OTP=live)
     expect(delegado.solicitudes).toEqual([ENTRADA.destino]);
     // El código no existe en este proceso: viaja por WhatsApp. Ni siquiera
     // con la retención del panel activada hay algo que mostrar.
-    expect(obtenerCodigoFirmaDemo(iniciada.idCode100)).toBeNull();
-    const sesion = obtenerSesionFirmaMock(iniciada.idCode100);
+    expect(await obtenerCodigoFirmaDemo(iniciada.idCode100)).toBeNull();
+    const sesion = await obtenerSesionFirmaMock(iniciada.idCode100);
     expect(sesion?.otp?.tipo).toBe("REMOTO");
   });
 
@@ -406,7 +407,7 @@ describe("OTP de firma por canal remoto (WhatsApp-Modular, INTEGRATION_OTP=live)
     });
 
     expect(resultado).toEqual({ ok: false, motivo: "CODIGO_INCORRECTO", intentosRestantes: 2 });
-    expect(obtenerSesionFirmaMock(iniciada.idCode100)?.firma).toBeNull();
+    expect((await obtenerSesionFirmaMock(iniciada.idCode100))?.firma).toBeNull();
   });
 
   it("si el envío remoto falla, la apertura devuelve ERROR_ENVIO y la sesión queda reintetable", async () => {
@@ -438,6 +439,71 @@ describe("OTP de firma por canal remoto (WhatsApp-Modular, INTEGRATION_OTP=live)
 
     const resultado = await firmarEnCode100Mock(iniciada.idCode100, "123456");
     expect(resultado).toEqual({ ok: false, motivo: "FALLA_DEL_PROVEEDOR" });
-    expect(obtenerSesionFirmaMock(iniciada.idCode100)?.firma).toBeNull();
+    expect((await obtenerSesionFirmaMock(iniciada.idCode100))?.firma).toBeNull();
+  });
+});
+
+/**
+ * La sesión de firma tiene que sobrevivir a que la próxima petición caiga en
+ * otra instancia de cómputo.
+ *
+ * Se simula con dos almacenes: uno "por instancia" (memoria propia) y uno
+ * compartido. Con el primero, abrir el firmador falla con `NO_ENCONTRADA` —
+ * que es exactamente lo que pasó desplegado en Amplify: el enlace se enviaba y
+ * siete segundos después el proveedor "no conocía" el acto de firma.
+ */
+describe("persistencia entre instancias de cómputo", () => {
+  function almacenEnMemoria() {
+    const datos = new Map<string, Map<string, unknown>>();
+    const coleccionDe = (n: string) => {
+      const e = datos.get(n);
+      if (e) return e;
+      const nueva = new Map<string, unknown>();
+      datos.set(n, nueva);
+      return nueva;
+    };
+    return {
+      async obtener<T>(c: string, k: string) {
+        return (coleccionDe(c).get(k) as T | undefined) ?? null;
+      },
+      async guardar(c: string, k: string, v: unknown) {
+        coleccionDe(c).set(k, v);
+      },
+      async listar<T>(c: string) {
+        return [...coleccionDe(c).values()] as T[];
+      },
+      async borrar(c: string, k: string) {
+        coleccionDe(c).delete(k);
+      },
+    };
+  }
+
+  afterEach(() => {
+    configurarAlmacenFirmaDemo(null);
+  });
+
+  it("se pierde si cada instancia tiene su propio almacén", async () => {
+    const instanciaA = almacenEnMemoria();
+    configurarAlmacenFirmaDemo(instanciaA);
+    const iniciada = await crearProveedor().iniciarFirma(ENTRADA);
+
+    // La petición siguiente cae en otra instancia, con su propia memoria.
+    configurarAlmacenFirmaDemo(almacenEnMemoria());
+    const abierta = await abrirEnlaceDeFirmaMock(iniciada.idCode100);
+
+    expect(abierta).toEqual({ ok: false, motivo: "NO_ENCONTRADA" });
+  });
+
+  it("sobrevive con un almacén compartido, que es el arreglo", async () => {
+    const compartido = almacenEnMemoria();
+    configurarAlmacenFirmaDemo(compartido);
+    const iniciada = await crearProveedor().iniciarFirma(ENTRADA);
+
+    // Otra instancia, mismo almacén persistente detrás.
+    configurarAlmacenFirmaDemo(compartido);
+    const abierta = await abrirEnlaceDeFirmaMock(iniciada.idCode100);
+
+    expect(abierta.ok).toBe(true);
+    expect((await obtenerSesionFirmaMock(iniciada.idCode100))?.otp).not.toBeNull();
   });
 });

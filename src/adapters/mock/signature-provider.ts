@@ -89,16 +89,39 @@ export type FallaCode100Demo = "TIMEOUT" | "RECHAZADA";
  * verificaría contra otro pepper y daría `CODIGO_INCORRECTO` sin que la
  * persona se haya equivocado.
  */
+let obtenerPepperConfigurado: (() => Promise<string>) | null = null;
+
+/**
+ * Fija de dónde sale el pepper del OTP de firma simulada.
+ *
+ * Antes se acuñaba con `randomBytes` **por proceso**. Con cómputo serverless
+ * eso significa uno por instancia: un código hasheado al abrir el enlace no se
+ * podía verificar al firmar si la petición caía en otra instancia, y daba
+ * `CODIGO_INCORRECTO` sin que la persona se hubiera equivocado. Tiene que ser
+ * estable entre instancias, así que lo provee el composition root desde
+ * Secrets Manager.
+ *
+ * Sin configurar cae al valor por proceso, que es correcto en `next dev` y en
+ * los tests: un solo proceso.
+ */
+export function configurarPepperFirmaDemo(obtener: (() => Promise<string>) | null): void {
+  obtenerPepperConfigurado = obtener;
+}
+
 const PEPPER_DEL_PROCESO = estadoCompartidoDemo("firma.pepper", () =>
   randomBytes(32).toString("hex"),
 );
 
-function hmacOtp(codigo: string): string {
-  return createHmac("sha256", PEPPER_DEL_PROCESO).update(codigo, "utf8").digest("hex");
+async function hmacOtp(codigo: string): Promise<string> {
+  const base = obtenerPepperConfigurado ? await obtenerPepperConfigurado() : PEPPER_DEL_PROCESO;
+  // El propósito entra en el mensaje para que este hash no sea el mismo que el
+  // de los OTP de P1 y P4 aunque comparta el pepper (regla inviolable #1: los
+  // tres OTP son independientes).
+  return createHmac("sha256", base).update(`FIRMA_DEMO:${codigo}`, "utf8").digest("hex");
 }
 
-function coincideConHash(codigoIngresado: string, hashPersistido: string): boolean {
-  const calculado = Buffer.from(hmacOtp(codigoIngresado), "hex");
+async function coincideConHash(codigoIngresado: string, hashPersistido: string): Promise<boolean> {
+  const calculado = Buffer.from(await hmacOtp(codigoIngresado), "hex");
   const persistido = Buffer.from(hashPersistido, "hex");
   if (calculado.length !== persistido.length) return false;
   return timingSafeEqual(calculado, persistido);
@@ -183,8 +206,84 @@ export interface CodigoFirmaDemo {
   readonly expiraEn: string;
 }
 
-const sesiones = estadoCompartidoDemo("firma.sesiones", () => new Map<string, SesionFirmaMock>());
-const codigosDemo = estadoCompartidoDemo("firma.codigos-demo", () => new Map<string, CodigoFirmaDemo>());
+/**
+ * Dónde viven las sesiones de firma simulada.
+ *
+ * **No puede ser un `Map` en memoria.** Lo fue, y desplegado en Amplify rompía
+ * P8 entero: el cómputo es serverless, cada petición puede caer en otra
+ * instancia, y la sesión creada al enviar el enlace no existía siete segundos
+ * después al abrir el firmador ("Code100 no conoce el acto de firma").
+ *
+ * `estado-compartido.ts` resuelve el problema de *un* proceso con varias
+ * instancias del módulo; este resuelve el de varias instancias de cómputo, y
+ * son problemas distintos. Quien arma el adaptador decide el almacén: en
+ * `next dev` y en los tests, memoria; desplegado, DynamoDB con TTL.
+ */
+export interface AlmacenFirmaDemo {
+  obtener<T>(coleccion: string, clave: string): Promise<T | null>;
+  guardar(coleccion: string, clave: string, valor: unknown): Promise<void>;
+  listar<T>(coleccion: string): Promise<readonly T[]>;
+  borrar(coleccion: string, clave: string): Promise<void>;
+}
+
+const COLECCION_SESIONES = "firma.sesiones";
+const COLECCION_CODIGOS = "firma.codigos-demo";
+
+/** Almacén por defecto: memoria del proceso, anclada en `globalThis`. */
+function almacenEnMemoriaDelProceso(): AlmacenFirmaDemo {
+  const datos = estadoCompartidoDemo(
+    "firma.almacen",
+    () => new Map<string, Map<string, unknown>>(),
+  );
+  const coleccionDe = (nombre: string) => {
+    const existente = datos.get(nombre);
+    if (existente) return existente;
+    const nueva = new Map<string, unknown>();
+    datos.set(nombre, nueva);
+    return nueva;
+  };
+
+  return {
+    async obtener<T>(coleccion: string, clave: string) {
+      return (coleccionDe(coleccion).get(clave) as T | undefined) ?? null;
+    },
+    async guardar(coleccion, clave, valor) {
+      coleccionDe(coleccion).set(clave, valor);
+    },
+    async listar<T>(coleccion: string) {
+      return [...coleccionDe(coleccion).values()] as T[];
+    },
+    async borrar(coleccion, clave) {
+      coleccionDe(coleccion).delete(clave);
+    },
+  };
+}
+
+let almacenConfigurado: AlmacenFirmaDemo | null = null;
+
+/**
+ * Fija el almacén que usan las funciones de módulo de este archivo.
+ *
+ * Es un setter y no un parámetro porque `abrirEnlaceDeFirmaMock` y compañía se
+ * llaman desde Route Handlers que no tienen por qué conocer la persistencia
+ * del simulador. Lo llama el composition root (`adapters/registro.ts`), que es
+ * el único que sabe si hay DynamoDB detrás.
+ */
+export function configurarAlmacenFirmaDemo(almacen: AlmacenFirmaDemo | null): void {
+  almacenConfigurado = almacen;
+}
+
+function almacen(): AlmacenFirmaDemo {
+  return almacenConfigurado ?? almacenEnMemoriaDelProceso();
+}
+
+async function leerSesion(idCode100: string): Promise<SesionFirmaMock | null> {
+  return almacen().obtener<SesionFirmaMock>(COLECCION_SESIONES, idCode100);
+}
+
+async function guardarSesion(sesion: SesionFirmaMock): Promise<void> {
+  await almacen().guardar(COLECCION_SESIONES, sesion.idCode100, sesion);
+}
 
 export interface OpcionesSignatureProviderMock {
   readonly ahora?: () => Date;
@@ -379,7 +478,7 @@ export function crearSignatureProviderMock(
         actualizadoEn: enviado.toISOString(),
       };
 
-      sesiones.set(idCode100, sesion);
+      await guardarSesion(sesion);
 
       return {
         idCode100,
@@ -392,11 +491,11 @@ export function crearSignatureProviderMock(
     async descargarDocumentosFirmados(idCode100: string): Promise<DocumentosFirmados | null> {
       // Los dos o ninguno: `documentosFirmados` se escribe en la misma
       // asignación que la firma, así que no puede haber uno solo.
-      return sesiones.get(idCode100)?.documentosFirmados ?? null;
+      return (await leerSesion(idCode100))?.documentosFirmados ?? null;
     },
 
     async confirmarResultado(idCode100: string): Promise<ResultadoFirma> {
-      const sesion = sesiones.get(idCode100);
+      const sesion = await leerSesion(idCode100);
       if (!sesion) {
         return {
           estado: "NO_FIRMADO",
@@ -439,7 +538,7 @@ export async function abrirEnlaceDeFirmaMock(
   const ahora = opciones.ahora ?? (() => new Date());
   const retener = opciones.retenerCodigoParaPanelDemo ?? process.env.DEMO_MODE === "true";
 
-  const sesion = sesiones.get(idCode100);
+  const sesion = await leerSesion(idCode100);
   if (!sesion) return { ok: false, motivo: "NO_ENCONTRADA" };
   if (sesion.firma || sesion.fallo) return { ok: false, motivo: "YA_CERRADA" };
 
@@ -448,6 +547,7 @@ export async function abrirEnlaceDeFirmaMock(
   if (emitidoEn >= sesion.venceEn) {
     sesion.fallo = { motivo: "EXPIRADA", detalle: "El enlace de firma venció sin completarse." };
     sesion.actualizadoEn = emitidoEn;
+    await guardarSesion(sesion);
     return { ok: false, motivo: "EXPIRADA" };
   }
 
@@ -460,6 +560,7 @@ export async function abrirEnlaceDeFirmaMock(
     if (!remoto.ok) return { ok: false, motivo: "ERROR_ENVIO" };
     sesion.otp = { tipo: "REMOTO", otpId: remoto.otpId, emitidoEn, expiraEn: remoto.expiraEn };
     sesion.actualizadoEn = emitidoEn;
+    await guardarSesion(sesion);
     // Nada para el panel: el código no existe en este proceso (viaja por
     // WhatsApp), que es exactamente el punto de usar el canal real.
     return { ok: true, expiraEn: remoto.expiraEn };
@@ -469,11 +570,18 @@ export async function abrirEnlaceDeFirmaMock(
   const expiraEn = new Date(instante.getTime() + VIGENCIA_OTP_MS).toISOString();
 
   // Solo el HMAC queda en la sesión (regla inviolable #2).
-  sesion.otp = { tipo: "LOCAL", hash: hmacOtp(codigo), emitidoEn, expiraEn, intentos: 0 };
+  sesion.otp = { tipo: "LOCAL", hash: await hmacOtp(codigo), emitidoEn, expiraEn, intentos: 0 };
   sesion.actualizadoEn = emitidoEn;
+  await guardarSesion(sesion);
 
   if (retener) {
-    codigosDemo.set(idCode100, { idCode100, codigo, destino: sesion.destino, emitidoEn, expiraEn });
+    await almacen().guardar(COLECCION_CODIGOS, idCode100, {
+      idCode100,
+      codigo,
+      destino: sesion.destino,
+      emitidoEn,
+      expiraEn,
+    });
   }
 
   return { ok: true, expiraEn };
@@ -515,7 +623,7 @@ export async function firmarEnCode100Mock(
 ): Promise<ResultadoFirmaDemo> {
   const ahora = opciones.ahora ?? (() => new Date());
 
-  const sesion = sesiones.get(idCode100);
+  const sesion = await leerSesion(idCode100);
   if (!sesion) return { ok: false, motivo: "NO_ENCONTRADA" };
   if (sesion.firma || sesion.fallo) return { ok: false, motivo: "YA_CERRADA" };
 
@@ -552,9 +660,12 @@ export async function firmarEnCode100Mock(
     if (firmadoEn >= otp.expiraEn) return { ok: false, motivo: "OTP_EXPIRADO" };
     if (otp.intentos >= INTENTOS_MAXIMOS_OTP) return { ok: false, motivo: "INTENTOS_AGOTADOS" };
 
-    if (!coincideConHash(codigoIngresado, otp.hash)) {
+    if (!(await coincideConHash(codigoIngresado, otp.hash))) {
       otp.intentos += 1;
       sesion.actualizadoEn = firmadoEn;
+      // El contador de intentos tiene que persistir, o cada reintento
+      // empezaría de cero y los 3 intentos de la regla #1 no limitarían nada.
+      await guardarSesion(sesion);
       const intentosRestantes = Math.max(0, INTENTOS_MAXIMOS_OTP - otp.intentos);
       return intentosRestantes === 0
         ? { ok: false, motivo: "INTENTOS_AGOTADOS" }
@@ -574,6 +685,7 @@ export async function firmarEnCode100Mock(
   for (const documento of documentos) {
     if (opciones.fallarAMitadDelSellado && huellas.length === 1) {
       sesion.actualizadoEn = firmadoEn;
+      await guardarSesion(sesion);
       return { ok: false, motivo: "FALLA_DEL_PROVEEDOR" };
     }
     const bytes = renderizarPdfFirmado(documento, sesion, firmadoEn);
@@ -594,43 +706,53 @@ export async function firmarEnCode100Mock(
   sesion.documentosFirmados = { solicitud: pdfs[0], fipf: pdfs[1] };
   sesion.otp = null; // Uso único: el código no sirve para nada más.
   sesion.actualizadoEn = firmadoEn;
-  codigosDemo.delete(idCode100);
+  await guardarSesion(sesion);
+  await almacen().borrar(COLECCION_CODIGOS, idCode100);
 
   return { ok: true, firma };
 }
 
 /** La persona rechaza o cancela el acto de firma en la pantalla de Code100. */
-export function cerrarSinFirmarMock(
+export async function cerrarSinFirmarMock(
   idCode100: string,
   motivo: MotivoNoFirmado = "RECHAZADA",
   detalle: string | null = null,
   ahora: () => Date = () => new Date(),
-): boolean {
-  const sesion = sesiones.get(idCode100);
+): Promise<boolean> {
+  const sesion = await leerSesion(idCode100);
   if (!sesion || sesion.firma || sesion.fallo) return false;
   sesion.fallo = { motivo, detalle };
   sesion.otp = null;
   sesion.actualizadoEn = ahora().toISOString();
-  codigosDemo.delete(idCode100);
+  await guardarSesion(sesion);
+  await almacen().borrar(COLECCION_CODIGOS, idCode100);
   return true;
 }
 
 /** Sesiones simuladas vivas en esta instancia, de la más nueva a la más vieja. */
-export function listarSesionesFirmaMock(): readonly Readonly<SesionFirmaMock>[] {
-  return [...sesiones.values()].sort((a, b) => (a.enlaceEnviadoEn < b.enlaceEnviadoEn ? 1 : -1));
+export async function listarSesionesFirmaMock(): Promise<readonly Readonly<SesionFirmaMock>[]> {
+  const todas = await almacen().listar<SesionFirmaMock>(COLECCION_SESIONES);
+  return [...todas].sort((a, b) => (a.enlaceEnviadoEn < b.enlaceEnviadoEn ? 1 : -1));
 }
 
-export function obtenerSesionFirmaMock(idCode100: string): Readonly<SesionFirmaMock> | null {
-  return sesiones.get(idCode100) ?? null;
+export async function obtenerSesionFirmaMock(
+  idCode100: string,
+): Promise<Readonly<SesionFirmaMock> | null> {
+  return leerSesion(idCode100);
 }
 
 /** Código en claro del OTP de firma. Solo el panel de demo puede leerlo. */
-export function obtenerCodigoFirmaDemo(idCode100: string): CodigoFirmaDemo | null {
-  return codigosDemo.get(idCode100) ?? null;
+export async function obtenerCodigoFirmaDemo(idCode100: string): Promise<CodigoFirmaDemo | null> {
+  return almacen().obtener<CodigoFirmaDemo>(COLECCION_CODIGOS, idCode100);
 }
 
 /** Solo para tests: deja el registro de sesiones simuladas en blanco. */
-export function limpiarSesionesFirmaMock(): void {
-  sesiones.clear();
-  codigosDemo.clear();
+export async function limpiarSesionesFirmaMock(): Promise<void> {
+  const almacenActual = almacen();
+  for (const coleccion of [COLECCION_SESIONES, COLECCION_CODIGOS]) {
+    const claves = await almacenActual.listar<{ idCode100?: string }>(coleccion);
+    for (const item of claves) {
+      if (item?.idCode100) await almacenActual.borrar(coleccion, item.idCode100);
+    }
+  }
 }
