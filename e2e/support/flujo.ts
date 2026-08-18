@@ -124,6 +124,39 @@ export async function completarP4(page: Page, persona: PersonaDemo): Promise<voi
 }
 
 /**
+ * Una de las tres tomas de P5, de punta a punta: abrir el visor, disparar y
+ * confirmar la foto.
+ *
+ * Son tres pasos y no uno desde que el visor tiene revisión previa
+ * (`CapturaConCamara`): encuadrar → revisar → mandar. La confirmación es lo que
+ * evita que una foto movida llegue al proveedor sin que nadie la haya mirado, y
+ * por eso el helper la atraviesa en vez de saltearla.
+ *
+ * El disparo automático puede adelantarse y congelar la foto antes de que el
+ * test toque el obturador. Con la cámara falsa de Chrome el cuadro es plano y
+ * la medición de calidad no lo da por apto, así que en la práctica no pasa —
+ * pero el helper contempla las dos posibilidades para no depender de una
+ * propiedad del video sintético.
+ */
+async function tomarCapturaP5(page: Page, toma: "FRENTE" | "DORSO" | "SELFIE"): Promise<void> {
+  const enTarjeta =
+    toma === "SELFIE"
+      ? page.getByRole("button", { name: "Tomar selfie", exact: true })
+      : page.getByRole("button", { name: "Tomar fotografía", exact: true }).first();
+  await enTarjeta.click();
+
+  const obturador = page.getByRole("button", {
+    name: toma === "SELFIE" ? "Tomar la selfie" : "Tomar la foto",
+    exact: true,
+  });
+  const usar = page.getByRole("button", { name: "Usar esta foto", exact: true });
+
+  await expect(obturador.or(usar).first()).toBeVisible();
+  if (await obturador.isVisible()) await obturador.click();
+  await usar.click();
+}
+
+/**
  * P5 · Paso 5 de 9 — Verificación de identidad, camino que aprueba (frente,
  * dorso y selfie aprobadas, país y estado civil completos). Deja a la persona
  * en /p6-declaraciones.
@@ -132,13 +165,13 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/p5-identidad$/);
   await esperarHidratacion(page);
 
-  await page.getByRole("button", { name: "Tomar fotografía", exact: true }).first().click();
+  await tomarCapturaP5(page, "FRENTE");
   await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(1);
 
-  await page.getByRole("button", { name: "Tomar fotografía", exact: true }).click();
+  await tomarCapturaP5(page, "DORSO");
   await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(2);
 
-  await page.getByRole("button", { name: "Iniciar verificación" }).click();
+  await tomarCapturaP5(page, "SELFIE");
 
   await expect(
     page.getByText("Datos extraídos de la cédula y confirmados con la selfie en vivo."),
@@ -161,11 +194,11 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
 export async function completarCapturasP5(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/p5-identidad$/);
   await esperarHidratacion(page);
-  await page.getByRole("button", { name: "Tomar fotografía", exact: true }).first().click();
+  await tomarCapturaP5(page, "FRENTE");
   await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(1);
-  await page.getByRole("button", { name: "Tomar fotografía", exact: true }).click();
+  await tomarCapturaP5(page, "DORSO");
   await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(2);
-  await page.getByRole("button", { name: "Iniciar verificación" }).click();
+  await tomarCapturaP5(page, "SELFIE");
   // La comparación facial rechaza: el aviso rojo de P5 avisa que hay que
   // repetir la captura, nunca editar los campos a mano.
   await expect(

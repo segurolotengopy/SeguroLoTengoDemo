@@ -53,7 +53,27 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        /**
+         * Cámara falsa del navegador, obligatoria desde que P5 captura de
+         * verdad (`CapturaConCamara`): sin esto `getUserMedia` pide permiso a
+         * un usuario que no existe y el visor se queda en "Abriendo la
+         * cámara…", con lo que **ningún** escenario pasa de P5.
+         *
+         * - `use-fake-device-for-media-stream` entrega un video sintético.
+         * - `use-fake-ui-for-media-stream` concede el permiso sin diálogo.
+         *
+         * El cuadro sintético es plano, así que la medición de calidad de
+         * `calidad-captura.ts` no lo va a dar por apto y el disparo automático
+         * no se adelanta. Los helpers de `e2e/support/flujo.ts` no dependen de
+         * eso igual: contemplan las dos posibilidades.
+         */
+        launchOptions: {
+          args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+        },
+        permissions: ["camera"],
+      },
     },
   ],
 
