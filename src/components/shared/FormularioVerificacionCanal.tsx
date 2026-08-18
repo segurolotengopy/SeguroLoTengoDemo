@@ -43,6 +43,11 @@ interface RespuestaApi {
   readonly intentosRestantes?: number;
   readonly segundosRestantes?: number;
   readonly registroSeguridad?: RegistroSeguridad;
+  /**
+   * A dónde puede seguir esta persona cuando su expediente ya no está en este
+   * paso. Lo calcula el servidor con `destinoDelExpediente`.
+   */
+  readonly destino?: { readonly ruta: string; readonly rotulo: string; readonly terminal: boolean };
 }
 
 /** Mensajes iguales en las dos pantallas. Cada una agrega los suyos. */
@@ -158,6 +163,8 @@ export function FormularioVerificacionCanal({
   const [etapa, setEtapa] = useState<"destino" | "codigo" | "verificado">("destino");
   const [enProceso, setEnProceso] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Camino ofrecido cuando el expediente ya no está en este paso. */
+  const [reencaminado, setReencaminado] = useState<RespuestaApi["destino"] | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   const [destinoEnmascarado, setDestinoEnmascarado] = useState<string | null>(null);
@@ -207,6 +214,7 @@ export function FormularioVerificacionCanal({
           return;
         }
         setError(mensajeDe(datos.motivo, "No pudimos enviar el código."));
+        setReencaminado(datos.destino ?? null);
         return;
       }
 
@@ -413,6 +421,18 @@ export function FormularioVerificacionCanal({
           <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
             {error}
           </p>
+        ) : null}
+
+        {/* Reencaminado: el servidor sabe dónde quedó el trámite, así que en
+            vez de dejar a la persona leyendo un aviso se le ofrece el camino.
+            Sin esto, la única salida era borrar las cookies del navegador. */}
+        {reencaminado ? (
+          <a
+            href={reencaminado.ruta}
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"
+          >
+            {reencaminado.rotulo} →
+          </a>
         ) : null}
         {aviso ? (
           <p role="status" className="text-sm font-semibold text-verde-700 dark:text-verde-300">

@@ -24,6 +24,8 @@ import {
   estadoBloqueaRegistro,
   filtrarPorNombre,
 } from "@/domain/consola-administrativa";
+import { normalizarCelularRegional } from "@/domain/telefono";
+import { normalizarCorreo } from "@/domain/correo";
 import { correlativoDeCodigo } from "@/domain/documentos";
 import { ESTADOS_EXPEDIENTE } from "@/domain/tipos";
 import type { EstadoExpediente, Expediente } from "@/domain/tipos";
@@ -70,6 +72,33 @@ export async function GET(request: Request): Promise<Response> {
       // Contexto = los mismos: para decidir cuál bloquea hace falta ver toda
       // la cadena de expedientes de esa persona, que es exactamente esto.
       contexto = encontrados;
+      break;
+    }
+    // Celular y correo son los dos criterios que existen **antes** que la
+    // cédula: quien llama trabado en P1 o P4 no tiene otro dato que dar.
+    case "celular": {
+      // Se acepta pegado como venga (con espacios, guiones o sin prefijo) y
+      // se normaliza igual que en P1, para que la búsqueda encuentre lo que
+      // se guardó y no lo que se tipeó.
+      const normalizado = normalizarCelularRegional(valor);
+      if (!normalizado.ok) {
+        return respuestaJson({ ok: false, motivo: "CELULAR_INVALIDO" }, { status: 400 });
+      }
+      encontrados = await repositorio.buscarPorCelular(normalizado.e164);
+      const cedulaDelCelular = encontrados[0]?.identidad?.numeroCedula;
+      contexto = cedulaDelCelular
+        ? await repositorio.buscarPorCedula(cedulaDelCelular)
+        : encontrados;
+      break;
+    }
+    case "correo": {
+      const normalizado = normalizarCorreo(valor);
+      if (!normalizado.ok) {
+        return respuestaJson({ ok: false, motivo: "CORREO_INVALIDO" }, { status: 400 });
+      }
+      encontrados = await repositorio.buscarPorCorreo(normalizado.correo);
+      const cedulaDelCorreo = encontrados[0]?.identidad?.numeroCedula;
+      contexto = cedulaDelCorreo ? await repositorio.buscarPorCedula(cedulaDelCorreo) : encontrados;
       break;
     }
     case "caso": {

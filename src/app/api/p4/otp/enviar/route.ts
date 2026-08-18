@@ -19,6 +19,7 @@ import {
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
+import { destinoDelExpediente } from "@/domain/rutas-flujo";
 import { dependenciasP4 } from "@/app/api/p4/_dependencias";
 import { INTENTOS_MAXIMOS_OTP } from "@/domain/reglas-otp";
 import { enviarOtpCorreo } from "@/domain/verificacion-canal-correo";
@@ -63,6 +64,9 @@ export async function POST(request: Request): Promise<Response> {
       {
         ok: false,
         motivo: resultado.motivo,
+        // El expediente quedó en otro paso: se devuelve a dónde ir, para que
+        // la pantalla reencamine en vez de solo avisar (`rutas-flujo.ts`).
+        ...(resultado.estado ? { destino: destinoDelExpediente(resultado.estado) } : {}),
         ...(resultado.segundosRestantes === undefined
           ? {}
           : { segundosRestantes: resultado.segundosRestantes }),

@@ -28,6 +28,8 @@
  * agregados como **ítems de índice en la misma tabla**, no como GSI:
  *
  * - Por cédula:    pk = INDICE#CEDULA#<cedula>          sk = EXPEDIENTE#<id>
+ * - Por celular:   pk = INDICE#CELULAR#<E164>           sk = EXPEDIENTE#<id>
+ * - Por correo:    pk = INDICE#EMAIL#<correo>           sk = EXPEDIENTE#<id>
  * - Por caso:      pk = INDICE#CASO#<numeroCaso>        sk = EXPEDIENTE#<id>
  * - Por propuesta: pk = INDICE#PROPUESTA#<correlativo>  sk = EXPEDIENTE#<id>
  * - Por estado:    pk = INDICE#ESTADO#<estado>          sk = <actualizadoEn>#<id>
@@ -76,7 +78,18 @@ export function claveEvidencia(
 // Ítems de índice de la consola administrativa
 // ---------------------------------------------------------------------------
 
-export type TipoIndiceExpediente = "CEDULA" | "CASO" | "PROPUESTA" | "ESTADO" | "ANTERIOR";
+export type TipoIndiceExpediente =
+  | "CEDULA"
+  | "CASO"
+  | "PROPUESTA"
+  | "ESTADO"
+  | "ANTERIOR"
+  // Canales verificados. Existen porque **la cédula recién aparece en P5**:
+  // cuando alguien llama trabado en P1 o P4, el celular o el correo son el
+  // único dato que hay, y sin estos índices la consola no podía encontrar
+  // justo los expedientes más tempranos, que son los que más ayuda necesitan.
+  | "CELULAR"
+  | "EMAIL";
 
 export function particionIndice(tipo: TipoIndiceExpediente, valor: string): string {
   return `INDICE${SEPARADOR}${tipo}${SEPARADOR}${valor}`;
@@ -88,7 +101,7 @@ export function particionIndice(tipo: TipoIndiceExpediente, valor: string): stri
  * expediente no duplica entradas.
  */
 export function claveIndicePorValor(
-  tipo: "CEDULA" | "CASO" | "PROPUESTA" | "ANTERIOR",
+  tipo: "CEDULA" | "CASO" | "PROPUESTA" | "ANTERIOR" | "CELULAR" | "EMAIL",
   valor: string,
   expedienteId: string,
 ): { pk: string; sk: string } {

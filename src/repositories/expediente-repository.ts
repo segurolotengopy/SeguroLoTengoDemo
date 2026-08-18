@@ -54,6 +54,16 @@ export interface ExpedienteRepository {
  */
 export interface ConsultaExpedientes {
   buscarPorCedula(numeroCedula: string): Promise<readonly Expediente[]>;
+  /**
+   * Por el celular verificado en P1, en formato E.164.
+   *
+   * Es la búsqueda que permite atender a quien llama trabado antes de P5:
+   * hasta ahí **no hay cédula**, y el celular es el único dato que la persona
+   * puede dar por teléfono.
+   */
+  buscarPorCelular(numeroE164: string): Promise<readonly Expediente[]>;
+  /** Por el correo verificado en P4, normalizado. */
+  buscarPorCorreo(correo: string): Promise<readonly Expediente[]>;
   buscarPorNumeroCaso(numeroCaso: string): Promise<readonly Expediente[]>;
   /**
    * Por el correlativo de la propuesta (`00018425`), sin prefijo: la consola
@@ -97,6 +107,15 @@ export function crearExpedienteRepositoryDynamoDb(
     // La cédula aparece recién en P5; el número de caso, solo si P6 derivó.
     if (expediente.identidad) {
       claves.push(claveIndicePorValor("CEDULA", expediente.identidad.numeroCedula, expediente.id));
+    }
+    // Canales verificados: el celular queda desde P1 y el correo desde P4,
+    // mucho antes que la cédula. Son los índices que permiten atender a quien
+    // llama trabado en los primeros pasos.
+    if (expediente.canalWhatsapp) {
+      claves.push(claveIndicePorValor("CELULAR", expediente.canalWhatsapp.valor, expediente.id));
+    }
+    if (expediente.canalEmail) {
+      claves.push(claveIndicePorValor("EMAIL", expediente.canalEmail.valor, expediente.id));
     }
     if (expediente.numeroCasoDerivacion) {
       claves.push(claveIndicePorValor("CASO", expediente.numeroCasoDerivacion, expediente.id));
@@ -239,6 +258,20 @@ export function crearExpedienteRepositoryDynamoDb(
       return expedientes.filter(
         (expediente) => expediente.identidad?.numeroCedula === numeroCedula,
       );
+    },
+
+    async buscarPorCelular(numeroE164: string): Promise<readonly Expediente[]> {
+      const ids = await idsDeIndice(particionIndice("CELULAR", numeroE164));
+      const expedientes = await hidratar(ids);
+      // Se verifica contra el expediente igual que la cédula: el índice acota
+      // candidatos, no es la verdad.
+      return expedientes.filter((expediente) => expediente.canalWhatsapp?.valor === numeroE164);
+    },
+
+    async buscarPorCorreo(correo: string): Promise<readonly Expediente[]> {
+      const ids = await idsDeIndice(particionIndice("EMAIL", correo));
+      const expedientes = await hidratar(ids);
+      return expedientes.filter((expediente) => expediente.canalEmail?.valor === correo);
     },
 
     async buscarPorNumeroCaso(numeroCaso: string): Promise<readonly Expediente[]> {

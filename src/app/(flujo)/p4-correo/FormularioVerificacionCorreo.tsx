@@ -17,7 +17,7 @@ const MENSAJES_P4: Readonly<Record<string, string>> = {
   // Este es el mensaje que ve alguien que intenta usar el código de WhatsApp
   // acá: los dos OTP son independientes y no son intercambiables.
   PROPOSITO_INCORRECTO: "Ese código no sirve para verificar el correo. Es diferente al de WhatsApp.",
-  ESTADO_INVALIDO: "Este proceso ya no está en el paso de verificación de correo.",
+  ESTADO_INVALIDO: "Ya empezaste este trámite y avanzaste más allá de este paso. Podés seguir desde donde quedaste.",
   SESION_INVALIDA: "Se perdió la sesión. Volvé a empezar desde la verificación de WhatsApp.",
 };
 
