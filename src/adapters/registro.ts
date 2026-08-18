@@ -41,16 +41,42 @@ import {
   lectorConMetadataWhatsAppModular,
 } from "./live/otp-provider";
 import { crearClienteWhatsAppModularDesdeEntorno } from "./live/whatsapp-modular";
-import { obtenerWhatsAppModularToken } from "../repositories/secrets-client";
+import { obtenerOtpPepper, obtenerWhatsAppModularToken } from "../repositories/secrets-client";
+import { crearAlmacenEstadoDemo } from "../repositories";
 import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 import type { OtpFirmaRemoto } from "./mock/signature-provider";
 import { crearPaymentProviderMock } from "./mock/payment-provider";
 import { crearPolicyIssuerMock } from "./mock/policy-issuer";
 import { crearRegistroCivilMock } from "./mock/registro-civil";
-import { crearSignatureProviderMock } from "./mock/signature-provider";
+import {
+  configurarAlmacenFirmaDemo,
+  configurarPepperFirmaDemo,
+  crearSignatureProviderMock,
+} from "./mock/signature-provider";
 import { consumirFallaDemo } from "./mock/fallas-demo";
 import { plazoFirmaMs } from "./mock/plazo-firma-demo";
+
+/**
+ * Persistencia del simulador de firma, configurada al importar este módulo.
+ *
+ * Va acá y no dentro de una función porque las operaciones del firmador
+ * simulado son funciones de módulo que los Route Handlers llaman directo
+ * (`abrirEnlaceDeFirmaMock`, `firmarEnCode100Mock`), sin pedirle nada al
+ * composition root. Todo camino que las alcanza importa igual este archivo,
+ * así que configurarlas en el import es lo que garantiza que nadie las use sin
+ * almacén.
+ *
+ * **Por qué hace falta:** las sesiones vivían en memoria del proceso y el
+ * cómputo de Amplify es serverless. Desplegado, la sesión creada al enviar el
+ * enlace no existía al abrir el firmador y P8 no se podía completar. El pepper
+ * tenía el mismo problema: uno por instancia hacía que un código emitido en
+ * una no se pudiera verificar en otra.
+ */
+configurarAlmacenFirmaDemo(crearAlmacenEstadoDemo());
+// Sin secret configurado —`next dev` sin AWS— se queda con el pepper por
+// proceso, que ahí es correcto porque hay un solo proceso.
+configurarPepperFirmaDemo(process.env.APP_SECRETS_ARN ? obtenerOtpPepper : null);
 
 /**
  * Las cuatro palancas de "forzar fallos puntuales" del panel de demo se

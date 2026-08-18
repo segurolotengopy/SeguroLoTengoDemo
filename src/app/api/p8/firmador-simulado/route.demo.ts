@@ -101,7 +101,7 @@ export async function POST(request: Request): Promise<Response> {
   // Cierra la sesión sin firma y el sondeo de P8 lo informa como acto no
   // completado; desde ahí se puede pedir un enlace nuevo.
   if (cuerpo.accion === "RECHAZAR") {
-    const cerrada = cerrarSinFirmarMock(
+    const cerrada = await cerrarSinFirmarMock(
       acto.idCode100,
       "RECHAZADA",
       "La persona rechazó la firma en la ventana del firmador.",

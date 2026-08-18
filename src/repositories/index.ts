@@ -23,6 +23,11 @@ import { crearExpedienteRepositoryDynamoDb } from "./expediente-repository";
 import type { ConsultaExpedientes, ExpedienteRepository } from "./expediente-repository";
 import { crearArchivoRepositoryS3 } from "./archivo-repository";
 import type { ArchivoRepository } from "./archivo-repository";
+import {
+  crearAlmacenEstadoDemoDynamoDb,
+  crearAlmacenEstadoDemoEnMemoria,
+} from "./estado-demo-repository";
+import type { AlmacenEstadoDemo } from "./estado-demo-repository";
 import type { EvidenceStore } from "../ports/evidence-store";
 
 export function crearOtpRepository(): OtpRepository {
@@ -62,3 +67,28 @@ export function crearArchivoRepository(): ArchivoRepository {
 export type { OtpRepository, CrearOtpInput, OtpCreado, RegistroOtp, ResultadoReenvioOtpRepo } from "./otp-repository";
 export type { ConsultaExpedientes, ExpedienteRepository } from "./expediente-repository";
 export type { ArchivoRepository, ArchivoGuardado } from "./archivo-repository";
+
+/**
+ * Almacén del estado de los mocks que **no puede vivir en memoria**.
+ *
+ * Cae a memoria si no hay tabla configurada, que es el caso de `next dev` sin
+ * AWS: ahí un solo proceso alcanza y no tiene sentido exigir DynamoDB para
+ * levantar el demo. Desplegado, la tabla siempre está.
+ */
+let almacenEnMemoria: AlmacenEstadoDemo | null = null;
+
+export function crearAlmacenEstadoDemo(): AlmacenEstadoDemo {
+  if (!process.env.DYNAMODB_TABLE) {
+    // Memoizado: crear uno nuevo por llamada perdería el estado entre
+    // peticiones incluso dentro del mismo proceso, que es justo lo que este
+    // almacén existe para evitar.
+    almacenEnMemoria ??= crearAlmacenEstadoDemoEnMemoria();
+    return almacenEnMemoria;
+  }
+  return crearAlmacenEstadoDemoDynamoDb({
+    documentClient: obtenerClienteDynamoDb(),
+    nombreTabla: nombreTablaExpedientes(),
+  });
+}
+
+export type { AlmacenEstadoDemo } from "./estado-demo-repository";
