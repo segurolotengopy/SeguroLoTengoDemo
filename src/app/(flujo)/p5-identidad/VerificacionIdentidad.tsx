@@ -716,6 +716,17 @@ export function VerificacionIdentidad({
           </p>
         </div>
 
+        {/* CHG-16 · leyenda de revisión antes de validar (reunión 00:15:51).
+            El OCR confunde caracteres —una O por un 0, una letra de más— y
+            quien no mira los campos se entera del error cuando ya firmó un
+            documento con su nombre mal escrito. Va acá arriba, antes de los
+            campos, y no junto al botón: pedir que revise después de haber
+            bajado toda la columna llega tarde. */}
+        <p className="rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 text-xs text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
+          <span className="font-bold text-naranja-800 dark:text-naranja-200">Revisá tus datos</span>{" "}
+          antes de validar: la lectura automática puede confundir caracteres parecidos.
+        </p>
+
         <div className="grid gap-3 sm:grid-cols-2">
           {CAMPOS_BLOQUEADOS.map(({ id, etiqueta }) => (
             <div key={id} className="flex flex-col gap-1">

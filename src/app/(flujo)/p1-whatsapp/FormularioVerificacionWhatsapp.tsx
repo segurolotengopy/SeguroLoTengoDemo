@@ -111,12 +111,25 @@ export function FormularioVerificacionWhatsapp(props: {
       mensajes={mensajes}
       validarDestino={(valor) => normalizarCelularRegional(`${pais.prefijo} ${valor}`).ok}
       componerDestino={(valor) => `${pais.prefijo} ${valor}`}
+      // CHG-09 · advertencia de seguridad reforzada (reunión 18-ago-2026,
+      // 00:08:16). Las dos precisiones nuevas nacen de un susto real: al
+      // recibir el código de la prueba, Rodrigo pudo leerlo como un intento de
+      // secuestro de su cuenta. Decir que nadie te va a llamar no alcanza si
+      // la persona cree que el mensaje es de WhatsApp y no nuestro.
       advertencias={
         <>
-          <p className="font-semibold text-titulo">No compartas el código con nadie.</p>
+          <p className="font-semibold text-titulo">Nunca compartas este código con terceros.</p>
           <p>
-            SeguroLoTengo, Interseguros y Alianza nunca te lo van a pedir por llamada. Si el código
-            es incorrecto o deja de ser válido, te mostramos el motivo y podés pedir otro.
+            Ni Interseguros ni Alianza te van a llamar para pedírtelo. Si alguien te lo pide por
+            teléfono, cortá: no somos nosotros.
+          </p>
+          <p>
+            <span className="font-semibold text-titulo">
+              Este código no es el de seguridad de WhatsApp.
+            </span>{" "}
+            No sirve para acceder a tu cuenta ni a tus conversaciones: solo confirma que este
+            número es tuyo. Si el código es incorrecto o deja de ser válido, te mostramos el
+            motivo y podés pedir otro.
           </p>
         </>
       }

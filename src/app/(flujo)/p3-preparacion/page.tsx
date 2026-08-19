@@ -43,7 +43,10 @@ const ELEMENTOS_NECESARIOS = [
       "El documento original, frente y dorso, legible y sin reflejos. No se acepta pasaporte ni cédula extranjera.",
   },
   {
-    titulo: "Celular con cámara y buena iluminación",
+    // CHG-13 · el requisito admite computadora, no solo celular: la captura y
+    // la prueba de vida funcionan igual desde una webcam (verificación E2E de
+    // escritorio pendiente, PEN-03).
+    titulo: "Celular o computadora con cámara y buena iluminación",
     detalle:
       "Para fotografiar la cédula, realizar la selfie en vivo y completar la prueba de vida.",
   },
@@ -141,6 +144,25 @@ export default function PantallaP3Preparacion() {
               </ul>
             </section>
 
+            {/* CHG-11 · aviso de titularidad. Va destacado y en su propio
+                recuadro, no como una viñeta más: es la regla que la persona
+                tiene que entender antes de gastar tiempo en el trámite, porque
+                un medio de pago ajeno lo detiene al final, después de firmar. */}
+            <section className="flex gap-3 rounded-lg border-2 border-naranja-400 bg-naranja-50 p-3 dark:border-naranja-600 dark:bg-naranja-950">
+              <span aria-hidden="true" className="text-xl leading-none">
+                👤
+              </span>
+              <p className="text-sm leading-snug text-cuerpo">
+                <span className="font-bold text-naranja-800 dark:text-naranja-200">
+                  IMPORTANTE:
+                </span>{" "}
+                este seguro no puede ser contratado a nombre de otras personas. Por ello, la
+                cédula de identidad, el número de WhatsApp, el correo electrónico y el medio de
+                pago deberán pertenecer necesariamente{" "}
+                <span className="font-bold text-titulo">al mismo asegurado</span>.
+              </p>
+            </section>
+
             <div id="autorizacion-inicial" className="scroll-mt-4">
               <BotonAutorizacionInicial />
             </div>
@@ -164,11 +186,22 @@ export default function PantallaP3Preparacion() {
               </EnlaceAclaracion>
             </div>
 
-            {/* Las dos partes juntas (cuerpo + advertencia) son, palabra por
+            {/* CHG-12 · el disclaimer de protección de datos gana el candado
+                que pidió la reunión (00:04:25: "aquí el disclaimer está sin
+                logo, sin un isotipo"). El ícono es decorativo —`aria-hidden`—
+                porque el texto ya dice todo: para quien usa lector de pantalla
+                sería ruido, no información.
+
+                Las dos partes juntas (cuerpo + advertencia) son, palabra por
                 palabra, el literal que el servidor persiste como `textoAceptado`. */}
-            <p className="border-t border-borde-tenue pt-3 text-xs text-cuerpo">
-              {CUERPO_AUTORIZACION_INICIAL_P3}
-            </p>
+            <div className="flex gap-3 rounded-lg border border-azul-200 bg-azul-50 p-3 dark:border-azul-700 dark:bg-azul-950">
+              <span aria-hidden="true" className="text-lg leading-none">
+                🔒
+              </span>
+              <p className="text-xs leading-snug text-cuerpo">
+                {CUERPO_AUTORIZACION_INICIAL_P3}
+              </p>
+            </div>
 
             <p className="text-xs text-etiqueta">{NOTA_REGISTRO_P3}</p>
           </aside>
