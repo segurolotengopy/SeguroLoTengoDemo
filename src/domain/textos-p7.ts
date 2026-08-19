@@ -93,6 +93,22 @@ export const VALOR_OFICIAL_DE_ALIANZA_P7 = "Valor oficial de Alianza";
 
 export const ROTULO_PREMIO_TOTAL_P7 = "Premio total anual";
 
+/** CHG-35 · aclaración de moneda al pie de la liquidación. */
+export const NOTA_MONEDA_P7 = "Todos los importes están expresados en guaraníes.";
+
+/**
+ * CHG-36 · destino de los fondos, al pie de la pantalla de pago.
+ *
+ * Lo pidió Rodrigo en la reunión (00:36:51) y lo corrigió en el acto: no es
+ * "el pago de la prima" sino **del premio** —prima más impuestos—, que es lo
+ * que la persona efectivamente paga. Importa que se diga acá: el cobro lo
+ * recibe la aseguradora, no el corredor, y esa es la razón por la que
+ * Interseguros no toca el dinero (fila 23 de la matriz de cumplimiento:
+ * Alianza Garantía es titular del vPOS y receptora del premio).
+ */
+export const NOTA_DESTINO_DE_FONDOS_P7 =
+  "El pago del premio irá directamente a las cuentas de Alianza Garantía Seguros y Reaseguros S.A.";
+
 // ---------------------------------------------------------------------------
 // Declaración de origen lícito de fondos (checkbox obligatorio)
 // ---------------------------------------------------------------------------

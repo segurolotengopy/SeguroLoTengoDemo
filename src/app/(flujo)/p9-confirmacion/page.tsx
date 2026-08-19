@@ -9,6 +9,7 @@ import {
 import {
   BAJADA_P9,
   CONTACTOS_P9,
+  LEYENDA_CIERRE_P9,
   ROTULO_BOTON_FINALIZAR_P9,
   ROTULO_PRODUCTO_P9,
   TITULO_P9,
@@ -76,6 +77,10 @@ export default function PantallaP9Confirmacion() {
           >
             {ROTULO_BOTON_FINALIZAR_P9}
           </Link>
+
+          <p className="text-sm font-semibold text-azul-800 dark:text-azul-200">
+            {LEYENDA_CIERRE_P9}
+          </p>
 
           <dl className="grid gap-2 lg:grid-cols-2">
             {CONTACTOS_P9.map((contacto, indice) => (

@@ -13,6 +13,8 @@ import {
   IDENTIFICADOR_BANCARD_PENDIENTE_P7,
   MEDIO_POR_DEFECTO_P7,
   NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA_P7,
+  NOTA_DESTINO_DE_FONDOS_P7,
+  NOTA_MONEDA_P7,
   NOTA_FACTURA_A_NOMBRE_DEL_ASEGURADO_P7,
   NOTA_IDENTIFICADOR_BANCARD_P7,
   NOTA_MOMENTOS_DISTINTOS_P7,
@@ -325,6 +327,9 @@ export function FormularioPagoP7() {
             <span className="text-sm font-bold text-titulo">{ROTULO_PREMIO_TOTAL_P7}</span>
             <span className="text-base font-bold text-titulo tabular-nums">{importe}</span>
           </div>
+          <p className="pt-1 text-[11px] text-etiqueta">{NOTA_MONEDA_P7}</p>
+          {/* CHG-36 · a quién le llega la plata. */}
+          <p className="pt-1 text-[11px] text-cuerpo">{NOTA_DESTINO_DE_FONDOS_P7}</p>
         </div>
 
         {/* Declaración de origen lícito de fondos — bloqueante */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 // Desde `catalogo-p6` y `textos-p6`, no desde el caso de uso: este es un
 // componente de cliente e importar `declaraciones-p6.ts` arrastraría
 // `node:crypto` al bundle.
@@ -22,7 +22,9 @@ import {
   NOTA_BENEFICIARIO_DESIGNADO_P6,
   REGLA_ELEGIBILIDAD_P6,
   ROTULO_AYUDA_PEP,
+  SUBTITULOS_DECLARACIONES_P6,
   TEXTOS_DECLARACIONES_P6,
+  guiaHabilitacionVisible,
   rotuloRespuestaHabilitante,
 } from "@/domain/textos-p6";
 import type { RespuestaDeclaracion } from "@/domain/tipos";
@@ -325,15 +327,30 @@ export function FormularioDatosYDeclaraciones() {
             if (!definicion) return null;
             const respuesta = respuestas[declaracion.numero];
 
+            const subtitulo = SUBTITULOS_DECLARACIONES_P6[declaracion.numero];
+
             return (
-              <li key={declaracion.numero}>
+              <Fragment key={declaracion.numero}>
+                {/* CHG-20 · el subtítulo abre el grupo. Va como `li` sin
+                    semántica de ítem para no anunciar un elemento de lista
+                    vacío, conservando el encabezado que sí orienta. */}
+                {subtitulo ? (
+                  <li role="presentation" className="pt-2 first:pt-0">
+                    <h3 className="text-xs font-bold tracking-wide text-azul-700 uppercase dark:text-azul-300">
+                      {subtitulo}
+                    </h3>
+                  </li>
+                ) : null}
+              <li>
                 <fieldset className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <legend className="float-left text-xs font-bold tracking-wide text-titulo uppercase">
                       {declaracion.numero}. {declaracion.titulo}
-                      <span className="ml-2 rounded-full border border-verde-300 bg-verde-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-verde-800 uppercase dark:border-verde-700 dark:bg-verde-950 dark:text-verde-200">
-                        {rotuloRespuestaHabilitante(definicion.respuestaHabilitante)}
-                      </span>
+                      {guiaHabilitacionVisible() ? (
+                        <span className="ml-2 rounded-full border border-verde-300 bg-verde-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-verde-800 uppercase dark:border-verde-700 dark:bg-verde-950 dark:text-verde-200">
+                          {rotuloRespuestaHabilitante(definicion.respuestaHabilitante)}
+                        </span>
+                      ) : null}
                     </legend>
 
                     <div className="flex gap-1.5">
@@ -391,6 +408,7 @@ export function FormularioDatosYDeclaraciones() {
                   ) : null}
                 </fieldset>
               </li>
+              </Fragment>
             );
           })}
         </ul>

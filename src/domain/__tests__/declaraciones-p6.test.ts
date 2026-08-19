@@ -400,7 +400,10 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
     const registro = evidencias.registros[0]!;
     expect(registro.paso).toBe(PASO_EVIDENCIA_P6);
     expect(registro.resultado).toBe("EXITOSO");
-    expect(registro.versionTextoAceptado).toBe("P6-DECLARACIONES-v1");
+    // Literal a propósito, no la constante: si alguien cambia un texto de las
+    // declaraciones sin subir la versión, este test lo frena. Subirlo acá es
+    // parte del acto deliberado de versionar (v2 = CHG-22).
+    expect(registro.versionTextoAceptado).toBe("P6-DECLARACIONES-v2");
     expect(registro.textoAceptado).toBeNull();
 
     // Lo que sí registra: la decisión y por cuál pregunta se frenó.

@@ -195,3 +195,13 @@ export const TEXTO_COMUNICACIONES_COMERCIALES =
 export const VERSION_COMUNICACIONES_COMERCIALES = "2026-01-P9-v1";
 
 export const ROTULO_BOTON_FINALIZAR_P9 = "FINALIZAR / Volver al inicio";
+
+/**
+ * CHG-46 · leyenda de cierre, debajo del botón FINALIZAR.
+ *
+ * Lo último que lee la persona no debería ser un botón que la echa: acá
+ * termina el trámite digital, pero no la relación con el corredor. La pidió
+ * Rodrigo al cerrar el repaso de la pantalla (reunión 00:43:59).
+ */
+export const LEYENDA_CIERRE_P9 =
+  "Interseguros continuará brindándote asesoramiento y asistencia durante todo el proceso.";

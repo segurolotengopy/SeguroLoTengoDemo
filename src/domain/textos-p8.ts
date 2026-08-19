@@ -125,10 +125,23 @@ export const TITULO_DECLARACION_FIRMA_P8 = "DECLARACIÓN QUE SE ACEPTARÁ AL FIR
 export const TEXTO_DECLARACION_FIRMA_P8 =
   "Declaro haber tenido acceso y haber revisado la Solicitud, el FIPF, las condiciones, coberturas, " +
   "exclusiones, carencias, premio y forma de entrega; confirmo la veracidad de los datos; acepto el " +
-  "contenido de ambos documentos y solicito la emisión de la póliza electrónica de Seguro de Vida " +
-  "Oncológico.";
+  "contenido de ambos documentos y solicito firmarlos electrónicamente con firma electrónica no " +
+  "cualificada, y solicito la emisión de la póliza electrónica de Seguro de Vida Oncológico.";
 
-export const VERSION_DECLARACION_FIRMA_P8 = "2026-01-P8-v1";
+/**
+ * v2 (19-ago-2026, CHG-31): la declaración explicita ahora que la firma del
+ * cliente es **no cualificada**.
+ *
+ * Lo pidió Rodrigo en la reunión (00:25:12: "habría que aumentarle tal vez con
+ * firma no cualificada"). No es una precisión cosmética: es el nivel de firma
+ * que la persona está solicitando, y la Ley 6822/2021 le asigna efectos
+ * distintos que a la cualificada. Que el texto lo diga cierra la distancia
+ * entre lo que la pantalla anuncia y lo que Code100 aplica (NC-06).
+ *
+ * Las evidencias emitidas hasta hoy apuntan a `2026-01-P8-v1` y conservan su
+ * propio literal: no se reescriben nunca (regla inviolable #10).
+ */
+export const VERSION_DECLARACION_FIRMA_P8 = "2026-08-P8-v2";
 
 export const NOTA_ACEPTACION_REGISTRADA_P8 =
   "La aceptación queda registrada por Code100 junto con la firma.";

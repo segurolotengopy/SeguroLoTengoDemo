@@ -33,7 +33,13 @@
  */
 import type { RespuestaDeclaracion } from "./tipos";
 
-export const VERSION_TEXTOS_DECLARACIONES_P6 = "P6-DECLARACIONES-v1";
+/**
+ * v2 (19-ago-2026, CHG-22): se simplificó el literal de la declaración 4
+ * (vigencia y carencias). Las evidencias emitidas hasta hoy apuntan a
+ * `P6-DECLARACIONES-v1` y conservan su propio texto: no se reescriben nunca
+ * (regla inviolable #10).
+ */
+export const VERSION_TEXTOS_DECLARACIONES_P6 = "P6-DECLARACIONES-v2";
 
 export interface TextoDeclaracionP6 {
   readonly numero: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -67,9 +73,16 @@ export const TEXTOS_DECLARACIONES_P6: readonly TextoDeclaracionP6[] = [
   {
     numero: 4,
     titulo: "Vigencia y carencias",
+    // CHG-22 · simplificada a una sola afirmación (reunión 18-ago-2026,
+    // 00:21:59). La versión anterior encadenaba tres cosas —inicio de
+    // cobertura, emisión completada y "revisé todas las carencias"— y Andres
+    // señaló el problema en la reunión: quien no está seguro de haber
+    // revisado *todas* las carencias duda de responder que sí, y una duda
+    // frente a un toggle que decide la elegibilidad es una salida del flujo.
+    // Ahora declara únicamente el hecho que la persona puede afirmar sin
+    // riesgo; las carencias se muestran en la pantalla del plan.
     texto:
-      "Declaro que la cobertura comienza 24 horas después del pago confirmado, una vez completadas " +
-      "la contratación y la emisión; revisé todas las carencias aplicables.",
+      "Declaro que conozco y acepto que la cobertura comenzará 24 horas después del pago.",
   },
   {
     numero: 5,
@@ -99,6 +112,22 @@ export const TEXTOS_DECLARACIONES_P6: readonly TextoDeclaracionP6[] = [
   },
 ];
 
+/**
+ * Subtítulos que agrupan las declaraciones (CHG-20, reunión 00:18:13: "aquí
+ * hay que poner unos titulitos, seguramente declaraciones de salud,
+ * declaraciones…").
+ *
+ * La clave es el número de la declaración que **abre** el grupo; el resto de
+ * las declaraciones no lleva subtítulo. Se separa así, y no en dos listas
+ * distintas, porque la numeración 1-8 es continua y sale de la Solicitud: las
+ * tres primeras van a la declaración médica y el resto a las declaraciones
+ * generales, pero el documento las numera de corrido.
+ */
+export const SUBTITULOS_DECLARACIONES_P6: Readonly<Record<number, string>> = {
+  1: "Declaraciones de salud",
+  4: "Declaraciones",
+};
+
 /** Enlace `¿Qué significa PEP?` de la declaración 8 y su explicación. */
 export const ROTULO_AYUDA_PEP = "¿Qué significa PEP?";
 
@@ -110,6 +139,24 @@ export const AYUDA_PEP =
 /** Etiqueta del badge que indica qué respuesta habilita la emisión automática. */
 export function rotuloRespuestaHabilitante(respuesta: RespuestaDeclaracion): string {
   return respuesta === "SI" ? "Habilita: Sí" : "Habilita: No";
+}
+
+/**
+ * Si se muestra el badge `Habilita: Sí/No` junto a cada declaración.
+ *
+ * CHG-21: la reunión (00:20:37) lo dejó como **guía provisional sujeta a
+ * testeo de usabilidad**, con el pedido explícito de que sea fácil de apagar
+ * ("luego lo podemos quitar, no hay problema"). De ahí el flag: quitarlo no
+ * debería ser una edición de código en medio de una demostración.
+ *
+ * Encendido por defecto. Se apaga con `GUIA_HABILITACION_P6=off`.
+ *
+ * Ojo con lo que el badge NO es: no evalúa nada ni condiciona el envío. Es
+ * una ayuda de lectura; la elegibilidad la decide `elegibilidad.ts` en el
+ * servidor, con el badge visible o sin él.
+ */
+export function guiaHabilitacionVisible(): boolean {
+  return process.env.NEXT_PUBLIC_GUIA_HABILITACION_P6 !== "off";
 }
 
 // ---------------------------------------------------------------------------
