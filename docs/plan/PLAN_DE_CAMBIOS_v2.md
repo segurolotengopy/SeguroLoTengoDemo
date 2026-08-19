@@ -1,0 +1,293 @@
+# PLAN DE CAMBIOS v2 — SeguroLoTengo
+
+**Fecha:** 19 de agosto de 2026 · **Base:** reunión Interseguros 18-ago-2026 + PantallasDemo2 + Matriz Legal Final V4 (16-ago-2026)
+**Insumo de auditoría:** `docs/auditoria/ESTADO_ACTUAL.md` (Fase 0) · **Decisiones:** `docs/plan/DECISIONES.md` (D-01…D-22)
+**Estado:** BORRADOR PARA APROBACIÓN — nada de este plan se implementa sin la aprobación explícita de Andres, y ninguna parte que dependa de una decisión `PENDIENTE` se implementa antes de que esa decisión esté `DECIDIDA`.
+
+---
+
+## 1. Resumen ejecutivo
+
+**Qué cambia.** El wizard pasa de 9 pasos a **8**: el plan sube al paso 1 y el OTP de WhatsApp al paso 2 (CHG-01); el OTP de correo desaparece como paso (NC-02) y el correo —con doble tipeo— se integra a la pantalla de identidad (CHG-14/17); la **firma se adelanta al paso 6 y el pago pasa al 7** (Matriz V4 §7: el QR de Bancard solo se habilita con firma válida); la Solicitud y el FIPF se consolidan en **un único PDF** con un solo acto de firma (CHG-30); aparece el **Certificado de Cobertura Provisional** como documento nuevo, emitido solo con pago confirmado y enviado automáticamente a WhatsApp y correo (CHG-42/44); los datos fiscales se mudan de declaraciones a pago (CHG-26/34); y la trazabilidad se ensancha a **todos** los clics, descargas, reproducciones y aceptaciones, con IP y versión de texto (TRV-01/CMP-15). Transversales: voseo homogéneo, enlaces a las webs oficiales, disclaimer de marca tras feature flag, barra de plan omnipresente, responsive móvil apilado.
+
+**Qué no cambia (NC-01…NC-08).** Todo lo no listado: arquitectura de puertos y adaptadores, motor de documentos determinista, política de identidad versionada (umbral 99, MRZ, prueba de vida), consola administrativa, panel de demo, asistencia de identidad, reglas de negocio de producto (24 h post-pago, carencias, 18–64, solo titular, pago único anual en guaraníes), firma no cualificada del cliente vía Code100, y el disclaimer de Bancard.
+
+**Por qué.** La reunión del 18-ago fija el alcance funcional/UX; la Matriz V4 es la fuente maestra de cumplimiento ("el importante en realidad es la matriz") y su secuencia técnica §7 es la que ordena firma→pago→CPC. Cuatro acuerdos de la reunión chocan con mínimos de la matriz y **no se implementan sin decisión** (ALR-01…ALR-04 → D-01…D-04). El plan además re-basa cinco reglas internas del repo que el código hace imposibles de violar (D-06…D-12): se cambian con registro, no se esquivan.
+
+**Riesgo dominante.** El lote L4 (inversión firma↔pago + PDF unificado) toca la máquina de estados, el servicio de documentos y dos integraciones a la vez; se mitiga con el gate por lote, la batería E2E (7/7 en verde hoy) ampliada antes de tocar, y rollback por revert del merge del lote.
+
+---
+
+## 2. Matriz de trazabilidad
+
+Tipo: **UI** (layout/componente) · **copy** (texto) · **lógica** (dominio/estado) · **datos** (modelo/persistencia) · **int** (integración) · **cumpl** (cumplimiento). Esfuerzo: S < ½ día · M ≤ 2 días · L > 2 días. Riesgo: B/M/A.
+
+| ID | Pantalla | Origen (cita) | Componentes / archivos | Tipo | Esf. | Riesgo |
+|---|---|---|---|---|---|---|
+| TRV-01 | Todas | Reunión 00:00:00; CMP-15; Res. 210/25 art. 9 | `src/domain/evidencia.ts`, `evidencia-repository`, hooks de UI, consola | datos+lógica | L | M |
+| TRV-02 | Todas | Reunión 00:03:05 | `BarraPlanDelExpediente` (ya existe; versión compacta) | UI | S | B |
+| TRV-03 | Todas | Reunión 00:01:01–00:02:05; ALR-03→**D-03** | `AclaracionModal`, `HeaderInstitucional`, flag `MARCA_FANTASIA_AUTORIZADA` | UI+cumpl | M | M |
+| TRV-04 | Todas | Reunión 00:02:05; CMP-01 | `marcas.tsx`, `HeaderInstitucional` | UI | S | B |
+| TRV-05 | Todas | Reunión 00:24:06–00:25:12 | `textos-*.ts` + lint de copys nuevo | copy | M | B |
+| TRV-06 | Todas | Reunión 00:01:01 | pantallas y `components/shared` (auditoría 375px ya pendiente en memoria) | UI | L | B |
+| TRV-07 | Todas | Reunión 00:00:00 | `GUIA_DE_ESTILOS.md` vigente; sin cambios de paleta | UI | S | B |
+| CHG-01 | Wizard | Reunión 00:05:49–00:06:56 | `rutas-flujo.ts`, `expediente.ts`, `StepperPasos`, carpetas `(flujo)/`, `api/p*` (**D-22**) | lógica | L | A |
+| CHG-02 | Wizard | Reunión 00:21:59 ("dice paso siete, pero es paso seis") | `StepperPasos`, textos | UI | S | B |
+| CHG-03 | 1-Plan | Wireframe p.1 | `p2-plan` (→ paso 1), `marcas.tsx` | copy | S | B |
+| CHG-04 | 1-Plan | Reunión 00:00:00 | video como enlace/embed + evento `REPRODUCCION` (TRV-01) | UI+datos | M | B |
+| CHG-05 | 1-Plan | Reunión 00:00:00 ("el mismo va a ser, creo") → **D-15** | `catalogo.ts` (URL de PDF por plan, parametrizable) | UI | S | B |
+| CHG-06 | 2-WhatsApp | Reunión 00:06:56 | `telefono.ts` (+595 fijo, ya existe; arquitectura multi-país ya prevista) | — | S | B |
+| CHG-07 | 2-WhatsApp | Espec. §2; ya implementado | `reglas-otp.ts` (verificar estados: número ya asociado, falla de envío) | lógica | S | B |
+| CHG-08 | 2-WhatsApp | Reunión 00:06:56 vs Matriz §4 → **D-01** | `textos-p1.ts` + casilla marketing separada | copy+cumpl | S | M |
+| CHG-09 | 2-WhatsApp | Reunión 00:08:16 | `textos-p1.ts` (ni Interseguros ni Alianza llaman; no es el código de WhatsApp) | copy | S | B |
+| CHG-10 | 2-WhatsApp | Reunión 00:08:16; ya existe | verificación del texto exacto | copy | S | B |
+| CHG-11 | 3-Preparación | Reunión 00:04:25 ("al mismo asegurado") | `textos-p3.ts` | copy | S | B |
+| CHG-12 | 3-Preparación | Reunión 00:04:25 | `textos-p3.ts` + ícono candado (propuesta visual en L1) | copy+UI | S | B |
+| CHG-13 | 3-Preparación | Reunión 00:03:05 → PEN-03 | `CapturaConCamara` ya es agnóstico; verificación E2E desktop en Fase 3 | int | S | B |
+| CHG-14 | 4-Identidad | Reunión 00:10:44–00:12:31 | layout `p5-identidad`: correo → captura → prellenado | UI | M | B |
+| CHG-15 | 4-Identidad | Reunión 00:10:44–00:15:51 | `verificacion-identidad.ts`: edición por candado **con cotejo** contra OCR/MRZ | lógica | M | M |
+| CHG-16 | 4-Identidad | Reunión 00:15:51 | leyenda de revisión | copy | S | B |
+| CHG-17 | 4-Identidad | Reunión 00:15:51; NC-02→**D-06** | doble tipeo (portado de `p4-correo`), sin OTP | UI+lógica | M | M |
+| CHG-18 | 4-Identidad | Reunión 00:16:57 | `configuracion-producto.ts` **nuevo**: campos por norma/complementarios bloqueables por producto | lógica+datos | M | M |
+| CHG-19 | 4-Identidad | Wireframe p.4; ya existe | verificación del texto | copy | S | B |
+| CHG-20 | 5-Declaraciones | Reunión 00:18:13 | `p6-declaraciones` subtítulos | UI | S | B |
+| CHG-21 | 5-Declaraciones | Reunión 00:20:37–00:21:59 | guía "sí/no habilita" desactivable por config | UI | S | B |
+| CHG-22 | 5-Declaraciones | Reunión 00:21:59 | `textos-p6.ts` (vigencia: solo la frase de 24 h) | copy | S | B |
+| CHG-23 | 5-Declaraciones | Reunión 00:20:37; CMP-05; ya existe | verificación del texto (canales verificados → "declarados": el correo ya no se verifica) | copy | S | B |
+| CHG-24 | 5-Declaraciones | Reunión 00:18:13; CMP-21 | beneficiario: herederos (bloqueado) / una persona (nombre*, domicilio*, parentesco, cédula opcional no bloqueante) | UI+lógica | M | B |
+| CHG-25 | 5→B | Reunión 00:19:30; CMP-19 | `elegibilidad.ts` (ya deriva); texto del aviso previo | lógica | S | B |
+| CHG-26 | 5-Declaraciones | Reunión 00:20:37/00:36:51 | quitar datos fiscales de P6 | UI | S | B |
+| CHG-27 | 5-Declaraciones | Reunión 00:21:59 | botón "Declarar y continuar" | UI | S | B |
+| CHG-28 | 6-Firma | Reunión 00:22:58 | quitar etiqueta "Pago preparado · todavía no cobrado" | copy | S | B |
+| CHG-29 | 6-Firma | Reunión 00:22:58–00:24:06; NC-03 | visor imagen con zoom, sin descarga/impresión pre-firma; quitar "Descargar borrador" | UI | M | B |
+| CHG-30 | 6-Firma | Reunión 00:26:21–00:30:26; Matriz §7.2 → **D-11**; PEN-01 | `src/documentos/` (plantilla unificada, un hash), `firma-p8.ts`, `signature-provider` | lógica+datos+int | L | A |
+| CHG-31 | 6-Firma | Reunión 00:25:12 ("con firma no cualificada") | checkbox de aceptación | copy | S | B |
+| CHG-32 | 6-Firma | Reunión 00:24:06 | pasos "¿Qué sucede después?" en voseo; canal para el enlace | copy | S | B |
+| CHG-33 | 6→7 | Reunión 00:26:21; Matriz §7.3-6 → **D-08**; PEN-02 | callback firma → habilita pago; webhook + polling de respaldo, idempotente | int+lógica | L | A |
+| CHG-34 | 7-Pago | Reunión 00:36:51 | datos de facturación (nombre/razón social*, RUC o cédula) prellenados | UI | M | B |
+| CHG-35 | 7-Pago | Reunión 00:38:04 | resumen: prima neta, IVA, PREMIO TOTAL (terminología premio) → **D-04** | copy | S | B |
+| CHG-36 | 7-Pago | Reunión 00:36:51 | disclaimer destino de fondos (cuentas de Alianza) | copy | S | B |
+| CHG-37 | 7-Pago | Reunión 00:38:04 ("por Alianza Seguros") | segunda declaración; ambas obligatorias para habilitar | copy | S | B |
+| CHG-38 | 7-Pago | Reunión 00:38:04 | botón "REALIZAR EL PAGO Y CONTRATAR EL SEGURO" | copy | S | B |
+| CHG-39 | 7-Pago | Reunión 00:35:15 → **D-16** | título | copy | S | B |
+| CHG-40 | 8-Confirmación | Wireframe p.8 | bloque de confirmación (firma, pago Bancard, CPC, póliza en proceso) | UI | M | B |
+| CHG-41 | 8-Confirmación | Reunión 00:39:18–00:40:24 | inicio = pago + 24 h exactas; **eliminar** frase "48 horas…" | copy+lógica | S | B |
+| CHG-42 | 8-Confirmación | Reunión 00:40:24; Matriz §7.5 → **D-12** | CPC en descargables, solo con pago confirmado | lógica+datos | L | M |
+| CHG-43 | 8-Confirmación | Reunión 00:40:24 → **D-05** | descarga habilitada: PDF firmado único (+CPC, +comprobante según D-05) | UI | S | B |
+| CHG-44 | 8-Confirmación | Reunión 00:41:40 → **D-18**; CMP-05 | envío automático CPC a WhatsApp+correo, job con reintentos y acuse | int+lógica | L | M |
+| CHG-45 | 8-Confirmación | Reunión 00:43:59; CMP-22 → **D-17/D-19** | contactos reales enmascarados + botón WhatsApp | UI+copy | M | B |
+| CHG-46 | 8-Confirmación | Reunión 00:43:59 | botón FINALIZAR + leyenda de asesoramiento | copy | S | B |
+| CHG-47 | Pantalla B | Reunión 00:19:30 → **D-14** | `revision-manual/` conectada (ya existe) + envío efectivo a Alianza (existe en consola; automatizar) + trazabilidad | lógica | M | B |
+
+Los CMP-xx se trazan en el capítulo 7; los NC-xx son invariantes verificados por la suite (capítulo 8).
+
+---
+
+## 3. Diseño técnico de los cambios estructurales
+
+### 3.1 Reordenamiento del wizard como máquina de estados (CHG-01/02, D-06…D-10, D-22)
+
+Estados objetivo (nombres reutilizados donde el significado no cambia; legados sin arista de entrada):
+
+```mermaid
+stateDiagram-v2
+    [*] --> INICIADO
+    INICIADO --> PLAN_SELECCIONADO : paso 1 · elige plan
+    PLAN_SELECCIONADO --> CANAL_WA_VERIFICADO : paso 2 · OTP WhatsApp
+    CANAL_WA_VERIFICADO --> AUTORIZADO : paso 3 · acepta preparación
+    AUTORIZADO --> IDENTIDAD_VERIFICADA : paso 4 · correo declarado + identidad aprobada
+    AUTORIZADO --> ASISTENCIA_IDENTIDAD : 3 análisis fallidos (terminal, no bloquea cédula)
+    IDENTIDAD_VERIFICADA --> DECLARACIONES_OK : paso 5 · declaraciones compatibles
+    IDENTIDAD_VERIFICADA --> DERIVADO_MANUAL : incompatible o PEP (terminal → Pantalla B)
+    DECLARACIONES_OK --> PAQUETE_GENERADO : PDF único cerrado + SHA-256
+    PAQUETE_GENERADO --> FIRMADO_CLIENTE : paso 6 · firma simple Code100
+    FIRMADO_CLIENTE --> FIRMADO : firmas institucionales (corredor + Alianza · D-13)
+    FIRMADO --> PAGO_CONFIRMADO : paso 7 · QR / TC / TD + callback (atómico con CPC)
+    FIRMADO --> VENCIDO : 24 h sin pagar (D-10) · sin cobro, no hay devolución
+    PAGO_CONFIRMADO --> EMITIDO : CPC emitido y entregado con acuse · paso 8
+    PAGO_CONFIRMADO --> DEVOLUCION_EN_TRAMITE : solicitud de devolución (tarjeta · D-02)
+    EMITIDO --> DEVOLUCION_EN_TRAMITE : solicitud de devolución (tarjeta · D-02)
+    DEVOLUCION_EN_TRAMITE --> DEVUELTO : devolución acreditada
+    EMITIDO --> [*]
+```
+
+- **Único legado sin aristas de entrada:** `CANAL_EMAIL_VERIFICADO` (D-06). Los estados de vencimiento y devolución **no** quedan huérfanos: recuperan disparadores propios (D-09).
+- **Semántica nueva de los estados reutilizados (D-09/D-10/D-02):** `VENCIDO` pasa a significar "firmado y no pagado dentro de las 24 h" — bajo el orden nuevo no hubo cobro, así que **no** deriva a devolución; `DEVOLUCION_EN_TRAMITE → DEVUELTO` pasan a ser el flujo de seguimiento de **devoluciones de pagos con tarjeta**, disparado por una solicitud, no por un vencimiento. La regla inviolable #11 se re-redacta sobre esta semántica.
+- **Estados nuevos:** `FIRMADO_CLIENTE` (entre paquete y firmas institucionales). `FIRMADO` significa "expediente firmado por todos los firmantes previstos, pendiente de pago". `EMITIDO` implica además CPC entregado; `Expediente.poliza` sigue aparte (SEBAOT, CMP-18).
+- **Atomicidad CPC/pago (CMP-07):** la transición `FIRMADO → PAGO_CONFIRMADO → EMITIDO` la ejecuta una sola operación de dominio disparada por el callback de Bancard: confirma pago, genera CPC, registra entrega. Si la generación del CPC falla, **reverso automático** (mock: anulación registrada) y el expediente vuelve a `FIRMADO` con evidencia del reverso.
+- **QR vencido (CMP-08):** regenerar el medio de cobro no transiciona estado y solo procede si el hash del PDF no cambió; cada regeneración deja evidencia — y solo mientras el expediente no haya caducado a las 24 h.
+- **Reversibilidad del orden (D-08, reserva de Andres):** el pago vive detrás de una sola operación de dominio y su posición en el flujo se deriva de la lista ordenada de pasos, de modo que volver a "pago antes de firma" en una versión futura sea un cambio acotado.
+- **Identificadores de pantalla (D-14):** `Pv2-1`…`Pv2-8` para el flujo nuevo, `Pv2-B` para la terminal de evaluación, `Pv1-B` para la pantalla legada de devolución. Se usan en documentos, evidencia y tests; los slugs de ruta son semánticos (D-22).
+- **Rutas (D-22, opción recomendada):** slugs semánticos sin número (`/plan`, `/whatsapp`, `/preparacion`, `/identidad`, `/declaraciones`, `/firma`, `/pago`, `/confirmacion`); el número de paso se deriva de una lista ordenada única en `rutas-flujo.ts`, que también alimenta `StepperPasos` ("Paso N de 8"). Redirects 308 desde las rutas viejas.
+
+### 3.2 Esquema de eventos de auditoría (TRV-01 / CMP-15)
+
+Se **extiende** el `EvidenceStore` existente (append-only, ya registra pasos y resultados) con un tipo de evento de interacción:
+
+```ts
+type EventoInteraccion = {
+  expedienteId?: string;      // puede no existir aún (paso 1 público)
+  sesionId: string;
+  tipo: "CLIC" | "APERTURA_RECURSO" | "REPRODUCCION_VIDEO" | "DESCARGA"
+      | "ACEPTACION_DISCLAIMER" | "VISTA_PANTALLA";
+  pantalla: string;           // slug de la pantalla
+  elemento: string;           // id estable del control o recurso
+  versionTexto?: string;      // obligatorio en ACEPTACION_DISCLAIMER
+  fechaHoraISO: string; ip: string; userAgent: string;
+  resultado?: string;
+};
+```
+
+Reglas: (a) se registra "**puesto a disposición / abierto**", nunca "leído" (Matriz §9); (b) **exclusión estricta** de salud, PEP, imágenes, puntajes biométricos, OTP, PAN y CVV del payload (regla #7 / CMP-16 — los resultados biométricos siguen en su repositorio propio con `DecisionBiometrica`); (c) consulta por expediente/sesión desde la consola administrativa (valor probatorio); (d) los bloques de la Matriz §9 (sesión, oferta, contacto, identidad, consentimientos, documento, aceptación, pago, CPC, entrega, conservación) se cubren entre este esquema y las evidencias de paso ya existentes — el capítulo 7 mapea bloque por bloque.
+
+### 3.3 Configuración de campos por producto (CHG-18, NC-04)
+
+`src/domain/configuracion-producto.ts` (nuevo): por producto, cada campo del bloque "por norma" y "complementarios" declara `requerido | bloqueado | oculto`. El producto CONFÍO exige todo (SEPRELAD: bloque OBLIGATORIO de la matriz); ningún campo se elimina del modelo (NC-04). La pantalla renderiza desde esta configuración; los tests de contrato verifican que un campo `oculto` jamás bloquee el avance y que uno `requerido` siempre lo haga.
+
+### 3.4 PDF unificado y contrato con Code100 (CHG-30/31/33, D-11, D-13, PEN-01/02)
+
+- **Documento:** un solo PDF con secciones Solicitud + FIPF + declaraciones integradas (licitud, veracidad, cuenta propia — Matriz §4), leyenda literal del art. 1556 CC y fecha de solicitud con sello de tiempo (CMP-09), correlativo único con ambos códigos internos visibles, **un** SHA-256 congelado antes de habilitar la firma (regla #4 intacta). El motor determinista de `src/documentos/` se conserva; cambian `plantillas.ts` y `servicio.ts` (registro de un documento en vez de dos — la atomicidad de la regla #3 pasa a ser estructural).
+- **Firmas sobre el documento (D-13, política establecida):** firman el cliente (simple, Code100), Interseguros (cualificada) y **Alianza (cualificada)**. Alianza firma **los tres documentos**: Solicitud y FIPF —que viajan como PDF único— y el CPC. Cada firmante se declara con su **modalidad**: `PREFIRMADO` (la firma institucional ya está sobre el documento cuando el cliente lo recibe) o `CONJUNTO` (se aplica en el mismo acto que la del cliente); el sistema soporta ambas y cambiar de una a otra es configuración. Modelo: `firmantes-documento.ts` — lista ordenada por documento con firmante, rol, nivel de firma y modalidad. Cada firma deja certificado simulado y evidencia propios, visibles en la consola. El texto de la Matriz §7 queda desactualizado por esta política (ALR-06/07 en `DECISIONES.md`: lo actualizan Rodrigo/Legal, no bloquea la implementación).
+- **Callback (CHG-33):** interfaz interna `ConfirmacionFirma` alimentada por dos vías: webhook (cuando Code100 lo confirme — PEN-02) y **polling de respaldo** sobre `POST /signature/getSessionId` (ya documentado en el contrato del proveedor). Ambas vías idempotentes por `session_id`; la que llegue primero transiciona, la otra se registra como duplicado. El retorno habilita el paso 7 automáticamente.
+- **Consultas abiertas al proveedor (PEN-01/02):** firma única multipágina sobre PDF unificado; segundo firmante cualificado en la misma sesión o sesión encadenada; mecanismo de callback. Registradas en `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md`.
+
+### 3.5 CPC y notificaciones asíncronas (CHG-42/44, CMP-05/06, D-12, D-18)
+
+- **CPC:** documento nuevo del motor de `src/documentos/` (mismo determinismo y hash), **solo** generable en la operación atómica de pago confirmado; firmado (simulado) únicamente por el suscriptor de Alianza; incluye número interno `CPC-<correlativo>`, referencia Bancard, inicio/fin de cobertura (= pago + 24 h exactas), carencias y **QR de verificación** (CMP-06, reutiliza `qr.ts` y la futura ruta `/verificar/<código>`). Modelo rotulado "provisional — pendiente de modelo registrado de Alianza" (compuerta §8.E.3). No inventa número oficial de póliza (CMP-18: 10 dígitos SIS solo cuando exista).
+- **Entrega (CMP-05):** registro de entrega por canal con estados `PENDIENTE → ENVIADO → ACUSADO | FALLIDO`, reintentos con backoff y acuse. En el demo, un despachador liviano sobre DynamoDB (misma tabla, ítems de entrega con TTL de reintento) invocado post-transición y re-invocable; en producción, cola administrada (SQS) — queda documentado, no se construye ahora. Mensaje de acompañamiento según D-18.
+- **Regla transversal respetada:** ninguna automatización externa controla la secuencia pago → firma → emisión; el despachador solo **entrega documentos ya emitidos**.
+
+### 3.6 Medios de pago y devoluciones (CHG-34…38, D-02)
+
+- **Política establecida (D-02): Bancard con sus tres tipos de pago** — QR, tarjeta de crédito y tarjeta de débito—, **sin preautorización** (cobro directo del premio total). No es "QR con excepciones": los tres son medios de primera clase de la pantalla de pago. El camino de preautorización/captura sale de la UI; los métodos siguen en el `PaymentProvider`.
+- **La tarjeta nunca pasa por el portal.** El wireframe dibuja un formulario con PAN, vencimiento y CVV: **no se implementa así**. La tarjeta va por el flujo alojado/tokenizado de Bancard (iframe o redirección del proveedor); el portal recibe únicamente resultado, referencia y últimos dígitos enmascarados. Regla inviolable #6 intacta: ni PAN ni CVV en base, logs, trazas ni evidencia — el test de logs sensibles (CMP-16) cubre explícitamente este camino.
+- **Idempotencia:** el callback de pago se trata como potencialmente duplicado, con clave por referencia Bancard; la operación atómica pago→CPC se ejecuta una sola vez por referencia.
+- **Devoluciones (seguimiento):** una solicitud de devolución sobre un pago con tarjeta transiciona a `DEVOLUCION_EN_TRAMITE` y, al acreditarse, a `DEVUELTO`, con evidencia de cada paso (solicitante, motivo, referencia, fecha/hora, resultado). La ejecución de la devolución la hace Bancard/Alianza fuera del flujo digital: el expediente **la asienta y la sigue**, no la ejecuta. La consola administrativa gana la vista y la acción de seguimiento.
+- **Pendiente de producción:** la operación completa con tarjeta —comercio receptor, conciliación, duplicados, reversos y devoluciones— entra en la compuerta 7 de la Matriz §8, ampliada por ALR-06.
+
+---
+
+## 4. Cobertura de los 9 pilares (aplicados a esta iteración)
+
+| Pilar | Aplicación en esta iteración (no rediseño) |
+|---|---|
+| 1 · Base de datos única fuente de verdad | DynamoDB tabla única sigue siendo el registro maestro del expediente. "Migración" = los estados legados quedan tipados y sin aristas; ningún dato histórico se reescribe (regla #10). Los eventos TRV-01 viven en la partición de evidencia existente. |
+| 2 · Aislamiento (RLS equivalente) | No hay multi-tenant; el aislamiento es por expediente/sesión (cookie de sesión firmada) + secretos separados consola/panel. Los datos sensibles (salud, PEP, biometría) mantienen su segregación actual (regla #7/CMP-16) — el nuevo esquema de eventos los excluye por tipo. |
+| 3 · Control de versiones | Rama `feat/plan-cambios-v2` desde `main` (D-20), Conventional Commits + `[CHG-xx]`, un PR por lote con gate de Andres, main protegida con merge commits (convención vigente del repo). |
+| 4 · API-first | Route Handlers stateless con contratos TS estrictos; toda transición pasa por `expediente.ts`; callbacks Bancard/Code100 idempotentes y verificables (regla transversal ya vigente, ahora con el callback de firma nuevo). Redirects 308 para las rutas renombradas. |
+| 5 · CI/CD y despliegue | Pipeline actual (typecheck + lint + test; E2E local) por lote; despliegue Amplify WEB_COMPUTE tras aprobar cada lote; zero-downtime lo da la plataforma. Rollback = revert del merge commit del lote. |
+| 6 · Alta seguridad | Se conserva: hash-only de OTP, PDF inmutable post-cierre, sin PAN/CVV. Se agrega: visor sin descarga pre-firma (CHG-29), verificación de firma de callbacks, y revisión `security-review` en L4/L5. OWASP Top 10 como checklist de cierre de cada lote. |
+| 7 · Rate limiting | Nuevo middleware en endpoints sensibles (OTP enviar/verificar, análisis de identidad, firma, pago): límites por IP y por sesión, con respuesta 429 accionable. Lote L6. |
+| 8 · Caché | Catálogo de planes y PDFs de coberturas como estáticos con invalidación explícita al cambiar parámetros (D-04); **ningún** dato del expediente se cachea; CDN de Amplify para assets. |
+| 9 · Frontend estructurado | App Router SSR ya vigente; textos en `src/domain/textos-*` (fuente única para el lint de copys); número de paso derivado de la lista única de rutas; apilado vertical móvil (TRV-06) con los tokens semánticos del design system. |
+
+**Flujo objetivo (vista de proceso):**
+
+```mermaid
+flowchart LR
+    A[1 · Plan] --> B[2 · WhatsApp OTP]
+    B --> C[3 · Prepará lo necesario]
+    C --> D[4 · Datos e identificación<br/>correo 2× + OCR + selfie]
+    D --> E[5 · Datos y declaraciones]
+    E -->|incompatible / PEP| X[Pantalla B<br/>evaluación manual → Alianza]
+    D -->|3 fallos| Y[Asistencia identidad]
+    E --> F[6 · Revisá, aceptá y firmá<br/>PDF único · Code100]
+    F -->|callback firma| G[7 · Pago QR Bancard]
+    G -->|callback pago · atómico| H[8 · Confirmación<br/>CPC + envío WA/correo]
+    H -.-> S[(SEBAOT: póliza y factura<br/>sin API directa)]
+```
+
+---
+
+## 5. Secuencia de implementación por lotes
+
+Cada lote termina con: diff resumido, checklist de aceptación, `npm run typecheck && npm run lint && npm test` + E2E en verde, y **visto bueno de Andres** antes del siguiente. Rollback uniforme: revert del merge commit del lote (sin migraciones destructivas en ningún lote).
+
+| Lote | Contenido | Depende de | Criterios de aceptación |
+|---|---|---|---|
+| **L1 · Transversales de bajo riesgo** | TRV-04/05/07, CHG-03/05/09/10/11/12/16/19/20/21/22/27/28/31/32/35/36/37/38/46, gitignore de fixtures (D-21), lint de copys (voseo + textos legales exactos) | ✅ desbloqueado (D-15, D-16) | Lint de copys en verde; textos idénticos a §5; ningún cambio de flujo; E2E 7/7 sin tocar |
+| **L2 · Reordenamiento del wizard** | CHG-01/02, D-22 (rutas semánticas + redirects), retiro del OTP de correo (D-06), correo en identidad (CHG-14/17), TRV-02 compacta, identificadores `Pv2-N` (D-14) | ✅ desbloqueado (D-06, D-08, D-14, D-22) | Wizard de 8 pasos navegable ida/vuelta; redirects 308 viejos→nuevos; expedientes legados legibles; E2E reescrita para el orden nuevo en verde |
+| **L3 · Pantallas 4–5** | CHG-15 (cotejo en edición), CHG-18 (config por producto), CHG-24 (beneficiario), CHG-26 (quitar fiscales), CHG-25 refinado | L2 + fixtures copiados (D-21) | Fixtures de Rodrigo pasan OCR con prellenado y cotejo; campo oculto nunca bloquea; beneficiario cédula-opcional no bloqueante |
+| **L4 · Firma y pago invertidos** | CHG-29 (visor), CHG-30 (PDF unificado), CHG-33 (callback+polling), D-13 (firmas corredor + Alianza configurables), **D-02 (QR + TC + TD sin preautorización, tarjeta por flujo alojado)**, CHG-34, D-10 (caducidad 24 h), CMP-07/08/09 | ✅ desbloqueado (D-02, D-05, D-10, D-11, D-13); requiere L3 | Secuencia §7 completa en mock; cobro inhabilitado antes del callback de firma; regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
+| **L5 · Confirmación, CPC, notificaciones y devoluciones** | CHG-40…46, D-12 (CPC), CHG-44 (job entrega + acuse), CHG-47/D-14 (Pv2-B), **flujo de seguimiento de devoluciones (D-02) + vista en consola**, CMP-05/06 | ✅ desbloqueado (D-05, D-12, D-17, D-18); D-19 con datos parametrizados; requiere L4 | CPC solo con pago confirmado; envío automático con reintentos y acuse; inicio = pago + 24 h exactas incluyendo bordes de mes; devolución seguible de punta a punta con evidencia |
+| **L6 · Trazabilidad y hardening** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final) | L2 | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
+
+---
+
+## 6. Riesgos, dependencias y alertas
+
+**Estado de decisiones (19-ago-2026): las 22 (D-01…D-22) están resueltas** — ningún lote queda bloqueado por decisión pendiente. Quedan dos dependencias operativas: la copia de fixtures por parte de Andres (D-21, condiciona las aserciones de OCR de L3) y los datos institucionales faltantes (D-19, parametrizados: L5 no se bloquea).
+
+**Actualizaciones pendientes de la Matriz V4 (ALR-06/ALR-07):** dos políticas **establecidas** —Bancard con sus tres medios de pago, y Alianza firmando los tres documentos— dejan desactualizado el texto de la matriz (§1, §7 y compuertas 6 y 7). Es una tarea de documentación de Rodrigo/Legal; **no condiciona ni demora la implementación**. Detalle en `DECISIONES.md`.
+
+| Riesgo / dependencia | Dueño | Mitigación |
+|---|---|---|
+| PEN-01/PEN-02 · Code100 no confirma PDF unificado ni callback | Andres (insistir) / Code100 | Diseño ya asume polling de respaldo; el mock implementa el contrato deseado; si Code100 no soporta firma única, fallback: dos documentos en un `session_id` (contrato actual, regla #3) |
+| PEN-03 · cámara en computadora | Andres | Ya viable técnicamente; verificación E2E desktop en Fase 3 |
+| PEN-08 · cédula boliviana solo demo | Andres | Ya soportado (`IDENTITY_PAISES_CEDULA=PY,BO`); documentado como decisión de demo |
+| PEN-10 · firma en Bolivia (ATT/Agetic/Digert) | futuro | Solo nota de arquitectura: `SignatureProvider` ya es puerto; un adaptador boliviano es intercambiable |
+| Reescritura E2E en L2 | equipo | Reescribir specs junto con el lote, nunca después; el lote no se aprueba con E2E en rojo |
+| Estados legados vs consola/regla #11 | equipo | D-09: tests de que expedientes viejos siguen legibles y bloqueando |
+| Diez compuertas de producción (Matriz §8) | Alianza/Interseguros/Legal | Checklist separado en §7.3; bloquean emisión real, no el demo |
+
+**Alertas ALR (resolución propuesta, decisión previa obligatoria):** ALR-01→D-01 · ALR-02→D-02 · ALR-03→D-03 · ALR-04→D-04 · ALR-05→D-05.
+
+---
+
+## 7. Capítulo de cumplimiento (anexo verificable para Rodrigo)
+
+### 7.1 Estado de cada CMP
+
+| CMP | Estado | Dónde |
+|---|---|---|
+| CMP-01 identificación regulatoria permanente | En este plan (L1; formato Circ. 011/2025; sujeto a D-03) | Header/footer |
+| CMP-02 firma del proponente respaldada por OTP | Ya implementado en esencia; se re-articula (OTP WhatsApp = respaldo; nunca se presenta como firma) | L2/L4 |
+| CMP-03 firma cualificada del corredor | En este plan (L4, simulada — D-13); real: pendiente Code100/compuerta 5 | `signature-provider` |
+| CMP-04 firma cualificada de Alianza en CPC | En este plan (L5, simulada); comunicación previa a SIS = responsabilidad de Alianza (compuerta 5) | CPC |
+| CMP-05 medio de recepción + acuse | Parcial hoy (canales); acuse y reintentos en L5 | CHG-23/44 |
+| CMP-06 verificación de autenticidad del CPC | En este plan (L5, QR + ruta `/verificar/<código>`) | `qr.ts` |
+| CMP-07 secuencia técnica firma→QR→pago→CPC atómico | En este plan (L4/L5) — el cambio estructural mayor | §3.1 |
+| CMP-08 regeneración de QR con hash intacto | En este plan (L4) | `pago` |
+| CMP-09 cláusula art. 1556 + fecha con sello | En este plan (L4, dentro del PDF único) | `plantillas.ts` |
+| CMP-10 información del canal (Ley 4868 arts. 7/28) | Nuevo (L6): página/modal antes de confirmar | — |
+| CMP-11 retracto (Ley 1334 art. 26) | Nuevo (L6): procedimiento público + correo | — |
+| CMP-12 derechos sobre datos + aviso de privacidad | Nuevo (L6) | — |
+| CMP-13 panel de cookies previo | Nuevo (L6); hoy el portal no carga analítica — el panel llega antes que cualquier analítica | — |
+| CMP-14 conservación 2/5/10 años | Política documentada (L6); el borrado programado es compuerta de producción (infraestructura) | — |
+| CMP-15 trazabilidad por bloques | Parcial hoy (evidencia por paso); completo en L6 (TRV-01) | §3.2 |
+| CMP-16 protección de logs | Ya implementado (regla #7); test explícito nuevo en L6 | — |
+| CMP-17 biometría propia; Code100 solo firma | Ya implementado (puertos separados) | — |
+| CMP-18 SEBAOT sin API; números oficiales 10 dígitos | Ya implementado (`Expediente.poliza`, correlativo conservado); el CPC no presume número de póliza | — |
+| CMP-19 salud/PEP: literalidad y no-rechazo | Ya implementado (derivación, no rechazo); literalidad del cuestionario = compuerta 3 | — |
+| CMP-20 declaración de cuenta propia | En este plan (L4: integrada al PDF/FIPF) | — |
+| CMP-21 no exigir de más (cédula beneficiario opcional; lugar) | En este plan (L3) | CHG-24 |
+| CMP-22 datos institucionales reales | En este plan (L5; faltan datos — D-19) | CHG-45 |
+
+### 7.2 Regla de prevalencia interna
+
+Donde la Matriz V4 colisione con la `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` (p. ej. fila 44: preautorización habilita firma), **prevalece la V4**; la sustitución se documenta en CLAUDE.md al aprobar D-08. La matriz vieja sigue siendo válida para todo lo no contradicho.
+
+### 7.3 Compuertas de producción (Matriz §8 — checklist separado del demo)
+
+Las diez compuertas (datos institucionales/marca; código-acto-URL-precios por plan; modelos registrados; reglas de cobertura; firmantes y certificados Code100; mapa final de firmas; operación QR/CPC con Bancard; intercambio SEBAOT; FIPF y protocolo manual salud/PEP; privacidad-nube-biometría-cookies-seguridad) **no bloquean el demo** y sí bloquean emisión real. Cada una queda referenciada en el código con el marcador del dato provisional que reemplazará (`CDXXXXX`, modelo CPC provisional, contactos provisionales).
+
+---
+
+## 8. Estrategia de pruebas (Fase 3)
+
+1. **E2E del wizard reordenado** (feliz + atrás + abandono/reingreso), desktop y móvil ≤ 400 px con apilado (TRV-06). Base: reescritura de la batería 01–07 existente.
+2. **OCR con fixtures reales** (`tests/fixtures/identidad/`, confidenciales, fuera de git): aserciones exactas (FERNANDEZ ECHAZU / RODRIGO / 9288883 / 15-09-1974 / MRZ IEPRY coherente); caso valioso: cédula paraguaya con nacionalidad boliviana (país nacimiento ≠ nacionalidad ≠ residencia). Leyenda de revisión visible; edición por candado con cotejo (CHG-15/16).
+3. **Flujo de rechazo:** cada respuesta incompatible + PEP → Pantalla B con envío a Alianza registrado (CHG-25/47).
+4. **OTP WhatsApp:** expiración, 3 intentos, reenvío 60 s, +595 fijo, estados de error accionables (CHG-06/07).
+5. **Documentos:** visor sin descarga pre-firma; PDF unificado bien formado y determinista (mismo contenido ⇒ mismo hash); descargas post-pago; CPC solo con pago confirmado (CHG-29/30/42).
+6. **Cálculos:** inicio = pago + 24 h exactas con bordes (fin de mes, fin de año); prima/IVA/premio por plan parametrizados (CHG-41, D-04).
+7. **Trazabilidad:** cada acción del E2E genera su evento con timestamp e IP (TRV-01); evidencia por bloques de la Matriz §9 (CMP-15).
+8. **Lint de copys:** voseo coherente + textos legales de §5 carácter por carácter (los copys viven en `textos-*.ts`, el lint corre sobre esa fuente única).
+9. **Cumplimiento:** QR inhabilitado antes del callback de firma; reverso automático ante falla de emisión; regeneración solo con hash intacto (CMP-07/08); cookies antes de analítica (CMP-13); logs sin datos sensibles (CMP-16); art. 1556 presente en el PDF (CMP-09).
+10. **Carga** (skill `mejora-proyectos`): load/stress/spike/soak sobre OTP, análisis de identidad, firma y pago, con umbrales P95 y verificación de integridad transaccional (ningún expediente en estado imposible bajo concurrencia — ya existe `concurrencia.ts` como base).
+
+Cierre de Fase 3: `docs/plan/INFORME_VERIFICACION_v2.md` con resultados, desviaciones, pendientes PEN-xx y recomendaciones.
+
+---
+
+*Gate de Fase 1: este plan no habilita tocar código. Requiere (a) aprobación explícita del plan y (b) resolución de las decisiones bloqueantes del lote que se quiera arrancar (§6).*

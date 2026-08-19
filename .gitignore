@@ -57,3 +57,6 @@ infra/terraform.tfstate.backup
 infra/*.tfvars
 infra/*.tfplan
 infra/crash.log
+
+# Datos reales cedidos para pruebas — nunca al repo
+/tests/fixtures/identidad/
