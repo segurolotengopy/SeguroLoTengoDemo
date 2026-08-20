@@ -81,7 +81,6 @@ interface Resumen {
   readonly garantia: {
     readonly medio: MedioDePago;
     readonly lista: boolean;
-    readonly pagoDefinitivo: boolean;
     readonly referenciaBancard: string | null;
   } | null;
   readonly plazoFirmaVenceEn: string | null;
@@ -512,7 +511,7 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
           <p className="text-sm text-verde-900 dark:text-verde-100">
             {resumen?.garantia
               ? `${textoMedio?.titulo ?? resumen.garantia.medio} — ${
-                  resumen.garantia.pagoDefinitivo ? "pagado" : "preautorizado"
+                  resumen.garantia.lista ? "pagado" : "pendiente"
                 }.`
               : "Verificando la garantía de pago…"}
           </p>

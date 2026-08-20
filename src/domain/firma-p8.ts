@@ -47,6 +47,7 @@
  * `textos-p8.ts`.
  */
 import { randomUUID } from "node:crypto";
+import { pagoAcreditado } from "./tipos";
 import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { PaymentProvider } from "../ports/payment-provider";
@@ -689,9 +690,8 @@ export interface DocumentoVisibleP8 {
 
 export interface GarantiaDePagoVisibleP8 {
   readonly medio: MedioDePago;
+  /** `true` cuando el dinero entró. Sin preautorización (D-02) no hay medias tintas. */
   readonly lista: boolean;
-  /** `true` con QR y débito: ya se cobró. `false` con crédito: está reservado. */
-  readonly pagoDefinitivo: boolean;
   readonly referenciaBancard: string | null;
 }
 
@@ -742,9 +742,16 @@ export function leerResumenFirmaP8(expediente: Expediente): ResumenFirmaP8 | nul
       ? enmascararCelular(expediente.canalWhatsapp.valor)
       : null,
     canalEmailEnmascarado: expediente.canalEmail ? enmascararCorreo(expediente.canalEmail.valor) : null,
-    // Ya no se muestra ninguna garantía de pago: al firmar todavía no se pagó
-    // (D-08). El resumen de la firma habla de documentos, no de dinero.
-    garantia: null,
+    // El pago sigue precediendo a la firma en este lote; lo que cambió es que
+    // ya no hay dos formas de estar listo (acreditado o reservado): o el
+    // dinero entró o no entró.
+    garantia: expediente.pago
+      ? {
+          medio: expediente.pago.medio,
+          lista: pagoAcreditado(expediente.pago.estado),
+          referenciaBancard: expediente.pago.referenciaBancard,
+        }
+      : null,
     plazoFirmaVenceEn: expediente.plazoFirmaVenceEn,
     acto: expediente.actoDeFirma
       ? {

@@ -673,9 +673,9 @@ describe("P8 · resumen para la pantalla", () => {
     expect(resumen?.solicitud.hashSha256).toBe(PAQUETE_FIXTURE.solicitud.hashSha256);
     expect(resumen?.canalWhatsappEnmascarado).toContain("•");
     expect(resumen?.canalEmailEnmascarado).toContain("•");
-    // Ya no se informa ninguna garantía de pago: al firmar todavía no se pagó
-    // (D-08), y el resumen de la firma habla de documentos, no de dinero.
-    expect(resumen?.garantia).toBeNull();
+    // El pago sigue precediendo a la firma; lo que cambió es que ya no hay dos
+    // formas de estar listo (acreditado o reservado): o el dinero entró o no.
+    expect(resumen?.garantia?.lista).toBe(true);
   });
 
   it("no expone el valor completo de ningún canal verificado", () => {
