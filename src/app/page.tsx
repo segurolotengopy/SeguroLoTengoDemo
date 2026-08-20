@@ -5,7 +5,7 @@ import Link from "next/link";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
 
 /**
- * P0 · Información — página pública informativa, fuera del contador 1-9.
+ * P0 · Información — página pública informativa, fuera del contador de pasos.
  *
  * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "P0 · Información
  * (fuera del contador)". No solicita datos médicos ni PEP, no genera

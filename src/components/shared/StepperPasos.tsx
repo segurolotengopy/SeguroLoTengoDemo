@@ -32,8 +32,11 @@ export function StepperPasos(props: StepperPasosProps) {
     return (
       <div className={`text-right leading-tight ${className}`}>
         <p className="text-sm font-bold text-titulo">P0 · INFORMACIÓN</p>
+        {/* El largo del flujo sale de `TOTAL_PASOS`, no de un número escrito
+            acá: decía "1-9" desde antes de que el wizard pasara a ocho pasos
+            (CHG-01), y era el único lugar del stepper que no leía la lista. */}
         <p className="text-[11px] font-semibold tracking-wide text-etiqueta uppercase">
-          Fuera del contador 1-9
+          Fuera del contador 1-{TOTAL_PASOS}
         </p>
       </div>
     );

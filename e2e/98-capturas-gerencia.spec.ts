@@ -77,6 +77,11 @@ test.describe("capturas para gerencia", () => {
 
     await prepararEscenario(page, { personaId: persona.id });
 
+    // P0 · la puerta de entrada. No es un paso del contador, pero es la
+    // primera pantalla que ve quien llega, así que el recorrido empieza ahí.
+    await page.goto("/");
+    await capturar(page, "00-inicio");
+
     await page.goto("/plan");
     await capturar(page, "01-plan");
 
