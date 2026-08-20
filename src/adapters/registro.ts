@@ -284,16 +284,27 @@ export function obtenerPaymentProvider(): PaymentProvider {
   });
 }
 
+/** Vigencia del enlace de firma de Code100: 24 horas (fila 41 de la matriz). */
+const VIGENCIA_ENLACE_FIRMA_MS = 24 * 60 * 60 * 1000;
+
 export function obtenerSignatureProvider(): SignatureProvider {
   return resolverAdaptador("SIGNATURE", {
-    // La vigencia del enlace de firma acompaña al plazo del expediente: si el
-    // panel de demo comprime las 24 horas a segundos, un enlace que siguiera
-    // vivo un día entero mostraría un vencimiento que no vence. Son dos
-    // caducidades distintas —la de la sesión de Code100 y la del expediente
-    // (D-10)— y en el demo se las mantiene alineadas a propósito.
+    // La vigencia del enlace de firma es **suya**, no la del expediente.
+    //
+    // Estaban atadas —`vigenciaEnlaceMs: plazoPagoMs()`— y tenía sentido
+    // mientras el plazo del panel fuera el de *firmar*: comprimirlo a segundos
+    // debía comprimir también el enlace, o el vencimiento no vencía. Con la
+    // inversión (D-08) ese plazo pasó a ser el de **pagar**, y la atadura
+    // quedó al revés: acortar el plazo de pago acortaba la ventana para
+    // firmar, que es un paso anterior. En la batería E2E el escenario del
+    // vencimiento quedaba con 30 segundos para completar todo el acto de
+    // Code100.
+    //
+    // Son dos caducidades distintas y ahora se las trata así: el enlace vive
+    // 24 horas (fila 41 de la matriz), y el plazo de pago lo fija D-10.
     mock: () =>
       crearSignatureProviderMock({
-        vigenciaEnlaceMs: plazoPagoMs(),
+        vigenciaEnlaceMs: VIGENCIA_ENLACE_FIRMA_MS,
         fallaForzada: () => (consumirFallaDemo("CODE100_RECHAZO") ? "RECHAZADA" : null),
       }),
     live: () => {

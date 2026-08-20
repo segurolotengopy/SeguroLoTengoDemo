@@ -446,6 +446,25 @@ demo ni enumerar las demás.
 dejar uno o dos rojos cambiantes y de crecer hasta 14,1 minutos. Verificado
 además que la tabla efímera se borró sola y que la del demo no creció.
 
+**Recaída al cerrar el Lote 4 (20-ago-2026).** La batería volvió a 13,5 minutos
+y a dejar dos rojos, siempre los mismos: los escenarios 06 y 07, que son los
+dos últimos. **Corridos solos pasan** —2,2 minutos cada uno, 5,0 en total—, así
+que es posición en la batería y no regresión.
+
+La causa de que se volviera más pesada es el propio lote: con la inversión de
+firma y pago, el escenario del vencimiento **firma de verdad**. Antes esperaba
+el plazo parado en la pantalla de firma sin firmar nunca; ahora tiene que
+completar el acto entero de Code100 —cierre del PDF, sesión, OTP, sellado—
+antes de llegar a la pantalla donde espera. Un escenario que no firmaba pasó a
+firmar, y la batería ya venía al límite.
+
+Queda como deuda conocida: la batería completa **no tiene una corrida verde**
+desde el cierre del Lote 4, aunque los siete escenarios pasan de a uno o de a
+dos. Lo que se descartó por medición, no por hipótesis: no es agotamiento de
+inotify (72 de 65536), no es falta de memoria (20 GB libres), y no lo causan
+ediciones concurrentes —se reprodujo idéntico con el árbol limpio y
+commiteado—.
+
 De regalo desapareció el saneo de cédulas bloqueadas: ya no hay nada que
 heredar entre corridas.
 
