@@ -96,7 +96,16 @@ npm run test:e2e \# Playwright, escenarios completos
 
 npm run otp:requerimiento -- +59XXXXXXXXX \# manda un OTP REAL por WhatsApp
 
+npm run seguridad \# Snyk: dependencias e infraestructura
+
 Antes de cualquier commit: `npm run typecheck && npm run lint && npm test` deben pasar.
+
+> **Antes de cualquier despliegue** corre además la cadena completa de
+> [`docs/POLITICA_DE_DESPLIEGUE.md`](docs/POLITICA_DE_DESPLIEGUE.md):
+> `npm run verify` → `npm run seguridad` → PR a `main` → los 4 jobs de CI en
+> verde → merge. **El merge a `main` ES el despliegue**: Amplify tiene
+> `autoBuild` encendido en esa rama y buildea a PRODUCTION solo. Por eso no se
+> commitea nunca directo a `main`.
 
 > **`otp:requerimiento` manda mensajes de verdad.** Antes de correrlo, leé
 > [`docs/MENSAJERIA_REAL_PASOS.md`](docs/MENSAJERIA_REAL_PASOS.md) → "Enviar
