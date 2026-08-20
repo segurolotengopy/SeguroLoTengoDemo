@@ -86,7 +86,55 @@ test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
     await expect(page.getByText(codigo, { exact: true })).toBeVisible();
   }
   await verificarDescargas(page, correlativo);
+
+  // CMP-06 · el QR de los dos documentos con huella lleva a una página que los
+  // verifica de verdad.
+  await verificarRutaPublica(page, correlativo);
 });
+
+/**
+ * La ruta pública de verificación (CMP-06), con los tres códigos.
+ *
+ * Es la única pantalla del producto que se abre **sin sesión**, así que se la
+ * visita con un contexto limpio: si funcionara solo con la cookie del flujo,
+ * el hospital que escanea el QR del certificado vería un error.
+ */
+async function verificarRutaPublica(page: Page, correlativo: string): Promise<void> {
+  const sinSesion = await page.context().browser()?.newContext();
+  if (!sinSesion) throw new Error("No se pudo abrir un contexto sin sesión.");
+  const publica = await sinSesion.newPage();
+
+  try {
+    for (const codigo of [`CPC-${correlativo}`, `PROP-${correlativo}`, `FIPF-${correlativo}`]) {
+      await publica.goto(`/verificar/${codigo}`);
+      await expect(publica.getByText("DOCUMENTO VERIFICADO")).toBeVisible();
+      // La huella publicada es un SHA-256 de verdad, no un marcador.
+      await expect(publica.getByText(/^[0-9a-f]{64}$/)).toBeVisible();
+    }
+
+    // El certificado publica además la ventana de cobertura que declara.
+    await publica.goto(`/verificar/CPC-${correlativo}`);
+    await expect(
+      publica.getByRole("heading", { name: "COBERTURA QUE DECLARA EL CERTIFICADO" }),
+    ).toBeVisible();
+
+    // Y ninguna de las tres muestra un dato de la persona (regla #7).
+    const texto = (await publica.locator("body").innerText()).toLowerCase();
+    expect(texto).not.toContain("gorena");
+    expect(texto).not.toContain("9.323.336");
+
+    // El comprobante no se verifica solo, y lo explica en vez de decir que no existe.
+    await publica.goto(`/verificar/REC-${correlativo}`);
+    await expect(publica.getByText("NO PUDIMOS VERIFICAR ESTE CÓDIGO")).toBeVisible();
+    await expect(publica.getByText(/no se verifica por sí solo/)).toBeVisible();
+
+    // Un código inventado tampoco revienta la página.
+    await publica.goto("/verificar/PROP-00000001");
+    await expect(publica.getByText("NO PUDIMOS VERIFICAR ESTE CÓDIGO")).toBeVisible();
+  } finally {
+    await sinSesion.close();
+  }
+}
 
 /** El correlativo que la pantalla muestra, para armar los tres códigos. */
 async function propuestaVisible(page: Page): Promise<string> {

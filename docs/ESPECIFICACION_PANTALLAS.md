@@ -318,6 +318,30 @@ Encabezado verde: `¡Tu solicitud de seguro fue aceptada!` — Alianza Garantía
 
 ---
 
+## Verificación pública de documentos — `/verificar/<código>` (agregado 2026-08-20)
+
+**No forma parte de las 12 pantallas ni del contador de 8 pasos.** Es el destino del código QR que imprime cada documento con huella registrada —el paquete `PROP-…`/`FIPF-…` y el certificado `CPC-…`— y responde a CMP-06 (*verificación de autenticidad del certificado*).
+
+Es la única pantalla del producto que **se abre sin sesión**, y la única que casi nunca mira quien contrató: la abre un hospital, un empleador, alguien de Alianza, cualquiera a quien le reenviaron el PDF.
+
+**Encabezado:** `Verificación de documentos` con la bajada, y el alcance dicho de frente y arriba: *confirma la autenticidad y la integridad del documento; no informa el estado de la cobertura ni el de la póliza, que se consultan con la aseguradora.* Sin eso, "documento auténtico" se lee como "cobertura vigente".
+
+**Con código válido y documento encontrado** — bloque verde `DOCUMENTO VERIFICADO` con: código, tipo de documento, correlativo, versión, sello de tiempo, código vinculado y **huella SHA-256** completa. Después el bloque `FIRMAS`, con una ficha por firmante: rótulo, nivel (*no cualificada* / *cualificada*), modalidad (*prefirmado* / *en el mismo acto*), cuándo se aplicó y la referencia del certificado. Una firma declarada por la configuración pero todavía no aplicada figura como pendiente, no se inventa la fecha.
+
+**Solo el certificado** agrega `COBERTURA QUE DECLARA EL CERTIFICADO` con el desde y el hasta, más la aclaración de que la vigencia efectiva la confirma la aseguradora.
+
+**`COMPROBÁ TU ARCHIVO`:** se elige el PDF y el navegador calcula su SHA-256 con `crypto.subtle` para compararlo con el registrado. **El archivo no se sube a ningún lado.** Si el navegador no puede calcularlo, la pantalla lo dice y queda la comparación a mano.
+
+**Cuando no hay nada que verificar** — bloque naranja `NO PUDIMOS VERIFICAR ESTE CÓDIGO` con el código a la vista, el motivo, y el buscador de nuevo con el valor cargado para corregirlo sin volver atrás. Tres motivos: código con forma inválida, documento no encontrado, y el comprobante de pago —que **no se verifica por sí solo** y lo explica, porque un "no encontrado" haría pensar que es falso—.
+
+**Reglas del sistema:**
+
+- **No muestra ningún dato de la persona**: ni nombre, ni cédula, ni canales, ni plan, ni importes (regla inviolable #7). Quien tiene el PDF ya ve esos datos en el PDF; quien solo tiene el código no debería poder deducirlos.
+- **No registra evidencia por visita.** Es un GET público: un registro por carga sería una escritura no autenticada amplificable. Se reevalúa cuando exista el rate limiting.
+- `/verificar` sin código muestra el buscador, para tipear a mano lo que no se pudo escanear.
+
+---
+
 ## Pantalla A · Emisión no automática (derivación a revisión manual)
 
 Se llega desde el paso de declaraciones cuando una declaración es incompatible o PEP \= Sí. **No lleva contador de pasos.**

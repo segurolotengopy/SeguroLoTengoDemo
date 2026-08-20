@@ -20,6 +20,7 @@ import {
 } from "@/adapters/registro";
 import type { DependenciasP8 } from "@/domain/firma-p8";
 import type { DependenciasDocumentos } from "@/documentos";
+import { urlBaseVerificacion } from "@/app/api/_http/contexto-peticion";
 import { crearArchivoRepository, crearEvidenceStore, crearExpedienteRepository } from "@/repositories";
 
 export function dependenciasP8(): DependenciasP8 {
@@ -41,10 +42,13 @@ export function dependenciasP8(): DependenciasP8 {
  * los hashea y lleva el expediente de DECLARACIONES_OK a PAQUETE_GENERADO
  * (regla inviolable #4).
  */
-export function dependenciasDocumentosP8(): DependenciasDocumentos {
+export function dependenciasDocumentosP8(request: Request): DependenciasDocumentos {
   return {
     expedientes: crearExpedienteRepository(),
     archivos: crearArchivoRepository(),
     evidencias: crearEvidenceStore(),
+    // El QR impreso en el PDF apunta al origen desde el que se cerró el
+    // documento (CMP-06). Ver `urlBaseVerificacion`.
+    urlBaseVerificacion: urlBaseVerificacion(request),
   };
 }

@@ -47,10 +47,10 @@ Solicitud y el FIPF se unificaron en un solo PDF (Lote 4c); y el **Certificado
 de Cobertura Provisional** existe desde el Lote 5a, emitido en la misma
 escritura que confirma el cobro. El Lote 5b puso los **tres** descargables en
 la pantalla de confirmación —paquete firmado, certificado y comprobante de
-pago (D-05)— con el inicio de cobertura a la vista. **Falta** el resto del
-Lote 5: entregar los documentos por WhatsApp y correo con acuse (CHG-44), la
-ruta `/verificar/<código>` a la que apuntan los QR (CMP-06), y la Pantalla B
-con el seguimiento de devoluciones. Cada regla se corrige acá cuando el lote
+pago (D-05)— con el inicio de cobertura a la vista, y el Lote 5c abrió
+`/verificar/<código>`, la página pública a la que apuntan los QR (CMP-06).
+**Falta** el resto del Lote 5: entregar los documentos por WhatsApp y correo
+con acuse (CHG-44), y la Pantalla B con el seguimiento de devoluciones. Cada regla se corrige acá cuando el lote
 que la cambia se implementa, no antes: hasta entonces, **la regla escrita
 abajo es la que rige el código que existe hoy**.
 
@@ -298,7 +298,19 @@ Tres cosas no negociables de este servicio:
 
 **El QR es decisión de producto, no obligación legal**: no hay fila en la matriz de cumplimiento que lo exija (la 77 exige el hash individual y la 47 vincular por correlativo o hash, cosas que el paquete cumple sin él). Codifica **solo** `<URL_BASE>/<código>` — nunca el hash (el QR va dentro del PDF que se hashea) ni ningún dato de la persona.
 
-**Pendiente:** la ruta `/verificar/<código>` a la que apunta el QR del paquete y del certificado todavía no existe (CMP-06), y los tres documentos todavía no se entregan por WhatsApp y correo con acuse (CHG-44, CMP-05). Los tres **sí** se descargan desde la pantalla de confirmación (CHG-42/43), por `GET /api/p8/documento?codigo=…`.
+### La verificación pública (CMP-06, Lote 5c)
+
+`/verificar/<código>` es el destino del QR de cada documento con huella. Es **pública, sin sesión y sin ningún dato de la persona**: el código va impreso en un PDF que se reenvía, así que cualquiera que lo tenga abre esa página. Lo que responde son hechos del documento —código, correlativo, versión, sello de tiempo, SHA-256, firmantes con su nivel y modalidad y, en el certificado, la ventana de cobertura que declara—. Nunca el nombre, la cédula, los canales, el plan ni el importe (regla inviolable #7). Proyección en `src/domain/verificacion-documento.ts`.
+
+**Verifica autenticidad, no vigencia**, y lo dice en la pantalla. Un certificado emitido sobre un cobro que después se devolvió sigue siendo auténtico: lo que cambió no es el documento sino la relación. Afirmar "vigente" o "anulado" exigiría una regla sobre qué le pasa a la cobertura cuando un cobro se revierte, y esa regla no está decidida en ningún documento fuente.
+
+El comprobante de pago responde con **su propio motivo** en vez de "no encontrado": no se verifica por sí solo (D-05), y un "no encontrado" haría pensar que es falso.
+
+**No deja evidencia por visita, y es deliberado.** Cada carga de una URL pública sería una escritura no autenticada sobre la partición del expediente, amplificable por cualquiera que tenga el código; CMP-06 pide verificación de autenticidad, no registro de cada consulta. Conviene reevaluarlo cuando L6 traiga el rate limiting.
+
+La base del QR sale del **origen de la petición** que cierra el documento (`urlBaseVerificacion` en `src/app/api/_http/contexto-peticion.ts`), igual que la URL de retorno de Bancard: en local apunta a `localhost` y en Amplify al dominio desplegado, sin una variable de entorno más. Como el QR es parte de los bytes que se hashean, el enlace de un documento no cambia después de cerrarlo.
+
+**Pendiente:** los tres documentos todavía no se entregan por WhatsApp y correo con acuse (CHG-44, CMP-05). Los tres **sí** se descargan desde la pantalla de confirmación (CHG-42/43), por `GET /api/p8/documento?codigo=…`.
 
 ---
 

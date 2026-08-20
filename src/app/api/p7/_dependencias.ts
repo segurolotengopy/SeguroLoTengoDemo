@@ -10,6 +10,7 @@
  * queda expuesto como endpoint.
  */
 import { obtenerPaymentProvider } from "@/adapters/registro";
+import { urlBaseVerificacion } from "@/app/api/_http/contexto-peticion";
 import { URL_RETORNO_TARJETA_POR_DEFECTO } from "@/domain/pago-p7";
 import type { DependenciasP7, EmisorCertificadoCobertura } from "@/domain/pago-p7";
 import { emitirCertificadoCobertura } from "@/documentos";
@@ -38,20 +39,27 @@ function urlRetornoTarjeta(request: Request): string {
  * en el expediente es la propia transición del pago**, en una sola escritura
  * (CMP-07).
  */
-const emisorCertificado: EmisorCertificadoCobertura = async ({ expediente, emitidoEn }) => {
-  const resultado = await emitirCertificadoCobertura(
-    { archivos: crearArchivoRepository() },
-    { expediente, emitidoEn },
-  );
-  if (!resultado.ok) {
-    return {
-      ok: false,
-      motivo: resultado.motivo,
-      detalle: resultado.detalle ?? resultado.faltantes?.join(","),
-    };
-  }
-  return { ok: true, certificado: resultado.certificado };
-};
+function emisorCertificado(request: Request): EmisorCertificadoCobertura {
+  return async ({ expediente, emitidoEn }) => {
+    const resultado = await emitirCertificadoCobertura(
+      {
+        archivos: crearArchivoRepository(),
+        // El QR del certificado apunta al origen desde el que se lo emitió
+        // (CMP-06). Ver `urlBaseVerificacion`.
+        urlBaseVerificacion: urlBaseVerificacion(request),
+      },
+      { expediente, emitidoEn },
+    );
+    if (!resultado.ok) {
+      return {
+        ok: false,
+        motivo: resultado.motivo,
+        detalle: resultado.detalle ?? resultado.faltantes?.join(","),
+      };
+    }
+    return { ok: true, certificado: resultado.certificado };
+  };
+}
 
 export function dependenciasP7(request: Request): DependenciasP7 {
   return {
@@ -59,6 +67,6 @@ export function dependenciasP7(request: Request): DependenciasP7 {
     expedientes: crearExpedienteRepository(),
     evidencias: crearEvidenceStore(),
     urlRetornoTarjeta: urlRetornoTarjeta(request),
-    emitirCertificado: emisorCertificado,
+    emitirCertificado: emisorCertificado(request),
   };
 }

@@ -33,7 +33,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const cookies = [{ nombre: COOKIE_SESION, valor: contexto.sesionId }];
 
-  const generacion = await generarPaqueteDocumental(dependenciasDocumentosP8(), {
+  const generacion = await generarPaqueteDocumental(dependenciasDocumentosP8(request), {
     expedienteId,
     contexto,
   });
