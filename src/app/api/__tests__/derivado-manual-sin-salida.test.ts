@@ -506,6 +506,24 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         ),
     },
     /**
+     * El retorno del navegador es la segunda vía de confirmación (CHG-33) y
+     * entra por el mismo caso de uso: si mañana alguien le diera un camino
+     * propio, este caso lo obliga a rechazar un expediente derivado igual que
+     * el sondeo.
+     */
+    {
+      ruta: "p8/retorno",
+      ejecutar: async (repo) =>
+        confirmarFirmaP8(
+          {
+            firmas: firmasQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO, origen: "RETORNO_NAVEGADOR" },
+        ),
+    },
+    /**
      * La Pantalla B es el desenlace del vencimiento del plazo de firma, no de
      * la derivación: un expediente DERIVADO_MANUAL nunca pagó nada, así que no
      * hay trámite de devolución que abrir ni premio que devolver.
@@ -732,6 +750,7 @@ describe("3. Inventario de rutas de la API", () => {
       "p7/estado",
       "p7/pago",
       "p8/estado",
+      "p8/retorno",
       "p8/firma",
       "p8/resumen",
       "pantalla-b/caso",

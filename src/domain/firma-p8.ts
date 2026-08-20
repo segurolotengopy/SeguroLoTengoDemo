@@ -116,6 +116,15 @@ export const PASO_EVIDENCIA_ENVIO_ENLACE_P8 = "P8_ENVIO_ENLACE_FIRMA";
 export const PASO_EVIDENCIA_FIRMA_P8 = "P8_FIRMA";
 export const PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 = "P8_FIRMAS_INSTITUCIONALES";
 
+/**
+ * Una confirmación que llegó sobre un expediente ya firmado (CHG-33).
+ *
+ * Se registra aparte de la firma para que la evidencia no mezcle *"el
+ * expediente se firmó"* con *"nos avisaron de nuevo"*: son dos hechos, y solo
+ * el primero transiciona.
+ */
+export const PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8 = "P8_CONFIRMACION_DUPLICADA";
+
 /** D-08 · firmado el expediente, el paso siguiente es el pago. */
 export const RUTA_PAGO = "/pago";
 
@@ -181,6 +190,29 @@ export type ResultadoIniciarFirmaP8 =
   | { readonly ok: true; readonly acto: ActoDeFirmaVisible }
   | { readonly ok: false; readonly motivo: MotivoRechazoP8; readonly detalle?: string };
 
+/**
+ * Por dónde llegó la confirmación de que el cliente firmó (CHG-33).
+ *
+ * La confirmación tiene **dos vías**, y las dos pueden llegar por el mismo
+ * acto: la pantalla sondea cada dos segundos mientras la persona firma en la
+ * ventana de Code100, y al volver de esa ventana el navegador confirma de una.
+ * La que llega primero transiciona; la segunda encuentra el expediente ya
+ * firmado y se registra como duplicado, sin repetir nada.
+ *
+ * Que el origen sea un dato y no una suposición es lo que permite responder,
+ * meses después, *"¿por dónde se enteró el sistema de que esto se firmó?"* —
+ * que es una pregunta de auditoría, no de depuración.
+ *
+ * **`WEBHOOK` no existe todavía**, y no está acá de adorno: la documentación
+ * de Code100 (`docs/Integraciones/Documentacion Firmador - API FLOW.pdf`) no
+ * expone ningún callback servidor a servidor —sus cuatro endpoints son `auth`,
+ * `session-start`, `getSessionId` y `sign-pdf`—, así que inventarle payload y
+ * verificación de firma sería inventar el contrato. Queda como PEN-02. El
+ * valor está declarado para que agregarlo el día que Code100 lo confirme sea
+ * sumar un alimentador más, no rehacer esta costura.
+ */
+export type OrigenConfirmacionFirma = "SONDEO" | "RETORNO_NAVEGADOR" | "WEBHOOK";
+
 export type ResultadoConfirmarFirmaP8 =
   | {
       readonly ok: true;
@@ -198,6 +230,13 @@ export type ResultadoConfirmarFirmaP8 =
       readonly firmadoEn: string;
       /** Hasta cuándo hay tiempo de pagar (D-10). */
       readonly plazoPagoVenceEn: string;
+      /**
+       * `true` cuando esta confirmación llegó sobre un expediente que **ya**
+       * estaba firmado: otra vía se le adelantó. No es un error —es el caso
+       * normal cuando el sondeo y el retorno del navegador se cruzan— y por
+       * eso se responde igual, con los mismos datos.
+       */
+      readonly duplicada: boolean;
       readonly siguientePantalla: typeof RUTA_PAGO;
     }
   | { readonly ok: false; readonly motivo: MotivoRechazoP8; readonly detalle?: string };
@@ -486,7 +525,12 @@ async function actoVigente(
  */
 export async function confirmarFirmaP8(
   deps: DependenciasP8,
-  entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
+  entrada: {
+    readonly expedienteId: string;
+    readonly contexto: ContextoPeticion;
+    /** Por dónde llegó (CHG-33). El sondeo es el valor por defecto. */
+    readonly origen?: OrigenConfirmacionFirma;
+  },
 ): Promise<ResultadoConfirmarFirmaP8> {
   // Perder la carrera de escritura contra otro sondeo se resuelve releyendo:
   // la operación es convergente —rama idempotente para FIRMADO, retoma del
@@ -499,16 +543,38 @@ export async function confirmarFirmaP8(
 
 async function intentarConfirmarFirmaP8(
   deps: DependenciasP8,
-  entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
+  entrada: {
+    readonly expedienteId: string;
+    readonly contexto: ContextoPeticion;
+    readonly origen?: OrigenConfirmacionFirma;
+  },
 ): Promise<ResultadoConfirmarFirmaP8> {
   const reloj = resolverReloj(deps);
+  const origen = entrada.origen ?? "SONDEO";
 
   const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
   if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
 
-  // Ya firmado por todos: se responde con lo persistido. Es la rama que hace
-  // inofensivo un callback duplicado.
+  // Ya firmado por todos: otra vía se adelantó. Se responde con lo persistido
+  // —sin transicionar, sin tocar a Code100— y se deja constancia de por dónde
+  // llegó la que perdió la carrera (CHG-33). Es la rama que hace inofensivo un
+  // callback duplicado, y ahora además lo documenta.
   if (expediente.firma && ESTADOS_YA_FIRMADOS.includes(expediente.estado)) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: entrada.expedienteId,
+      paso: PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8,
+      fecha: reloj.ahora(),
+      contexto: entrada.contexto,
+      // No es un fallo: es el cruce esperable entre el sondeo y el retorno del
+      // navegador. Se registra como exitoso porque la confirmación era cierta.
+      resultado: "EXITOSO",
+      detalle: {
+        origen,
+        idCode100: expediente.firma.idCode100,
+        estado: expediente.estado,
+      },
+    });
+
     return {
       ok: true,
       firmado: true,
@@ -517,6 +583,7 @@ async function intentarConfirmarFirmaP8(
       idCode100: expediente.firma.idCode100,
       firmadoEn: expediente.firma.firmadoEn,
       plazoPagoVenceEn: expediente.plazoPagoVenceEn ?? "",
+      duplicada: true,
       siguientePantalla: RUTA_PAGO,
     };
   }
@@ -526,7 +593,7 @@ async function intentarConfirmarFirmaP8(
   // ahí en vez de volver a pedirle la firma a Code100: la firma del cliente es
   // un hecho registrado y no se repite.
   if (expediente.estado === "FIRMADO_CLIENTE") {
-    return aplicarFirmasInstitucionales(deps, reloj, expediente, entrada.contexto);
+    return aplicarFirmasInstitucionales(deps, reloj, expediente, entrada.contexto, origen);
   }
 
   if (expediente.estado !== ESTADO_REQUERIDO_P8) {
@@ -598,7 +665,7 @@ async function intentarConfirmarFirmaP8(
     },
   });
 
-  return aplicarFirmasInstitucionales(deps, reloj, transicion.expediente, entrada.contexto);
+  return aplicarFirmasInstitucionales(deps, reloj, transicion.expediente, entrada.contexto, origen);
 }
 
 /**
@@ -620,6 +687,7 @@ async function aplicarFirmasInstitucionales(
   reloj: Reloj,
   expediente: Expediente,
   contexto: ContextoPeticion,
+  origen: OrigenConfirmacionFirma,
 ): Promise<ResultadoConfirmarFirmaP8> {
   const fecha = reloj.ahora();
 
@@ -684,6 +752,8 @@ async function aplicarFirmasInstitucionales(
       certificados: firmas.map((firma) => firma.certificado).join(","),
       propuesta: transicion.expediente.numeroPropuesta ?? "",
       plazoPagoVenceEn,
+      // Por dónde llegó la confirmación que disparó este tramo (CHG-33).
+      origen,
     },
   });
 
@@ -696,6 +766,7 @@ async function aplicarFirmasInstitucionales(
     idCode100: firma?.idCode100 ?? "",
     firmadoEn: firma?.firmadoEn ?? fecha,
     plazoPagoVenceEn,
+    duplicada: false,
     siguientePantalla: RUTA_PAGO,
   };
 }

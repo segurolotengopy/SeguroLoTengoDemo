@@ -69,6 +69,7 @@ interface Resumen {
   readonly ivaGs: number;
   readonly desgloseProvisional: boolean;
   readonly nombreAFacturar: string;
+  readonly identificacionFiscalPorDefecto: string;
   readonly medio: MedioDePago | null;
   readonly referenciaBancard: string | null;
   readonly cobrado: boolean;
@@ -391,8 +392,16 @@ export function FormularioPagoP7() {
               aria-describedby="p7-ruc-ayuda"
               className={CLASE_CAMPO}
             />
+            {/* CHG-34 · qué se usa si el RUC queda vacío, dicho en vez de
+                dejado implícito: la caída ya existía, pero no se mostraba
+                cuál era la identificación que iba a viajar a Alianza. */}
             <p id="p7-ruc-ayuda" className="text-xs text-etiqueta">
-              {NOTA_RUC_VACIO_P7}
+              {NOTA_RUC_VACIO_P7}{" "}
+              {resumen ? (
+                <span className="font-semibold text-cuerpo">
+                  {resumen.identificacionFiscalPorDefecto}
+                </span>
+              ) : null}
             </p>
           </div>
         </div>

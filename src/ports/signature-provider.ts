@@ -72,6 +72,21 @@ export type ResultadoFirma =
       readonly venceEn: string;
       /** `true` cuando la persona ya abrió el enlace y Code100 le pidió el OTP de firma. */
       readonly enlaceAbierto: boolean;
+      /**
+       * Caducidad de la sesión **según el proveedor**, no según nuestro reloj.
+       *
+       * `POST /signature/getSessionId` devuelve `fecha_expiracion` y
+       * `expirado`, y no documenta una duración fija: en el ejemplo de Code100
+       * una sesión creada 14-ene 17:10 UTC expira 15-ene 14:12, unas 21 horas.
+       * Por eso no se la deduce restando de `venceEn` —eso sería hardcodear su
+       * política— sino que se la lee (D-10).
+       *
+       * Es un hecho distinto del plazo de 24 h del expediente, que es nuestro:
+       * la sesión puede caducar antes sin que el expediente venza, y entonces
+       * lo que corresponde es pedir un enlace nuevo, no dar por perdido el
+       * trámite.
+       */
+      readonly expirada: boolean;
     }
   | { readonly estado: "FIRMADO"; readonly firma: Firma }
   | {

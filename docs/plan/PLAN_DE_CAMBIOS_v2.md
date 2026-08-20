@@ -218,7 +218,7 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 | **L4a · Medios de pago (D-02)** ✅ **hecho (20-ago-2026)** | Preautorización retirada; QR, débito y crédito con cobro directo; estados `PREAUTORIZADO`/`CAPTURADO` eliminados y reemplazados por `pagoAcreditado`; estado `DEVUELTO` para el seguimiento de devoluciones. 937 tests en verde; E2E 6/7 en la corrida completa y el séptimo verde aislado |
 | **L4b · Inversión firma ↔ pago (D-08, D-10)** ✅ **hecho (20-ago-2026)** | Grafo invertido: `DECLARACIONES_OK → PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO → PAGO_CONFIRMADO → EMITIDO`. Estado nuevo `FIRMADO_CLIENTE` y firmas institucionales (D-13, tramo de estado). Correlativo acuñado por el cierre del paquete, no por el pago. Declaración de origen lícito movida al paso de declaraciones, para que integre el FIPF firmado. Plazo de 24 h renombrado a `plazoPagoVenceEn` y mudado de la firma al pago (D-10), con `VENCIDO` sin devolución. CHG-38/39 (los copys que el orden viejo hacía mentir). Endpoint `/api/p7/vencimiento` en reemplazo de `/api/p8/vencimiento` | ✅ desbloqueado (D-08, D-10); requiere L4a | **Cumplidos (20-ago-2026):** 941 tests unitarios y de contrato en verde; typecheck, lint y build en verde; batería E2E reescrita para el orden nuevo |
 | **L4c · PDF unificado y firmas (D-11, D-13)** ✅ **hecho (20-ago-2026)** | Un solo PDF con Solicitud + FIPF como secciones, un correlativo, dos códigos internos visibles, **un** SHA-256 (CHG-30). `firmantes-documento.ts`: lista ordenada por documento con rol, nivel y modalidad `PREFIRMADO`/`CONJUNTO`, fuente única del bloque de firmas del PDF, del orden de aplicación y de lo que muestra la consola. `Expediente.firmasInstitucionales` con certificado simulado. Declaraciones de licitud+veracidad y cuenta propia integradas al PDF (Matriz §4, CMP-20), art. 1556 con sello de tiempo (CMP-09). CHG-29: visor sin descarga antes de firmar. La palanca de demo de "sellado a la mitad" se reemplaza por `FIRMAS_INSTITUCIONALES_FALLAN` | ✅ desbloqueado (D-11, D-13); requiere L4b | **Cumplidos (20-ago-2026):** 947 tests en verde; typecheck, lint y build en verde |
-| **L4d · Callback de firma y habilitación del cobro** ⚠️ **ver Anexo D** | CHG-33 (webhook + polling de respaldo, idempotentes por `session_id`), CHG-34 (datos de facturación prellenados), CMP-07 (operación atómica pago→CPC), CMP-08 (regeneración del medio de cobro con hash intacto) | ✅ desbloqueado (D-05); requiere L4c | Regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
+| **L4d · Confirmación de firma y habilitación del cobro** ✅ **hecho (20-ago-2026)** | CHG-33 con **dos vías** —sondeo y retorno del navegador—, `OrigenConfirmacionFirma` en la evidencia y registro explícito de la confirmación duplicada. **El webhook no se construyó** (ver abajo). `expirada` del proveedor en el puerto (D-10). CMP-08: el medio de cobro se emite contra la huella del documento y cada regeneración queda asentada con ella. CHG-34: la caída de RUC a cédula, dicha en la pantalla | ✅ desbloqueado (D-05); requiere L4c | 955 tests en verde; typecheck, lint y build en verde |
 | **L5 · Confirmación, CPC, notificaciones y devoluciones** | CHG-40…46, D-12 (CPC), CHG-44 (job entrega + acuse), CHG-47/D-14 (Pv2-B), **flujo de seguimiento de devoluciones (D-02) + vista en consola**, CMP-05/06 | ✅ desbloqueado (D-05, D-12, D-17, D-18); D-19 con datos parametrizados; requiere L4 | CPC solo con pago confirmado; envío automático con reintentos y acuse; inicio = pago + 24 h exactas incluyendo bordes de mes; devolución seguible de punta a punta con evidencia |
 | **L6 · Trazabilidad y hardening** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final) | L2 | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
 
@@ -335,8 +335,34 @@ de avance mientras se acumulaba trabajo descartable.
    cobro.
 3. **L4c · PDF unificado y firmas (D-11, D-13, CHG-30).** ✅ hecho. Un solo
    documento, un solo hash, tres firmantes configurables.
-4. **L4d · Callback de firma y habilitación del cobro (CHG-33, CMP-07/08).**
-   Último, porque conecta lo que los tres anteriores dejaron en su lugar.
+4. **L4d · Confirmación de firma y habilitación del cobro (CHG-33, CMP-08).**
+   ✅ hecho. Último, porque conecta lo que los tres anteriores dejaron en su
+   lugar.
+
+**Lo que L4d encontró, y por qué el lote no cierra CHG-33 entero.** El plan
+describe el callback de firma como *"webhook (cuando Code100 lo confirme —
+PEN-02) y polling de respaldo"*. Al ir a escribirlo aparece que **el webhook no
+existe en el contrato del proveedor**: la documentación de Code100 tiene cuatro
+endpoints —`auth`, `session-start`, `getSessionId`, `sign-pdf`— y ningún
+callback servidor a servidor, ni payload, ni esquema de verificación de firma.
+La única aparición de la palabra *callback* es el `redirect_uri` de OAuth
+incrustado en el `_authUrl`, que es el navegador volviendo.
+
+Construirlo habría significado inventar endpoint, payload y verificación, que
+es lo que CLAUDE.md prohíbe explícitamente para esta integración. Así que se
+construyó la costura —`ConfirmacionFirma` con origen, idempotente por
+`session_id`, con registro de duplicado— y **dos** alimentadores reales en vez
+de tres: el sondeo que ya existía y el retorno del navegador, que sí está
+documentado y es el que hace cierto hoy el *"el retorno habilita el paso 7
+automáticamente"*. `WEBHOOK` queda declarado como valor del tipo para que
+agregarlo sea sumar un alimentador, no rehacer la costura. PEN-02 sigue abierta.
+
+**CMP-07 no entra en L4d.** La operación atómica `pago → CPC → entrega` con
+reverso automático necesita el Certificado de Cobertura Provisional, que es L5
+(D-12): no hay qué generar ni qué revertir. Lo que L4d deja es la forma —el
+cobro detrás de una sola operación de dominio— y el punto donde L5 enchufa el
+CPC. Implementar el reverso de algo inexistente habría sido el mismo error que
+L4a evitó al no arreglar tests de código que iba a borrar.
 
 **Lo que L4b encontró y el plan no había anticipado.** La inversión no era solo
 mover dos elementos de una lista: arrastró tres consecuencias que el plan no

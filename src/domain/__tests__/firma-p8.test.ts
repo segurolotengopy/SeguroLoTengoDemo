@@ -33,7 +33,9 @@ import type { EvidenceStore } from "../../ports/evidence-store";
 import type { EstadoConsultaPago, PaymentProvider } from "../../ports/payment-provider";
 import type { SignatureProvider } from "../../ports/signature-provider";
 import {
+  PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8,
   PASO_EVIDENCIA_ENVIO_ENLACE_P8,
+  PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8,
   PASO_EVIDENCIA_FIRMA_P8,
   confirmarFirmaP8,
   iniciarFirmaP8,
@@ -501,6 +503,81 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
 // ---------------------------------------------------------------------------
 // El plazo de 24 horas ya no vive acá (D-08/D-10)
 // ---------------------------------------------------------------------------
+
+describe("firma · las dos vías de confirmación (CHG-33)", () => {
+  it("el retorno del navegador confirma igual que el sondeo", async () => {
+    const entorno = armar();
+    const enlace = await pedirEnlace(entorno);
+    if (!enlace.ok) throw new Error("no se abrió el acto");
+    await firmarEnCode100(enlace.acto.idCode100);
+
+    const resultado = await confirmarFirmaP8(entorno.deps, {
+      expedienteId: entorno.repositorio.actual().id,
+      contexto: CONTEXTO,
+      origen: "RETORNO_NAVEGADOR",
+    });
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok || !resultado.firmado) return;
+    expect(resultado.duplicada).toBe(false);
+    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
+  });
+
+  it("la segunda vía llega sobre un expediente ya firmado y se registra como duplicada", async () => {
+    // Es el caso normal, no un error: el sondeo corre cada dos segundos
+    // mientras la persona firma, y al volver de la ventana el navegador
+    // confirma de una. Una de las dos llega segunda.
+    const entorno = armar();
+    const enlace = await pedirEnlace(entorno);
+    if (!enlace.ok) throw new Error("no se abrió el acto");
+    await firmarEnCode100(enlace.acto.idCode100);
+
+    const primera = await sondear(entorno);
+    const historialTrasPrimera = entorno.repositorio.actual().historial.length;
+
+    const segunda = await confirmarFirmaP8(entorno.deps, {
+      expedienteId: entorno.repositorio.actual().id,
+      contexto: CONTEXTO,
+      origen: "RETORNO_NAVEGADOR",
+    });
+
+    expect(primera.ok && primera.firmado).toBe(true);
+    expect(segunda.ok).toBe(true);
+    if (!segunda.ok || !segunda.firmado) return;
+
+    // Responde lo mismo, marcada como duplicada, y no vuelve a transicionar.
+    expect(segunda.duplicada).toBe(true);
+    expect(segunda.siguientePantalla).toBe("/pago");
+    expect(entorno.repositorio.actual().historial).toHaveLength(historialTrasPrimera);
+
+    // Y queda constancia de por dónde llegó la que perdió la carrera.
+    const duplicada = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8,
+    );
+    expect(duplicada?.detalle).toContain("origen=RETORNO_NAVEGADOR");
+    expect(duplicada?.resultado).toBe("EXITOSO");
+  });
+
+  it("el origen queda en la evidencia de las firmas institucionales", async () => {
+    const entorno = armar();
+    const enlace = await pedirEnlace(entorno);
+    if (!enlace.ok) throw new Error("no se abrió el acto");
+    await firmarEnCode100(enlace.acto.idCode100);
+
+    await confirmarFirmaP8(entorno.deps, {
+      expedienteId: entorno.repositorio.actual().id,
+      contexto: CONTEXTO,
+      origen: "RETORNO_NAVEGADOR",
+    });
+
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8,
+    );
+    // "¿Por dónde se enteró el sistema de que esto se firmó?" es una pregunta
+    // de auditoría, y sin este campo no tiene respuesta.
+    expect(registro?.detalle).toContain("origen=RETORNO_NAVEGADOR");
+  });
+});
 
 describe("firma · el plazo se abre acá y corre en el paso siguiente", () => {
   it("las firmas institucionales dejan el expediente FIRMADO y abren el plazo de pago", async () => {

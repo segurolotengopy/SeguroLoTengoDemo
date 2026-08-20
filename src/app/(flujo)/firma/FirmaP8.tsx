@@ -260,6 +260,40 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
     return true;
   }, [irAPantallaB, router]);
 
+  /**
+   * La persona volvió de la ventana de Code100 (CHG-33).
+   *
+   * Va por `/api/p8/retorno` y no por el sondeo para que quede registrado
+   * **por dónde** llegó la confirmación: son dos vías sobre el mismo acto y la
+   * evidencia tiene que poder distinguirlas. Si el sondeo se adelantó, esta
+   * llega segunda y el servidor la registra como duplicada sin repetir nada.
+   *
+   * No manda ningún resultado de firma: avisa que volvió, y el servidor le
+   * pregunta a Code100. Un cliente que llame esto sin haber firmado obtiene lo
+   * mismo que obtendría el sondeo.
+   */
+  const confirmarRetorno = useCallback(async (): Promise<void> => {
+    try {
+      const respuesta = await fetch("/api/p8/retorno", { method: "POST" });
+      const datos = (await respuesta.json().catch(() => ({}))) as {
+        ok?: boolean;
+        firmado?: boolean;
+        siguientePantalla?: string;
+      };
+      if (!vigente.current) return;
+      if (datos.ok && datos.firmado) {
+        setFirmado(true);
+        setError(null);
+        router.push(datos.siguientePantalla ?? "/pago");
+        return;
+      }
+      // Volvió sin firma confirmada: el sondeo sigue su curso.
+      await sondear().catch(() => undefined);
+    } catch {
+      // El retorno es un atajo, no la garantía: si falla, el sondeo confirma.
+    }
+  }, [router, sondear]);
+
   // Sondeo mientras hay un acto de firma abierto y sin confirmar.
   useEffect(() => {
     if (!acto || firmado) return;
@@ -532,10 +566,10 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
             destino={`${ROTULO_CANAL_P8[acto.canal]} ${acto.destinoEnmascarado}`}
             alFirmar={() => {
               setFirmadorAbierto(false);
-              // No se marca `firmado` acá: quien lo confirma es el sondeo
-              // contra el proveedor, igual que con la ventana real. Se le da
-              // un empujón para no esperar al próximo tick.
-              void sondear().catch(() => undefined);
+              // No se marca `firmado` acá: quien lo confirma es el proveedor,
+              // igual que con la ventana real. Lo que se hace es avisar que
+              // la persona volvió, para no esperar al próximo tick del sondeo.
+              void confirmarRetorno();
             }}
             alRechazar={() => {
               setFirmadorAbierto(false);
@@ -544,7 +578,12 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
               // vuelve a habilitar el botón de pedir enlace.
               void sondear().catch(() => undefined);
             }}
-            alCerrar={() => setFirmadorAbierto(false)}
+            alCerrar={() => {
+              setFirmadorAbierto(false);
+              // Cerrar la ventana también es volver: puede haber firmado y
+              // cerrado sin usar el botón.
+              void confirmarRetorno();
+            }}
           />
         ) : null}
 

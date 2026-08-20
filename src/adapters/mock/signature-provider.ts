@@ -430,6 +430,13 @@ function proyectar(sesion: SesionFirmaMock, instante: string): ResultadoFirma {
     enlaceEnviadoEn: sesion.enlaceEnviadoEn,
     venceEn: sesion.venceEn,
     enlaceAbierto: sesion.otp !== null,
+    // El mock alinea la caducidad de la sesión con `venceEn` porque es el
+    // único dato que tiene. El proveedor real la informa por su cuenta
+    // (`fecha_expiracion` / `expirado`) y puede no coincidir: la rama de
+    // arriba ya la habría convertido en NO_FIRMADO, así que acá siempre es
+    // `false` — el campo existe para que el adaptador oficial pueda decir otra
+    // cosa sin cambiar el contrato (D-10).
+    expirada: false,
   };
 }
 

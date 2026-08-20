@@ -226,6 +226,14 @@ POST /signature/sign-pdf        → pdf_base64 firmado (documents_signeds)
 
 Reglas no negociables de esa integración: el documento único viaja en **un** `session_id` —con D-11 ya no hay dos archivos que pudieran ir en llamadas separadas—; se cierra (hash + versión) antes de enviarse a firmar; el orden de firmas es cliente (no cualificada) → Interseguros y Alianza (cualificada), nunca al revés, y sale de `firmantes-documento.ts`; se registran PDF, hash, canal, `session_id`, firmantes, fecha, hora, IP y callbacks.
 
+### Confirmación de firma: dos vías, un `session_id` (CHG-33)
+
+La confirmación de que el cliente firmó llega por **dos** caminos, y los dos pueden llegar por el mismo acto: el sondeo de la pantalla cada dos segundos, y el retorno del navegador cuando la persona vuelve de la ventana de Code100 (`POST /api/p8/retorno`). La que llega primero transiciona; la segunda encuentra el expediente firmado, responde lo mismo con `duplicada: true` y deja evidencia propia (`P8_CONFIRMACION_DUPLICADA`). La idempotencia es por `session_id`, que es el `idCode100` del acto abierto.
+
+El origen (`SONDEO` / `RETORNO_NAVEGADOR` / `WEBHOOK`) viaja a la evidencia: *"¿por dónde se enteró el sistema de que esto se firmó?"* es una pregunta de auditoría, no de depuración.
+
+**No hay webhook, y no es un olvido.** La documentación de Code100 expone cuatro endpoints y ninguno es un callback servidor a servidor; la única aparición de *callback* es el `redirect_uri` de OAuth. Inventarle payload y verificación sería inventar el contrato, así que `WEBHOOK` está declarado en el tipo pero sin implementación: queda como PEN-02. Ninguna ruta de retorno confía en lo que dice el navegador — recibe el aviso de que volvió y le pregunta al proveedor.
+
 ### Idempotencia de webhooks (Bancard y Code100)
 
 Los adaptadores oficiales de `PaymentProvider` y `SignatureProvider` deben tratar sus webhooks/callbacks como potencialmente duplicados (reintentos de red, doble entrega). `src/ports/payment-provider.ts` ya expone `idempotencyKey` en los métodos de inicio de pago y documenta `capturarPreautorizacion`/`cancelarOLiberarReserva` como idempotentes por `referenciaBancard` — cualquier adaptador debe cumplir esa garantía, no solo el mock.

@@ -192,6 +192,12 @@ export type MotivoRechazoP7 =
   | "ESTADO_INVALIDO"
   | "MEDIO_INVALIDO"
   | "RUC_INVALIDO"
+  /**
+   * CMP-08 · el documento contra el que se iba a cobrar no tiene huella
+   * verificable. No se abre ninguna operación en Bancard: cobrar sin poder
+   * probar qué se firmó rompe el vínculo de la fila 47.
+   */
+  | "DOCUMENTO_SIN_HUELLA"
   | "EXPEDIENTE_INCOMPLETO"
   | "BANCARD_NO_DISPONIBLE"
   | "BANCARD_RECHAZO"
@@ -262,6 +268,19 @@ export type ResultadoConfirmarPagoP7 =
 // Helpers internos
 // ---------------------------------------------------------------------------
 
+/**
+ * `9323336` → `93•••••`, y `9.323.336` → `93•••••` también.
+ *
+ * Cuenta **dígitos**, no caracteres: la cédula llega del OCR a veces con
+ * puntos y a veces sin ellos, y cortar a ciegas los dos primeros caracteres
+ * daba `9.••••••` — que no alcanza para reconocerla, que es exactamente para
+ * lo que la persona la mira acá antes de decidir si carga un RUC distinto.
+ */
+function enmascararCedula(numero: string): string {
+  const digitos = numero.replace(/\D/g, "");
+  return `${digitos.slice(0, 2)}${"•".repeat(Math.max(digitos.length - 2, 0))}`;
+}
+
 interface Reloj {
   readonly ahora: () => string;
   readonly nuevoId: () => string;
@@ -290,7 +309,10 @@ export function resumenSeguroP7(entrada: {
   estadoPago: string | null;
   numeroPropuesta: string | null;
   idempotencyKey: string | null;
-  plazoFirmaVenceEn?: string | null;
+  /** CMP-08 · huella del documento contra el que se emite el medio de cobro. */
+  hashDocumento?: string | null;
+  /** `true` si ya había un intento previo: esta emisión es una regeneración. */
+  regeneracion?: boolean;
 }): Readonly<Record<string, string | number | boolean>> {
   return {
     medio: entrada.medio,
@@ -299,7 +321,8 @@ export function resumenSeguroP7(entrada: {
     ...(entrada.referenciaBancard ? { referenciaBancard: entrada.referenciaBancard } : {}),
     ...(entrada.numeroPropuesta ? { propuesta: entrada.numeroPropuesta } : {}),
     ...(entrada.idempotencyKey ? { idempotencyKey: entrada.idempotencyKey } : {}),
-    ...(entrada.plazoFirmaVenceEn ? { plazoFirmaVenceEn: entrada.plazoFirmaVenceEn } : {}),
+    ...(entrada.hashDocumento ? { hashDocumento: entrada.hashDocumento } : {}),
+    ...(entrada.regeneracion !== undefined ? { regeneracion: entrada.regeneracion } : {}),
   };
 }
 
@@ -472,6 +495,22 @@ async function intentarIniciarPagoP7(
     return { ok: false, motivo: "EXPEDIENTE_INCOMPLETO" };
   }
 
+  // CMP-08 · el medio de cobro se emite —y se regenera— **contra un documento
+  // que no cambió**. Si el hash del PDF firmado no es el que quedó registrado
+  // al cerrarlo, lo que se está por cobrar no corresponde a lo que la persona
+  // firmó, y generar el QR igual sería cobrar por otro contrato.
+  //
+  // Con el paquete cerrado e inmutable esto no debería poder fallar nunca; que
+  // no deba es exactamente la razón de comprobarlo, porque si falla no hay
+  // ninguna otra cosa que lo note.
+  const documento = expediente.paqueteDocumental;
+  if (!documento || documento.hashSha256.trim() === "") {
+    return { ok: false, motivo: "DOCUMENTO_SIN_HUELLA" };
+  }
+  if (expediente.firma && expediente.firma.hashDocumentoFirmado.trim() === "") {
+    return { ok: false, motivo: "DOCUMENTO_SIN_HUELLA" };
+  }
+
   const montoGs = expediente.plan.premioAnualGs;
   // D-08 · el correlativo ya existe: lo acuñó el cierre del paquete documental,
   // que ahora ocurre antes. Acá solo se lo cita, y por eso no hay ninguna rama
@@ -538,7 +577,7 @@ async function intentarIniciarPagoP7(
         estadoPago: null,
         numeroPropuesta,
         idempotencyKey,
-        plazoFirmaVenceEn: null,
+        hashDocumento: documento.hashSha256,
       }),
     });
     return { ok: false, motivo, detalle: esDeBancard ? error.message : undefined };
@@ -585,6 +624,13 @@ async function intentarIniciarPagoP7(
       estadoPago: "PENDIENTE",
       numeroPropuesta,
       idempotencyKey,
+      // CMP-08 · la huella del documento contra el que se emite este medio de
+      // cobro. Es lo que permite probar, después, que el QR que se pagó
+      // correspondía al contrato que se firmó y no a otro.
+      hashDocumento: documento.hashSha256,
+      // Cada emisión queda asentada, incluidas las regeneraciones: si la
+      // persona pidió tres QR, hay tres registros con la misma huella.
+      regeneracion: expediente.pago !== null,
     }),
   });
 
@@ -814,6 +860,17 @@ export interface ResumenPagoP7 {
   readonly ivaGs: number;
   readonly desgloseProvisional: boolean;
   readonly nombreAFacturar: string;
+  /**
+   * CHG-34 · la identificación fiscal que se va a usar **si no se carga un
+   * RUC**: la cédula del asegurado, enmascarada.
+   *
+   * Hasta ahora esa caída existía y no se decía: la nota al pie explicaba que
+   * "se enviará el nombre y la cédula" sin mostrar cuál. Enmascarada porque es
+   * un dato de identidad y la regla de UI no admite mostrarlo entero — alcanza
+   * para reconocerlo, que es lo que la persona necesita para decidir si carga
+   * un RUC distinto.
+   */
+  readonly identificacionFiscalPorDefecto: string;
   readonly medio: MedioDePago | null;
   readonly referenciaBancard: string | null;
   /** `true` cuando el dinero ya entró. Sin preautorización (D-02) no hay medias tintas. */
@@ -843,6 +900,7 @@ export function leerResumenPagoP7(expediente: Expediente): ResumenPagoP7 | null 
     ivaGs: desglose.ivaGs,
     desgloseProvisional: desglose.esProvisional,
     nombreAFacturar: `${expediente.identidad.nombres} ${expediente.identidad.apellidos}`.trim(),
+    identificacionFiscalPorDefecto: `Cédula ${enmascararCedula(expediente.identidad.numeroCedula)}`,
     medio: expediente.pago?.medio ?? null,
     referenciaBancard: expediente.pago?.referenciaBancard ?? null,
     cobrado: pagoAcreditado(expediente.pago?.estado ?? "PENDIENTE"),

@@ -33,7 +33,7 @@ import {
 } from "../pago-p7";
 import type { EstadoPago, Expediente, MedioDePago, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
-import { PLAZO_PAGO_FIJO, expedienteFirmado } from "./fixtures";
+import { PAQUETE_FIXTURE, PLAZO_PAGO_FIJO, expedienteFirmado } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Dobles en memoria
@@ -515,6 +515,57 @@ describe("P7 · evidencia", () => {
 });
 
 // ---------------------------------------------------------------------------
+// CMP-08 · el medio de cobro se emite contra un documento con huella
+// ---------------------------------------------------------------------------
+
+describe("pago · el cobro se emite contra el documento firmado (CMP-08)", () => {
+  it("no abre ninguna operación si el documento no tiene huella", async () => {
+    // Con el paquete cerrado e inmutable esto no debería poder pasar nunca.
+    // Que no deba es la razón de comprobarlo: si pasara, nada más lo notaría, y
+    // se estaría cobrando por algo que no se puede probar qué es (fila 47).
+    const sinHuella: Expediente = {
+      ...expedienteListoParaPagar(),
+      paqueteDocumental: { ...expedienteListoParaPagar().paqueteDocumental!, hashSha256: "" },
+    };
+    const { deps, bancard } = armar(sinHuella);
+
+    const resultado = await iniciarPagoP7(deps, ENTRADA_QR);
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivo).toBe("DOCUMENTO_SIN_HUELLA");
+    expect(bancard.llamadas).toHaveLength(0);
+  });
+
+  it("la evidencia ata el medio de cobro a la huella del documento", async () => {
+    const { deps, evidencias } = armar(expedienteListoParaPagar());
+
+    await iniciarPagoP7(deps, ENTRADA_QR);
+
+    const inicio = evidencias.registros.find((r) => r.paso === PASO_EVIDENCIA_INICIO_P7);
+    expect(inicio?.detalle).toContain(`hashDocumento=${PAQUETE_FIXTURE.hashSha256}`);
+  });
+
+  it("cada regeneración queda asentada, con la misma huella", async () => {
+    // Pedir un QR nuevo no transiciona ni cambia el documento: lo que cambia es
+    // la operación en Bancard. Los dos registros comparten huella, que es lo
+    // que prueba que se cobró siempre contra el mismo contrato.
+    const { deps, evidencias } = armar(expedienteListoParaPagar());
+
+    await iniciarPagoP7(deps, ENTRADA_QR);
+    await iniciarPagoP7(deps, { ...ENTRADA_QR, medio: "TARJETA_CREDITO" });
+
+    const inicios = evidencias.registros.filter((r) => r.paso === PASO_EVIDENCIA_INICIO_P7);
+    expect(inicios).toHaveLength(2);
+    expect(inicios[0].detalle).toContain("regeneracion=false");
+    expect(inicios[1].detalle).toContain("regeneracion=true");
+    for (const registro of inicios) {
+      expect(registro.detalle).toContain(PAQUETE_FIXTURE.hashSha256);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // El plazo de 24 horas (D-10)
 // ---------------------------------------------------------------------------
 
@@ -612,6 +663,9 @@ describe("P7 · resumen para la pantalla", () => {
       montoGs: PREMIO,
       medio: null,
       cobrado: false,
+      // CHG-34 · la identificación que viaja si el RUC queda vacío, dicha y
+      // enmascarada: la caída ya existía, lo que faltaba era mostrarla.
+      identificacionFiscalPorDefecto: "Cédula 93•••••",
       // D-10 · la cuenta regresiva de la pantalla sale de acá.
       plazoPagoVenceEn: PLAZO_PAGO_FIJO,
     });
