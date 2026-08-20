@@ -1,40 +1,41 @@
 /**
- * Chequeo previo del techo de inotify de la máquina.
+ * Chequeo previo del cupo de inotify de la máquina.
  *
  * `next dev` vigila el árbol de archivos con inotify. Cuando el usuario llega
- * al tope de `fs.inotify.max_user_instances` —fácil en una máquina de trabajo
- * con editores, servidores de lenguaje y otros servidores de desarrollo
- * abiertos—, el `webServer` de Playwright **arranca igual** pero compila mal:
- * las pantallas llegan sin hidratar, un clic no dispara nada y la aserción de
- * navegación siguiente agota su plazo.
+ * al tope de `fs.inotify.max_user_watches`, el `webServer` de Playwright
+ * **arranca igual** pero compila mal: las pantallas llegan sin hidratar, un
+ * clic no dispara nada y la aserción de navegación siguiente agota su plazo.
+ * Con el cupo del todo agotado ni siquiera arranca, y Playwright reporta un
+ * `Timed out waiting from config.webServer` que tampoco dice la causa.
  *
  * Eso produce el peor tipo de rojo: escenarios que fallan en puntos
  * arbitrarios, con mensajes que apuntan al código, y que pasan de a uno en
- * aislamiento. Pasó el 19-ago-2026 y costó dos corridas completas y un
- * worktree entender que la causa no estaba en el repositorio.
+ * aislamiento. Pasó el 19-ago-2026 y costó varias corridas completas entender
+ * que la causa no estaba en el repositorio: **un solo IDE retenía 65090 de los
+ * 65536 watches de la máquina**.
  *
- * Este chequeo convierte ese rato en una línea. No arregla nada: avisa antes
- * de empezar, con el número concreto y qué hacer.
- *
- * Deliberadamente **no** sube el límite: `sysctl` es configuración del sistema
- * y esa decisión es del dueño de la máquina.
+ * Este chequeo no arregla nada: avisa antes de empezar, con los números y con
+ * el nombre del proceso que se llevó el cupo. Deliberadamente **no** sube el
+ * límite ni mata procesos: `sysctl` es configuración del sistema y los
+ * procesos son del dueño de la máquina.
  */
-import { readFileSync, readdirSync, readlinkSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 /**
- * Instancias que la corrida necesita tener libres para arrancar.
+ * Watches que la corrida necesita tener libres.
  *
  * Se mide en cupo libre y no en porcentaje: lo que decide si el servidor
- * compila bien es cuántas instancias quedan disponibles para él, no qué
- * fracción del techo está tomada. Un techo alto con todo ocupado falla igual
- * que uno bajo.
- *
- * `next dev` abre varias (webpack, el watcher del árbol, los chunks) y el
- * navegador de Playwright suma las suyas. Dieciséis deja margen sin ser
- * quisquilloso: con 91 de 128 tomadas —el estado normal de esta máquina con
- * los editores abiertos— la batería corre sin problema.
+ * compila bien es cuántos watches quedan para él, no qué fracción del techo
+ * está tomada. `next dev` necesita uno por directorio vigilado — el árbol del
+ * proyecto sin `node_modules` ya son varios cientos.
  */
-const LIBRES_NECESARIAS = 16;
+const WATCHES_NECESARIOS = 2_000;
+
+interface UsoInotify {
+  readonly total: number;
+  /** Proceso que más watches retiene, para poder nombrarlo en el aviso. */
+  readonly mayor: { readonly comando: string; readonly pid: string; readonly watches: number } | null;
+}
 
 function leerEntero(ruta: string): number | null {
   try {
@@ -45,73 +46,102 @@ function leerEntero(ruta: string): number | null {
   }
 }
 
-/**
- * Instancias de inotify abiertas por procesos visibles.
- *
- * Solo cuenta las de los procesos que este usuario puede inspeccionar, que es
- * exactamente el conjunto que comparte el cupo. Los `catch` vacíos son
- * esperables: `/proc` cambia mientras se lo recorre y hay procesos ajenos.
- */
-function contarInstanciasInotify(): number | null {
+/** Watches de un proceso: cada línea `inotify wd:` de sus `fdinfo` es uno. */
+function watchesDelProceso(pid: string): number {
   let total = 0;
+  let descriptores: string[];
   try {
-    for (const entrada of readdirSync("/proc")) {
-      if (!/^\d+$/.test(entrada)) continue;
-      let descriptores: string[];
-      try {
-        descriptores = readdirSync(`/proc/${entrada}/fd`);
-      } catch {
-        continue;
-      }
-      for (const fd of descriptores) {
-        try {
-          if (readlinkSync(`/proc/${entrada}/fd/${fd}`) === "anon_inode:inotify") total += 1;
-        } catch {
-          // El descriptor se cerró mientras mirábamos.
-        }
-      }
-    }
+    descriptores = readdirSync(`/proc/${pid}/fdinfo`);
   } catch {
-    return null;
+    return 0;
+  }
+  for (const fd of descriptores) {
+    try {
+      const contenido = readFileSync(`/proc/${pid}/fdinfo/${fd}`, "utf8");
+      if (!contenido.startsWith("inotify wd:") && !contenido.includes("\ninotify wd:")) continue;
+      for (const linea of contenido.split("\n")) {
+        if (linea.startsWith("inotify wd:")) total += 1;
+      }
+    } catch {
+      // El descriptor se cerró mientras lo mirábamos: normal al recorrer /proc.
+    }
   }
   return total;
 }
 
 /**
- * Aborta la corrida si la máquina está por quedarse sin instancias de inotify.
+ * Watches en uso por los procesos visibles.
+ *
+ * Solo cuenta los procesos que este usuario puede inspeccionar, que es
+ * exactamente el conjunto que comparte el cupo.
+ */
+function medirUso(): UsoInotify | null {
+  let total = 0;
+  let mayor: UsoInotify["mayor"] = null;
+  try {
+    for (const entrada of readdirSync("/proc")) {
+      if (!/^\d+$/.test(entrada)) continue;
+      const watches = watchesDelProceso(entrada);
+      if (watches === 0) continue;
+      total += watches;
+      if (!mayor || watches > mayor.watches) {
+        let comando = "desconocido";
+        try {
+          comando = readFileSync(`/proc/${entrada}/comm`, "utf8").trim();
+        } catch {
+          // El proceso terminó mientras lo mirábamos.
+        }
+        mayor = { comando, pid: entrada, watches };
+      }
+    }
+  } catch {
+    return null;
+  }
+  return { total, mayor };
+}
+
+/**
+ * Aborta la corrida si la máquina está sin cupo de inotify.
  *
  * Silencioso en cualquier sistema donde no se pueda medir (no-Linux, `/proc`
  * restringido): un chequeo preventivo no debería impedir correr los tests.
  */
 export function verificarCupoInotify(): void {
-  const techo = leerEntero("/proc/sys/fs/inotify/max_user_instances");
+  const techo = leerEntero("/proc/sys/fs/inotify/max_user_watches");
   if (techo === null) return;
 
-  const enUso = contarInstanciasInotify();
-  if (enUso === null) return;
+  const uso = medirUso();
+  if (uso === null) return;
 
-  const libres = techo - enUso;
-  if (libres >= LIBRES_NECESARIAS) return;
+  const libres = techo - uso.total;
+  if (libres >= WATCHES_NECESARIOS) return;
+
+  const culpable = uso.mayor
+    ? `El que más retiene es ${uso.mayor.comando} (pid ${uso.mayor.pid}) con ${uso.mayor.watches}.`
+    : "No se pudo identificar al proceso que los retiene.";
 
   throw new Error(
     [
-      `Quedan ${libres} instancias de inotify libres de ${techo} (se necesitan ${LIBRES_NECESARIAS}).`,
+      `Quedan ${libres} watches de inotify libres de ${techo} (se necesitan ~${WATCHES_NECESARIOS}).`,
+      culpable,
       "",
-      "`next dev` las necesita para vigilar archivos. Sin cupo, el servidor de",
+      "`next dev` los necesita para vigilar archivos. Sin cupo, el servidor de",
       "Playwright arranca pero compila mal, y la batería falla en puntos",
       "arbitrarios con errores que parecen del código y no lo son.",
       "",
       "Qué hacer, de menos a más invasivo:",
-      "  1. Cerrar editores, servidores de lenguaje y servidores de desarrollo",
-      "     que no estés usando, y volver a correr.",
+      "  1. Cerrar o reiniciar el proceso de arriba —los IDEs suelen vigilar",
+      "     árboles enteros— y volver a correr.",
       "  2. Si es recurrente, subir el techo (cambia configuración del sistema,",
       "     así que decidilo vos):",
-      "       sudo sysctl fs.inotify.max_user_instances=512",
+      "       sudo sysctl fs.inotify.max_user_watches=524288",
       "     Para que sobreviva a un reinicio, agregalo a /etc/sysctl.conf.",
       "",
       "Medí el estado actual con:",
-      "  cat /proc/sys/fs/inotify/max_user_instances",
-      "  find /proc/*/fd -lname anon_inode:inotify 2>/dev/null | wc -l",
+      "  cat /proc/sys/fs/inotify/max_user_watches",
+      "  for p in /proc/[0-9]*; do t=0; for f in $p/fdinfo/*; do",
+      "    n=$(grep -c '^inotify wd:' \"$f\" 2>/dev/null) || true; t=$((t+${n:-0}));",
+      "  done; [ \"$t\" -gt 500 ] && echo \"$t $(cat $p/comm)\"; done | sort -rn",
     ].join("\n"),
   );
 }

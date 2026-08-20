@@ -310,14 +310,21 @@ incluido, porque el error de razonamiento es la parte reutilizable.
 mismo punto: un clic que no navega y una aserción de URL que agota sus quince
 segundos. Los mismos escenarios, corridos de a uno, pasaban.
 
-**Causa.** `next dev` vigila el árbol de archivos con inotify. En una máquina de
-trabajo con editores y servidores de lenguaje abiertos se llega al techo de
-`fs.inotify.max_user_instances` (128, con más de noventa ya tomadas). Con el
-cupo agotado el servidor **arranca igual** pero compila mal: las pantallas
-llegan sin hidratar y el clic no dispara nada. Llevado al extremo ni arranca:
-`Watchpack Error … ENOSPC` y `Timed out waiting from config.webServer`. El
-`global-setup` ya conocía a un pariente de este problema —por eso calienta las
-rutas antes de empezar—, pero nada avisaba cuando la causa era el entorno.
+**Causa.** `next dev` vigila el árbol de archivos con inotify, y la máquina
+estaba en el techo de `fs.inotify.max_user_watches`: **65476 de 65536 en uso,
+60 libres**. No era "muchos editores abiertos" como se supuso al principio: era
+**un solo proceso**, `antigravity-ide`, reteniendo 65090 —el 99,3% del cupo de
+toda la máquina—. Con el cupo agotado el servidor **arranca igual** pero compila
+mal: las pantallas llegan sin hidratar y el clic no dispara nada. Llevado al
+extremo ni arranca: `Watchpack Error … ENOSPC` y `Timed out waiting from
+config.webServer`. El `global-setup` ya conocía a un pariente de este problema
+—por eso calienta las rutas antes de empezar—, pero nada avisaba cuando la
+causa era el entorno.
+
+Vale anotar el desvío: la primera medición miró
+`max_user_instances` (128, 91 en uso) y pareció explicarlo. No era esa: con 37
+instancias libres la batería seguía sin arrancar. El recurso agotado eran los
+**watches**, que se cuentan por directorio vigilado y no por proceso.
 
 **Primer arreglo, descartado.** Se probó correr la batería contra
 `next build && next start`, que no usa watchers. **Falló entero, y por una
@@ -330,11 +337,16 @@ revirtió. **El build local por HTTP y esa protección son incompatibles, y la
 protección gana.**
 
 **Arreglo adoptado.** `e2e/support/preflight-inotify.ts`: el `globalSetup`
-mide el cupo libre antes de empezar y aborta con un mensaje que dice el número
-concreto y qué hacer. Se mide cupo **libre** y no porcentaje, porque lo que
-decide si el servidor compila bien es cuántas instancias quedan para él. No
-sube el límite por su cuenta: `sysctl` es configuración del sistema y esa
-decisión es del dueño de la máquina.
+mide los watches libres antes de empezar y aborta con un mensaje que dice el
+número concreto, **nombra al proceso que se llevó el cupo** y explica qué
+hacer. Se mide cupo libre y no porcentaje, porque lo que decide si el servidor
+compila bien es cuántos watches quedan para él. No sube el límite ni mata
+procesos por su cuenta: `sysctl` es configuración del sistema y los procesos
+son del dueño de la máquina.
+
+**Estado al cierre del Lote 1: la batería no pudo correr en esta máquina.**
+Mientras ese IDE retenga el cupo, ningún resultado de Playwright acá es
+concluyente. Los 941 tests unitarios y de contrato sí corren y están en verde.
 
 **Lo que queda como deuda.** Correr la batería en CI, donde el entorno es
 limpio y reproducible, exige resolver antes el par HTTPS/`Secure`. Hoy la
