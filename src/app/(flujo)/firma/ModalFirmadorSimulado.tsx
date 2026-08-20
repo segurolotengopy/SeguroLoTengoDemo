@@ -186,7 +186,7 @@ export default function ModalFirmadorSimulado({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Firmador electrónico de Code100"
+      aria-label="Firmador electrónico"
       className="fixed inset-0 z-50 flex items-end justify-center bg-azul-950/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
     >
       <div className="flex w-full max-w-md flex-col gap-4 rounded-t-2xl border border-borde-sutil bg-superficie p-5 shadow-2xl sm:rounded-2xl">
@@ -195,15 +195,15 @@ export default function ModalFirmadorSimulado({
         <header className="flex flex-col gap-1 border-b border-borde-sutil pb-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-              Firmador electrónico · Code100
+              Firmador electrónico
             </p>
             <span className="rounded-full bg-naranja-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-naranja-900 uppercase dark:bg-naranja-950 dark:text-naranja-200">
               Simulado
             </span>
           </div>
           <p className="text-xs text-cuerpo">
-            En el servicio real esta ventana la sirve Code100 en su propio sitio, y se llega por el
-            enlace que te enviamos. El código no pasa por {nombrePortal()}.
+            En el servicio real esta ventana la sirve el proveedor de firma en su propio sitio, y
+            se llega por el enlace que te enviamos. El código no pasa por {nombrePortal()}.
           </p>
           <p className="font-mono text-[11px] text-etiqueta">ID {idCode100}</p>
         </header>

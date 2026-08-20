@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   AVISO_ENLACE_ENVIADO_P8,
@@ -12,7 +13,7 @@ import {
   NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8,
   DESCRIPCION_DOCUMENTO_P8,
   ENLACES_ACCESO_PREVIO_P8,
-  ESTADO_ESPERANDO_CODE100_P8,
+  ESTADO_ESPERANDO_FIRMA_P8,
   MARCA_PDF_CERRADO_P8,
   NOMBRE_DOCUMENTO_P8,
   NOTA_ACEPTACION_REGISTRADA_P8,
@@ -34,6 +35,7 @@ import {
   TITULO_UN_SOLO_ACTO_P8,
 } from "@/domain/textos-p8";
 import type { CanalFirma } from "@/domain/tipos";
+import { ModalVisorPdf } from "./ModalVisorPdf";
 import { PanelFirmadorSimulado } from "./PanelFirmadorSimulado";
 
 /**
@@ -120,9 +122,13 @@ const INTERVALO_SONDEO_MS = 2_000;
  * en el visor. La diferencia es de presentación, no de secreto — y por eso el
  * texto lo dice en vez de fingir que el documento es inaccesible.
  */
-function TarjetaDocumento({ documento }: { documento: DocumentoVisible }) {
-  const url = `/api/p8/documento?codigo=${encodeURIComponent(documento.codigo)}`;
-
+function TarjetaDocumento({
+  documento,
+  alAbrirVisor,
+}: {
+  readonly documento: DocumentoVisible;
+  readonly alAbrirVisor: () => void;
+}) {
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie-suave p-4">
       <div className="flex flex-col gap-1">
@@ -138,27 +144,73 @@ function TarjetaDocumento({ documento }: { documento: DocumentoVisible }) {
         </p>
       </div>
 
+      {/* Botón y no enlace: el documento se lee en un modal sobre esta misma
+          pantalla. Abrirlo en otra pestaña sacaba a la persona del flujo justo
+          en el paso donde decide si firma, y le daba la barra del visor del
+          navegador entera —descargar e imprimir incluidos—. */}
       <div className="flex flex-wrap items-center gap-2">
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          type="button"
+          onClick={alAbrirVisor}
           className="inline-flex h-10 items-center justify-center rounded-lg border border-azul-300 px-4 text-xs font-bold tracking-wide text-azul-800 uppercase transition-colors hover:bg-azul-50 dark:border-azul-600 dark:text-azul-200 dark:hover:bg-azul-950"
         >
           {BOTON_VER_PDF_P8}
-        </a>
+        </button>
       </div>
       <p className="text-xs text-etiqueta">{NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8}</p>
-
-      <div className="flex flex-col gap-1 border-t border-borde-tenue pt-2">
-        <p className="text-xs font-semibold text-verde-700 dark:text-verde-300">
-          🔒 {MARCA_PDF_CERRADO_P8} · v{documento.version}
-        </p>
-        <p className="font-mono text-[11px] break-all text-etiqueta">
-          SHA-256 {documento.hashSha256}
-        </p>
-      </div>
     </article>
+  );
+}
+
+/**
+ * Constancia de que el PDF está cerrado y hasheado (regla inviolable #4), al
+ * pie de la pantalla.
+ *
+ * Vivía dentro de la tarjeta del documento, arriba de todo. Se bajó a pedido:
+ * es una prueba técnica —versión y SHA-256— que respalda lo que la persona
+ * está por firmar, pero no es lo que necesita leer para decidir. Al pie
+ * cumple la misma función probatoria sin competir con el contenido.
+ */
+function ConstanciaPdfCerrado({ documento }: { readonly documento: DocumentoVisible }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave px-4 py-3">
+      <p className="text-xs font-semibold text-verde-700 dark:text-verde-300">
+        🔒 {MARCA_PDF_CERRADO_P8} · v{documento.version}
+      </p>
+      <p className="font-mono text-[11px] break-all text-etiqueta">
+        SHA-256 {documento.hashSha256}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Enlaces a la información precontractual, al pie de la pantalla.
+ *
+ * También se bajó a pedido. El orden que queda es el del acto: primero qué se
+ * firma y por dónde llega el enlace, después el material de referencia que
+ * quien quiera profundizar va a buscar.
+ */
+function AccesoPrevio() {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-azul-200 bg-azul-50 px-4 py-3 dark:border-azul-700 dark:bg-azul-950">
+      <h3 className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+        {TITULO_ACCESO_PREVIO_P8}
+      </h3>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1">
+        {ENLACES_ACCESO_PREVIO_P8.map((enlace) => (
+          <li key={enlace}>
+            <a
+              href="/plan"
+              className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
+            >
+              {enlace}
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-azul-900 dark:text-azul-100">{NOTA_SIN_MODIFICACION_P8}</p>
+    </div>
   );
 }
 
@@ -169,12 +221,29 @@ export interface FirmaP8Props {
    * entorno, y con el flag apagado el chunk del modal no se descarga nunca.
    */
   readonly firmadorSimuladoDisponible?: boolean;
+
+  /**
+   * Contenido que va **entre** el acto de firma y el pie de la pantalla.
+   *
+   * Lo usa `page.tsx` para meter ahí el bloque "Después de la firma del
+   * cliente". Se pasa como `children` en vez de renderizarlo después de este
+   * componente porque el acceso previo y la constancia del PDF cerrado tienen
+   * que quedar al final de todo, y viven acá adentro: la constancia depende
+   * del resumen, que es estado de cliente. Al entrar como `children` desde un
+   * componente de servidor, ese bloque se sigue renderizando en el servidor y
+   * no engorda el bundle.
+   */
+  readonly children?: ReactNode;
 }
 
-export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {}) {
+export function FirmaP8({
+  firmadorSimuladoDisponible = false,
+  children,
+}: FirmaP8Props = {}) {
   const router = useRouter();
 
   const [firmadorAbierto, setFirmadorAbierto] = useState(false);
+  const [visorAbierto, setVisorAbierto] = useState(false);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [canal, setCanal] = useState<CanalFirma>(CANAL_FIRMA_POR_DEFECTO);
   const [acto, setActo] = useState<ActoVisible | null>(null);
@@ -403,29 +472,13 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
         </div>
 
         {resumen ? (
-          <TarjetaDocumento documento={resumen.documento} />
+          <TarjetaDocumento
+            documento={resumen.documento}
+            alAbrirVisor={() => setVisorAbierto(true)}
+          />
         ) : (
           <p className="text-sm text-cuerpo">Preparando la Solicitud y el FIPF…</p>
         )}
-
-        <div className="flex flex-col gap-2 rounded-lg border border-azul-200 bg-azul-50 px-4 py-3 dark:border-azul-700 dark:bg-azul-950">
-          <h3 className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-            {TITULO_ACCESO_PREVIO_P8}
-          </h3>
-          <ul className="flex flex-wrap gap-x-4 gap-y-1">
-            {ENLACES_ACCESO_PREVIO_P8.map((enlace) => (
-              <li key={enlace}>
-                <a
-                  href="/plan"
-                  className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-                >
-                  {enlace}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-azul-900 dark:text-azul-100">{NOTA_SIN_MODIFICACION_P8}</p>
-        </div>
       </section>
 
       {/* ------------------------------------------------------------------ */}
@@ -548,7 +601,7 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
 
         {acto && !firmado ? (
           <p aria-live="polite" className="text-sm text-cuerpo">
-            ⏳ {ESTADO_ESPERANDO_CODE100_P8}
+            ⏳ {ESTADO_ESPERANDO_FIRMA_P8}
             <span className="block font-mono text-xs text-etiqueta">ID {acto.idCode100}</span>
           </p>
         ) : null}
@@ -562,15 +615,15 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
             </p>
             <p className="text-xs text-naranja-900 dark:text-naranja-100">
               En el servicio real abrís el enlace que te llegó por{" "}
-              {ROTULO_CANAL_P8[acto.canal]} y firmás en el sitio de Code100. Acá podés abrir esa
-              misma ventana sin salir de la demostración.
+              {ROTULO_CANAL_P8[acto.canal]} y firmás en el sitio del proveedor de firma. Acá podés
+              abrir esa misma ventana sin salir de la demostración.
             </p>
             <button
               type="button"
               onClick={() => setFirmadorAbierto(true)}
               className="mt-1 inline-flex h-10 items-center justify-center self-start rounded-lg border-2 border-naranja-500 px-4 text-xs font-bold tracking-wide text-naranja-900 uppercase transition-colors hover:bg-naranja-100 dark:text-naranja-200 dark:hover:bg-naranja-900"
             >
-              Abrir el firmador de Code100
+              Abrir el firmador
             </button>
           </div>
         ) : null}
@@ -611,6 +664,26 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
         ) : null}
       </section>
       </div>
+
+      {children}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Pie — material de referencia y constancia técnica                   */}
+      {/*                                                                     */}
+      {/* Los dos bloques que estaban dentro del bloque 1, bajados a pedido.   */}
+      {/* Quedan fuera de la grilla de dos columnas para que ocupen el ancho   */}
+      {/* completo y se lean como lo que son: pie de pantalla, no parte del    */}
+      {/* acto de firma.                                                      */}
+      {/* ------------------------------------------------------------------ */}
+      <AccesoPrevio />
+      {resumen ? <ConstanciaPdfCerrado documento={resumen.documento} /> : null}
+
+      {visorAbierto && resumen ? (
+        <ModalVisorPdf
+          codigo={resumen.documento.codigo}
+          alCerrar={() => setVisorAbierto(false)}
+        />
+      ) : null}
     </div>
   );
 }

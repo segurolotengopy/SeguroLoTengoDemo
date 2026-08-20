@@ -14,6 +14,7 @@ import {
   TOTAL_PASOS,
   destinoDelExpediente,
   numeroDePaso,
+  pasoAnteriorDe,
 } from "../rutas-flujo";
 
 describe("PANTALLA_POR_ESTADO", () => {
@@ -73,6 +74,31 @@ describe("PANTALLA_POR_ESTADO", () => {
     // los tres momentos son la misma pantalla.
     expect(PANTALLA_POR_ESTADO.PAQUETE_GENERADO).toBe("/firma");
     expect(PANTALLA_POR_ESTADO.FIRMADO_CLIENTE).toBe("/firma");
+  });
+});
+
+describe("pasoAnteriorDe", () => {
+  it("nunca devuelve un paso posterior — el enlace de volver tiene que volver", () => {
+    // El caso que lo motivó: la pantalla de firma tenía escrito a mano "Volver
+    // a facturación y garantía de pago" apuntando a /pago. Era correcto cuando
+    // se pagaba antes de firmar; con D-08 el pago quedó DESPUÉS, así que el
+    // enlace mandaba a la persona hacia adelante, a un paso que todavía no
+    // podía completar. Esto lo vuelve imposible para cualquier pantalla.
+    for (const paso of PASOS_FLUJO) {
+      const anterior = pasoAnteriorDe(paso.slug);
+      if (anterior === null) continue;
+      expect(numeroDePaso(anterior.slug)!).toBeLessThan(numeroDePaso(paso.slug)!);
+    }
+  });
+
+  it("el paso anterior a la firma son las declaraciones, no el pago (D-08)", () => {
+    expect(pasoAnteriorDe("/firma")?.slug).toBe("/declaraciones");
+    expect(pasoAnteriorDe("/pago")?.slug).toBe("/firma");
+  });
+
+  it("el primer paso no tiene anterior, y una ruta ajena tampoco", () => {
+    expect(pasoAnteriorDe(PASOS_FLUJO[0]!.slug)).toBeNull();
+    expect(pasoAnteriorDe("/no-es-un-paso")).toBeNull();
   });
 });
 
