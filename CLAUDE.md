@@ -14,6 +14,36 @@ Este es un **entorno de demostración**: todas las integraciones externas están
 
 No inventes campos, pasos, validaciones ni textos que no estén en la especificación. El producto está diseñado para mínima fricción: cada campo extra es un problema de negocio.
 
+### ⚠️ Plan de Cambios v2 en ejecución (desde el 19-ago-2026)
+
+El proyecto está aplicando el **Plan de Cambios v2**, que nace de la reunión con
+Interseguros del 18-ago-2026 y de la **Matriz Legal Final V4** (16-ago-2026).
+Mientras dure, la jerarquía de fuentes cambia y hay que leer estos tres
+documentos **antes** que `ESPECIFICACION_PANTALLAS.md`:
+
+| Documento | Qué manda |
+| :---- | :---- |
+| `docs/normativa/matriz 16 08 2026.pdf` | **Fuente maestra de cumplimiento.** Donde contradiga a `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`, prevalece la matriz V4; el CSV sigue vigente para todo lo no contradicho. |
+| `docs/plan/PLAN_DE_CAMBIOS_v2.md` | Alcance, matriz de trazabilidad (TRV/CHG/CMP), diseño de la máquina de estados nueva y los lotes L1–L6 con sus criterios de aceptación. |
+| `docs/plan/DECISIONES.md` | Las 22 decisiones ya tomadas (D-01…D-22). **Ninguna decisión marcada `PENDIENTE` se implementa.** |
+
+Contexto adicional en `docs/antecedentes/` (transcripción de la reunión y
+wireframes `PantallasDemo2.pdf`), `docs/normativa/` (resoluciones de la SIS) y
+`docs/auditoria/ESTADO_ACTUAL.md` (mapa del sistema antes del plan).
+
+**`ESPECIFICACION_PANTALLAS.md` describe el flujo de 9 pasos, que el plan
+reemplaza por uno de 8.** Hasta que el plan termine y ese documento se
+reescriba, sigue siendo la referencia de detalle de cada pantalla, pero **no**
+del orden ni del contador de pasos.
+
+Cambios de este plan que tocan las reglas inviolables de más abajo, ya
+decididos y aún no todos implementados: el OTP de correo se retira (queda un
+solo OTP de canal, el de WhatsApp); la firma pasa a ocurrir **antes** del pago;
+la Solicitud y el FIPF se unifican en un solo PDF; aparece el Certificado de
+Cobertura Provisional. Cada regla se corrige acá cuando el lote que la cambia
+se implementa, no antes: hasta entonces, **la regla escrita abajo es la que
+rige el código que existe hoy**.
+
 ### Documentos fuente adicionales
 
 Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente de verdad de aspectos específicos. Cargalos antes de tocar el área indicada — no asumas su contenido de memoria si pasó tiempo desde la última lectura.

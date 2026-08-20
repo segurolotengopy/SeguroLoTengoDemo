@@ -203,9 +203,16 @@ flowchart LR
 
 Cada lote termina con: diff resumido, checklist de aceptación, `npm run typecheck && npm run lint && npm test` + E2E en verde, y **visto bueno de Andres** antes del siguiente. Rollback uniforme: revert del merge commit del lote (sin migraciones destructivas en ningún lote).
 
+> **Ajuste de alcance detectado al ejecutar L1.** Tres cambios que este plan había clasificado como "copy de bajo riesgo" resultaron ser **consecuencias del reordenamiento**, no textos independientes, y se movieron a L4:
+>
+> - **CHG-37** (segunda declaración de P7) obliga a la persona a aceptar que se emita un Certificado de Cobertura Provisional. El CPC no existe hasta L5: incorporar hoy ese consentimiento generaría evidencia de una aceptación que el sistema todavía no puede honrar.
+> - **CHG-38** ("REALIZAR EL PAGO Y CONTRATAR EL SEGURO") y **CHG-39** ("Realizá el pago") describen un pago que cierra la contratación. Mientras el pago siga ocurriendo **antes** de la firma, ese botón mentiría: hoy el pago garantiza, no contrata.
+>
+> Es la misma disciplina que rige el resto del plan —un texto no puede prometer lo que el flujo no hace— y confirma que el orden de los lotes es el correcto: la copy de pago se escribe cuando el pago ya está en su lugar definitivo.
+
 | Lote | Contenido | Depende de | Criterios de aceptación |
 |---|---|---|---|
-| **L1 · Transversales de bajo riesgo** | TRV-04/05/07, CHG-03/05/09/10/11/12/16/19/20/21/22/27/28/31/32/35/36/37/38/46, gitignore de fixtures (D-21), lint de copys (voseo + textos legales exactos) | ✅ desbloqueado (D-15, D-16) | Lint de copys en verde; textos idénticos a §5; ningún cambio de flujo; E2E 7/7 sin tocar |
+| **L1 · Transversales de bajo riesgo** ✅ **hecho (19-ago-2026)** | TRV-04/05 + CMP-01, CHG-09/11/12/13/16/20/21/22/31/35/36/46, gitignore de fixtures (D-21), lint de copys. **Reasignados a L4** (dependen del reordenamiento, ver nota abajo): CHG-37, CHG-38, CHG-39. **Verificados sin cambio**: CHG-03/10/19/28/32, D-01 | ✅ desbloqueado (D-15, D-16) | Lint de copys en verde; ningún cambio de flujo; suite unitaria y E2E en verde |
 | **L2 · Reordenamiento del wizard** | CHG-01/02, D-22 (rutas semánticas + redirects), retiro del OTP de correo (D-06), correo en identidad (CHG-14/17), TRV-02 compacta, identificadores `Pv2-N` (D-14) | ✅ desbloqueado (D-06, D-08, D-14, D-22) | Wizard de 8 pasos navegable ida/vuelta; redirects 308 viejos→nuevos; expedientes legados legibles; E2E reescrita para el orden nuevo en verde |
 | **L3 · Pantallas 4–5** | CHG-15 (cotejo en edición), CHG-18 (config por producto), CHG-24 (beneficiario), CHG-26 (quitar fiscales), CHG-25 refinado | L2 + fixtures copiados (D-21) | Fixtures de Rodrigo pasan OCR con prellenado y cotejo; campo oculto nunca bloquea; beneficiario cédula-opcional no bloqueante |
 | **L4 · Firma y pago invertidos** | CHG-29 (visor), CHG-30 (PDF unificado), CHG-33 (callback+polling), D-13 (firmas corredor + Alianza configurables), **D-02 (QR + TC + TD sin preautorización, tarjeta por flujo alojado)**, CHG-34, D-10 (caducidad 24 h), CMP-07/08/09 | ✅ desbloqueado (D-02, D-05, D-10, D-11, D-13); requiere L3 | Secuencia §7 completa en mock; cobro inhabilitado antes del callback de firma; regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
@@ -291,3 +298,94 @@ Cierre de Fase 3: `docs/plan/INFORME_VERIFICACION_v2.md` con resultados, desviac
 ---
 
 *Gate de Fase 1: este plan no habilita tocar código. Requiere (a) aprobación explícita del plan y (b) resolución de las decisiones bloqueantes del lote que se quiera arrancar (§6).*
+
+---
+
+## Anexo A — Receta de ejecución del Lote 2 (reordenamiento)
+
+Detalle operativo del §3.1, escrito antes de tocar código para que el orden de
+los pasos sea revisable y para que el lote se pueda interrumpir sin dejar el
+repositorio a medio camino.
+
+### A.1 Fuente única del orden
+
+Hoy el número de paso está repetido en cuatro lugares: el slug de la carpeta
+(`p2-plan`), el `pasoActual` que cada pantalla le pasa al stepper, el
+`PANTALLA_POR_ESTADO` de `rutas-flujo.ts` y los títulos de `metadata`. Por eso
+un reordenamiento cuesta lo que cuesta.
+
+`rutas-flujo.ts` pasa a exportar **una lista ordenada** que es la única
+autoridad:
+
+```ts
+export interface PasoDelFlujo {
+  readonly id: `Pv2-${number}`;   // identificador versionado (D-14)
+  readonly slug: string;          // "/plan", "/whatsapp", …
+  readonly titulo: string;
+  /** Estado que la persona alcanza al completar este paso. */
+  readonly estadoAlCompletar: EstadoExpediente;
+}
+
+export const PASOS_FLUJO: readonly PasoDelFlujo[] = [ … ];   // 8 entradas
+export const TOTAL_PASOS = PASOS_FLUJO.length;               // 8
+export function numeroDePaso(slug: string): number | null;
+```
+
+`PANTALLA_POR_ESTADO` se **deriva** de esa lista en vez de escribirse a mano, y
+el stepper recibe el slug —no un número— y calcula "Paso N de 8" solo. A partir
+de ahí, reordenar es mover un elemento del arreglo.
+
+### A.2 Renombres y redirecciones
+
+| Slug actual | Slug objetivo | Paso |
+| :--- | :--- | :--- |
+| `/p2-plan` | `/plan` | 1 |
+| `/p1-whatsapp` | `/whatsapp` | 2 |
+| `/p3-preparacion` | `/preparacion` | 3 |
+| `/p5-identidad` | `/identidad` | 4 |
+| `/p6-declaraciones` | `/declaraciones` | 5 |
+| `/p8-firma` | `/firma` | 6 |
+| `/p7-pago` | `/pago` | 7 |
+| `/p9-confirmacion` | `/confirmacion` | 8 |
+| `/p4-correo` | *(deja de ser paso — D-06)* | — |
+
+Las rutas viejas responden **308** hacia la nueva, no 404: hay enlaces vivos en
+correos y mensajes de WhatsApp ya enviados en pruebas, y un enlace roto en un
+canal de contratación es una llamada al call center. Las rutas de API
+(`/api/p1/...`) **no se renombran en este lote**: son superficie interna, el
+renombre no aporta nada al usuario y multiplicaría el diff del lote más
+riesgoso. Se anota como deuda menor.
+
+### A.3 Retiro del OTP de correo (D-06)
+
+- `p4-correo/` desaparece como pantalla; su formulario de correo —con doble
+  tipeo— se integra arriba de la captura en la pantalla de identidad (CHG-14).
+- `CANAL_EMAIL_VERIFICADO` sale del camino feliz. **No se borra del tipo**:
+  hay expedientes históricos en ese estado y la consola tiene que seguir
+  leyéndolos (regla inviolable #10). Queda marcado como legado, sin aristas de
+  entrada, y `PANTALLA_POR_ESTADO` lo manda a la pantalla de identidad.
+- El correo declarado deja evidencia propia con su versión de texto, que es lo
+  que reemplaza al OTP como respaldo probatorio junto con la declaración de
+  veracidad firmada.
+- `AUTORIZADO → IDENTIDAD_VERIFICADA` pasa a ser transición directa.
+
+### A.4 Orden de ejecución dentro del lote
+
+1. Lista `PASOS_FLUJO` y stepper derivado, **sin mover carpetas** — la suite
+   entera sigue verde con las rutas viejas.
+2. Renombres de carpeta uno por uno, con su redirección, verificando después de
+   cada uno.
+3. Integración del correo en la pantalla de identidad y retiro de `p4-correo`.
+4. Ajuste de la máquina de estados y de `rutas-flujo`.
+5. Reescritura de los helpers de `e2e/support/flujo.ts` y de los ocho
+   escenarios.
+
+El punto 1 es el que más valor deja: a partir de ahí, cualquier reordenamiento
+futuro es mover una línea.
+
+### A.5 Riesgo conocido antes de empezar
+
+La batería E2E depende del orden de las pantallas en `e2e/support/flujo.ts` y
+espera URLs con el patrón `/pN-…`. **Toda la batería se reescribe dentro de
+este lote, no después**: un lote que renombra rutas y deja los tests para
+"más adelante" es un lote sin red.
