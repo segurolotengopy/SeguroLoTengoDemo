@@ -19,6 +19,7 @@ import { transicionarExpediente } from "../expediente";
 import {
   ADVERTENCIA_AUTORIZACION_INICIAL_P3,
   CUERPO_AUTORIZACION_INICIAL_P3,
+  DERIVACION_AUTORIZACION_INICIAL_P3,
 } from "../textos-p3";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "../tipos";
 import type { RepositorioExpediente } from "../verificacion-canal-whatsapp";
@@ -103,7 +104,8 @@ describe("literal del consentimiento", () => {
     // destacar la segunda; si alguien tocara una sola de las dos partes, lo
     // mostrado y lo asentado dejarían de coincidir.
     expect(TEXTO_AUTORIZACION_INICIAL_P3).toBe(
-      `${CUERPO_AUTORIZACION_INICIAL_P3} ${ADVERTENCIA_AUTORIZACION_INICIAL_P3}`,
+      `${CUERPO_AUTORIZACION_INICIAL_P3} ${DERIVACION_AUTORIZACION_INICIAL_P3} ` +
+        `${ADVERTENCIA_AUTORIZACION_INICIAL_P3}`,
     );
   });
 

@@ -8,6 +8,8 @@ export type { HeaderInstitucionalProps } from "./HeaderInstitucional";
 
 export { StepperPasos } from "./StepperPasos";
 
+export { TituloDePantalla } from "./TituloDePantalla";
+
 
 export { BarraPlanSeleccionado } from "./BarraPlanSeleccionado";
 export type { BarraPlanSeleccionadoProps } from "./BarraPlanSeleccionado";

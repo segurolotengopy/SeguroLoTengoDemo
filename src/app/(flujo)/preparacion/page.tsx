@@ -1,96 +1,109 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   BarraPlanDelExpediente,
-  EnlaceAclaracion,
   HeaderInstitucional,
   StepperPasos,
+  TituloDePantalla,
 } from "@/components/shared";
 import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
 import {
   ADVERTENCIA_AUTORIZACION_INICIAL_P3,
   CUERPO_AUTORIZACION_INICIAL_P3,
+  DERIVACION_AUTORIZACION_INICIAL_P3,
   NOTA_REGISTRO_P3,
 } from "@/domain/textos-p3";
 import { BotonAutorizacionInicial } from "./BotonAutorizacionInicial";
 
 /**
- * P3 · Paso 3 de 9 — Preparación y autorización inicial.
+ * Paso 3 · Prepará lo necesario — `/preparacion`, en el formato de la maqueta
+ * (`PantallasDemo2.pdf` p.2; reformulación en
+ * `docs/plan/REFORMULACION_PANTALLAS_MAQUETA.md`): cuatro tarjetas numeradas
+ * con ilustración, el aviso rojo `IMPORTANTE`, la caja azul del consentimiento
+ * con candado y el botón `TENGO TODO LISTO Y CONTINUAR →`.
  *
- * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "P3 · Paso 3 de 9 —
- * Preparación y autorización inicial".
- *
- * Layout compacto por decisión de producto (2026-08): los cinco elementos y
- * los cuatro requisitos van en un recuadro cada uno, con el botón inmediato;
- * a la derecha, los textos informativos y la autorización, para que en
- * pantallas anchas todo entre sin scroll.
+ * En la maqueta este era el paso 2; el intercambio con la verificación de
+ * WhatsApp se acordó en la reunión (00:05:49) y quedó fijado en `PASOS_FLUJO`.
  *
  * Esta pantalla **no solicita ningún dato**: informa qué hay que tener a mano
- * y toma el consentimiento inicial. Lo único que baja como componente de
- * cliente es el botón de autorización y la barra de plan.
+ * y toma el consentimiento inicial (fila 11 de la matriz de cumplimiento). El
+ * acto de aceptación es el botón, con el literal a la vista.
  */
 
 export const metadata: Metadata = {
   title: `Prepará lo necesario · ${sufijoTitulo()}`,
   description:
-    "Paso 3 de 9: qué tener a mano y autorización inicial para comenzar. No solicita datos, no cobra y no firma documentos.",
+    "Paso 3: qué tener a mano antes de la validación. No solicita datos, no cobra y no firma documentos.",
 };
 
-const ELEMENTOS_NECESARIOS = [
+/** Íconos de línea de las tarjetas. Decorativos: la información va en el texto. */
+function Icono({ trazos }: { trazos: readonly string[] }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-12 w-12 shrink-0 text-azul-700 dark:text-azul-300"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {trazos.map((trazo) => (
+        <path key={trazo} d={trazo} />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Las cuatro tarjetas de la maqueta, con sus textos. La tercera se adapta al
+ * orden definitivo: el WhatsApp ya quedó verificado en el paso 2, así que la
+ * tarjeta lo dice en vez de anunciar una verificación que ya pasó.
+ */
+const TARJETAS: readonly {
+  titulo: string;
+  detalle: string;
+  trazos: readonly string[];
+}[] = [
   {
-    titulo: "Cédula paraguaya vigente",
+    titulo: "Cédula de identidad vigente",
     detalle:
-      "El documento original, frente y dorso, legible y sin reflejos. No se acepta pasaporte ni cédula extranjera.",
+      "Necesitaremos fotografiar el frente y el dorso. Los datos deben verse completos y sin reflejos.",
+    trazos: ["M3 6h18v12H3z", "M6 10a1.6 1.6 0 103.2 0A1.6 1.6 0 006 10zM5.5 14.5c.5-1.4 3.7-1.4 4.2 0", "M13 9.5h5M13 12h5M13 14.5h3"],
   },
   {
-    // CHG-13 · el requisito admite computadora, no solo celular: la captura y
-    // la prueba de vida funcionan igual desde una webcam (verificación E2E de
-    // escritorio pendiente, PEN-03).
-    titulo: "Celular o computadora con cámara y buena iluminación",
-    detalle:
-      "Para fotografiar la cédula, realizar la selfie en vivo y completar la prueba de vida.",
+    titulo: "Celular o computadora con cámara",
+    detalle: "La cámara se utilizará para fotografiar la cédula y realizar una selfie en vivo.",
+    trazos: ["M7 3h10v18H7z", "M10 18.5h4", "M9.5 10.5h5v4h-5z", "M12 9v1.5"],
   },
   {
-    titulo: "WhatsApp personal activo",
+    titulo: "WhatsApp y correo electrónico activos",
     detalle:
-      "Va a recibir un código propio; tenés que conservar acceso al número durante todo el proceso.",
+      "Tanto el WhatsApp como el correo deben ser de tu propiedad y estar accesibles. Tu número ya quedó verificado con el código.",
+    trazos: ["M12 11l-4-1a4.5 4.5 0 112 .6z", "M4 15h16v6H4z", "M4 15l8 4 8-4"],
   },
   {
-    titulo: "Correo electrónico activo",
-    detalle: "Se usa para avisos y documentos electrónicos; lo vas a declarar en el paso siguiente.",
-  },
-  {
-    titulo: "Medio de pago disponible",
+    titulo: "Medio de pago",
     detalle:
-      "QR Bancard, tarjeta de débito o de crédito. El cobro se habilita recién después de que firmes; " +
-      "no hay ningún cobro en esta pantalla.",
+      "Podrás realizar el pago mediante QR Bancard o tarjeta. El cobro se realizará únicamente después de la firma.",
+    trazos: ["M3 8h18v11H3z", "M3 11h18", "M6 15.5h4", "M14 14.5h4v2h-4z"],
   },
 ] as const;
 
-const REQUISITOS_EMISION_AUTOMATICA = [
-  {
-    titulo: "Solo para el titular",
-    detalle:
-      "El seguro únicamente puede contratarse para uno mismo; no se admite contratar para otra persona.",
-  },
-  {
-    titulo: "Edad permitida",
-    detalle: `Entre ${EDAD_MINIMA_PERMITIDA} y ${EDAD_MAXIMA_PERMITIDA} años, verificada con la cédula.`,
-  },
-  {
-    titulo: "Salud y condición PEP",
-    detalle:
-      "Las declaraciones médicas y la condición PEP deben permitir la emisión automática; las preguntas se hacen más adelante.",
-  },
-  {
-    titulo: "Si el caso requiere análisis",
-    detalle:
-      "Se detiene antes del pago y no se emite; se genera un número de caso distinto y la información se envía a Interseguros y Alianza.",
-  },
-] as const;
+const REQUISITOS_EMISION_AUTOMATICA =
+  `Requisitos para la emisión automática: edad de ingreso entre ${EDAD_MINIMA_PERMITIDA} y ` +
+  `${EDAD_MAXIMA_PERMITIDA} años, verificada con la cédula · las declaraciones de salud deben ` +
+  "permitir la emisión · una condición de Persona Expuesta Políticamente deriva el caso a " +
+  "análisis. Si el caso requiere análisis, la solicitud se detiene antes del pago y la " +
+  "información se envía a Interseguros y Alianza Garantía.";
 
-export default function PantallaP3Preparacion() {
+const AVISO_IMPORTANTE =
+  "Este seguro no puede ser contratado a nombre de otras personas. Por ello, la cédula de " +
+  "identidad, el número de WhatsApp, el correo electrónico y el medio de pago deberán " +
+  "pertenecer necesariamente al asegurado.";
+
+export default function PantallaPreparacion() {
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/preparacion" />} />
@@ -98,125 +111,94 @@ export default function PantallaP3Preparacion() {
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <BarraPlanDelExpediente enlaceTexto="Cambiar plan" enlaceHref="/plan" />
 
-        <header className="flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-4">
-          <h1 className="shrink-0 text-xl font-bold text-titulo sm:text-2xl">
-            Prepará lo necesario
-          </h1>
-          <p className="text-sm text-cuerpo">
-            Antes de empezar, asegurate de tener estos cinco elementos a mano.
-          </p>
-        </header>
+        <TituloDePantalla
+          titulo="Prepará lo necesario"
+          subtitulo="Antes de comenzar la validación, asegurate de tener todo a mano."
+        />
 
-        {/* Dos columnas en pantallas anchas; apilado en angostas. */}
-        <div className="grid gap-4 lg:grid-cols-[3fr_2fr] lg:items-start">
-          <div className="flex flex-col gap-3">
-            {/* Un solo recuadro con los cinco elementos. */}
-            <section className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-3">
-              <h2 className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-                Tené a mano
-              </h2>
-              <ol className="flex flex-col gap-1.5">
-                {ELEMENTOS_NECESARIOS.map(({ titulo, detalle }, indice) => (
-                  <li key={titulo} className="flex gap-2 text-sm leading-snug">
-                    <span
-                      aria-hidden="true"
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-azul-800 text-[10px] font-bold text-hueso-50 dark:bg-azul-500"
-                    >
-                      {indice + 1}
-                    </span>
-                    <p className="text-cuerpo">
-                      <span className="font-bold text-titulo">{titulo}:</span> {detalle}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </section>
+        {/* ---------------------------------------------------------------- */}
+        {/* Las cuatro tarjetas numeradas de la maqueta                        */}
+        {/* ---------------------------------------------------------------- */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {TARJETAS.map(({ titulo, detalle, trazos }, indice) => (
+            <article
+              key={titulo}
+              className="flex flex-col gap-2 rounded-xl border-2 border-borde-sutil bg-superficie p-4"
+            >
+              <header className="flex items-start gap-2">
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-naranja-500 text-xs font-bold text-azul-950"
+                >
+                  {indice + 1}
+                </span>
+                <h2 className="text-sm font-bold text-titulo">{titulo}</h2>
+              </header>
+              <div className="flex items-start gap-3">
+                <Icono trazos={trazos} />
+                <p className="text-xs leading-relaxed text-cuerpo">{detalle}</p>
+              </div>
+            </article>
+          ))}
+        </div>
 
-            {/* Un solo recuadro con los cuatro requisitos. */}
-            <section className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-3">
-              <h2 className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-                Antes de iniciar: requisitos para la emisión automática
-              </h2>
-              <ul className="flex flex-col gap-1.5">
-                {REQUISITOS_EMISION_AUTOMATICA.map(({ titulo, detalle }) => (
-                  <li key={titulo} className="text-sm leading-snug text-cuerpo">
-                    <span className="font-bold text-titulo">{titulo}:</span> {detalle}
-                  </li>
-                ))}
-              </ul>
-            </section>
+        {/* Aviso rojo IMPORTANTE (literal de la maqueta — regla inviolable #9). */}
+        <div className="flex items-start gap-3 rounded-xl border-2 border-naranja-500 bg-superficie px-4 py-3">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="mt-0.5 h-8 w-8 shrink-0 text-naranja-600 dark:text-naranja-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM5 20c0-3.5 3.1-5.5 7-5.5s7 2 7 5.5" />
+          </svg>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm leading-relaxed font-semibold text-rojo-800 dark:text-rojo-300">
+              <span className="font-bold">IMPORTANTE:</span> {AVISO_IMPORTANTE}
+            </p>
+            <p className="text-[11px] leading-snug text-rojo-800 dark:text-rojo-300">
+              {REQUISITOS_EMISION_AUTOMATICA}
+            </p>
+          </div>
+        </div>
 
-            {/* CHG-11 · aviso de titularidad. Va destacado y en su propio
-                recuadro, no como una viñeta más: es la regla que la persona
-                tiene que entender antes de gastar tiempo en el trámite, porque
-                un medio de pago ajeno lo detiene al final, después de firmar. */}
-            <section className="flex gap-3 rounded-lg border-2 border-naranja-400 bg-naranja-50 p-3 dark:border-naranja-600 dark:bg-naranja-950">
-              <span aria-hidden="true" className="text-xl leading-none">
-                👤
-              </span>
-              <p className="text-sm leading-snug text-cuerpo">
-                <span className="font-bold text-naranja-800 dark:text-naranja-200">
-                  IMPORTANTE:
-                </span>{" "}
-                este seguro no puede ser contratado a nombre de otras personas. Por ello, la
-                cédula de identidad, el número de WhatsApp, el correo electrónico y el medio de
-                pago deberán pertenecer necesariamente{" "}
-                <span className="font-bold text-titulo">al mismo asegurado</span>.
+        {/* ---------------------------------------------------------------- */}
+        {/* Consentimiento (caja azul con candado) + botón, como la maqueta    */}
+        {/* ---------------------------------------------------------------- */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+          <div className="flex max-w-3xl items-start gap-3 rounded-xl border-2 border-azul-700 bg-superficie px-4 py-3 dark:border-azul-400">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="mt-0.5 h-7 w-7 shrink-0 text-azul-800 dark:text-azul-300"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3M12 14.5v2" />
+            </svg>
+            <div className="flex flex-col gap-1">
+              <p className="text-xs leading-relaxed font-semibold text-azul-800 dark:text-azul-200">
+                {CUERPO_AUTORIZACION_INICIAL_P3}{" "}
+                <span className="font-bold">{ADVERTENCIA_AUTORIZACION_INICIAL_P3}</span>
               </p>
-            </section>
-
-            <div id="autorizacion-inicial" className="scroll-mt-4">
-              <BotonAutorizacionInicial />
+              <p className="text-[11px] leading-snug text-azul-800 dark:text-azul-200">
+                {DERIVACION_AUTORIZACION_INICIAL_P3}
+              </p>
             </div>
           </div>
 
-          {/* Columna derecha: textos informativos y autorización, sin recuadro. */}
-          <aside className="flex flex-col gap-3">
-            <p className="text-sm font-semibold text-azul-800 dark:text-azul-200">
-              La cobertura comenzará 24 horas después del pago confirmado, una vez completada la
-              contratación y la firma del cliente.
-            </p>
-
-            <p className="text-sm font-semibold text-verde-700 dark:text-verde-300">
-              {ADVERTENCIA_AUTORIZACION_INICIAL_P3}
-            </p>
-
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <EnlaceAclaracion documento="avisoPrivacidad">Aviso de privacidad</EnlaceAclaracion>
-              <EnlaceAclaracion documento="terminosCondiciones">
-                Términos y condiciones
-              </EnlaceAclaracion>
-            </div>
-
-            {/* CHG-12 · el disclaimer de protección de datos gana el candado
-                que pidió la reunión (00:04:25: "aquí el disclaimer está sin
-                logo, sin un isotipo"). El ícono es decorativo —`aria-hidden`—
-                porque el texto ya dice todo: para quien usa lector de pantalla
-                sería ruido, no información.
-
-                Las dos partes juntas (cuerpo + advertencia) son, palabra por
-                palabra, el literal que el servidor persiste como `textoAceptado`. */}
-            <div className="flex gap-3 rounded-lg border border-azul-200 bg-azul-50 p-3 dark:border-azul-700 dark:bg-azul-950">
-              <span aria-hidden="true" className="text-lg leading-none">
-                🔒
-              </span>
-              <p className="text-xs leading-snug text-cuerpo">
-                {CUERPO_AUTORIZACION_INICIAL_P3}
-              </p>
-            </div>
-
-            <p className="text-xs text-etiqueta">{NOTA_REGISTRO_P3}</p>
-          </aside>
+          <div className="flex shrink-0 flex-col gap-1">
+            <BotonAutorizacionInicial />
+            <p className="max-w-xs text-[11px] text-etiqueta">{NOTA_REGISTRO_P3}</p>
+          </div>
         </div>
-
-        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
-          <Link
-            href="/whatsapp"
-            className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-          >
-            ← Volver a la verificación de WhatsApp
-          </Link>
-        </footer>
       </main>
     </div>
   );

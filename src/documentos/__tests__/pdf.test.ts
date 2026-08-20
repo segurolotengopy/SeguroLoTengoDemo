@@ -150,7 +150,7 @@ describe("contenido impreso", () => {
     expect(texto).toContain("FIPF-00018425"); // documento vinculado
     expect(texto).toContain("CONFÍO+");
     expect(texto).toContain("PLAN ELEGIDO");
-    expect(texto).toContain("Gs. 475.000");
+    expect(texto).toContain("Gs. 522.500");
     expect(texto).toContain("Diagn"); // "Diagnóstico de cáncer"
     expect(texto).toContain("Herederos legales");
     expect(texto).toContain("DECLARACIÓN MÉDICA");

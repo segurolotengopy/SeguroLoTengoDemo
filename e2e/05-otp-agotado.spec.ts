@@ -30,12 +30,12 @@ test("tres intentos fallidos de OTP en P1 bloquean el código y exigen reenvío"
   // al que asociarle el código.
   await completarPlan(page, persona);
   await esperarHidratacion(page);
+  // Formato maqueta: sin casilla — el acto de autorizar es el botón de enviar.
   await page.locator("#p1-destino").fill(celularLocal(persona));
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Enviar código", exact: true }).click();
+  await page.getByRole("button", { name: "ENVIAR CÓDIGO POR WHATSAPP" }).click();
 
   const destinoEnmascarado = enmascararCelular(persona.celular);
-  await expect(page.getByText(`Código enviado al número ${destinoEnmascarado}`)).toBeVisible();
+  await expect(page.getByText(`Código enviado por WhatsApp a ${destinoEnmascarado}`)).toBeVisible();
 
   // El reenvío arranca bloqueado 60 segundos apenas se envía el primer código.
   await expect(page.getByRole("button", { name: /Reenviar código \(\d+s\)/ })).toBeVisible();
@@ -49,28 +49,30 @@ test("tres intentos fallidos de OTP en P1 bloquean el código y exigen reenvío"
     for (let i = 0; i < digitosIncorrectos.length; i += 1) {
       await page.locator(`#p1-otp-${i}`).fill(digitosIncorrectos[i]);
     }
+    // Completar las seis casillas ya no verifica nada: hay que presionar.
+    await page.getByRole("button", { name: "VERIFICAR WHATSAPP Y CONTINUAR" }).click();
   }
 
-  // Intento 1 y 2: código incorrecto, rechazado, con intentos que bajan.
+  // Intento 1 y 2: código incorrecto, rechazado, con el chip de intentos
+  // subiendo (formato maqueta: `Intentos N/3`).
   await intentarCodigoIncorrecto();
-  await expect(page.getByText("El código no es correcto.")).toBeVisible();
-  await expect(page.getByText(`Te quedan ${INTENTOS_MAXIMOS_OTP - 1} de ${INTENTOS_MAXIMOS_OTP} intentos`)).toBeVisible();
+  await expect(page.getByText("El código no coincide. Revisalo e intentá de nuevo.")).toBeVisible();
+  await expect(page.getByText(`Intentos 2/${INTENTOS_MAXIMOS_OTP}`)).toBeVisible();
 
   await intentarCodigoIncorrecto();
-  await expect(page.getByText("El código no es correcto.")).toBeVisible();
-  await expect(page.getByText(`Te quedan ${INTENTOS_MAXIMOS_OTP - 2} de ${INTENTOS_MAXIMOS_OTP} intentos`)).toBeVisible();
+  await expect(page.getByText("El código no coincide. Revisalo e intentá de nuevo.")).toBeVisible();
+  await expect(page.getByText(`Intentos 3/${INTENTOS_MAXIMOS_OTP}`)).toBeVisible();
 
   // Intento 3: consume el último intento. El servidor todavía lo evalúa como
   // un intento normal (`CODIGO_INCORRECTO`, `intentosRestantes: 0`) — recién
   // el PRÓXIMO intento, con 0 ya en el contador, devuelve `INTENTOS_AGOTADOS`.
   // Verificado contra la respuesta real de `POST /api/p1/otp/verificar`.
   await intentarCodigoIncorrecto();
-  await expect(page.getByText("El código no es correcto.")).toBeVisible();
-  await expect(page.getByText(`Te quedan 0 de ${INTENTOS_MAXIMOS_OTP} intentos`)).toBeVisible();
+  await expect(page.getByText("El código no coincide. Revisalo e intentá de nuevo.")).toBeVisible();
 
-  // No hay forma de continuar todavía: el botón de avanzar sigue deshabilitado.
-  const continuar = page.getByRole("link", { name: "Continuar →" });
-  await expect(continuar).toHaveAttribute("aria-disabled", "true");
+  // No hay forma de continuar: la pantalla solo avanza con el código
+  // verificado, y seguimos en el paso 2.
+  await expect(page).toHaveURL(/\/whatsapp$/);
 
   // Intento extra, ya sin intentos disponibles: acá el código se bloquea de
   // verdad — ni siquiera el código *correcto* sirve (uso único / intentos
@@ -78,8 +80,11 @@ test("tres intentos fallidos de OTP en P1 bloquean el código y exigen reenvío"
   for (let i = 0; i < codigoValido.length; i += 1) {
     await page.locator(`#p1-otp-${i}`).fill(codigoValido[i]);
   }
-  await expect(page.getByText("Se agotaron los intentos de este código. Pedí uno nuevo.")).toBeVisible();
-  await expect(continuar).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("button", { name: "VERIFICAR WHATSAPP Y CONTINUAR" }).click();
+  await expect(
+    page.getByText("Se agotaron los tres intentos. Pedí un código nuevo con «Reenviar código»."),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/whatsapp$/);
 
   // El único camino que queda es reenviar: mientras dura el cooldown de 60 s,
   // "Reenviar código" sigue deshabilitado.
@@ -91,13 +96,16 @@ test("tres intentos fallidos de OTP en P1 bloquean el código y exigen reenvío"
   // reenvío habilitado" del enunciado, no solo la mitad negativa.
   await expect(page.getByRole("button", { name: "Reenviar código" })).toBeEnabled({ timeout: 65_000 });
   await page.getByRole("button", { name: "Reenviar código" }).click();
-  await expect(page.getByText("Te enviamos un código nuevo. El anterior dejó de servir.")).toBeVisible();
+  // El chip de intentos vuelve a arrancar con el código nuevo.
+  await expect(page.getByText(`Intentos 1/${INTENTOS_MAXIMOS_OTP}`)).toBeVisible();
 
   const codigoNuevo = await leerCodigoOtpDelPanel(page, persona.celular.slice(-3));
   expect(codigoNuevo).not.toBe(codigoValido);
 
+  // El código nuevo desbloquea el paso: verificar navega a la preparación.
   for (let i = 0; i < codigoNuevo.length; i += 1) {
     await page.locator(`#p1-otp-${i}`).fill(codigoNuevo[i]);
   }
-  await expect(continuar).not.toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("button", { name: "VERIFICAR WHATSAPP Y CONTINUAR" }).click();
+  await expect(page).toHaveURL(/\/preparacion$/);
 });

@@ -39,36 +39,67 @@ export interface Plan {
   readonly premioAnualGs: number;
 }
 
+// ---------------------------------------------------------------------------
+// Parametrización por entorno (pedido expreso de la revisión de gerencia)
+// ---------------------------------------------------------------------------
+
+/**
+ * Nombres y premios editables **sin tocar código**: se sobrescriben por
+ * variable de entorno y se cambian desde la consola de Amplify (más un
+ * redeploy, porque Next.js los congela al compilar).
+ *
+ *   NEXT_PUBLIC_PLAN_CONFIO_NOMBRE / _PREMIO_GS
+ *   NEXT_PUBLIC_PLAN_CONFIO_PLUS_NOMBRE / _PREMIO_GS
+ *   NEXT_PUBLIC_PLAN_CONFIO_TOTAL_NOMBRE / _PREMIO_GS
+ *
+ * `NEXT_PUBLIC_` y lectura escrita a mano, variable por variable: el selector
+ * corre en el navegador y Next solo inyecta las expresiones estáticas (misma
+ * regla que en `entidades.ts`). Sin variable, valen los montos de la Matriz V4
+ * (D-04). **El premio sobrescrito es el que se cobra**: el importe de Bancard
+ * y el desglose salen de esta misma tabla, así que la pantalla y el cobro no
+ * pueden divergir. La sobreescritura queda capturada por `hashOfertaSha256`,
+ * que se calcula sobre la tabla efectiva.
+ */
+function nombreDeEntorno(valor: string | undefined, porDefecto: string): string {
+  const limpio = valor?.trim();
+  return limpio ? limpio : porDefecto;
+}
+
+function premioDeEntorno(valor: string | undefined, porDefecto: number): number {
+  const numero = Number(valor?.trim());
+  return Number.isInteger(numero) && numero > 0 ? numero : porDefecto;
+}
+
 export const PLANES: Readonly<Record<PlanId, Plan>> = {
   CONFIO: {
     id: "CONFIO",
-    nombre: "CONFÍO",
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_NOMBRE, "CONFÍO"),
     muerteCualquierCausaGs: 3_500_000,
     indemnizacionCancerGs: 50_000_000,
     rentaHospitalariaTotalGs: 7_500_000,
     rentaHospitalariaPorDiaGs: 500_000,
     gastosMedicosAccidenteGs: 7_000_000,
-    premioAnualGs: 290_000,
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PREMIO_GS, 319_000),
   },
   CONFIO_PLUS: {
     id: "CONFIO_PLUS",
-    nombre: "CONFÍO+",
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_NOMBRE, "CONFÍO+"),
     muerteCualquierCausaGs: 5_000_000,
     indemnizacionCancerGs: 75_000_000,
     rentaHospitalariaTotalGs: 11_250_000,
     rentaHospitalariaPorDiaGs: 750_000,
     gastosMedicosAccidenteGs: 10_000_000,
-    premioAnualGs: 475_000,
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_PREMIO_GS, 522_500),
   },
   CONFIO_TOTAL: {
     id: "CONFIO_TOTAL",
-    nombre: "CONFÍO TOTAL",
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_NOMBRE, "CONFÍO TOTAL"),
     muerteCualquierCausaGs: 7_000_000,
     indemnizacionCancerGs: 100_000_000,
     rentaHospitalariaTotalGs: 15_000_000,
     rentaHospitalariaPorDiaGs: 1_000_000,
     gastosMedicosAccidenteGs: 14_000_000,
-    premioAnualGs: 660_000,
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_PREMIO_GS, 726_000),
   },
 };
 
@@ -162,6 +193,17 @@ export const REGISTRO_PRODUCTO: RegistroProducto = {
 };
 
 /**
+ * Enlace del video informativo del paso 1 (maqueta p.1), parametrizable sin
+ * tocar código: `NEXT_PUBLIC_VIDEO_INFORMATIVO_URL` (un enlace de YouTube).
+ * Sin variable no hay enlace y el recuadro queda como marcador de demo — no se
+ * enlaza un video inventado.
+ */
+export function urlVideoInformativo(): string | null {
+  const valor = process.env.NEXT_PUBLIC_VIDEO_INFORMATIVO_URL?.trim();
+  return valor ? valor : null;
+}
+
+/**
  * Documento de coberturas, exclusiones y condiciones que se enlaza por plan
  * (CHG-05, decisión D-15).
  *
@@ -185,7 +227,13 @@ export const DOCUMENTO_COBERTURAS_POR_PLAN: Readonly<Record<PlanId, "coberturas"
  * conjunto de planes ofrecidos.** No es un número de build: es la identidad
  * de lo que se le mostró al proponente.
  */
-export const ID_VERSION_OFERTA = "OFERTA-CONFIO-v1";
+/**
+ * v2 (20-ago-2026): los premios pasaron a ser los de `PantallasDemo2.pdf`
+ * —319.000 / 522.500 / 726.000— por aprobación de gerencia. Los expedientes
+ * que eligieron plan bajo la v1 conservan su premio y su hash, que no se
+ * recalculan (regla inviolable #10).
+ */
+export const ID_VERSION_OFERTA = "OFERTA-CONFIO-v2";
 
 export interface OfertaVersionada {
   readonly idVersion: string;
@@ -200,7 +248,7 @@ export interface OfertaVersionada {
 export const OFERTA_VIGENTE: OfertaVersionada = {
   idVersion: ID_VERSION_OFERTA,
   producto: NOMBRE_PRODUCTO,
-  vigenteDesde: "2026-01-01",
+  vigenteDesde: "2026-08-20",
   moneda: "PYG",
   planes: ORDEN_PLANES.map((id) => PLANES[id]),
 };

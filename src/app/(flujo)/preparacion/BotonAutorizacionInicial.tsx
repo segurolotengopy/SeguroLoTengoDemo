@@ -4,8 +4,8 @@ import { useState } from "react";
 import { rutaSiguienteDe } from "@/domain/rutas-flujo";
 
 /**
- * Botón `TENGO TODO LISTO →` de P3 (docs/ESPECIFICACION_PANTALLAS.md →
- * "P3 · Paso 3 de 9"), con su error y su confirmación de registro.
+ * Botón `TENGO TODO LISTO Y CONTINUAR →` del paso 3 (maqueta p.2), con su
+ * error y su confirmación de registro.
  *
  * El literal de la autorización (`CUERPO_AUTORIZACION_INICIAL_P3` y su
  * advertencia) lo muestra la página servidor desde el mismo módulo versionado
@@ -75,9 +75,9 @@ export function BotonAutorizacionInicial() {
         type="button"
         onClick={autorizar}
         disabled={enProceso}
-        className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:self-start"
+        className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-naranja-500 px-8 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
       >
-        {enProceso ? "Registrando…" : "Tengo todo listo →"}
+        {enProceso ? "Registrando…" : "TENGO TODO LISTO Y CONTINUAR →"}
       </button>
 
       {error ? (

@@ -30,6 +30,7 @@
  */
 import { describe, expect, it } from "vitest";
 import * as textosP1 from "../textos-p1";
+import * as textosPlan from "../textos-plan";
 import * as textosP3 from "../textos-p3";
 import * as textosP6 from "../textos-p6";
 import * as textosP7 from "../textos-p7";
@@ -135,6 +136,7 @@ function copysDe(nombre: string, modulo: Record<string, unknown>): Copy[] {
 
 const TODOS_LOS_COPYS: readonly Copy[] = [
   ...copysDe("textos-p1", textosP1),
+  ...copysDe("textos-plan", textosPlan),
   ...copysDe("textos-p3", textosP3),
   ...copysDe("textos-p6", textosP6),
   ...copysDe("textos-p7", textosP7),

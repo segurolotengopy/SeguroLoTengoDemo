@@ -35,10 +35,8 @@ test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
 
   await prepararEscenario(page, { personaId: persona.id });
 
+  // P0 no existe (revisión de gerencia del 20-ago): la raíz redirige al paso 1.
   await page.goto("/");
-  await expect(page.getByText("La contratación comienza recién en el paso 1.")).toBeVisible();
-  // La puerta de entrada lleva ahora al catálogo, que es el paso 1 (CHG-01).
-  await page.getByRole("link", { name: "Elegí tu plan y cotizá →" }).click();
   await expect(page).toHaveURL(/\/plan$/);
 
   await completarPlan(page, persona);

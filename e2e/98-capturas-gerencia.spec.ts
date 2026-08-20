@@ -77,12 +77,11 @@ test.describe("capturas para gerencia", () => {
 
     await prepararEscenario(page, { personaId: persona.id });
 
-    // P0 · la puerta de entrada. No es un paso del contador, pero es la
-    // primera pantalla que ve quien llega, así que el recorrido empieza ahí.
-    await page.goto("/");
-    await capturar(page, "00-inicio");
-
     await page.goto("/plan");
+    // La captura muestra un plan ya elegido, como la página 1 de la maqueta
+    // (cinta y radio marcados). `completarPlan` vuelve a elegirlo después:
+    // el radio es idempotente.
+    await page.getByRole("article").nth(1).getByRole("radio").click();
     await capturar(page, "01-plan");
 
     await completarPlan(page, persona);

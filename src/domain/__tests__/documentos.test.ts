@@ -122,7 +122,7 @@ describe("armarContenidoPaquete", () => {
     expect(contenido.solicitud.planes.filter((plan) => plan.elegido)).toHaveLength(1);
     const elegido = contenido.solicitud.planes.find((plan) => plan.elegido);
     expect(elegido?.nombre).toBe("CONFÍO+");
-    expect(elegido?.premioAnual).toBe("Gs. 475.000");
+    expect(elegido?.premioAnual).toBe("Gs. 522.500");
     expect(elegido?.coberturas).toHaveLength(5);
 
     expect(contenido.solicitud.beneficiario[0].valor).toBe("Herederos legales — 100%");
@@ -137,7 +137,7 @@ describe("armarContenidoPaquete", () => {
     // que exista ninguna operación de cobro, y citar una sería inventarla.
     const referencias = contenido.solicitud.referencias.map((campo) => campo.valor);
     expect(referencias).toContain(NUMERO_PROPUESTA_FIJO);
-    expect(referencias).toContain("Gs. 475.000");
+    expect(referencias).toContain("Gs. 522.500");
     expect(JSON.stringify(contenido)).not.toContain(REFERENCIA_BANCARD_FIJA);
     expect(referencias).not.toContain("QR Bancard");
   });

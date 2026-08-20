@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ALIANZA, IDENTIFICACION_SIS, INTERSEGUROS, type Entidad } from "@/domain/entidades";
+import { ALIANZA, INTERSEGUROS, type Entidad } from "@/domain/entidades";
 import { IsologoAlianza, IsologoInterseguros } from "./marcas";
 import { ToggleTema } from "./ToggleTema";
 
@@ -28,6 +28,21 @@ export interface HeaderInstitucionalProps {
  * empresa existe y es quien dice ser, así que abre en pestaña nueva: sacarla
  * del trámite a mitad de camino le costaría el progreso del expediente.
  */
+/**
+ * Línea de registro de una entidad, debajo de su nombre — donde la maqueta la
+ * dibuja ("Matrícula y Resolución" bajo cada entidad; la reunión, 00:03: la
+ * resolución "tiene que ser lo mismo… la aseguradora, el intermediario").
+ *
+ * Es la identificación de la Circular SS.SG. N° 011/2025 (CMP-01), repartida
+ * por entidad en vez de una franja única. Lo que D-19 todavía no trajo —la
+ * matrícula de Alianza— se omite, no se inventa.
+ */
+function lineaRegistro(entidad: Entidad): string {
+  return entidad.matriculaSis
+    ? `${entidad.actividad} · Matrícula SIS N° ${entidad.matriculaSis}`
+    : entidad.actividad;
+}
+
 function MarcaEntidad({
   entidad,
   rotulo,
@@ -46,10 +61,13 @@ function MarcaEntidad({
     >
       {isologo}
       <div className="min-w-0 leading-tight">
-        <p className="text-[10px] font-semibold tracking-wide text-etiqueta uppercase">{rotulo}</p>
+        <p className="text-[10px] font-semibold tracking-wide text-azul-700 uppercase dark:text-azul-300">
+          {rotulo}
+        </p>
         <p className="truncate text-sm font-semibold text-titulo underline decoration-borde-sutil underline-offset-2">
           {entidad.razonSocial}
         </p>
+        <p className="truncate text-[10px] text-etiqueta">{lineaRegistro(entidad)}</p>
       </div>
     </a>
   );
@@ -89,13 +107,10 @@ export function HeaderInstitucional({
         </div>
       </div>
 
-      {/* Identificación regulatoria permanente (CMP-01 · Res. SS.SG. N° 190/2025
-          con el formato de la Circular SS.SG. N° 011/2025). Va en todas las
-          pantallas porque la norma la exige visible, legible y permanente, no
-          una sola vez al principio. */}
-      <p className="mx-auto w-full max-w-pantalla px-4 pb-2 text-[10px] leading-tight text-etiqueta sm:px-6">
-        {IDENTIFICACION_SIS}
-      </p>
+      {/* La identificación regulatoria permanente (CMP-01 · Res. SS.SG.
+          N° 190/2025, formato Circular 011/2025) vive ahora en la línea de
+          registro de cada entidad, que es donde la maqueta la dibuja. Sigue
+          visible, legible y permanente en todas las pantallas. */}
     </header>
   );
 }

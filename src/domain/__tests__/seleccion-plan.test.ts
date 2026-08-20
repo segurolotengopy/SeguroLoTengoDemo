@@ -123,7 +123,7 @@ describe("seleccionarPlan", () => {
       contexto: CONTEXTO,
     });
 
-    expect(resultado.ok && resultado.plan.premioAnualGs).toBe(290_000);
+    expect(resultado.ok && resultado.plan.premioAnualGs).toBe(319_000);
   });
 
   it("registra evidencia con la versión de la oferta y su hash", async () => {
