@@ -44,6 +44,21 @@ const nextConfig: NextConfig = {
    * Si algún día se agrega un `<Image>` de verdad, esto no lo rompe —
    * sirve el archivo tal cual, sin redimensionar— pero conviene revisitar
    * la decisión junto con la versión de Next.
+   *
+   * **Ojo con el alcance: esto gobierna la capa de Next, no lo que Amplify
+   * sirve en producción.** Amplify Hosting intercepta `/_next/image` con su
+   * propio optimizador. Se comprobó contra el sitio desplegado: la respuesta
+   * trae la cabecera `x-amplify-optimized: true`, y discrimina según el
+   * origen (400 en un SVG, 404 en un archivo inexistente) en vez del 404
+   * uniforme que da el build local con esta opción puesta.
+   *
+   * Consecuencia práctica: el código vulnerable de Next no corre en
+   * producción, pero no porque lo apaguemos nosotros —lo reemplaza Amplify—,
+   * y el optimizador de Amplify es una implementación distinta que no
+   * auditamos. Esta opción sigue valiendo igual: cubre el build local, el
+   * `npm run dev` de cualquiera, y cualquier destino que no sea Amplify.
+   * Lo que NO hay que hacer es leerla como si cerrara la superficie de
+   * producción, porque no la toca.
    */
   images: {
     unoptimized: true,

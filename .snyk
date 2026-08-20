@@ -45,6 +45,14 @@ ignore:
   #   sin `unoptimized`: HTTP 200 y 3 variantes en .next/cache/images
   #   con `unoptimized`: HTTP 404 y 0 variantes
   #
+  # ALCANCE, comprobado contra el sitio desplegado el mismo día: en Amplify
+  # esta opción NO es el control operativo. Amplify intercepta `/_next/image`
+  # con su propio optimizador (cabecera `x-amplify-optimized: true`), así que
+  # el código vulnerable de Next no llega a correr en producción — pero
+  # porque lo reemplaza Amplify, no porque lo apaguemos nosotros. La opción
+  # cubre el build local, el dev de cualquiera y cualquier destino que no sea
+  # Amplify. Ver el comentario en `next.config.ts`.
+  #
   # Deja de ser aceptable si: se agrega un `<Image>` que necesite
   # optimización real y haya que volver a encender el optimizador. En ese
   # caso hay que acotar `images.qualities` y `images.localPatterns`.

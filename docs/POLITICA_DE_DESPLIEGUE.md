@@ -116,6 +116,25 @@ El despliegue lo dispara el **merge a `main`**: la rama `main` de la app
 que no hay comando de deploy que correr a mano. Después del merge se mira que
 el job de Amplify termine en `SUCCEED` y se prueba el sitio desplegado.
 
+### Verificar el sitio, no el build
+
+Un job de Amplify en `SUCCEED` dice que el build salió, no que lo desplegado
+haga lo que se espera. **Siempre se prueba contra el sitio.**
+
+Esto no es una formalidad: la primera vez que se aplicó esta política, la
+verificación posterior al despliegue mostró que Amplify **intercepta
+`/_next/image` con su propio optimizador** (cabecera `x-amplify-optimized:
+true`), así que la opción `images.unoptimized` de `next.config.ts` gobierna la
+capa de Next pero no la ruta que atiende en producción. La mitigación seguía
+siendo correcta, pero la afirmación "cierra la superficie en producción" era
+de más — y solo se supo probando el sitio desplegado, porque en el build local
+la misma opción da un 404 que en Amplify es un 400.
+
+**Regla que sale de ahí:** cuando se mitiga algo por configuración de Next, hay
+que confirmar que Amplify no esté sirviendo esa ruta por su cuenta. Amplify
+Hosting reemplaza varias partes del runtime de Next, y una mitigación en
+`next.config.ts` puede no tocar la superficie real.
+
 **Amplify no es el destino de este proyecto por casualidad, y no se cambia sin
 decisión explícita.** La aplicación tiene 41 Route Handlers y depende en
 runtime de DynamoDB, S3, Secrets Manager, Rekognition, Textract y SES: no es
