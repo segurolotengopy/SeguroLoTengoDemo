@@ -40,6 +40,7 @@ const IDENTIDAD: Identidad = {
   sexo: "Femenino",
   nacionalidad: "Paraguaya",
   paisNacimiento: "Paraguay",
+  paisResidencia: "Paraguay",
   estadoCivil: "Soltero/a",
   captura: CAPTURA,
 };

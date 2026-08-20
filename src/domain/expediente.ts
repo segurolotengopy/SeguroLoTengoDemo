@@ -23,7 +23,7 @@ import type {
   ActoDeFirmaEnCurso,
   CertificadoCobertura,
   PolizaDelExpediente,
-  DatosComplementariosP6,
+  Beneficiario,
   DatosFacturacionP7,
   Declaraciones,
   EstadoExpediente,
@@ -195,7 +195,7 @@ export function transicionarExpediente(
 export function registrarDeclaracionesP6(
   expediente: Expediente,
   declaraciones: Declaraciones,
-  datosComplementarios: DatosComplementariosP6,
+  beneficiario: Beneficiario,
   numeroCasoDerivacion: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
@@ -207,7 +207,7 @@ export function registrarDeclaracionesP6(
       "DECLARACIONES_OK",
       {
         declaraciones,
-        datosComplementarios,
+        beneficiario,
         motivoDerivacionManual: null,
         numeroCasoDerivacion: null,
       },
@@ -224,7 +224,7 @@ export function registrarDeclaracionesP6(
     "DERIVADO_MANUAL",
     {
       declaraciones,
-      datosComplementarios,
+      beneficiario,
       motivoDerivacionManual: resultado.declaracionesQueBloquean,
       numeroCasoDerivacion,
     },

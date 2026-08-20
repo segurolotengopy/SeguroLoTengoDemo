@@ -712,17 +712,20 @@ export function ContratacionAceptada() {
       {/* ------------------------------------------------------------------ */}
       {/* ¿NECESITÁS AYUDA? — CHG-45, con el botón de WhatsApp de D-17         */}
       {/* ------------------------------------------------------------------ */}
+      {/* El rótulo va al costado izquierdo de las tarjetas, como lo dibuja la
+          maqueta (p.8): así el bloque ocupa una franja y no una fila entera. */}
       <section
         aria-labelledby="p9-ayuda"
-        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
+        className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4 lg:flex-row lg:items-start lg:gap-5"
       >
-        <h2
-          id="p9-ayuda"
-          className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
-        >
-          {TITULO_AYUDA_P9}
-        </h2>
-        <p className="text-sm text-cuerpo">{BAJADA_AYUDA_P9}</p>
+        <div className="flex flex-col gap-1 lg:w-56 lg:shrink-0">
+          <h2
+            id="p9-ayuda"
+            className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
+          >
+            {TITULO_AYUDA_P9}
+          </h2>
+          <p className="text-xs text-cuerpo">{BAJADA_AYUDA_P9}</p>
 
         {/*
           D-17 · el botón directo a WhatsApp, solo en esta pantalla. Sin número
@@ -738,8 +741,9 @@ export function ContratacionAceptada() {
             {BOTON_WHATSAPP_P9}
           </a>
         ) : null}
+        </div>
 
-        <dl className="grid gap-2 lg:grid-cols-2">
+        <dl className="grid flex-1 gap-2 lg:grid-cols-2">
           {contactosInstitucionales().map((contacto) => (
             <div
               key={contacto.entidad.razonSocial}

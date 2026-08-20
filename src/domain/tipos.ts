@@ -204,6 +204,13 @@ export interface Identidad {
   readonly fechaNacimiento: string; // ISO 8601 (YYYY-MM-DD)
   readonly sexo: string;
   readonly nacionalidad: string;
+  /**
+   * País de residencia. Campo del bloque 1 del FIPF, distinto de la
+   * nacionalidad y del país de nacimiento: una cédula paraguaya puede ser de
+   * alguien con nacionalidad boliviana que reside en Paraguay, y los tres
+   * datos se piden por separado. Lo declara la persona; no sale del documento.
+   */
+  readonly paisResidencia: string;
   readonly paisNacimiento: string;
   readonly estadoCivil: string;
   readonly captura: CapturaBiometrica;
@@ -268,6 +275,19 @@ export interface Beneficiario {
   readonly numeroCedula: string | null;
 }
 
+/**
+ * Bloque 2 del FIPF: datos laborales, económicos y fiscales.
+ *
+ * **Se capturan en el paso 4, junto a la identidad**, desde la reformulación
+ * de pantallas (maqueta p.4, aprobada el 20-ago-2026). El nombre conserva el
+ * sufijo `P6` porque el modelo no cambió de forma —solo cambió qué pantalla lo
+ * envía—, y renombrarlo obligaría a tocar la evidencia ya guardada.
+ *
+ * **El beneficiario no está acá**, y no es un olvido: se declara en el paso 5
+ * y vive en `Expediente.beneficiario`. Compartir un solo campo obligaría a que
+ * el paso 4 lo escribiera vacío y el paso 5 lo completara por encima, que es
+ * justo la clase de escritura a medias que el resto del modelo evita.
+ */
 export interface DatosComplementariosP6 {
   readonly domicilio: string;
   readonly ciudad: string;
@@ -276,7 +296,13 @@ export interface DatosComplementariosP6 {
   readonly profesion: string;
   readonly empresa: string | null;
   readonly ingresoMensualDeclaradoGs: number;
-  readonly beneficiario: Beneficiario;
+  /**
+   * Origen principal de los fondos con los que se paga el premio. Campo del
+   * FIPF (Res. SEPRELAD 71/19) que hasta la maqueta del paso 4 no existía en
+   * el modelo. Su lista de opciones vive en `catalogo-p6.ts` y está **rotulada
+   * como propuesta** hasta que cumplimiento de Alianza la cierre.
+   */
+  readonly origenFondos: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -694,6 +720,11 @@ export interface Expediente {
   readonly canalEmail: CanalVerificado | null;
   readonly identidad: Identidad | null;
   readonly datosComplementarios: DatosComplementariosP6 | null;
+  /**
+   * Beneficiario por fallecimiento. Se declara en el paso 5 y por eso vive
+   * aparte de `datosComplementarios`, que se capturan en el 4.
+   */
+  readonly beneficiario: Beneficiario | null;
   readonly declaraciones: Declaraciones | null;
   /** Números de declaración (subconjunto de 1, 2, 3, 8) que causaron DERIVADO_MANUAL. */
   readonly motivoDerivacionManual: readonly number[] | null;
@@ -793,6 +824,7 @@ export function crearExpedienteInicial(input: {
     canalEmail: null,
     identidad: null,
     datosComplementarios: null,
+    beneficiario: null,
     declaraciones: null,
     motivoDerivacionManual: null,
     numeroCasoDerivacion: null,

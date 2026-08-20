@@ -44,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const resultado = await guardarDatosYDeclaracionesP6(dependenciasP6(), {
     expedienteId,
-    datos: bloque(cuerpo, "datos"),
+    beneficiario: bloque(cuerpo, "beneficiario"),
     declaraciones: bloque(cuerpo, "declaraciones"),
     contexto,
   });

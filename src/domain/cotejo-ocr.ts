@@ -16,12 +16,12 @@
  *
  * ## Qué se puede corregir y qué no
  *
- * **Corregibles:** nombres y apellidos. Son los campos donde el OCR falla por
- * forma —caracteres parecidos, acentos, espacios— y donde el error es visible
- * para la persona.
+ * **Corregibles:** nombres, apellidos, sexo y nacionalidad. Son los campos
+ * donde el OCR falla por forma —caracteres parecidos, acentos, espacios— y
+ * donde el error es visible para la persona.
  *
- * **No corregibles, y no es una omisión:** número de cédula, fecha de
- * nacimiento y nacionalidad.
+ * **No corregibles, y no es una omisión:** número de cédula y fecha de
+ * nacimiento.
  *
  * - La **fecha de nacimiento** decide el corte de edad de 18 a 64 (regla
  *   inviolable #8, que exige verificarla contra el documento y *no* contra un
@@ -30,14 +30,11 @@
  * - El **número de cédula** es la llave del expediente y la base del bloqueo
  *   por cédula (regla inviolable #11). Editarlo permitiría empezar de nuevo
  *   con una cédula distinta de la fotografiada.
- * - La **nacionalidad** decide si el documento habilita este producto, que se
- *   vende solo a titulares de cédula paraguaya. Queda cerrada hasta que se
- *   implemente la validación contra las variantes reales de la cédula
- *   (pendiente de las imágenes que va a remitir Andres).
  *
- * Para esos tres el camino sigue siendo repetir la captura. La distinción no
+ * Para esos dos el camino sigue siendo repetir la captura. La distinción no
  * es de comodidad: es dónde una corrección libre convertiría un dato del
- * documento en un dato declarado.
+ * documento en un dato declarado. **De los otros cuatro no cuelga ninguna
+ * regla**: se imprimen en la Solicitud y el FIPF y nada más.
  *
  * ## Cómo coteja
  *
@@ -51,12 +48,20 @@
 /**
  * Campos leídos de la cédula que la persona puede corregir.
  *
- * `sexo` se sumó por decisión de Andres (20-ago-2026): es el campo donde el
- * OCR falla con más frecuencia sin que eso signifique otro documento, y de él
- * no cuelga ninguna regla de negocio. El corte de edad depende de la fecha y
- * el bloqueo depende del número; el sexo no decide nada, solo se imprime.
+ * `sexo` y `nacionalidad` se sumaron por decisión de Andres (20-ago-2026, con
+ * la maqueta del paso 4 aprobada). De ninguno de los dos cuelga una regla de
+ * negocio: el corte de edad depende de la fecha y el bloqueo depende del
+ * número.
+ *
+ * Lo que decide si el producto se puede contratar **no es la nacionalidad de
+ * la persona, sino el país del documento**, y eso lo resuelve
+ * `documento-regional.ts` sobre la fotografía, fuera del alcance de esta
+ * corrección. Son cosas distintas y conviene no confundirlas: una cédula
+ * paraguaya de alguien con nacionalidad boliviana es un caso real —está entre
+ * los fixtures de prueba del plan— y hasta hoy obligaba a repetir la captura
+ * por un dato que el sistema solo imprime.
  */
-export const CAMPOS_CORREGIBLES = ["nombres", "apellidos", "sexo"] as const;
+export const CAMPOS_CORREGIBLES = ["nombres", "apellidos", "sexo", "nacionalidad"] as const;
 
 export type CampoCorregible = (typeof CAMPOS_CORREGIBLES)[number];
 

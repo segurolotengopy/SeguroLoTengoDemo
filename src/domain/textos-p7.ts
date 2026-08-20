@@ -245,6 +245,25 @@ export const ADVERTENCIA_PAGO_NO_ES_EMISION_P7 = "El pago no equivale a la emisi
  * garantizaba, no contrataba— y por eso el Lote 1 lo dejó pendiente. Invertido
  * el orden, es exactamente lo que pasa al confirmarse el cobro.
  */
+/**
+ * CHG-37 · la única casilla obligatoria de esta pantalla (maqueta p.7).
+ *
+ * Autoriza dos cosas que ocurren **después** del cobro y que hasta ahora
+ * pasaban sin que la persona las aceptara: que se emita el Certificado de
+ * Cobertura Provisional (D-12) y que la póliza y la factura electrónica viajen
+ * a los canales verificados (CHG-44).
+ *
+ * No promete plazo: la maqueta decía "en un plazo de 48 horas" y el plazo real
+ * —24 horas exactas desde el cobro acreditado— se muestra con fecha y hora en
+ * la confirmación (CHG-41). Prometer un plazo acá sería prometerlo antes de
+ * poder calcularlo.
+ */
+export const TEXTO_ACEPTACION_CERTIFICADO_P7 =
+  "Una vez pagado el premio, acepto expresamente que se emita el Certificado de Cobertura " +
+  "Provisional y que la póliza y la factura electrónica se envíen a mis canales verificados.";
+
+export const VERSION_ACEPTACION_CERTIFICADO_P7 = "P7-ACEPTACION-CERTIFICADO-v1";
+
 export const BOTON_PAGAR_Y_CONTRATAR_P7 = "REALIZAR EL PAGO Y CONTRATAR EL SEGURO";
 
 export const BOTON_CONTINUAR_P7 = "VER LA CONFIRMACIÓN →";

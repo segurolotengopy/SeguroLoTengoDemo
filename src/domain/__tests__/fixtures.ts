@@ -1,4 +1,5 @@
 import type {
+  Beneficiario,
   CertificadoCobertura,
   DatosComplementariosP6,
   DatosFacturacionP7,
@@ -53,13 +54,16 @@ export const datosComplementariosFixture: DatosComplementariosP6 = {
   profesion: "Contador/a",
   empresa: "Estudio Contable SRL",
   ingresoMensualDeclaradoGs: 8_000_000,
-  beneficiario: {
-    tipo: "HEREDEROS_LEGALES",
-    nombreCompleto: null,
-    parentesco: null,
-    domicilio: null,
-    numeroCedula: null,
-  },
+  origenFondos: "Ingresos laborales (sueldo o salario)",
+};
+
+/** El beneficiario se declara en el paso 5, así que vive aparte. */
+export const beneficiarioFixture: Beneficiario = {
+  tipo: "HEREDEROS_LEGALES",
+  nombreCompleto: null,
+  parentesco: null,
+  domicilio: null,
+  numeroCedula: null,
 };
 
 /**
@@ -111,6 +115,7 @@ export const identidadFixture: Identidad = {
   sexo: "Femenino",
   nacionalidad: "Paraguaya",
   paisNacimiento: "Paraguay",
+  paisResidencia: "Paraguay",
   estadoCivil: "Soltera",
   captura: {
     hashFrenteCedula: "a".repeat(64),
@@ -151,6 +156,7 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
   const conDatos = transicionarExpediente(base, "DECLARACIONES_OK", {
     declaraciones: declaracionesCompatibles,
     datosComplementarios: datosComplementariosFixture,
+    beneficiario: beneficiarioFixture,
     identidad: identidadFixture,
     canalWhatsapp: { valor: "+595981000456", verificadoEn: "2026-08-09T14:00:00.000Z" },
     canalEmail: { valor: "monica.gorena@example.com", verificadoEn: "2026-08-09T14:30:00.000Z" },

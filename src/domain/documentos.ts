@@ -313,6 +313,7 @@ export type CampoFaltante =
   | "plan"
   | "identidad"
   | "datosComplementarios"
+  | "beneficiario"
   | "declaraciones"
   | "canalWhatsapp"
   | "canalEmail";
@@ -373,6 +374,7 @@ export function armarContenidoPaquete(
     plan,
     identidad,
     datosComplementarios: datos,
+    beneficiario,
     declaraciones,
     canalWhatsapp,
     canalEmail,
@@ -383,6 +385,7 @@ export function armarContenidoPaquete(
   if (!plan) faltantes.push("plan");
   if (!identidad) faltantes.push("identidad");
   if (!datos) faltantes.push("datosComplementarios");
+  if (!beneficiario) faltantes.push("beneficiario");
   if (!declaraciones) faltantes.push("declaraciones");
   if (!canalWhatsapp) faltantes.push("canalWhatsapp");
   if (!canalEmail) faltantes.push("canalEmail");
@@ -392,6 +395,7 @@ export function armarContenidoPaquete(
     !plan ||
     !identidad ||
     !datos ||
+    !beneficiario ||
     !declaraciones ||
     !canalWhatsapp ||
     !canalEmail
@@ -472,14 +476,14 @@ export function armarContenidoPaquete(
     notaRentaHospitalaria:
       "Renta fija por cada 24 horas continuas; 15 días acumulables entre hospitalizaciones por año de vigencia.",
     beneficiario:
-      datos.beneficiario.tipo === "HEREDEROS_LEGALES"
+      beneficiario.tipo === "HEREDEROS_LEGALES"
         ? [{ etiqueta: "Beneficiario", valor: "Herederos legales — 100%" }]
         : [
             { etiqueta: "Beneficiario", valor: "Una persona designada — 100%" },
-            { etiqueta: "Nombre completo", valor: datos.beneficiario.nombreCompleto ?? "" },
+            { etiqueta: "Nombre completo", valor: beneficiario.nombreCompleto ?? "" },
             {
               etiqueta: "Parentesco y domicilio",
-              valor: `${datos.beneficiario.parentesco ?? ""} · ${datos.beneficiario.domicilio ?? ""}`,
+              valor: `${beneficiario.parentesco ?? ""} · ${beneficiario.domicilio ?? ""}`,
             },
           ],
     declaracionesMedicas: [

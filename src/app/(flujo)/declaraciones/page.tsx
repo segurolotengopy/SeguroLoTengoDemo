@@ -1,12 +1,18 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
+import {
+  BarraPlanDelExpediente,
+  HeaderInstitucional,
+  StepperPasos,
+  TituloDePantalla,
+} from "@/components/shared";
 import { SUBTITULO_P6, TITULO_P6 } from "@/domain/textos-p6";
 import { FormularioDatosYDeclaraciones } from "./FormularioDatosYDeclaraciones";
 
 /**
- * P6 · Paso 6 de 9 — Datos y declaraciones.
+ * Paso 5 · Datos y declaraciones — `/declaraciones`, en el formato de la
+ * maqueta (`PantallasDemo2.pdf` p.5).
  *
  * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "P6 · Paso 6 de 9 —
  * Datos y declaraciones". Respaldo normativo del conjunto: filas 16, 18, 19,
@@ -32,10 +38,7 @@ export default function PantallaP6Declaraciones() {
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <BarraPlanDelExpediente enlaceTexto="Cambiar plan" enlaceHref="/plan" />
 
-        <header className="flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-4">
-          <h1 className="shrink-0 text-xl font-bold text-titulo sm:text-2xl">{TITULO_P6}</h1>
-          <p className="text-sm text-cuerpo">{SUBTITULO_P6}</p>
-        </header>
+        <TituloDePantalla titulo={TITULO_P6} subtitulo={SUBTITULO_P6} />
 
         <FormularioDatosYDeclaraciones />
 

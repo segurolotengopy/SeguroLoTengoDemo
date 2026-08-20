@@ -11,6 +11,13 @@ import { ESTADOS_CIVILES, PAISES_NACIMIENTO, REQUISITOS_P5 } from "@/domain/cata
 import type { IdRequisitoP5, TipoCapturaP5 } from "@/domain/catalogo-identidad";
 import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
 import { SEXOS_ADMITIDOS, esCampoCorregible } from "@/domain/cotejo-ocr";
+import {
+  ACTIVIDADES,
+  CIUDADES,
+  ORIGENES_FONDOS,
+  PROFESIONES,
+  SITUACIONES_LABORALES,
+} from "@/domain/catalogo-p6";
 import { rutaSiguienteDe } from "@/domain/rutas-flujo";
 
 /**
@@ -230,6 +237,46 @@ export interface VerificacionIdentidadProps {
   readonly subidaDeArchivoDisponible?: boolean;
 }
 
+/** Misma caja que usan los campos de identidad de esta pantalla. */
+const CLASE_CAMPO_P5 =
+  "h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500";
+
+/** Selector con su rótulo, para los cinco campos de lista del bloque económico. */
+function SelectorP5({
+  id,
+  etiqueta,
+  valor,
+  opciones,
+  onChange,
+}: {
+  id: string;
+  etiqueta: string;
+  valor: string;
+  opciones: readonly string[];
+  onChange: (valor: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-xs font-semibold text-etiqueta">
+        {etiqueta} *
+      </label>
+      <select
+        id={id}
+        value={valor}
+        onChange={(evento) => onChange(evento.target.value)}
+        className={CLASE_CAMPO_P5}
+      >
+        <option value="">Elegí una opción</option>
+        {opciones.map((opcion) => (
+          <option key={opcion} value={opcion}>
+            {opcion}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export function VerificacionIdentidad({
   pruebaDeVidaEnVivoDisponible = false,
   subidaDeArchivoDisponible = false,
@@ -250,6 +297,17 @@ export function VerificacionIdentidad({
 
   const [paisNacimiento, setPaisNacimiento] = useState("");
   const [estadoCivil, setEstadoCivil] = useState("");
+  const [paisResidencia, setPaisResidencia] = useState("");
+  // Datos laborales y económicos: se mudaron desde la pantalla de
+  // declaraciones (maqueta p.4). El servidor los valida enteros.
+  const [domicilio, setDomicilio] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  const [situacionLaboral, setSituacionLaboral] = useState("");
+  const [actividad, setActividad] = useState("");
+  const [profesion, setProfesion] = useState("");
+  const [empresa, setEmpresa] = useState("");
+  const [ingreso, setIngreso] = useState("");
+  const [origenFondos, setOrigenFondos] = useState("");
   // CHG-14/17 · el correo se declara acá, sin código que lo verifique (D-06).
   // El doble tipeo es lo que reemplaza al OTP como control de tipeo, así que
   // se conserva tal cual estaba en la pantalla que desapareció.
@@ -268,7 +326,16 @@ export function VerificacionIdentidad({
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const paisYEstadoCivilCompletos = paisNacimiento !== "" && estadoCivil !== "";
+  const paisYEstadoCivilCompletos =
+    paisNacimiento !== "" && paisResidencia !== "" && estadoCivil !== "";
+  const complementariosCompletos =
+    domicilio.trim() !== "" &&
+    ciudad !== "" &&
+    situacionLaboral !== "" &&
+    actividad !== "" &&
+    profesion !== "" &&
+    ingreso.trim() !== "" &&
+    origenFondos !== "";
   // Comparación laxa a propósito: acá solo se comprueba que las dos
   // escrituras coincidan. Que la dirección sea válida lo decide el dominio,
   // que es quien la normaliza y la guarda.
@@ -294,7 +361,12 @@ export function VerificacionIdentidad({
   // firmar sin una dirección a donde mandarle la póliza, y el error recién se
   // vería cuando el documento no llega.
   const puedeContinuar =
-    cumplidos && edadHabilita && autorizacionBiometrica && correoCoincide && enProceso === null;
+    cumplidos &&
+    edadHabilita &&
+    autorizacionBiometrica &&
+    correoCoincide &&
+    complementariosCompletos &&
+    enProceso === null;
 
   function mensajeDe(motivo: string | undefined, porDefecto: string): string {
     return (motivo && MENSAJES[motivo]) ?? porDefecto;
@@ -564,8 +636,19 @@ export function VerificacionIdentidad({
         dorso: capturas.DORSO?.imagen,
         ...(cuerpoSelfie(capturas) ?? {}),
         paisNacimiento,
+        paisResidencia,
         estadoCivil,
         correo,
+        datosComplementarios: {
+          domicilio,
+          ciudad,
+          situacionLaboral,
+          actividad,
+          profesion,
+          empresa,
+          ingresoMensualDeclaradoGs: ingreso,
+          origenFondos,
+        },
         ...correcciones,
         autorizacionBiometrica,
       });
@@ -589,401 +672,520 @@ export function VerificacionIdentidad({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* En pantallas anchas: captura a la izquierda, datos y botón a la
-          derecha; los bloques informativos van debajo del botón. */}
+      {/* Maqueta p.4: a la izquierda las tomas y, debajo, los datos que las
+          tomas completan; a la derecha el correo, la advertencia y la acción.
+          Los bloques informativos van debajo de las dos columnas. */}
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      {/* ------------------------------------------------------------------ */}
-      {/* Bloque 1 — Captura documental y biométrica                          */}
-      {/* ------------------------------------------------------------------ */}
-      {/* CHG-14 · el correo va ANTES de la captura. Lo pidió Andres en la
-          reunión (00:10:44) y el orden importa: primero se escribe lo que la
-          persona sabe de memoria, después se fotografía el documento, y recién
-          al final aparecen los datos prellenados por el OCR para revisar. Al
-          revés, la persona tiene que interrumpir la revisión de sus datos para
-          buscar el teclado. */}
-      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+      {/* Columna izquierda: primero las tomas y debajo lo que las tomas
+          completan. El orden cuenta la historia de arriba hacia abajo —se
+          fotografía, y de ahí salen los datos— y es el de la maqueta
+          aprobada (p.4). */}
+      <div className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-            Correo electrónico
+            Captura documental y biométrica
           </h2>
-          <p className="text-xs text-cuerpo">Escribilo dos veces para evitar errores.</p>
-        </div>
 
-        {/* CHG-17 · el aviso de criticidad se conserva palabra por palabra: es
-            el único control que queda sobre el correo desde que no lleva
-            código, y por ahí llegan la póliza y la factura. */}
-        <p className="rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 text-xs text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
-          El correo es fundamental para la recepción de documentos y la contratación del seguro.
-          Asegurate de que sea el correcto.
-        </p>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="p5-correo" className="text-xs font-semibold text-etiqueta">
-              Correo electrónico *
-            </label>
-            <input
-              id="p5-correo"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={correo}
-              onChange={(evento) => setCorreo(evento.target.value)}
-              placeholder="nombre@ejemplo.com"
-              className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="p5-correo-repetido" className="text-xs font-semibold text-etiqueta">
-              Confirmá tu correo *
-            </label>
-            <input
-              id="p5-correo-repetido"
-              type="email"
-              inputMode="email"
-              // Sin autocompletado: si el navegador rellena los dos campos con
-              // el mismo valor, el doble tipeo deja de comprobar nada.
-              autoComplete="off"
-              value={correoRepetido}
-              onChange={(evento) => setCorreoRepetido(evento.target.value)}
-              placeholder="nombre@ejemplo.com"
-              aria-describedby="p5-correo-coincidencia"
-              className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-            />
-            <p id="p5-correo-coincidencia" className="text-xs text-etiqueta">
-              {correoRepetido.trim() === ""
-                ? "Repetí la dirección para confirmarla."
-                : correoCoincide
-                  ? "Las dos direcciones coinciden."
-                  : "Las dos direcciones no coinciden todavía."}
-            </p>
-          </div>
-        </div>
-      </section>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {TARJETAS.map((tarjeta) => {
+              const { tipo, numero } = tarjeta;
+              const enVivo = tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible;
+              const { titulo, detalle, boton } = enVivo ? TARJETA_SELFIE_EN_VIVO : tarjeta;
+              const captura = capturas[tipo];
+              const aprobada = captura?.aprobada === true;
+              const rechazada = captura !== undefined && !aprobada;
 
-      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
-        <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-          Captura documental y biométrica
-        </h2>
-
-        {/* CHG-19 · restricción del producto, junto a la captura y no en una
-            pantalla anterior: es acá donde la persona saca el documento, y es
-            acá donde enterarse tarde cuesta el trámite entero. */}
-        <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-xs text-cuerpo dark:border-azul-700 dark:bg-azul-950">
-          <span className="font-bold text-azul-800 dark:text-azul-200">Importante:</span> este
-          seguro solo puede ser contratado por personas con cédula de identidad paraguaya.
-        </p>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          {TARJETAS.map((tarjeta) => {
-            const { tipo, numero } = tarjeta;
-            const enVivo = tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible;
-            const { titulo, detalle, boton } = enVivo ? TARJETA_SELFIE_EN_VIVO : tarjeta;
-            const captura = capturas[tipo];
-            const aprobada = captura?.aprobada === true;
-            const rechazada = captura !== undefined && !aprobada;
-
-            return (
-              <article
-                key={tipo}
-                className={`flex flex-col gap-2 rounded-lg border p-3 ${
-                  aprobada
-                    ? "border-verde-300 bg-verde-50 dark:border-verde-700 dark:bg-verde-950"
-                    : rechazada
-                      ? "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
-                      : "border-borde-sutil bg-superficie-suave"
-                }`}
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-sm font-bold text-titulo">
-                    {numero}. {titulo}
-                  </p>
-                  <span
-                    className={`text-[11px] font-bold tracking-wide uppercase ${
-                      aprobada
-                        ? "text-verde-700 dark:text-verde-300"
-                        : rechazada
-                          ? "text-rojo-700 dark:text-rojo-300"
-                          : "text-etiqueta"
-                    }`}
-                  >
-                    {aprobada ? "Aprobada" : rechazada ? "Rechazada" : "Pendiente"}
-                  </span>
-                </div>
-
-                <p className="text-xs text-cuerpo">{detalle}</p>
-
-                {captura?.motivoRechazo ? (
-                  <p className="text-xs font-semibold text-rojo-700 dark:text-rojo-300">
-                    {captura.motivoRechazo}
-                  </p>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setError(null);
-                    setAviso(null);
-                    // La selfie tiene dos caminos según el proveedor: sesión de
-                    // prueba de vida en vivo, o foto de la cámara. El frente y
-                    // el dorso siempre son foto.
-                    if (tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible) {
-                      void iniciarPruebaDeVidaEnVivo();
-                      return;
-                    }
-                    setCamaraAbierta(tipo);
-                  }}
-                  disabled={enProceso !== null || sesionEnVivo !== null || camaraAbierta !== null}
-                  className="mt-auto inline-flex h-10 items-center justify-center rounded-lg border-2 border-verde-600 px-3 text-xs font-bold tracking-wide text-verde-700 uppercase transition-colors hover:bg-verde-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-verde-400 dark:text-verde-300 dark:hover:bg-verde-950"
+              return (
+                <article
+                  key={tipo}
+                  className={`flex flex-col gap-2 rounded-lg border p-3 ${
+                    aprobada
+                      ? "border-verde-300 bg-verde-50 dark:border-verde-700 dark:bg-verde-950"
+                      : rechazada
+                        ? "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
+                        : "border-borde-sutil bg-superficie-suave"
+                  }`}
                 >
-                  {enProceso === tipo ? "Capturando…" : aprobada ? "Repetir" : boton}
-                </button>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-bold text-titulo">
+                      {numero}. {titulo}
+                    </p>
+                    <span
+                      className={`text-[11px] font-bold tracking-wide uppercase ${
+                        aprobada
+                          ? "text-verde-700 dark:text-verde-300"
+                          : rechazada
+                            ? "text-rojo-700 dark:text-rojo-300"
+                            : "text-etiqueta"
+                      }`}
+                    >
+                      {aprobada ? "Aprobada" : rechazada ? "Rechazada" : "Pendiente"}
+                    </span>
+                  </div>
 
-                {/* Subir archivo: solo demostración, solo el documento. La
-                    selfie no lo ofrece nunca — es el ancla biométrica, y un
-                    archivo ahí permitiría verificar con la cara de otro. */}
-                {subidaDeArchivoDisponible && tipo !== "SELFIE" ? (
+                  <p className="text-xs text-cuerpo">{detalle}</p>
+
+                  {captura?.motivoRechazo ? (
+                    <p className="text-xs font-semibold text-rojo-700 dark:text-rojo-300">
+                      {captura.motivoRechazo}
+                    </p>
+                  ) : null}
+
                   <button
                     type="button"
-                    onClick={() => elegirArchivo(tipo)}
+                    onClick={() => {
+                      setError(null);
+                      setAviso(null);
+                      // La selfie tiene dos caminos según el proveedor: sesión de
+                      // prueba de vida en vivo, o foto de la cámara. El frente y
+                      // el dorso siempre son foto.
+                      if (tipo === "SELFIE" && pruebaDeVidaEnVivoDisponible) {
+                        void iniciarPruebaDeVidaEnVivo();
+                        return;
+                      }
+                      setCamaraAbierta(tipo);
+                    }}
                     disabled={enProceso !== null || sesionEnVivo !== null || camaraAbierta !== null}
-                    className="inline-flex items-center justify-center rounded-lg border border-dashed border-borde-sutil px-2 py-1 text-[11px] font-semibold text-etiqueta transition-colors hover:bg-superficie-suave disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-auto inline-flex h-10 items-center justify-center rounded-lg border-2 border-verde-600 px-3 text-xs font-bold tracking-wide text-verde-700 uppercase transition-colors hover:bg-verde-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-verde-400 dark:text-verde-300 dark:hover:bg-verde-950"
                   >
-                    Solo demo · subir archivo
+                    {enProceso === tipo ? "Capturando…" : aprobada ? "Repetir" : boton}
                   </button>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
 
-        {camaraAbierta ? (
-          <CapturaConCamara
-            tipo={camaraAbierta}
-            alCapturar={(imagen) => capturar(camaraAbierta, imagen)}
-            alCancelar={() => setCamaraAbierta(null)}
-          />
-        ) : null}
-
-        {sesionEnVivo ? (
-          <PanelPruebaDeVida
-            referenciaSesion={sesionEnVivo.referencia}
-            region={sesionEnVivo.region}
-            alTerminar={() => registrarResultadoEnVivo(sesionEnVivo.referencia)}
-            alFallar={(mensaje) => {
-              setSesionEnVivo(null);
-              setError(mensaje);
-            }}
-            alCancelar={() => {
-              setSesionEnVivo(null);
-              setAviso("Cancelaste la prueba de vida. Podés volver a intentarlo.");
-            }}
-          />
-        ) : null}
-
-        <label className="flex items-start gap-2.5 text-sm text-cuerpo">
-          <input
-            type="checkbox"
-            checked={autorizacionBiometrica}
-            onChange={(evento) => setAutorizacionBiometrica(evento.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-naranja-500"
-          />
-          <span>
-            Autorizo la captura y comparación de mi imagen facial con la fotografía de mi cédula y
-            la realización de la prueba de vida.
-          </span>
-        </label>
-        <p className="text-xs text-etiqueta">
-          La autorización inicial de tratamiento de datos sigue vigente; esta confirmación es
-          específica para la biometría.
-        </p>
-
-        <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-sm text-azul-900 dark:border-azul-700 dark:bg-azul-950 dark:text-azul-100">
-          Las tres capturas deben aprobar calidad, prueba de vida y coincidencia facial.
-        </p>
-
-        {enProceso === "ANALISIS" ? (
-          <p role="status" className="text-sm font-semibold text-azul-700 dark:text-azul-200">
-            Analizando el documento y comparando con la selfie…
-          </p>
-        ) : null}
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Bloque 2 — Datos de identidad (columna derecha) + botón             */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-3">
-      <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-          <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-            Datos de identidad
-          </h2>
-          <p className="text-xs text-cuerpo">
-            Los datos se extraen de la cédula y se confirman con la selfie en vivo.
-          </p>
-        </div>
-
-        {/* CHG-16 · leyenda de revisión antes de validar (reunión 00:15:51).
-            El OCR confunde caracteres —una O por un 0, una letra de más— y
-            quien no mira los campos se entera del error cuando ya firmó un
-            documento con su nombre mal escrito. Va acá arriba, antes de los
-            campos, y no junto al botón: pedir que revise después de haber
-            bajado toda la columna llega tarde. */}
-        <p className="rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 text-xs text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
-          <span className="font-bold text-naranja-800 dark:text-naranja-200">Revisá tus datos</span>{" "}
-          antes de validar: la lectura automática puede confundir caracteres parecidos.
-        </p>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {CAMPOS_BLOQUEADOS.map(({ id, etiqueta }) => {
-            const corregible = esCampoCorregible(id);
-            const enEdicion = campoEnEdicion === id;
-            // Lo corregido si existe, y si no lo que leyó el OCR.
-            const valorMostrado = correcciones[id] ?? valorDelCampo(datos, id);
-            const hayDatos = valorDelCampo(datos, id) !== "";
-
-            return (
-              <div key={id} className="flex flex-col gap-1">
-                <label
-                  htmlFor={`p5-${id}`}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-etiqueta"
-                >
-                  {/* CHG-15 · el candado deja de ser decorativo en los dos
-                      campos corregibles: es el botón que abre la edición. En
-                      los otros cuatro sigue siendo un ícono, porque de ellos
-                      cuelgan el corte de edad y el bloqueo por cédula. */}
-                  {corregible && hayDatos ? (
+                  {/* Subir archivo: solo demostración, solo el documento. La
+                      selfie no lo ofrece nunca — es el ancla biométrica, y un
+                      archivo ahí permitiría verificar con la cara de otro. */}
+                  {subidaDeArchivoDisponible && tipo !== "SELFIE" ? (
                     <button
                       type="button"
-                      onClick={() => setCampoEnEdicion(enEdicion ? null : id)}
-                      aria-pressed={enEdicion}
-                      aria-label={
-                        enEdicion ? `Terminar de corregir ${etiqueta}` : `Corregir ${etiqueta}`
-                      }
-                      className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+                      onClick={() => elegirArchivo(tipo)}
+                      disabled={enProceso !== null || sesionEnVivo !== null || camaraAbierta !== null}
+                      className="inline-flex items-center justify-center rounded-lg border border-dashed border-borde-sutil px-2 py-1 text-[11px] font-semibold text-etiqueta transition-colors hover:bg-superficie-suave disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {enEdicion ? "🔓" : "🔒"}
+                      Solo demo · subir archivo
                     </button>
-                  ) : (
-                    <span aria-hidden="true">🔒</span>
-                  )}
-                  {etiqueta}
-                </label>
-                {/* El sexo se corrige eligiendo entre los dos valores que
-                    puede decir una cédula, no escribiendo: un campo libre acá
-                    no arreglaría una lectura, abriría la puerta a cualquier
-                    cadena en un dato que va al documento firmado. */}
-                {enEdicion && id === "sexo" ? (
-                  <select
-                    id={`p5-${id}`}
-                    value={valorMostrado}
-                    onChange={(evento) =>
-                      setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
-                    }
-                    className="h-11 w-full rounded-lg border border-naranja-400 bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-                  >
-                    {SEXOS_ADMITIDOS.map((valor) => (
-                      <option key={valor} value={valor}>
-                        {valor}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    id={`p5-${id}`}
-                    type="text"
-                    readOnly={!enEdicion}
-                    aria-readonly={!enEdicion}
-                    value={valorMostrado}
-                    onChange={(evento) =>
-                      setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
-                    }
-                    placeholder="Se completa automáticamente"
-                    className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
-                      enEdicion
-                        ? "border-naranja-400 bg-superficie"
-                        : "border-borde-sutil bg-superficie-suave"
-                    }`}
-                  />
-                )}
-                {enEdicion ? (
-                  <p className="text-xs text-etiqueta">
-                    Corregí solo errores de lectura. El dato final se coteja con tu cédula.
-                  </p>
-                ) : null}
-              </div>
-            );
-          })}
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="p5-pais" className="text-xs font-semibold text-etiqueta">
-              País de nacimiento *
-            </label>
-            <select
-              id="p5-pais"
-              value={paisNacimiento}
-              onChange={(evento) => setPaisNacimiento(evento.target.value)}
-              className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-            >
-              <option value="">Elegí una opción</option>
-              {PAISES_NACIMIENTO.map((pais) => (
-                <option key={pais} value={pais}>
-                  {pais}
-                </option>
-              ))}
-            </select>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="p5-estado-civil" className="text-xs font-semibold text-etiqueta">
-              Estado civil *
-            </label>
-            <select
-              id="p5-estado-civil"
-              value={estadoCivil}
-              onChange={(evento) => setEstadoCivil(evento.target.value)}
-              className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-            >
-              <option value="">Elegí una opción</option>
-              {ESTADOS_CIVILES.map((estado) => (
-                <option key={estado} value={estado}>
-                  {estado}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+          {camaraAbierta ? (
+            <CapturaConCamara
+              tipo={camaraAbierta}
+              alCapturar={(imagen) => capturar(camaraAbierta, imagen)}
+              alCancelar={() => setCamaraAbierta(null)}
+            />
+          ) : null}
 
-        {error ? (
-          <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
-            {error}
-          </p>
-        ) : null}
-        {aviso ? (
-          <p role="status" className="text-sm font-semibold text-verde-700 dark:text-verde-300">
-            {aviso}
-          </p>
-        ) : null}
-      </section>
+          {sesionEnVivo ? (
+            <PanelPruebaDeVida
+              referenciaSesion={sesionEnVivo.referencia}
+              region={sesionEnVivo.region}
+              alTerminar={() => registrarResultadoEnVivo(sesionEnVivo.referencia)}
+              alFallar={(mensaje) => {
+                setSesionEnVivo(null);
+                setError(mensaje);
+              }}
+              alCancelar={() => {
+                setSesionEnVivo(null);
+                setAviso("Cancelaste la prueba de vida. Podés volver a intentarlo.");
+              }}
+            />
+          ) : null}
 
-      {/* Validar identidad y continuar — a la vista, sin scroll */}
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={confirmar}
-          disabled={!puedeContinuar}
-          className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
-        >
-          {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
-        </button>
-        {!puedeContinuar ? (
+          <label className="flex items-start gap-2.5 text-sm text-cuerpo">
+            <input
+              type="checkbox"
+              checked={autorizacionBiometrica}
+              onChange={(evento) => setAutorizacionBiometrica(evento.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-naranja-500"
+            />
+            <span>
+              Autorizo la captura y comparación de mi imagen facial con la fotografía de mi cédula y
+              la realización de la prueba de vida.
+            </span>
+          </label>
           <p className="text-xs text-etiqueta">
-            Se habilita con el correo escrito dos veces igual, los cinco requisitos cumplidos, la
-            autorización biométrica marcada y una edad entre {EDAD_MINIMA_PERMITIDA} y{" "}
-            {EDAD_MAXIMA_PERMITIDA} años según la cédula.
+            La autorización inicial de tratamiento de datos sigue vigente; esta confirmación es
+            específica para la biometría.
           </p>
-        ) : null}
+
+          <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-sm text-azul-900 dark:border-azul-700 dark:bg-azul-950 dark:text-azul-100">
+            Las tres capturas deben aprobar calidad, prueba de vida y coincidencia facial.
+          </p>
+
+          {enProceso === "ANALISIS" ? (
+            <p role="status" className="text-sm font-semibold text-azul-700 dark:text-azul-200">
+              Analizando el documento y comparando con la selfie…
+            </p>
+          ) : null}
+        </section>
+
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+              Datos de identidad
+            </h2>
+            <p className="text-xs text-cuerpo">
+              Los datos se extraen de la cédula y se confirman con la selfie en vivo.
+            </p>
+          </div>
+
+          {/* CHG-16 · leyenda de revisión antes de validar (reunión 00:15:51).
+              El OCR confunde caracteres —una O por un 0, una letra de más— y
+              quien no mira los campos se entera del error cuando ya firmó un
+              documento con su nombre mal escrito. Va acá arriba, antes de los
+              campos, y no junto al botón: pedir que revise después de haber
+              bajado toda la columna llega tarde. */}
+          <p className="rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 text-xs text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
+            <span className="font-bold text-naranja-800 dark:text-naranja-200">Revisá tus datos</span>{" "}
+            antes de validar: la lectura automática puede confundir caracteres parecidos.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {CAMPOS_BLOQUEADOS.map(({ id, etiqueta }) => {
+              const corregible = esCampoCorregible(id);
+              const enEdicion = campoEnEdicion === id;
+              // Lo corregido si existe, y si no lo que leyó el OCR.
+              const valorMostrado = correcciones[id] ?? valorDelCampo(datos, id);
+              const hayDatos = valorDelCampo(datos, id) !== "";
+
+              return (
+                <div key={id} className="flex flex-col gap-1">
+                  <label
+                    htmlFor={`p5-${id}`}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-etiqueta"
+                  >
+                    {/* CHG-15 · el candado deja de ser decorativo en los
+                        cuatro campos corregibles —nombres, apellidos, sexo y
+                        nacionalidad—: es el botón que abre la edición. En el
+                        número de cédula y la fecha de nacimiento sigue siendo un
+                        ícono, porque de ellos cuelgan el bloqueo por cédula y el
+                        corte de edad. */}
+                    {corregible && hayDatos ? (
+                      <button
+                        type="button"
+                        onClick={() => setCampoEnEdicion(enEdicion ? null : id)}
+                        aria-pressed={enEdicion}
+                        aria-label={
+                          enEdicion ? `Terminar de corregir ${etiqueta}` : `Corregir ${etiqueta}`
+                        }
+                        className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+                      >
+                        {enEdicion ? "🔓" : "🔒"}
+                      </button>
+                    ) : (
+                      <span aria-hidden="true">🔒</span>
+                    )}
+                    {etiqueta}
+                  </label>
+                  {/* El sexo se corrige eligiendo entre los dos valores que
+                      puede decir una cédula, no escribiendo: un campo libre acá
+                      no arreglaría una lectura, abriría la puerta a cualquier
+                      cadena en un dato que va al documento firmado. */}
+                  {enEdicion && id === "sexo" ? (
+                    <select
+                      id={`p5-${id}`}
+                      value={valorMostrado}
+                      onChange={(evento) =>
+                        setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
+                      }
+                      className="h-11 w-full rounded-lg border border-naranja-400 bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+                    >
+                      {SEXOS_ADMITIDOS.map((valor) => (
+                        <option key={valor} value={valor}>
+                          {valor}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id={`p5-${id}`}
+                      type="text"
+                      readOnly={!enEdicion}
+                      aria-readonly={!enEdicion}
+                      value={valorMostrado}
+                      onChange={(evento) =>
+                        setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
+                      }
+                      placeholder="Se completa automáticamente"
+                      className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
+                        enEdicion
+                          ? "border-naranja-400 bg-superficie"
+                          : "border-borde-sutil bg-superficie-suave"
+                      }`}
+                    />
+                  )}
+                  {enEdicion ? (
+                    <p className="text-xs text-etiqueta">
+                      Corregí solo errores de lectura. El dato final se coteja con tu cédula.
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-pais" className="text-xs font-semibold text-etiqueta">
+                País de nacimiento *
+              </label>
+              <select
+                id="p5-pais"
+                value={paisNacimiento}
+                onChange={(evento) => setPaisNacimiento(evento.target.value)}
+                className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+              >
+                <option value="">Elegí una opción</option>
+                {PAISES_NACIMIENTO.map((pais) => (
+                  <option key={pais} value={pais}>
+                    {pais}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-pais-residencia" className="text-xs font-semibold text-etiqueta">
+                País de residencia *
+              </label>
+              <select
+                id="p5-pais-residencia"
+                value={paisResidencia}
+                onChange={(evento) => setPaisResidencia(evento.target.value)}
+                className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+              >
+                <option value="">Elegí una opción</option>
+                {PAISES_NACIMIENTO.map((pais) => (
+                  <option key={pais} value={pais}>
+                    {pais}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-estado-civil" className="text-xs font-semibold text-etiqueta">
+                Estado civil *
+              </label>
+              <select
+                id="p5-estado-civil"
+                value={estadoCivil}
+                onChange={(evento) => setEstadoCivil(evento.target.value)}
+                className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+              >
+                <option value="">Elegí una opción</option>
+                {ESTADOS_CIVILES.map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {error ? (
+            <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
+              {error}
+            </p>
+          ) : null}
+          {aviso ? (
+            <p role="status" className="text-sm font-semibold text-verde-700 dark:text-verde-300">
+              {aviso}
+            </p>
+          ) : null}
+        </section>
       </div>
+
+      {/* Columna derecha: el correo primero (CHG-14), después la
+          advertencia del documento y la acción. */}
+      <div className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+              Correo electrónico
+            </h2>
+            <p className="text-xs text-cuerpo">Escribilo dos veces para evitar errores.</p>
+          </div>
+
+          {/* CHG-17 · el aviso de criticidad se conserva palabra por palabra: es
+              el único control que queda sobre el correo desde que no lleva
+              código, y por ahí llegan la póliza y la factura. */}
+          <p className="rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 text-xs text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
+            El correo es fundamental para la recepción de documentos y la contratación del seguro.
+            Asegurate de que sea el correcto.
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-correo" className="text-xs font-semibold text-etiqueta">
+                Correo electrónico *
+              </label>
+              <input
+                id="p5-correo"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={correo}
+                onChange={(evento) => setCorreo(evento.target.value)}
+                placeholder="nombre@ejemplo.com"
+                className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-correo-repetido" className="text-xs font-semibold text-etiqueta">
+                Confirmá tu correo *
+              </label>
+              <input
+                id="p5-correo-repetido"
+                type="email"
+                inputMode="email"
+                // Sin autocompletado: si el navegador rellena los dos campos con
+                // el mismo valor, el doble tipeo deja de comprobar nada.
+                autoComplete="off"
+                value={correoRepetido}
+                onChange={(evento) => setCorreoRepetido(evento.target.value)}
+                placeholder="nombre@ejemplo.com"
+                aria-describedby="p5-correo-coincidencia"
+                className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+              />
+              <p id="p5-correo-coincidencia" className="text-xs text-etiqueta">
+                {correoRepetido.trim() === ""
+                  ? "Repetí la dirección para confirmarla."
+                  : correoCoincide
+                    ? "Las dos direcciones coinciden."
+                    : "Las dos direcciones no coinciden todavía."}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Datos complementarios — bloque 2 del FIPF                           */}
+        {/* ------------------------------------------------------------------ */}
+        {/* Se mudaron desde la pantalla de declaraciones (maqueta p.4): la
+            maqueta los pone junto a la identidad, que es donde la persona ya
+            está mirando sus propios datos. Los valida el servidor entero, con
+            el mismo intérprete de siempre. */}
+        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+              Datos complementarios
+            </h2>
+            <p className="text-xs text-cuerpo">Los marcados con * son obligatorios.</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <label htmlFor="p5-domicilio" className="text-xs font-semibold text-etiqueta">
+                1. Domicilio *
+              </label>
+              <input
+                id="p5-domicilio"
+                type="text"
+                value={domicilio}
+                onChange={(evento) => setDomicilio(evento.target.value)}
+                placeholder="Calle, número y barrio"
+                className={CLASE_CAMPO_P5}
+              />
+            </div>
+
+            <SelectorP5
+              id="p5-ciudad"
+              etiqueta="2. Ciudad"
+              valor={ciudad}
+              opciones={CIUDADES}
+              onChange={setCiudad}
+            />
+            <SelectorP5
+              id="p5-situacion-laboral"
+              etiqueta="3. Situación laboral"
+              valor={situacionLaboral}
+              opciones={SITUACIONES_LABORALES}
+              onChange={setSituacionLaboral}
+            />
+            <SelectorP5
+              id="p5-actividad"
+              etiqueta="4. Actividad"
+              valor={actividad}
+              opciones={ACTIVIDADES}
+              onChange={setActividad}
+            />
+            <SelectorP5
+              id="p5-profesion"
+              etiqueta="5. Profesión"
+              valor={profesion}
+              opciones={PROFESIONES}
+              onChange={setProfesion}
+            />
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-empresa" className="text-xs font-semibold text-etiqueta">
+                6. Empresa / empleador
+              </label>
+              <input
+                id="p5-empresa"
+                type="text"
+                value={empresa}
+                onChange={(evento) => setEmpresa(evento.target.value)}
+                placeholder="Opcional"
+                className={CLASE_CAMPO_P5}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-ingreso" className="text-xs font-semibold text-etiqueta">
+                7. Ingreso mensual declarado *
+              </label>
+              <input
+                id="p5-ingreso"
+                type="text"
+                inputMode="numeric"
+                value={ingreso}
+                onChange={(evento) => setIngreso(evento.target.value)}
+                placeholder="Ej.: 9.500.000"
+                className={`${CLASE_CAMPO_P5} tabular-nums`}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <SelectorP5
+                id="p5-origen-fondos"
+                etiqueta="8. Origen principal de fondos"
+                valor={origenFondos}
+                opciones={ORIGENES_FONDOS}
+                onChange={setOrigenFondos}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* CHG-19 · restricción del producto. La maqueta la pone en rojo y
+            en la columna de la acción, no dentro de la tarjeta de captura:
+            es una condición para contratar, no una instrucción de cómo
+            fotografiar. */}
+        <p className="rounded-lg border border-rojo-300 bg-rojo-50 px-3 py-2 text-xs text-rojo-900 dark:border-rojo-700 dark:bg-rojo-950 dark:text-rojo-100">
+          <span className="font-bold">Importante:</span> este seguro solo puede ser contratado
+          por personas con cédula de identidad paraguaya.
+        </p>
+
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={confirmar}
+            disabled={!puedeContinuar}
+            className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
+          >
+            {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
+          </button>
+          {!puedeContinuar ? (
+            <p className="text-xs text-etiqueta">
+              Se habilita con el correo escrito dos veces igual, los cinco requisitos cumplidos, la
+              autorización biométrica marcada y una edad entre {EDAD_MINIMA_PERMITIDA} y{" "}
+              {EDAD_MAXIMA_PERMITIDA} años según la cédula.
+            </p>
+          ) : null}
+        </div>
       </div>
       </div>
 
@@ -1020,9 +1222,10 @@ export function VerificacionIdentidad({
           ¿Los datos no coinciden?
         </p>
         <p className="text-xs text-rojo-900 dark:text-rojo-100">
-          Los campos extraídos de la cédula no se editan manualmente. Si algo no coincide, hay
-          que volver a fotografiar el documento. Si el error persiste, el proceso no va a poder
-          continuar de forma digital.
+          Nombres, apellidos, sexo y nacionalidad se corrigen tocando el candado, y lo corregido
+          se coteja contra lo que leyó la cédula. El número de cédula y la fecha de nacimiento no
+          se editan: si alguno no coincide, hay que volver a fotografiar el documento. Si el error
+          persiste, el proceso no va a poder continuar de forma digital.
         </p>
         <button
           type="button"

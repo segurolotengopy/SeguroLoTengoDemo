@@ -42,6 +42,7 @@ function identidadDe(numeroCedula: string, nombres = "Mónica Mariana"): Identid
     sexo: "Femenino",
     nacionalidad: "Paraguaya",
     paisNacimiento: "Paraguay",
+    paisResidencia: "Paraguay",
     estadoCivil: "Soltero/a",
     captura: CAPTURA,
   };

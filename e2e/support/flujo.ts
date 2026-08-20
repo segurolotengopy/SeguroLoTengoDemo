@@ -116,22 +116,19 @@ export async function completarWhatsapp(page: Page, persona: PersonaDemo): Promi
   // de las pantallas: sin React montado, marcar la casilla no cambia el estado
   // y el botón de enviar se queda deshabilitado para siempre.
   await esperarHidratacion(page);
+  // Formato maqueta: sin casilla — la autorización es el acto de presionar el
+  // botón de enviar, con el literal a la vista.
   await page.locator("#p1-destino").fill(celularLocal(persona));
-  await page.getByRole("checkbox").check();
-  // `exact: true`: "Enviar código" es substring de "Reenviar código", que ya
-  // está en el DOM (deshabilitado) antes de enviar el primero.
-  await clickearHidratado(page.getByRole("button", { name: "Enviar código", exact: true }));
+  await clickearHidratado(page.getByRole("button", { name: "ENVIAR CÓDIGO POR WHATSAPP" }));
 
   const destinoEnmascarado = enmascararCelular(persona.celular);
-  await expect(page.getByText(`Código enviado al número ${destinoEnmascarado}`)).toBeVisible();
+  await expect(page.getByText(`Código enviado por WhatsApp a ${destinoEnmascarado}`)).toBeVisible();
 
+  // La pantalla no avanza sola al completarse la sexta casilla (decisión del
+  // 20-ago-2026): verificar es un acto de la persona.
   const codigo = await leerCodigoOtpDelPanel(page, persona.celular.slice(-3));
   await tipearOtp(page, "p1", codigo);
-  await expect(page.getByRole("button", { name: "Verificar WhatsApp", exact: true })).toBeDisabled();
-
-  const continuar = page.getByRole("link", { name: "Continuar →" });
-  await expect(continuar).not.toHaveAttribute("aria-disabled", "true");
-  await continuar.click();
+  await page.getByRole("button", { name: "VERIFICAR WHATSAPP Y CONTINUAR" }).click();
   await expect(page).toHaveURL(/\/preparacion$/);
 }
 
@@ -159,12 +156,14 @@ export async function completarPlan(page: Page, persona: PersonaDemo): Promise<v
   expect(indice, `Plan desconocido: ${persona.planElegido}`).toBeGreaterThanOrEqual(0);
   const rotulo = ROTULO_PLAN[persona.planElegido];
 
+  // Formato maqueta: cada tarjeta lleva un radio `Elegir esta opción` y el
+  // botón de continuar es único y fijo, deshabilitado hasta elegir.
   const tarjeta = page.getByRole("article").nth(indice);
   await expect(tarjeta.getByRole("heading", { name: rotulo, exact: true })).toBeVisible();
-  await tarjeta.getByRole("button", { name: /^(Seleccionar|Plan elegido)$/ }).click();
-  await expect(tarjeta.getByRole("button", { name: "Plan elegido", exact: true })).toBeVisible();
+  await tarjeta.getByRole("radio").click();
+  await expect(tarjeta.getByRole("radio")).toHaveAttribute("aria-checked", "true");
 
-  await page.getByRole("button", { name: `Seleccionar ${rotulo} y continuar →`, exact: true }).click();
+  await page.getByRole("button", { name: "CONTINUAR CON EL PLAN SELECCIONADO →" }).click();
   await expect(page).toHaveURL(/\/whatsapp$/);
 }
 
@@ -172,7 +171,7 @@ export async function completarPlan(page: Page, persona: PersonaDemo): Promise<v
 export async function completarPreparacion(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/preparacion$/);
   await esperarHidratacion(page);
-  await clickearHidratado(page.getByRole("button", { name: "Tengo todo listo →" }));
+  await clickearHidratado(page.getByRole("button", { name: "TENGO TODO LISTO Y CONTINUAR →" }));
   await expect(page).toHaveURL(/\/identidad$/);
 }
 
@@ -229,6 +228,41 @@ async function tomarCapturaP5(page: Page, toma: "FRENTE" | "DORSO" | "SELFIE"): 
  * dorso y selfie aprobadas, país y estado civil completos). Deja a la persona
  * en /declaraciones.
  */
+/**
+ * Bloque laboral y económico, que desde la reformulación de pantallas vive en
+ * el paso 4 y no en el de declaraciones (maqueta p.4). Los valores salen de la
+ * persona de prueba para que el FIPF quede con datos coherentes.
+ */
+/**
+ * Valores por defecto para los escenarios que no dependen de una persona en
+ * particular: todos salen de los catálogos, que es lo único que el servidor
+ * valida.
+ */
+const DATOS_COMPLEMENTARIOS_POR_DEFECTO: PersonaDemo["datosComplementarios"] = {
+  domicilio: "Avda. España 123",
+  ciudad: "Asunción",
+  situacionLaboral: "Relación de dependencia",
+  actividad: "Servicios financieros",
+  profesion: "Contador/a",
+  empresa: "Estudio Contable SRL",
+  ingresoMensualDeclaradoGs: 8_000_000,
+  origenFondos: "Ingresos laborales (sueldo o salario)",
+};
+
+export async function completarDatosComplementarios(
+  page: Page,
+  datos: PersonaDemo["datosComplementarios"] = DATOS_COMPLEMENTARIOS_POR_DEFECTO,
+): Promise<void> {
+  await page.locator("#p5-domicilio").fill(datos.domicilio);
+  await page.locator("#p5-ciudad").selectOption(datos.ciudad);
+  await page.locator("#p5-situacion-laboral").selectOption(datos.situacionLaboral);
+  await page.locator("#p5-actividad").selectOption(datos.actividad);
+  await page.locator("#p5-profesion").selectOption(datos.profesion);
+  if (datos.empresa) await page.locator("#p5-empresa").fill(datos.empresa);
+  await page.locator("#p5-ingreso").fill(String(datos.ingresoMensualDeclaradoGs));
+  await page.locator("#p5-origen-fondos").selectOption(datos.origenFondos);
+}
+
 export async function completarP5Aprobado(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
@@ -247,7 +281,9 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
 
   await page.getByLabel(/Autorizo la captura y comparación/).check();
   await page.locator("#p5-pais").selectOption("Paraguay");
+  await page.locator("#p5-pais-residencia").selectOption("Paraguay");
   await page.locator("#p5-estado-civil").selectOption("Soltero/a");
+  await completarDatosComplementarios(page);
 
   const continuar = page.getByRole("button", { name: "Validar identidad y continuar →" });
   await expect(continuar).toBeEnabled();
@@ -274,7 +310,9 @@ export async function completarCapturasP5(page: Page): Promise<void> {
   ).toBeVisible();
   await page.getByLabel(/Autorizo la captura y comparación/).check();
   await page.locator("#p5-pais").selectOption("Paraguay");
+  await page.locator("#p5-pais-residencia").selectOption("Paraguay");
   await page.locator("#p5-estado-civil").selectOption("Soltero/a");
+  await completarDatosComplementarios(page);
 }
 
 interface DeclaracionesTexto {
@@ -319,23 +357,13 @@ const CAMPO_DECLARACION: readonly (keyof PersonaDemo["declaraciones"])[] = [
 export async function completarP6(page: Page, persona: PersonaDemo): Promise<void> {
   await expect(page).toHaveURL(/\/declaraciones$/);
   await esperarHidratacion(page);
-  const datos = persona.datosComplementarios;
-
-  await page.locator("#p6-domicilio").fill(datos.domicilio);
-  await page.locator("#p6-ciudad").selectOption(datos.ciudad);
-  await page.locator("#p6-situacion-laboral").selectOption(datos.situacionLaboral);
-  await page.locator("#p6-actividad").selectOption(datos.actividad);
-  await page.locator("#p6-profesion").selectOption(datos.profesion);
-  if (datos.empresa) await page.locator("#p6-empresa").fill(datos.empresa);
-  await page.locator("#p6-ingreso").fill(String(datos.ingresoMensualDeclaradoGs));
-
-  if (datos.beneficiario.tipo === "PERSONA_DESIGNADA") {
+  if (persona.beneficiario.tipo === "PERSONA_DESIGNADA") {
     const beneficiarioDesignado = page.getByRole("radio", { name: "Designar una persona — 100%" });
     await beneficiarioDesignado.click();
     await expect(beneficiarioDesignado).toBeChecked();
-    await page.locator("#p6-benef-nombre").fill(datos.beneficiario.nombreCompleto ?? "");
-    await page.locator("#p6-benef-parentesco").selectOption(datos.beneficiario.parentesco ?? "");
-    await page.locator("#p6-benef-domicilio").fill(datos.beneficiario.domicilio ?? "");
+    await page.locator("#p6-benef-nombre").fill(persona.beneficiario.nombreCompleto ?? "");
+    await page.locator("#p6-benef-parentesco").selectOption(persona.beneficiario.parentesco ?? "");
+    await page.locator("#p6-benef-domicilio").fill(persona.beneficiario.domicilio ?? "");
   }
 
   for (const [indice, campo] of CAMPO_DECLARACION.entries()) {
@@ -355,8 +383,14 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
     // checkbox did not change its state" y falla algo que sí funcionó. El
     // `expect` que sigue espera con el presupuesto de la suite, así que la
     // garantía es la misma sin la carrera.
+    //
+    // Se clica la **etiqueta**, no el input: el input es `sr-only`, así que su
+    // caja mide un píxel y un clic forzado va a parar a las coordenadas de esa
+    // caja — que según cómo quede el layout puede caer debajo de otro
+    // elemento. La etiqueta es lo que toca una persona y lo que siempre está
+    // a la vista.
     const radio = page.getByRole("radio", { name: `${numero}. ${titulo}: ${opcion}` });
-    await radio.click({ force: true });
+    await radio.locator("..").click();
     await expect(radio).toBeChecked();
   }
 
@@ -364,7 +398,7 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
 
 /** Envía el formulario de P6 y espera terminar en el destino esperado. */
 export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<void> {
-  const continuar = page.getByRole("button", { name: "Guardar y continuar →" });
+  const continuar = page.getByRole("button", { name: "Declarar y continuar" });
   await expect(continuar).toBeEnabled();
   await continuar.click();
   await expect(page).toHaveURL(destinoEsperado, { timeout: 20_000 });
@@ -397,6 +431,9 @@ export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<voi
 export async function completarP7Qr(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/pago$/);
   await esperarHidratacion(page);
+  // CHG-37 · sin esta casilla el botón queda deshabilitado: es la que autoriza
+  // emitir el certificado y mandar la póliza a los canales verificados.
+  await page.locator("#p7-acepta-certificado").check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
   await expect(page.getByText("Escaneá el QR con tu app de banco")).toBeVisible();
 

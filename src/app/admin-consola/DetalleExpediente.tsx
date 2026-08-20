@@ -304,9 +304,9 @@ export function DetalleExpediente({
               <Dato
                 rotulo="Beneficiario"
                 valor={
-                  expediente.datosComplementarios.beneficiario.tipo === "HEREDEROS_LEGALES"
+                  expediente.beneficiario?.tipo === "HEREDEROS_LEGALES"
                     ? "Herederos legales — 100%"
-                    : `${expediente.datosComplementarios.beneficiario.nombreCompleto} (${expediente.datosComplementarios.beneficiario.parentesco})`
+                    : `${expediente.beneficiario?.nombreCompleto} (${expediente.beneficiario?.parentesco})`
                 }
               />
             </dl>

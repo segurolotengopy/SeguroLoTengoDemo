@@ -68,6 +68,7 @@ export async function POST(request: Request): Promise<Response> {
     expedienteId,
     medio: cuerpo.medio,
     ruc: cuerpo.ruc,
+    aceptaCertificadoYEntrega: cuerpo.aceptaCertificadoYEntrega,
     contexto,
   });
 

@@ -40,6 +40,18 @@ import {
   reiniciarExpediente,
 } from "@/domain/consola-administrativa";
 import { guardarDatosYDeclaracionesP6 } from "@/domain/declaraciones-p6";
+
+/** Bloque económico crudo, tal como lo manda la pantalla del paso 4. */
+const COMPLEMENTARIOS_CRUDOS = {
+  domicilio: datosComplementariosFixture.domicilio,
+  ciudad: datosComplementariosFixture.ciudad,
+  situacionLaboral: datosComplementariosFixture.situacionLaboral,
+  actividad: datosComplementariosFixture.actividad,
+  profesion: datosComplementariosFixture.profesion,
+  empresa: datosComplementariosFixture.empresa,
+  ingresoMensualDeclaradoGs: "8.000.000",
+  origenFondos: datosComplementariosFixture.origenFondos,
+};
 import { generarPaqueteDocumental } from "@/documentos";
 import type { RepositorioArchivos } from "@/documentos";
 import {
@@ -219,16 +231,7 @@ async function expedienteDerivado(): Promise<Expediente> {
     },
     {
       expedienteId: EXPEDIENTE_ID,
-      datos: {
-        domicilio: datosComplementariosFixture.domicilio,
-        ciudad: datosComplementariosFixture.ciudad,
-        situacionLaboral: datosComplementariosFixture.situacionLaboral,
-        actividad: datosComplementariosFixture.actividad,
-        profesion: datosComplementariosFixture.profesion,
-        empresa: datosComplementariosFixture.empresa,
-        ingresoMensualDeclaradoGs: "8000000",
-        beneficiarioTipo: "HEREDEROS_LEGALES",
-      },
+      beneficiario: { beneficiarioTipo: "HEREDEROS_LEGALES" },
       // Declaración 8 en "Sí": condición PEP.
       declaraciones: { "1": "SI", "2": "NO", "3": "NO", "4": "SI", "5": "SI", "6": "SI", "7": "SI", "8": "SI" },
       contexto: CONTEXTO,
@@ -418,8 +421,10 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             expedienteId: EXPEDIENTE_ID,
             imagenes: IMAGENES,
             paisNacimiento: "Paraguay",
+            paisResidencia: "Paraguay",
             estadoCivil: "Soltero/a",
-      correo: "monica.gorena@example.com",
+            correo: "monica.gorena@example.com",
+            datosComplementarios: COMPLEMENTARIOS_CRUDOS,
             autorizacionBiometrica: true,
             contexto: CONTEXTO,
           },
@@ -432,16 +437,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
           { expedientes: repo, evidencias: evidenciasFalsas(), nuevoNumeroCaso: () => "CASO-2026-999999" },
           {
             expedienteId: EXPEDIENTE_ID,
-            datos: {
-              domicilio: datosComplementariosFixture.domicilio,
-              ciudad: datosComplementariosFixture.ciudad,
-              situacionLaboral: datosComplementariosFixture.situacionLaboral,
-              actividad: datosComplementariosFixture.actividad,
-              profesion: datosComplementariosFixture.profesion,
-              empresa: datosComplementariosFixture.empresa,
-              ingresoMensualDeclaradoGs: "8000000",
-              beneficiarioTipo: "HEREDEROS_LEGALES",
-            },
+            beneficiario: { beneficiarioTipo: "HEREDEROS_LEGALES" },
             declaraciones: {
               "1": "SI", "2": "NO", "3": "NO", "4": "SI",
               "5": "SI", "6": "SI", "7": "SI", "8": "NO",
@@ -471,6 +467,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             expedienteId: EXPEDIENTE_ID,
             medio: "QR_BANCARD",
             ruc: "",
+            aceptaCertificadoYEntrega: true,
             contexto: CONTEXTO,
           },
         ),

@@ -5,6 +5,7 @@
  * estado y el contenido de la evidencia— sin pasar por HTTP ni por DynamoDB.
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import { datosComplementariosFixture } from "./fixtures";
 import {
   crearIdentityProviderMock,
   limpiarSesionesIdentidadMock,
@@ -122,13 +123,27 @@ function conEscenario(escenario: EscenarioIdentidadDemo | null) {
   fijarSeleccionDemo({ personaId: "camino-feliz", escenarioIdentidadForzado: escenario });
 }
 
+/** Bloque económico crudo, tal como lo manda la pantalla del paso 4. */
+const COMPLEMENTARIOS_CRUDOS = {
+  domicilio: datosComplementariosFixture.domicilio,
+  ciudad: datosComplementariosFixture.ciudad,
+  situacionLaboral: datosComplementariosFixture.situacionLaboral,
+  actividad: datosComplementariosFixture.actividad,
+  profesion: datosComplementariosFixture.profesion,
+  empresa: datosComplementariosFixture.empresa,
+  ingresoMensualDeclaradoGs: "8.000.000",
+  origenFondos: datosComplementariosFixture.origenFondos,
+};
+
 async function confirmar(banco: Banco, cambios: Partial<Parameters<typeof confirmarIdentidadP5>[1]> = {}) {
   return confirmarIdentidadP5(banco.deps, {
     expedienteId: EXPEDIENTE_ID,
     imagenes: IMAGENES,
     paisNacimiento: PAIS,
+    paisResidencia: PAIS,
     estadoCivil: ESTADO_CIVIL,
-      correo: "monica.gorena@example.com",
+    correo: "monica.gorena@example.com",
+    datosComplementarios: COMPLEMENTARIOS_CRUDOS,
     autorizacionBiometrica: true,
     contexto: CONTEXTO,
     ...cambios,
@@ -400,8 +415,10 @@ describe("P5 · los datos extraídos no se editan a mano", () => {
         expedienteId: EXPEDIENTE_ID,
         imagenes: IMAGENES,
         paisNacimiento: PAIS,
+        paisResidencia: PAIS,
         estadoCivil: ESTADO_CIVIL,
-      correo: "monica.gorena@example.com",
+        correo: "monica.gorena@example.com",
+        datosComplementarios: COMPLEMENTARIOS_CRUDOS,
         autorizacionBiometrica: true,
         contexto: CONTEXTO,
       },
@@ -414,5 +431,28 @@ describe("P5 · los datos extraídos no se editan a mano", () => {
     const guardado = banco.expedientes.todos.get(EXPEDIENTE_ID);
     expect(guardado?.identidad?.nombres).toBe(persona?.identidad.nombres);
     expect(guardado?.identidad?.fechaNacimiento).toBe(persona?.identidad.fechaNacimiento);
+  });
+
+  it("una corrección de nacionalidad que arregla la lectura se guarda", async () => {
+    conEscenario("APROBADO");
+    const banco = crearBanco();
+    const persona = obtenerPersonaDemo("camino-feliz");
+    // Misma nacionalidad con la tilde que el OCR se comió: es un arreglo, no
+    // un reemplazo, así que el cotejo lo acepta.
+    const conTilde = persona!.identidad.nacionalidad.replace("Paraguaya", "Paraguáya");
+
+    const resultado = await confirmar(banco, { correcciones: { nacionalidad: conTilde } });
+
+    expect(resultado.ok).toBe(true);
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.identidad?.nacionalidad).toBe(conTilde);
+  });
+
+  it("una nacionalidad distinta se rechaza: corregir no es reemplazar", async () => {
+    conEscenario("APROBADO");
+    const banco = crearBanco();
+
+    const resultado = await confirmar(banco, { correcciones: { nacionalidad: "Boliviana" } });
+
+    expect(resultado).toEqual({ ok: false, motivo: "CORRECCION_NO_COINCIDE" });
   });
 });

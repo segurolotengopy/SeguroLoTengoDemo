@@ -72,14 +72,9 @@ const CONTEXTO: ContextoPeticion = {
 const AHORA = "2026-08-09T14:00:00.000Z";
 
 /** Bloque 1 tal como llega del formulario: montos como texto con separadores. */
-const DATOS_CRUDOS = {
-  domicilio: datosComplementariosFixture.domicilio,
-  ciudad: datosComplementariosFixture.ciudad,
-  situacionLaboral: datosComplementariosFixture.situacionLaboral,
-  actividad: datosComplementariosFixture.actividad,
-  profesion: datosComplementariosFixture.profesion,
-  empresa: datosComplementariosFixture.empresa,
-  ingresoMensualDeclaradoGs: "8.000.000",
+// Los datos laborales y económicos ya no pasan por este endpoint: se capturan
+// en el paso 4. Acá solo viaja el beneficiario.
+const BENEFICIARIO_CRUDO = {
   beneficiarioTipo: "HEREDEROS_LEGALES",
 };
 
@@ -122,7 +117,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: RESPUESTAS_COMPATIBLES,
       contexto: CONTEXTO,
     });
@@ -138,18 +133,19 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
     const expediente = expedientes.actual();
     expect(expediente.estado).toBe("DECLARACIONES_OK");
     expect(expediente.numeroCasoDerivacion).toBeNull();
-    expect(expediente.datosComplementarios?.ingresoMensualDeclaradoGs).toBe(8_000_000);
+    // Los datos económicos los trae el paso 4: este paso no los toca.
+    expect(expediente.datosComplementarios?.ingresoMensualDeclaradoGs).toBe(
+      enIdentidadVerificada().datosComplementarios?.ingresoMensualDeclaradoGs,
+    );
     expect(expediente.declaraciones?.condicionPep).toBe("NO");
   });
 
-  it("interpreta el monto con separadores y guarda el beneficiario designado completo", async () => {
+  it("guarda el beneficiario designado completo", async () => {
     const { deps, expedientes } = armar(enIdentidadVerificada());
 
     await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: {
-        ...DATOS_CRUDOS,
-        ingresoMensualDeclaradoGs: "Gs. 12 500 000",
+      beneficiario: {
         beneficiarioTipo: "PERSONA_DESIGNADA",
         beneficiarioNombreCompleto: "Silvia Raquel Duarte Ocampos",
         beneficiarioParentesco: "Cónyuge",
@@ -159,8 +155,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
       contexto: CONTEXTO,
     });
 
-    const beneficiario = expedientes.actual().datosComplementarios?.beneficiario;
-    expect(expedientes.actual().datosComplementarios?.ingresoMensualDeclaradoGs).toBe(12_500_000);
+    const beneficiario = expedientes.actual().beneficiario;
     expect(beneficiario?.tipo).toBe("PERSONA_DESIGNADA");
     expect(beneficiario?.nombreCompleto).toBe("Silvia Raquel Duarte Ocampos");
     expect(beneficiario?.parentesco).toBe("Cónyuge");
@@ -174,8 +169,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: {
-        ...DATOS_CRUDOS,
+      beneficiario: {
         beneficiarioTipo: "PERSONA_DESIGNADA",
         beneficiarioNombreCompleto: "Silvia Raquel Duarte Ocampos",
         beneficiarioParentesco: "Cónyuge",
@@ -187,7 +181,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
     });
 
     expect(resultado.ok).toBe(true);
-    expect(expedientes.actual().datosComplementarios?.beneficiario.numeroCedula).toBeNull();
+    expect(expedientes.actual().beneficiario?.numeroCedula).toBeNull();
   });
 
   it("guarda la cédula del beneficiario cuando sí se completa", async () => {
@@ -195,8 +189,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
 
     await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: {
-        ...DATOS_CRUDOS,
+      beneficiario: {
         beneficiarioTipo: "PERSONA_DESIGNADA",
         beneficiarioNombreCompleto: "Silvia Raquel Duarte Ocampos",
         beneficiarioParentesco: "Cónyuge",
@@ -207,7 +200,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
       contexto: CONTEXTO,
     });
 
-    expect(expedientes.actual().datosComplementarios?.beneficiario.numeroCedula).toBe("4123456");
+    expect(expedientes.actual().beneficiario?.numeroCedula).toBe("4123456");
   });
 
   it("elegir herederos legales borra los datos de una persona designada que se hubiera tipeado antes", async () => {
@@ -215,8 +208,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
 
     await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: {
-        ...DATOS_CRUDOS,
+      beneficiario: {
         beneficiarioTipo: "HEREDEROS_LEGALES",
         beneficiarioNombreCompleto: "Alguien que se tipeó y después se descartó",
         beneficiarioParentesco: "Cónyuge",
@@ -226,7 +218,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
       contexto: CONTEXTO,
     });
 
-    const beneficiario = expedientes.actual().datosComplementarios?.beneficiario;
+    const beneficiario = expedientes.actual().beneficiario;
     expect(beneficiario?.tipo).toBe("HEREDEROS_LEGALES");
     expect(beneficiario?.nombreCompleto).toBeNull();
     expect(beneficiario?.parentesco).toBeNull();
@@ -247,7 +239,7 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
 
       const resultado = await guardarDatosYDeclaracionesP6(deps, {
         expedienteId: "EXP-TEST-1",
-        datos: DATOS_CRUDOS,
+        beneficiario: BENEFICIARIO_CRUDO,
         declaraciones: { ...RESPUESTAS_COMPATIBLES, [clave]: respuesta },
         contexto: CONTEXTO,
       });
@@ -275,7 +267,7 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "3": "SI", "8": "SI" },
       contexto: CONTEXTO,
     });
@@ -290,7 +282,7 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
       const { deps } = armar(enIdentidadVerificada());
       const resultado = await guardarDatosYDeclaracionesP6(deps, {
         expedienteId: "EXP-TEST-1",
-        datos: DATOS_CRUDOS,
+        beneficiario: BENEFICIARIO_CRUDO,
         declaraciones: { ...RESPUESTAS_COMPATIBLES, [clave]: "NO" },
         contexto: CONTEXTO,
       });
@@ -314,7 +306,7 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
 
     await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "8": "SI" },
       contexto: CONTEXTO,
     });
@@ -336,7 +328,7 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
     const { deps } = armar(enIdentidadVerificada());
     const entrada = {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       contexto: CONTEXTO,
     };
 
@@ -366,7 +358,7 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: RESPUESTAS_COMPATIBLES,
       contexto: CONTEXTO,
     });
@@ -380,7 +372,7 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: { ...DATOS_CRUDOS, domicilio: "   ", ciudad: "Montevideo", ingresoMensualDeclaradoGs: "0" },
+      beneficiario: { beneficiarioTipo: "LO_QUE_SEA" },
       declaraciones: RESPUESTAS_COMPATIBLES,
       contexto: CONTEXTO,
     });
@@ -388,11 +380,7 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("DATOS_INCOMPLETOS");
-    expect(resultado.camposInvalidos).toEqual([
-      "domicilio",
-      "ciudad",
-      "ingresoMensualDeclaradoGs",
-    ]);
+    expect(resultado.camposInvalidos).toEqual(["beneficiarioTipo"]);
     expect(expedientes.actual().estado).toBe(ESTADO_REQUERIDO_P6);
   });
 
@@ -404,7 +392,7 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: incompletas,
       contexto: CONTEXTO,
     });
@@ -421,7 +409,7 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: RESPUESTAS_COMPATIBLES,
       contexto: CONTEXTO,
     });
@@ -455,7 +443,7 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
 
     await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "3": "SI" },
       contexto: CONTEXTO,
     });
@@ -505,7 +493,7 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "1": "NO", "8": "SI" },
       contexto: CONTEXTO,
     });
@@ -523,7 +511,7 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
 
     await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "8": "SI" },
       contexto: CONTEXTO,
     });
@@ -540,7 +528,7 @@ describe("leerCasoDerivado", () => {
 
     await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
+      beneficiario: BENEFICIARIO_CRUDO,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "8": "SI" },
       contexto: CONTEXTO,
     });

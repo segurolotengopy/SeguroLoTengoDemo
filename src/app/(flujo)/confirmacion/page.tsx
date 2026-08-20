@@ -69,18 +69,20 @@ export default function PantallaP9Confirmacion() {
         {/* ---------------------------------------------------------------- */}
         {/* Pie: botón de cierre y leyenda de asesoramiento (CHG-46)          */}
         {/* ---------------------------------------------------------------- */}
-        <footer className="flex flex-col gap-3 border-t border-borde-tenue pt-3">
-          <Link
-            href="/"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"
-          >
-            {ROTULO_BOTON_FINALIZAR_P9}
-          </Link>
-
+        {/* Maqueta p.8: la leyenda a la izquierda y el botón —chico— a la
+            derecha. Con el botón arriba y de ancho completo, el cierre empujaba
+            el resto de la pantalla fuera de la vista. */}
+        <footer className="flex flex-col gap-3 border-t border-borde-tenue pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <p className="text-sm font-semibold text-azul-800 dark:text-azul-200">
             {LEYENDA_CIERRE_P9}
           </p>
 
+          <Link
+            href="/"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-naranja-500 px-8 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400"
+          >
+            {ROTULO_BOTON_FINALIZAR_P9}
+          </Link>
         </footer>
       </main>
     </div>

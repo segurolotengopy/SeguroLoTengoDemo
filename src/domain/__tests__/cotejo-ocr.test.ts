@@ -16,18 +16,18 @@ import {
 } from "../cotejo-ocr";
 
 describe("qué campos se pueden corregir", () => {
-  it("acepta nombres, apellidos y sexo", () => {
+  it("acepta nombres, apellidos, sexo y nacionalidad", () => {
     expect(esCampoCorregible("nombres")).toBe(true);
     expect(esCampoCorregible("apellidos")).toBe(true);
     expect(esCampoCorregible("sexo")).toBe(true);
+    expect(esCampoCorregible("nacionalidad")).toBe(true);
   });
 
-  it("no acepta los cuatro campos de los que dependen reglas del negocio", () => {
+  it("no acepta los dos campos de los que dependen reglas del negocio", () => {
     // La fecha decide el corte de edad (regla #8) y la cédula es la llave del
-    // expediente y del bloqueo (regla #11). Sexo y nacionalidad salen del MRZ
-    // con dígito verificador. Editarlos convertiría un dato del documento en
-    // uno declarado.
-    for (const campo of ["fechaNacimiento", "numeroCedula", "nacionalidad"]) {
+    // expediente y del bloqueo (regla #11). Editarlos convertiría un dato del
+    // documento en uno declarado, que es justo lo que esas reglas prohíben.
+    for (const campo of ["fechaNacimiento", "numeroCedula"]) {
       expect(esCampoCorregible(campo), `${campo} no debería ser corregible`).toBe(false);
     }
   });
@@ -35,7 +35,7 @@ describe("qué campos se pueden corregir", () => {
   it("no crece por accidente", () => {
     // Si alguien agrega un campo a la lista, este test lo obliga a pasar por
     // acá y a mirar el comentario de arriba.
-    expect([...CAMPOS_CORREGIBLES]).toEqual(["nombres", "apellidos", "sexo"]);
+    expect([...CAMPOS_CORREGIBLES]).toEqual(["nombres", "apellidos", "sexo", "nacionalidad"]);
   });
 });
 

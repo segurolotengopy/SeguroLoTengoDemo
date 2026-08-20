@@ -42,10 +42,10 @@ import type { CanalFirma } from "./tipos";
 export const TITULO_P8 = "Revisión y firma final";
 
 export const SUBTITULO_P8 =
-  "Revisá los documentos cerrados y firmalos en un único proceso seguro de Code100.";
+  "Revisá los documentos cerrados y solicitá el enlace seguro de firma.";
 
 export const ADVERTENCIA_ACEPTACION_P8 =
-  "La aceptación contractual ocurre al firmar en Code100, no al presionar un botón del portal.";
+  "La aceptación contractual ocurre al firmar en el enlace seguro, no al presionar un botón del portal.";
 
 // ---------------------------------------------------------------------------
 // Bloque 1 — Revisá los documentos
@@ -66,7 +66,7 @@ export const DESCRIPCION_DOCUMENTO_P8 =
 /** Regla inviolable #4: el PDF se cierra y se hashea antes de habilitar la firma. */
 export const MARCA_PDF_CERRADO_P8 = "PDF cerrado · hash registrado";
 
-export const BOTON_VER_PDF_P8 = "VER PDF";
+export const BOTON_VER_PDF_P8 = "VER PDF COMPLETO · SOLO LECTURA";
 
 /**
  * CHG-29 · por qué acá no hay botón de descarga.
@@ -78,8 +78,9 @@ export const BOTON_VER_PDF_P8 = "VER PDF";
  * que el archivo sea inaccesible, porque no lo es.
  */
 export const NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8 =
-  "Podés revisarlo completo antes de firmar. La descarga se habilita después del pago, cuando el " +
-  "documento ya está firmado y es el instrumento definitivo.";
+  "El visor abre el documento para leerlo: no permite descargarlo ni imprimirlo. La descarga se " +
+  "habilita después del pago, cuando el documento ya está firmado y es el instrumento definitivo. " +
+  "El contenido no podrá modificarse después de solicitar la firma.";
 
 export const TITULO_ACCESO_PREVIO_P8 = "ACCESO PREVIO A LA INFORMACIÓN";
 
@@ -98,7 +99,8 @@ export const NOTA_SIN_MODIFICACION_P8 =
 
 export const TITULO_BLOQUE_CANAL_P8 = "Elegí el canal";
 
-export const SUBTITULO_BLOQUE_CANAL_P8 = "Code100 enviará el enlace al canal elegido.";
+export const SUBTITULO_BLOQUE_CANAL_P8 =
+  "Te enviaremos un enlace seguro al canal elegido para realizar la firma electrónica.";
 
 /** El canal por defecto de la especificación es el WhatsApp verificado. */
 export const CANAL_FIRMA_POR_DEFECTO: CanalFirma = "WHATSAPP";
@@ -124,13 +126,13 @@ export const NOTA_PAGO_DESPUES_DE_FIRMAR_P8 =
 export const TITULO_UN_SOLO_ACTO_P8 = "UN SOLO ACTO DE FIRMA";
 
 export const TEXTO_UN_SOLO_ACTO_P8 =
-  "La firma electrónica no cualificada del cliente quedará vinculada simultáneamente a la Solicitud y al FIPF mediante sus huellas digitales.";
+  "La firma electrónica del cliente quedará vinculada simultáneamente a la Solicitud y al FIPF mediante sus huellas digitales.";
 
 // ---------------------------------------------------------------------------
-// Bloque 3 — Firmá mediante Code100
+// Bloque 3 — Aceptá y solicitá el enlace de firma
 // ---------------------------------------------------------------------------
 
-export const TITULO_BLOQUE_FIRMA_P8 = "Firmá mediante Code100";
+export const TITULO_BLOQUE_FIRMA_P8 = "Aceptá y solicitá el enlace de firma";
 
 export const TITULO_DECLARACION_FIRMA_P8 = "DECLARACIÓN QUE SE ACEPTARÁ AL FIRMAR";
 
@@ -162,20 +164,20 @@ export const TEXTO_DECLARACION_FIRMA_P8 =
 export const VERSION_DECLARACION_FIRMA_P8 = "2026-08-P8-v2";
 
 export const NOTA_ACEPTACION_REGISTRADA_P8 =
-  "La aceptación queda registrada por Code100 junto con la firma.";
+  "La aceptación queda registrada junto con la firma.";
 
 export const BOTON_ENVIAR_ENLACE_P8 = "ENVIAR ENLACE SEGURO DE FIRMA";
 
 export const NOTA_ENVIO_ENLACE_P8 =
-  "Code100 enviará el enlace al canal verificado seleccionado.";
+  "El enlace seguro llega al canal verificado que elijas.";
 
 export const PASOS_PROGRESO_FIRMA_P8: readonly string[] = [
   "Recibí el enlace",
   "Abrí y firmá",
-  "Volvé al portal",
+  "Te confirmamos y volvés al portal",
 ];
 
-export const ESTADO_ESPERANDO_CODE100_P8 = "Esperando confirmación verificable de Code100";
+export const ESTADO_ESPERANDO_CODE100_P8 = "Esperando la confirmación verificable de la firma";
 
 export const NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8 =
   "Firmada la Solicitud, el pago tiene seguimiento a 1, 5 y 12 horas y vence a las 24 horas.";
@@ -193,7 +195,7 @@ export interface PasoPosteriorP8 {
 
 export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
   {
-    titulo: "Confirmación Code100",
+    titulo: "Confirmación de la firma",
     detalle: "El cliente firmó la Solicitud y el FIPF; se verifican los hashes y la transacción.",
   },
   {
@@ -220,7 +222,7 @@ export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
 export const LEYENDAS_FINALES_P8: readonly string[] = [
   "No se genera Nota de Cobertura.",
   "La póliza conserva el correlativo de la Solicitud y el identificador de Bancard.",
-  "Se registrarán PDFs, hashes, aceptación, canal, ID de Code100, firmantes, fecha, hora, IP, estados y callbacks.",
+  "Se registrarán PDFs, hashes, aceptación, canal, identificador del acto de firma, firmantes, fecha, hora, IP, estados y callbacks.",
 ];
 
 // ---------------------------------------------------------------------------
@@ -233,7 +235,7 @@ export const LEYENDAS_FINALES_P8: readonly string[] = [
 // el mismo registro. No son literales citables de la especificación.
 
 export const AVISO_FIRMA_RECHAZADA_P8 =
-  "Code100 informó que el acto de firma no se completó. Podés pedir un enlace nuevo cuando quieras.";
+  "El acto de firma no se completó. Podés pedir un enlace nuevo cuando quieras.";
 
 export const AVISO_ENLACE_ENVIADO_P8 =
   "Enviamos el enlace de firma a tu canal verificado. Abrilo, firmá y volvé a esta pantalla.";

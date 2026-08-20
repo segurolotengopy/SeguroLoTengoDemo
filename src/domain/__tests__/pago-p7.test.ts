@@ -15,6 +15,10 @@
  * La regla inviolable #6 (ningún dato de tarjeta) tiene su propio archivo:
  * `src/app/api/p7/__tests__/no-persiste-datos-de-tarjeta.test.ts`.
  */
+import {
+  TEXTO_ACEPTACION_CERTIFICADO_P7,
+  VERSION_ACEPTACION_CERTIFICADO_P7,
+} from "../textos-p7";
 import { describe, expect, it, vi } from "vitest";
 import type { EvidenceStore } from "../../ports/evidence-store";
 import { ErrorBancard } from "../../ports/payment-provider";
@@ -183,6 +187,7 @@ const ENTRADA_QR = {
   expedienteId: "EXP-TEST-1",
   medio: "QR_BANCARD" as const,
   ruc: "",
+  aceptaCertificadoYEntrega: true,
   contexto: CONTEXTO,
 };
 
@@ -631,9 +636,12 @@ describe("P7 · evidencia", () => {
     expect(inicio?.detalle).toContain(`montoGs=${PREMIO}`);
     expect(inicio?.detalle).toContain("referenciaBancard=REF-1");
     expect(inicio?.detalle).toContain(`propuesta=${NUMERO_PROPUESTA}`);
-    // Este paso ya no acepta ningún literal: la declaración de origen lícito
-    // se firmó con el FIPF, dos pasos antes (D-08).
-    expect(inicio?.versionTextoAceptado).toBeNull();
+// CHG-37 · el paso acepta un literal propio: la autorización a emitir el
+    // certificado y a mandar la póliza y la factura a los canales verificados.
+    // La declaración de origen lícito, en cambio, se firmó con el FIPF dos
+    // pasos antes (D-08) y no vuelve a pedirse acá.
+    expect(inicio?.versionTextoAceptado).toBe(VERSION_ACEPTACION_CERTIFICADO_P7);
+    expect(inicio?.textoAceptado).toBe(TEXTO_ACEPTACION_CERTIFICADO_P7);
 
     expect(confirmacion?.detalle).toContain("estadoPago=CONFIRMADO");
     expect(confirmacion?.textoAceptado).toBeNull();

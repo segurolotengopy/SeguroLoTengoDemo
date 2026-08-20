@@ -62,6 +62,10 @@
  * agrandaría la superficie que hay que defender. Ver
  * `src/app/api/p7/__tests__/no-persiste-datos-de-tarjeta.test.ts`.
  */
+import {
+  TEXTO_ACEPTACION_CERTIFICADO_P7,
+  VERSION_ACEPTACION_CERTIFICADO_P7,
+} from "./textos-p7";
 import { randomUUID } from "node:crypto";
 import { desglosePremio } from "./catalogo";
 import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
@@ -216,6 +220,13 @@ export interface EntradaIniciarPagoP7 {
   /** Cuerpo crudo del formulario: se interpreta y valida en el dominio. */
   readonly medio: unknown;
   readonly ruc: unknown;
+  /**
+   * CHG-37 · casilla obligatoria de la pantalla. Se valida en el servidor
+   * porque esconder o deshabilitar un botón es cosmético: lo que autoriza
+   * emitir el certificado y mandar la póliza tiene que constar en la
+   * evidencia, no en el estado del navegador.
+   */
+  readonly aceptaCertificadoYEntrega: unknown;
   readonly contexto: ContextoPeticion;
 }
 
@@ -224,6 +235,8 @@ export type MotivoRechazoP7 =
   | "ESTADO_INVALIDO"
   | "MEDIO_INVALIDO"
   | "RUC_INVALIDO"
+  /** CHG-37 · no se marcó la aceptación del certificado y de la entrega. */
+  | "ACEPTACION_CERTIFICADO_REQUERIDA"
   /**
    * CMP-08 · el documento contra el que se iba a cobrar no tiene huella
    * verificable. No se abre ninguna operación en Bancard: cobrar sin poder
@@ -504,6 +517,13 @@ async function intentarIniciarPagoP7(
   }
   const medio = entrada.medio;
 
+  // CHG-37 · sin la aceptación no se abre ninguna operación en Bancard: lo que
+  // se está autorizando ocurre después del cobro, así que tiene que constar
+  // antes de que haya dinero de por medio.
+  if (entrada.aceptaCertificadoYEntrega !== true) {
+    return { ok: false, motivo: "ACEPTACION_CERTIFICADO_REQUERIDA" };
+  }
+
   const rucCrudo = typeof entrada.ruc === "string" ? entrada.ruc : "";
   const ruc = rucCrudo.trim() === "" ? null : normalizarRuc(rucCrudo);
   if (rucCrudo.trim() !== "" && ruc === null) {
@@ -674,6 +694,14 @@ async function intentarIniciarPagoP7(
       // persona pidió tres QR, hay tres registros con la misma huella.
       regeneracion: expediente.pago !== null,
     }),
+    // CHG-37 · el literal completo y su versión, no solo un booleano: si
+    // alguien edita el texto sin subir la versión, el expediente sigue
+    // conteniendo palabra por palabra lo que la persona aceptó (mismo criterio
+    // que P3 y P8).
+    aceptacion: {
+      texto: TEXTO_ACEPTACION_CERTIFICADO_P7,
+      versionTexto: VERSION_ACEPTACION_CERTIFICADO_P7,
+    },
   });
 
   return {

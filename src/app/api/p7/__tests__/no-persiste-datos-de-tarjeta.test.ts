@@ -186,6 +186,7 @@ async function recorrerP7(medio: MedioDePago) {
     // Un RUC legítimo de 8 dígitos: es el único número largo que P7 acepta y
     // sirve para comprobar que el detector de PAN no lo confunde.
     ruc: "80012345-6",
+    aceptaCertificadoYEntrega: true,
     contexto: CONTEXTO,
     // Datos de tarjeta inyectados en el cuerpo, como los mandaría un cliente
     // manipulado o un formulario que alguien agregue mañana sin pensarlo. El
@@ -357,7 +358,7 @@ describe("P7 · ningún campo de tarjeta en la superficie de entrada", () => {
     const inputs = [...fuente.matchAll(/<input[\s\S]*?\/>/g)].map((m) => m[0]);
     const ids = inputs.flatMap((input) => [...input.matchAll(/(?:id|name)="([^"]+)"/g)].map((m) => m[1]));
 
-    expect(ids.sort()).toEqual(["p7-medio", "p7-nombre", "p7-ruc"]);
+    expect(ids.sort()).toEqual(["p7-acepta-certificado", "p7-medio", "p7-nombre", "p7-ruc"]);
     for (const input of inputs) {
       expect(input).not.toMatch(/autoComplete="cc-/i);
     }

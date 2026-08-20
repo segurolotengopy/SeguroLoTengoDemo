@@ -58,7 +58,7 @@
  */
 import { randomInt, randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
-import { interpretarDatosComplementariosP6 } from "./catalogo-p6";
+import { interpretarBeneficiarioP6 } from "./catalogo-p6";
 import type { CampoP6 } from "./catalogo-p6";
 import {
   clasificarMotivoDerivacion,
@@ -101,7 +101,7 @@ export {
   PARENTESCOS,
   PROFESIONES,
   SITUACIONES_LABORALES,
-  interpretarDatosComplementariosP6,
+  interpretarBeneficiarioP6,
 } from "./catalogo-p6";
 export type { CampoP6 } from "./catalogo-p6";
 
@@ -136,8 +136,12 @@ export function generarNumeroCaso(ahora: Date = new Date()): string {
 
 export interface EntradaP6 {
   readonly expedienteId: string;
-  /** Cuerpo crudo del bloque 1: se interpreta y valida en el dominio. */
-  readonly datos: Readonly<Record<string, unknown>>;
+  /**
+   * Cuerpo crudo del beneficiario por fallecimiento: se interpreta y valida en
+   * el dominio. Los datos laborales y económicos **ya no vienen por acá**: se
+   * capturan en el paso 4, junto a la identidad (maqueta p.4).
+   */
+  readonly beneficiario: Readonly<Record<string, unknown>>;
   /** Respuestas del bloque 2, indexadas por número de declaración ("1".."8"). */
   readonly declaraciones: Readonly<Record<string, unknown>>;
   readonly contexto: ContextoPeticion;
@@ -288,9 +292,13 @@ export async function guardarDatosYDeclaracionesP6(
   const reloj = resolverReloj(deps);
   const fecha = reloj.ahora();
 
-  const datos = interpretarDatosComplementariosP6(entrada.datos);
-  if (!datos.ok) {
-    return { ok: false, motivo: "DATOS_INCOMPLETOS", camposInvalidos: datos.camposInvalidos };
+  const beneficiario = interpretarBeneficiarioP6(entrada.beneficiario);
+  if (!beneficiario.ok) {
+    return {
+      ok: false,
+      motivo: "DATOS_INCOMPLETOS",
+      camposInvalidos: beneficiario.camposInvalidos,
+    };
   }
 
   const declaraciones = interpretarDeclaracionesP6(entrada.declaraciones);
@@ -323,7 +331,7 @@ export async function guardarDatosYDeclaracionesP6(
   const transicion = registrarDeclaracionesP6(
     expediente,
     declaraciones.declaraciones,
-    datos.datos,
+    beneficiario.beneficiario,
     numeroCaso ?? "",
     fecha,
   );

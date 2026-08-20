@@ -28,6 +28,7 @@
 import { createHash } from "node:crypto";
 import { normalizarCorreo } from "../../domain/correo";
 import type {
+  Beneficiario,
   CapturaBiometrica,
   Declaraciones,
   DatosComplementariosP6,
@@ -103,6 +104,8 @@ export interface PersonaDemo {
   readonly identidad: Identidad;
   readonly planElegido: PlanId;
   readonly datosComplementarios: DatosComplementariosP6;
+  /** Se declara en el paso 5, así que vive aparte de los complementarios. */
+  readonly beneficiario: Beneficiario;
   readonly declaraciones: Declaraciones;
   readonly medioDePago: MedioDePago;
   readonly desenlace: DesenlaceDemo;
@@ -125,6 +128,7 @@ const CAMINO_FELIZ: PersonaDemo = {
     sexo: "Femenino",
     nacionalidad: "Paraguaya",
     paisNacimiento: "Paraguay",
+    paisResidencia: "Paraguay",
     estadoCivil: "Soltera",
     captura: capturaAprobada("camino-feliz"),
   },
@@ -137,13 +141,14 @@ const CAMINO_FELIZ: PersonaDemo = {
     profesion: "Contador/a",
     empresa: "Consultora Aurora S.A.",
     ingresoMensualDeclaradoGs: 9_500_000,
-    beneficiario: {
-      tipo: "HEREDEROS_LEGALES",
-      nombreCompleto: null,
-      parentesco: null,
-      domicilio: null,
+    origenFondos: "Ingresos laborales (sueldo o salario)",
+  },
+  beneficiario: {
+    tipo: "HEREDEROS_LEGALES",
+    nombreCompleto: null,
+    parentesco: null,
+    domicilio: null,
     numeroCedula: null,
-    },
   },
   declaraciones: DECLARACIONES_TODAS_COMPATIBLES,
   medioDePago: "QR_BANCARD",
@@ -173,6 +178,7 @@ const PEP_POSITIVO: PersonaDemo = {
     sexo: "Masculino",
     nacionalidad: "Paraguaya",
     paisNacimiento: "Paraguay",
+    paisResidencia: "Paraguay",
     estadoCivil: "Casado",
     captura: capturaAprobada("pep-positivo"),
   },
@@ -185,15 +191,16 @@ const PEP_POSITIVO: PersonaDemo = {
     profesion: "Abogado/a",
     empresa: "Ministerio de Obras Públicas",
     ingresoMensualDeclaradoGs: 14_000_000,
-    beneficiario: {
-      tipo: "PERSONA_DESIGNADA",
-      nombreCompleto: "Silvia Raquel Duarte Ocampos",
-      parentesco: "Cónyuge",
-      domicilio: "Calle Palma 812, Centro, Asunción",
-      // Sin cédula a propósito: el campo es opcional y la persona de prueba
-      // ejercita justamente el caso de que se deje vacío (CMP-21).
-      numeroCedula: null,
-    },
+    origenFondos: "Actividad comercial o empresarial",
+  },
+  beneficiario: {
+    tipo: "PERSONA_DESIGNADA",
+    nombreCompleto: "Silvia Raquel Duarte Ocampos",
+    parentesco: "Cónyuge",
+    domicilio: "Calle Palma 812, Centro, Asunción",
+    // Sin cédula a propósito: el campo es opcional y la persona de prueba
+    // ejercita justamente el caso de que se deje vacío (CMP-21).
+    numeroCedula: null,
   },
   declaraciones: { ...DECLARACIONES_TODAS_COMPATIBLES, condicionPep: "SI" },
   medioDePago: "QR_BANCARD",
@@ -224,6 +231,7 @@ const SALUD_INCOMPATIBLE: PersonaDemo = {
     sexo: "Femenino",
     nacionalidad: "Paraguaya",
     paisNacimiento: "Paraguay",
+    paisResidencia: "Paraguay",
     estadoCivil: "Divorciada",
     captura: capturaAprobada("salud-incompatible"),
   },
@@ -236,13 +244,14 @@ const SALUD_INCOMPATIBLE: PersonaDemo = {
     profesion: "Comerciante",
     empresa: null,
     ingresoMensualDeclaradoGs: 5_200_000,
-    beneficiario: {
-      tipo: "HEREDEROS_LEGALES",
-      nombreCompleto: null,
-      parentesco: null,
-      domicilio: null,
+    origenFondos: "Ejercicio de profesión independiente",
+  },
+  beneficiario: {
+    tipo: "HEREDEROS_LEGALES",
+    nombreCompleto: null,
+    parentesco: null,
+    domicilio: null,
     numeroCedula: null,
-    },
   },
   declaraciones: {
     ...DECLARACIONES_TODAS_COMPATIBLES,
@@ -277,6 +286,7 @@ const BIOMETRIA_RECHAZADA: PersonaDemo = {
     sexo: "Masculino",
     nacionalidad: "Paraguaya",
     paisNacimiento: "Paraguay",
+    paisResidencia: "Paraguay",
     estadoCivil: "Soltero",
     captura: {
       hashFrenteCedula: hashSimulado("biometria-rechazada:cedula-frente"),
@@ -298,13 +308,14 @@ const BIOMETRIA_RECHAZADA: PersonaDemo = {
     profesion: "Técnico/a en logística",
     empresa: "Logística del Este S.R.L.",
     ingresoMensualDeclaradoGs: 6_800_000,
-    beneficiario: {
-      tipo: "HEREDEROS_LEGALES",
-      nombreCompleto: null,
-      parentesco: null,
-      domicilio: null,
+    origenFondos: "Jubilación o pensión",
+  },
+  beneficiario: {
+    tipo: "HEREDEROS_LEGALES",
+    nombreCompleto: null,
+    parentesco: null,
+    domicilio: null,
     numeroCedula: null,
-    },
   },
   // Nunca llega a responderlas: el recorrido se detiene en P5.
   declaraciones: DECLARACIONES_TODAS_COMPATIBLES,
@@ -339,6 +350,7 @@ const NO_FIRMA: PersonaDemo = {
     sexo: "Femenino",
     nacionalidad: "Paraguaya",
     paisNacimiento: "Paraguay",
+    paisResidencia: "Paraguay",
     estadoCivil: "Casada",
     captura: capturaAprobada("no-firma"),
   },
@@ -351,13 +363,14 @@ const NO_FIRMA: PersonaDemo = {
     profesion: "Docente",
     empresa: "Colegio Nacional Santa Ana",
     ingresoMensualDeclaradoGs: 4_900_000,
-    beneficiario: {
-      tipo: "HEREDEROS_LEGALES",
-      nombreCompleto: null,
-      parentesco: null,
-      domicilio: null,
+    origenFondos: "Rentas o inversiones",
+  },
+  beneficiario: {
+    tipo: "HEREDEROS_LEGALES",
+    nombreCompleto: null,
+    parentesco: null,
+    domicilio: null,
     numeroCedula: null,
-    },
   },
   declaraciones: DECLARACIONES_TODAS_COMPATIBLES,
   medioDePago: "QR_BANCARD",

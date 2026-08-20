@@ -13,7 +13,7 @@ import {
   avanzarHastaIdentidadVerificada,
   certificadoFixture,
   crearExpediente,
-  datosComplementariosFixture,
+  beneficiarioFixture,
   declaracionesCompatibles,
   expedienteFirmado,
   pagoConfirmadoFixture,
@@ -79,7 +79,7 @@ describe("transicionarExpediente", () => {
     const declaraciones = registrarDeclaracionesP6(
       expediente,
       declaracionesCompatibles,
-      datosComplementariosFixture,
+      beneficiarioFixture,
           NUMERO_CASO_FIJO,
     );
     expect(declaraciones.ok).toBe(true);
@@ -111,7 +111,7 @@ describe("transicionarExpediente", () => {
     const declaraciones = registrarDeclaracionesP6(
       expediente,
       declaracionesCompatibles,
-      datosComplementariosFixture,
+      beneficiarioFixture,
           NUMERO_CASO_FIJO,
     );
     if (!declaraciones.ok) throw new Error(declaraciones.error);
@@ -149,7 +149,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
     const resultado = registrarDeclaracionesP6(
       expediente,
       { ...declaracionesCompatibles, condicionPep: "SI" }, // #8 incompatible
-      datosComplementariosFixture,
+      beneficiarioFixture,
           NUMERO_CASO_FIJO,
     );
 
@@ -166,7 +166,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
     const resultado = registrarDeclaracionesP6(
       expediente,
       declaracionesCompatibles,
-      datosComplementariosFixture,
+      beneficiarioFixture,
           NUMERO_CASO_FIJO,
     );
 
@@ -183,7 +183,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
     const resultado = registrarDeclaracionesP6(
       expediente,
       { ...declaracionesCompatibles, condicionPep: "SI" },
-      datosComplementariosFixture,
+      beneficiarioFixture,
           "   ",
     );
 
@@ -202,7 +202,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
     const derivado = registrarDeclaracionesP6(
       expediente,
       { ...declaracionesCompatibles, estadoDeSalud: "NO" }, // #1 incompatible
-      datosComplementariosFixture,
+      beneficiarioFixture,
           NUMERO_CASO_FIJO,
     );
     if (!derivado.ok) throw new Error(derivado.error);

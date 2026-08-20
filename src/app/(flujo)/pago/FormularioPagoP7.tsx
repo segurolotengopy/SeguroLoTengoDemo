@@ -13,6 +13,7 @@ import {
   AVISO_PLAZO_VENCIDO_P7,
   BOTON_CONTINUAR_P7,
   BOTON_PAGAR_Y_CONTRATAR_P7,
+  TEXTO_ACEPTACION_CERTIFICADO_P7,
   DEPENDENCIA_BANCARD_P7,
   IDENTIFICADOR_BANCARD_PENDIENTE_P7,
   MEDIO_POR_DEFECTO_P7,
@@ -150,6 +151,9 @@ export function FormularioPagoP7() {
   const router = useRouter();
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [ruc, setRuc] = useState("");
+  // CHG-37 · la única casilla obligatoria del paso (maqueta p.7). Arranca
+  // desmarcada: lo que autoriza ocurre después del cobro.
+  const [aceptaCertificado, setAceptaCertificado] = useState(false);
   const [medio, setMedio] = useState<MedioDePago>(MEDIO_POR_DEFECTO_P7);
 
   const [generando, setGenerando] = useState(false);
@@ -314,7 +318,7 @@ export function FormularioPagoP7() {
         method: "POST",
         headers: { "content-type": "application/json" },
         // El monto no viaja: lo pone el servidor desde el plan del expediente.
-        body: JSON.stringify({ medio, ruc }),
+        body: JSON.stringify({ medio, ruc, aceptaCertificadoYEntrega: aceptaCertificado }),
       });
       const datos = (await respuesta.json().catch(() => ({}))) as RespuestaInicio;
 
@@ -513,13 +517,31 @@ export function FormularioPagoP7() {
           </div>
         ) : null}
 
+        {/* CHG-37 · autoriza dos cosas que pasan después del cobro: que se
+            emita el Certificado de Cobertura Provisional y que la póliza y la
+            factura viajen a los canales verificados. Va antes del botón y
+            deshabilitado el botón hasta marcarla, porque marcarla es la
+            condición para que exista una operación en Bancard. */}
+        {!confirmado ? (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2.5 text-xs text-cuerpo">
+            <input
+              id="p7-acepta-certificado"
+              type="checkbox"
+              checked={aceptaCertificado}
+              onChange={(evento) => setAceptaCertificado(evento.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-naranja-500"
+            />
+            {TEXTO_ACEPTACION_CERTIFICADO_P7}
+          </label>
+        ) : null}
+
         {/* Acción: generar el QR / abrir el formulario seguro */}
         {!confirmado ? (
           <div className="flex flex-col gap-2">
             <button
               type="button"
               onClick={() => void generar()}
-              disabled={generando}
+              disabled={generando || !aceptaCertificado}
               className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
             >
               {generando ? "Comunicando con Bancard…" : (textoMedio?.botón ?? "Continuar")}

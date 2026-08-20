@@ -14,6 +14,7 @@ import {
   esActividad,
   esCiudad,
   esIngresoMensualValido,
+  esOrigenFondos,
   esParentesco,
   esProfesion,
   esSituacionLaboral,
@@ -113,20 +114,21 @@ describe("personas de demo · consistencia del catálogo", () => {
         esIngresoMensualValido(datos.ingresoMensualDeclaradoGs),
         `${rotulo}: ingreso mensual inválido`,
       ).toBe(true);
-      if (datos.beneficiario.tipo === "PERSONA_DESIGNADA") {
-        expect(
-          esParentesco(datos.beneficiario.parentesco),
-          `${rotulo}: parentesco fuera del catálogo`,
-        ).toBe(true);
-      }
+      expect(
+        esOrigenFondos(datos.origenFondos),
+        `${rotulo}: origen de fondos fuera del catálogo`,
+      ).toBe(true);
     }
   });
 
   it("un beneficiario designado tiene nombre; los herederos legales no", () => {
-    for (const { rotulo, datosComplementarios } of PERSONAS_DEMO) {
-      const { beneficiario } = datosComplementarios;
+    for (const { rotulo, beneficiario } of PERSONAS_DEMO) {
       if (beneficiario.tipo === "PERSONA_DESIGNADA") {
         expect(beneficiario.nombreCompleto, `${rotulo}: designado sin nombre`).toBeTruthy();
+        expect(
+          esParentesco(beneficiario.parentesco),
+          `${rotulo}: parentesco fuera del catálogo`,
+        ).toBe(true);
       } else {
         expect(beneficiario.nombreCompleto, `${rotulo}: heredero legal con nombre`).toBeNull();
       }

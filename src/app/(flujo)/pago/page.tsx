@@ -1,7 +1,12 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
+import {
+  BarraPlanDelExpediente,
+  HeaderInstitucional,
+  StepperPasos,
+  TituloDePantalla,
+} from "@/components/shared";
 import { ADVERTENCIA_P7, LEYENDA_PROCESADOR_P7, TITULO_P7 } from "@/domain/textos-p7";
 import { FormularioPagoP7 } from "./FormularioPagoP7";
 
@@ -43,15 +48,8 @@ export default function PantallaP7Pago() {
           formatoPremio="premio-anual"
         />
 
-        <header className="flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-4">
-          <h1 className="shrink-0 text-xl font-bold text-titulo sm:text-2xl">{TITULO_P7}</h1>
-          <p className="text-sm text-cuerpo">
-            <span className="font-semibold text-naranja-700 dark:text-naranja-300">
-              {ADVERTENCIA_P7}
-            </span>{" "}
-            {LEYENDA_PROCESADOR_P7}
-          </p>
-        </header>
+        <TituloDePantalla titulo={TITULO_P7} subtitulo={ADVERTENCIA_P7} />
+        <p className="text-center text-xs text-cuerpo">{LEYENDA_PROCESADOR_P7}</p>
 
         <FormularioPagoP7 />
 
