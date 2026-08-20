@@ -36,7 +36,21 @@ export default defineConfig({
   // verificaciones. El margen es deliberadamente holgado: acá un timeout no
   // detecta bugs, solo mata corridas lentas a medio camino.
   timeout: 180_000,
-  expect: { timeout: 15_000 },
+  /**
+   * 30 s por aserción, no 15.
+   *
+   * Esta batería no corre contra dobles: habla con DynamoDB, S3 y Secrets
+   * Manager **reales**. Los pasos que cierran un expediente —confirmar
+   * identidad, pagar, firmar— hacen varias idas y vueltas a AWS antes de
+   * navegar, y cuando los siete escenarios corren seguidos esas idas y vueltas
+   * se encolan. Con 15 s aparecían fallos que cambiaban de escenario en cada
+   * corrida y pasaban de a uno en aislamiento: el síntoma clásico de un
+   * presupuesto de espera más corto que la operación que se está esperando.
+   *
+   * El precio es enterarse más tarde de una regresión de verdad. Se paga: un
+   * rojo tardío es molesto, uno intermitente entrena a ignorar la batería.
+   */
+  expect: { timeout: 30_000 },
   fullyParallel: false,
   workers: 1,
   retries: 0,

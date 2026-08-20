@@ -325,7 +325,9 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
   await page.locator("#p6-ingreso").fill(String(datos.ingresoMensualDeclaradoGs));
 
   if (datos.beneficiario.tipo === "PERSONA_DESIGNADA") {
-    await page.getByRole("radio", { name: "Designar una persona — 100%" }).check();
+    const beneficiarioDesignado = page.getByRole("radio", { name: "Designar una persona — 100%" });
+    await beneficiarioDesignado.click();
+    await expect(beneficiarioDesignado).toBeChecked();
     await page.locator("#p6-benef-nombre").fill(datos.beneficiario.nombreCompleto ?? "");
     await page.locator("#p6-benef-parentesco").selectOption(datos.beneficiario.parentesco ?? "");
     await page.locator("#p6-benef-domicilio").fill(datos.beneficiario.domicilio ?? "");
@@ -342,7 +344,15 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
     // recomienda para checkboxes/radios estilizados así: el estado marcado
     // se verifica igual (`.check()` espera `checked`), lo que se salta es el
     // chequeo de accionabilidad visual del <input> en sí, no la interacción.
-    await page.getByRole("radio", { name: `${numero}. ${titulo}: ${opcion}` }).check({ force: true });
+    // Clic y aserción en vez de `.check()`. El `checked` de estos radios lo
+    // controla React, y `.check()` verifica el estado **en el instante**: si
+    // la re-renderización llega un latido después, reporta "clicking the
+    // checkbox did not change its state" y falla algo que sí funcionó. El
+    // `expect` que sigue espera con el presupuesto de la suite, así que la
+    // garantía es la misma sin la carrera.
+    const radio = page.getByRole("radio", { name: `${numero}. ${titulo}: ${opcion}` });
+    await radio.click({ force: true });
+    await expect(radio).toBeChecked();
   }
 }
 
