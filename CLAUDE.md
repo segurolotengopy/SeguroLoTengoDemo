@@ -21,11 +21,11 @@ Interseguros del 18-ago-2026 y de la **Matriz Legal Final V4** (16-ago-2026).
 Mientras dure, la jerarquía de fuentes cambia y hay que leer estos tres
 documentos **antes** que `ESPECIFICACION_PANTALLAS.md`:
 
-| Documento | Qué manda |
-| :---- | :---- |
+| Documento                              | Qué manda                                                                                                                                                                         |
+| :------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `docs/normativa/matriz 16 08 2026.pdf` | **Fuente maestra de cumplimiento.** Donde contradiga a `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`, prevalece la matriz V4; el CSV sigue vigente para todo lo no contradicho. |
-| `docs/plan/PLAN_DE_CAMBIOS_v2.md` | Alcance, matriz de trazabilidad (TRV/CHG/CMP), diseño de la máquina de estados nueva y los lotes L1–L6 con sus criterios de aceptación. |
-| `docs/plan/DECISIONES.md` | Las 22 decisiones ya tomadas (D-01…D-22). **Ninguna decisión marcada `PENDIENTE` se implementa.** |
+| `docs/plan/PLAN_DE_CAMBIOS_v2.md`      | Alcance, matriz de trazabilidad (TRV/CHG/CMP), diseño de la máquina de estados nueva y los lotes L1–L6 con sus criterios de aceptación.                                           |
+| `docs/plan/DECISIONES.md`              | Las 22 decisiones ya tomadas (D-01…D-22). **Ninguna decisión marcada `PENDIENTE` se implementa.**                                                                                 |
 
 Contexto adicional en `docs/antecedentes/` (transcripción de la reunión y
 wireframes `PantallasDemo2.pdf`), `docs/normativa/` (resoluciones de la SIS) y
@@ -63,47 +63,57 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 
 **Convención:** la documentación técnica que publica un proveedor externo (Code100, Bancard, y más adelante Infobip, Entrust, ComplyAdvantage, SEBAOT) vive agrupada en `docs/Integraciones/`. En la raíz de `docs/` quedan los documentos propios del proyecto y del producto: especificaciones, formularios, matriz de cumplimiento y catálogo de integraciones. Un PDF de proveedor nuevo va en `docs/Integraciones/`, nunca suelto en la raíz.
 
-| Archivo | Úsalo para... |
-| :---- | :---- |
-| `GUIA_DE_ESTILOS.md` | Fuente de verdad de colores, tipografía (DM Sans) y uso de logos/isologos de Alianza e Interseguros, en pantallas, favicon y PDFs. La paleta reemplaza por decisión de producto a la descripta en ESPECIFICACION_PANTALLAS.md. |
-| `Solicitud.pdf` | Estructura exacta y campos obligatorios de la Solicitud de Seguro (proponente, planes/coberturas, beneficiario, declaración médica, declaraciones finales, firma). El servicio de generación de PDF interno debe respetar estos campos y su orden. |
-| `FIPF.pdf` | Formulario de Identificación de Persona Física (SEPRELAD): campos personales, laborales, económicos, origen de fondos, condición PEP. Referencia obligatoria del modelo de datos de KYC/AML — ya reflejado parcialmente en `DatosComplementariosP6` de `src/domain/tipos.ts`. |
-| `Integraciones/Documentacion Firmador - API FLOW.pdf` | Contrato técnico exacto de la API de Code100 (`POST /signature/auth`, `GET /signature/session-start`, `POST /signature/getSessionId`, `POST /signature/sign-pdf`). Gobierna el futuro adaptador oficial de `SignatureProvider` en `src/adapters/live/`. No inventar parámetros ni endpoints distintos a los documentados ahí. |
-| `Integraciones/eCommerce_bancard_compra_simple_version_1.23.1 (1).pdf`, `Integraciones/Preaut y promociones 14.pdf`, `Integraciones/Qr en API de Comercios v1.2 16 (1).pdf` | Contrato técnico exacto de las APIs de Bancard: compra simple de eCommerce, preautorización y captura, y QR de comercios. Gobiernan el futuro adaptador oficial de `PaymentProvider` (P7). Mismo criterio que con Code100: no inventar parámetros ni endpoints. |
-| `RECOMENDACIONES_ONBOARDING_IDENTIDAD.md` | Estrategia de P5 (Rekognition/Textract para demo y piloto, brecha de autenticidad documental, RFP para producción) y **§7: los parámetros internacionales de calidad de rostro, prueba de vida y coincidencia facial**, con su procedencia. Los números viven implementados en `src/domain/identidad-parametros.ts`; ese documento explica por qué son esos. |
-| `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` | Matriz normativa (Número, Categoría R1–R8, Título, Norma y Artículo). Fuente de verdad regulatoria del proyecto — ver "Regla de trabajo con los documentos" abajo. |
-| `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf` | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable. |
-| `Cumplimiento SeguroLoTengo.pdf` | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario. |
-| `CONFIGURACION_SES.md` | Guía operativa del OTP de correo (P4) sobre Amazon SES: sandbox y sus tres límites, verificación de remitente y destinatarios, salida a producción, deliverability con dominio propio, y el reparto de permisos entre el rol de cómputo y el usuario local. Leela antes de tocar `INTEGRATION_OTP_EMAIL` o `infra/ses-correo-otp.tf`. |
-| `SeguroLoTengo_Asistente_IA_y_Configuracion.pdf` | Especificación del asistente Terra — **fuera de alcance de esta demo por ahora**, ver sección "Asistente IA (Terra)" más abajo. |
+| Archivo                                                                                                                                                                     | Úsalo para...                                                                                                                                                                                                                                                                                                                                                |
+| :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GUIA_DE_ESTILOS.md`                                                                                                                                                        | Fuente de verdad de colores, tipografía (DM Sans) y uso de logos/isologos de Alianza e Interseguros, en pantallas, favicon y PDFs. La paleta reemplaza por decisión de producto a la descripta en ESPECIFICACION_PANTALLAS.md.                                                                                                                               |
+| `Solicitud.pdf`                                                                                                                                                             | Estructura exacta y campos obligatorios de la Solicitud de Seguro (proponente, planes/coberturas, beneficiario, declaración médica, declaraciones finales, firma). El servicio de generación de PDF interno debe respetar estos campos y su orden.                                                                                                           |
+| `FIPF.pdf`                                                                                                                                                                  | Formulario de Identificación de Persona Física (SEPRELAD): campos personales, laborales, económicos, origen de fondos, condición PEP. Referencia obligatoria del modelo de datos de KYC/AML — ya reflejado parcialmente en `DatosComplementariosP6` de `src/domain/tipos.ts`.                                                                                |
+| `Integraciones/Documentacion Firmador - API FLOW.pdf`                                                                                                                       | Contrato técnico exacto de la API de Code100 (`POST /signature/auth`, `GET /signature/session-start`, `POST /signature/getSessionId`, `POST /signature/sign-pdf`). Gobierna el futuro adaptador oficial de `SignatureProvider` en `src/adapters/live/`. No inventar parámetros ni endpoints distintos a los documentados ahí.                                |
+| `Integraciones/Code100 - Respuestas C1 a C12.md` | **Respuestas del proveedor a las doce consultas técnicas** (20-ago-2026). Fuente de verdad de qué puede y qué no puede hacer Api Flow. Lo que manda: **firma exclusivamente con certificado cualificado que el firmante ya tenga**, así que **no puede recibir la firma del cliente**; no registra IP ni dispositivo; no emite acta de evidencias; las tres firmas van en fila india. Leerlo antes de tocar `SignatureProvider`. |
+| `Integraciones/eCommerce_bancard_compra_simple_version_1.23.1 (1).pdf`, `Integraciones/Preaut y promociones 14.pdf`, `Integraciones/Qr en API de Comercios v1.2 16 (1).pdf` | Contrato técnico exacto de las APIs de Bancard: compra simple de eCommerce, preautorización y captura, y QR de comercios. Gobiernan el futuro adaptador oficial de `PaymentProvider` (P7). Mismo criterio que con Code100: no inventar parámetros ni endpoints.                                                                                              |
+| `RECOMENDACIONES_ONBOARDING_IDENTIDAD.md`                                                                                                                                   | Estrategia de P5 (Rekognition/Textract para demo y piloto, brecha de autenticidad documental, RFP para producción) y **§7: los parámetros internacionales de calidad de rostro, prueba de vida y coincidencia facial**, con su procedencia. Los números viven implementados en `src/domain/identidad-parametros.ts`; ese documento explica por qué son esos. |
+| `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`                                                                                                                             | Matriz normativa (Número, Categoría R1–R8, Título, Norma y Artículo). Fuente de verdad regulatoria del proyecto — ver "Regla de trabajo con los documentos" abajo.                                                                                                                                                                                           |
+| `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf`                                                                  | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable.   |
+| `Cumplimiento SeguroLoTengo.pdf`                                                                                                                                            | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario.                                                                                                                                                                                                                                    |
+| `CONFIGURACION_SES.md`                                                                                                                                                      | Guía operativa del OTP de correo (P4) sobre Amazon SES: sandbox y sus tres límites, verificación de remitente y destinatarios, salida a producción, deliverability con dominio propio, y el reparto de permisos entre el rol de cómputo y el usuario local. Leela antes de tocar `INTEGRATION_OTP_EMAIL` o `infra/ses-correo-otp.tf`.                        |
+| `SeguroLoTengo_Asistente_IA_y_Configuracion.pdf`                                                                                                                            | Especificación del asistente Terra — **fuera de alcance de esta demo por ahora**, ver sección "Asistente IA (Terra)" más abajo.                                                                                                                                                                                                                              |
 
 ---
 
 ## Comandos
 
-npm run dev          \# desarrollo local
+npm run dev \# desarrollo local
 
-npm run build        \# build de producción
+npm run build \# build de producción
 
-npm run lint         \# ESLint
+npm run lint \# ESLint
 
-npm run typecheck    \# tsc \--noEmit
+npm run typecheck \# tsc \--noEmit
 
-npm test             \# tests unitarios y de contrato
+npm test \# tests unitarios y de contrato
 
-npm run test:e2e     \# Playwright, escenarios completos
+npm run test:e2e \# Playwright, escenarios completos
+
+npm run otp:requerimiento -- +59XXXXXXXXX \# manda un OTP REAL por WhatsApp
 
 Antes de cualquier commit: `npm run typecheck && npm run lint && npm test` deben pasar.
+
+> **`otp:requerimiento` manda mensajes de verdad.** Antes de correrlo, leé
+> [`docs/MENSAJERIA_REAL_PASOS.md`](docs/MENSAJERIA_REAL_PASOS.md) → "Enviar
+> OTPs de WhatsApp a mano". La condición que hace que llegue o no: **el
+> destinatario tiene que haberle escrito primero al número de prueba de Meta**,
+> porque hoy el OTP sale como texto de sesión y Meta solo lo entrega dentro de
+> la ventana de 24 h. Sin eso, el envío se acepta con 202 y nunca llega.
 
 ---
 
 ## Stack
 
-- **Next.js 15** (App Router, TypeScript estricto) — fijo en 15, no subir a 16 (límite de Amplify Hosting)  
-- **Tailwind CSS** \+ componentes propios en `src/components/shared`  
-- **DynamoDB** (tabla única) para expedientes y OTP con TTL nativo  
-- **S3** para evidencias y PDFs generados  
-- **AWS Amplify Hosting** (plataforma WEB\_COMPUTE) para deploy  
+- **Next.js 15** (App Router, TypeScript estricto) — fijo en 15, no subir a 16 (límite de Amplify Hosting)
+- **Tailwind CSS** \+ componentes propios en `src/components/shared`
+- **DynamoDB** (tabla única) para expedientes y OTP con TTL nativo
+- **S3** para evidencias y PDFs generados
+- **AWS Amplify Hosting** (plataforma WEB\_COMPUTE) para deploy
 - **Playwright** para E2E, **Vitest** para unitarios
 
 ---
@@ -112,7 +122,7 @@ Antes de cualquier commit: `npm run typecheck && npm run lint && npm test` deben
 
 src/
 
-  app/                    \# App Router: una carpeta por pantalla
+app/ \# App Router: una carpeta por pantalla
 
     (flujo)/plan, whatsapp, preparacion, identidad,
             declaraciones, pago, firma, confirmacion   \# 8 pasos, sin número en el slug
@@ -125,30 +135,30 @@ src/
 
     api/                  \# Route Handlers
 
-  components/shared/      \# cabecera, stepper, barra de plan, campos OTP
+components/shared/ \# cabecera, stepper, barra de plan, campos OTP
 
-  domain/                 \# máquina de estados, reglas de elegibilidad, tipos
+domain/ \# máquina de estados, reglas de elegibilidad, tipos
 
-  documentos/             \# generación de la Solicitud y el FIPF: PDF, QR, hash
+documentos/ \# generación de la Solicitud y el FIPF: PDF, QR, hash
 
-  ports/                  \# las 9 interfaces de proveedores externos
+ports/ \# las 9 interfaces de proveedores externos
 
-  adapters/mock/          \# implementaciones simuladas
+adapters/mock/ \# implementaciones simuladas
 
-  adapters/live/          \# implementaciones oficiales (Rekognition + Textract)
+adapters/live/ \# implementaciones oficiales (Rekognition + Textract)
 
-  repositories/           \# acceso a DynamoDB y S3, detrás de interfaces
+repositories/ \# acceso a DynamoDB y S3, detrás de interfaces
 
-docs/                     \# especificación de pantallas y decisiones
+docs/ \# especificación de pantallas y decisiones
 
-infra/                    \# Terraform
+infra/ \# Terraform
 
 ---
 
 ## Regla de trabajo con los documentos
 
 - **Nunca cites de memoria un artículo de ley.** Si necesitás justificar una regla de negocio, buscá la fila correspondiente en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` y citá Número + Categoría + Norma y Artículo tal como figuran ahí.
-- Si un pedido no tiene fila en esa matriz, decilo explícitamente: *"Esto no tiene respaldo en la matriz de cumplimiento cargada; es una decisión de producto/UX, no una obligación legal"*.
+- Si un pedido no tiene fila en esa matriz, decilo explícitamente: _"Esto no tiene respaldo en la matriz de cumplimiento cargada; es una decisión de producto/UX, no una obligación legal"_.
 - Los PDF (`Solicitud.pdf`, `FIPF.pdf`, `Pantallas Sistema Demo.pdf`) son la fuente de verdad de **estructura de datos y UI**. El CSV de cumplimiento es la fuente de verdad de **obligación legal**. No mezclar ambos como si fueran lo mismo.
 - Ante conflicto entre lo que se pide y lo que exige la matriz de cumplimiento (por ejemplo, saltear un OTP, iniciar cobertura antes del pago, o permitir contratar para un tercero), **priorizá la matriz** y señalá el conflicto en vez de implementarlo en silencio.
 
@@ -158,17 +168,18 @@ infra/                    \# Terraform
 
 Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley 4868/13, Ley 1334/98, Ley 827/96, Res. SS SG. 215/15 y 223/17, Res. SEPRELAD 71/19 y 50/20, Res. BCP 25/21 — ver cita exacta por fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`). El código debe hacerlas **imposibles de violar**, no solo evitarlas.
 
-1. **Un OTP de canal, más el del acto de firma**: celular (paso 2) y firma (paso 6). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. **El OTP de correo se retiró** (D-06 del Plan v2, Lote 2): el correo se declara con doble tipeo dentro de la pantalla de identidad y se respalda con la declaración de veracidad que se firma después. El estado `CANAL_EMAIL_VERIFICADO` sobrevive como legado, sin aristas de entrada, porque hay expedientes históricos ahí (regla #10).  
-2. **Solo el hash del OTP se persiste.** Nunca el código en claro, ni en base, ni en logs, ni en respuestas de API. En modo demo el código se expone únicamente a través del panel de demo, nunca por la API del flujo.  
-3. **Regla atómica de firma, ahora estructural**: la Solicitud y el FIPF son **dos secciones de un mismo PDF** (D-11), con un solo SHA-256 y un solo acto de firma. No existe la operación que podría firmar una y no la otra — la regla dejó de necesitar validaciones que la vigilen y pasó a ser una propiedad del modelo. `FIRMADO_CLIENTE` no es una excepción: nombra el momento en que el cliente ya firmó el documento entero y faltan las firmas institucionales (D-13).  
-4. **El PDF se cierra y se hashea (SHA-256) antes de habilitar la firma.** Cualquier modificación posterior invalida el paquete: hay que regenerar versión y hash.  
-5. **Bloqueo automático de elegibilidad**: una respuesta incompatible en las declaraciones 1, 2, 3 u 8 de P6 detiene la emisión automática y deriva a Pantalla A. Ese estado es **terminal en el flujo digital**: no existe transición desde ahí hacia paquete documental, firma, pago ni emisión.  
+1. **Un OTP de canal, más el del acto de firma**: celular (paso 2) y firma (paso 6). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. **El OTP de correo se retiró** (D-06 del Plan v2, Lote 2): el correo se declara con doble tipeo dentro de la pantalla de identidad y se respalda con la declaración de veracidad que se firma después. El estado `CANAL_EMAIL_VERIFICADO` sobrevive como legado, sin aristas de entrada, porque hay expedientes históricos ahí (regla #10).
+2. **Solo el hash del OTP se persiste.** Nunca el código en claro, ni en base, ni en logs, ni en respuestas de API. En modo demo el código se expone únicamente a través del panel de demo, nunca por la API del flujo.
+3. **Regla atómica de firma, ahora estructural**: la Solicitud y el FIPF son **dos secciones de un mismo PDF** (D-11), con un solo SHA-256 y un solo acto de firma. No existe la operación que podría firmar una y no la otra — la regla dejó de necesitar validaciones que la vigilen y pasó a ser una propiedad del modelo. `FIRMADO_CLIENTE` no es una excepción: nombra el momento en que el cliente ya firmó el documento entero y faltan las firmas institucionales (D-13).
+4. **El PDF se cierra y se hashea (SHA-256) antes de habilitar la firma.** Cualquier modificación posterior invalida el paquete: hay que regenerar versión y hash.
+5. **Bloqueo automático de elegibilidad**: una respuesta incompatible en las declaraciones 1, 2, 3 u 8 de P6 detiene la emisión automática y deriva a Pantalla A. Ese estado es **terminal en el flujo digital**: no existe transición desde ahí hacia paquete documental, firma, pago ni emisión.
 6. **Nunca se persiste PAN completo ni CVV**, en ninguna capa, incluidos logs y trazas de error.
-   
-   6-bis. **No hay cobro sin firma** (D-08, Matriz V4 §7). El único estado desde el que se abre y se confirma una operación en Bancard es `FIRMADO`, al que solo se llega con el paquete cerrado y hasheado, la firma del cliente registrada y las institucionales aplicadas. No existe arista `DECLARACIONES_OK → PAGO_CONFIRMADO`. El corolario es la fila 30 de la matriz cumplida por construcción: el expediente caduca **antes** de cobrar, así que nunca hay premio que devolver por no firmar.  
-7. **Datos sensibles aislados**: las respuestas médicas y la condición PEP no salen hacia analítica, CRM, monitoreo de errores ni servicios de IA. Si agregás cualquier instrumentación, excluí explícitamente esos campos.  
-8. **Edad 18-64 años** verificada contra la fecha de nacimiento extraída de la cédula, no contra un campo declarado.  
-9. **Solo el titular puede contratar** para sí mismo. No existe flujo de contratación para terceros.  
+
+   6-bis. **No hay cobro sin firma** (D-08, Matriz V4 §7). El único estado desde el que se abre y se confirma una operación en Bancard es `FIRMADO`, al que solo se llega con el paquete cerrado y hasheado, la firma del cliente registrada y las institucionales aplicadas. No existe arista `DECLARACIONES_OK → PAGO_CONFIRMADO`. El corolario es la fila 30 de la matriz cumplida por construcción: el expediente caduca **antes** de cobrar, así que nunca hay premio que devolver por no firmar.
+
+7. **Datos sensibles aislados**: las respuestas médicas y la condición PEP no salen hacia analítica, CRM, monitoreo de errores ni servicios de IA. Si agregás cualquier instrumentación, excluí explícitamente esos campos.
+8. **Edad 18-64 años** verificada contra la fecha de nacimiento extraída de la cédula, no contra un campo declarado.
+9. **Solo el titular puede contratar** para sí mismo. No existe flujo de contratación para terceros.
 10. **Evidencia append-only**: fecha, hora, IP, dispositivo, sesión, versión de texto aceptado y resultado de cada paso. Nunca se sobrescribe ni se borra un registro de evidencia.
 11. **Bloqueo de nuevo registro por cédula**: mientras una cédula tenga un expediente en `DERIVADO_MANUAL`, `VENCIDO`, `DEVOLUCION_EN_TRAMITE` o `DEVUELTO` **sin superar**, el flujo digital normal no deja empezar otro con esa cédula. Se aplica en P5, que es donde el sistema conoce la cédula. Solo la consola administrativa levanta el bloqueo, y lo hace creando un expediente **nuevo** enlazado por `expedienteAnteriorId` — nunca reactivando el viejo, que sigue siendo terminal (regla #5). El bloqueo no es un flag editable: se deriva de la cadena de expedientes. Ver `src/domain/consola-administrativa.ts`.
 
@@ -196,7 +207,7 @@ INICIADO → PLAN\_SELECCIONADO → CANAL\_WA\_VERIFICADO → AUTORIZADO
 
 `FIRMADO_CLIENTE` es el estado entre la firma del cliente y las institucionales de Interseguros y Alianza (D-13). Existe como estado propio y no como un campo porque un sellado a medio hacer tiene que ser distinguible de un expediente sin firmar (regla inviolable #3): si Code100 confirma la firma del cliente y las institucionales fallan, el expediente queda ahí y el cobro sigue inhabilitado.
 
-`PAGO_CONFIRMADO` significa *"el dinero entró"* y, desde D-12, **también** que existe el Certificado de Cobertura Provisional: los dos entran por la misma transición, así que no hay estado intermedio en el que uno exista sin el otro (CMP-07). Ver "El Certificado de Cobertura Provisional" más abajo.
+`PAGO_CONFIRMADO` significa _"el dinero entró"_ y, desde D-12, **también** que existe el Certificado de Cobertura Provisional: los dos entran por la misma transición, así que no hay estado intermedio en el que uno exista sin el otro (CMP-07). Ver "El Certificado de Cobertura Provisional" más abajo.
 
 `EMITIDO` significa **solicitud aceptada y emisión ordenada**, no "póliza en mano": P9 lo muestra como `Solicitud aceptada ✓` junto a `Póliza en preparación ⋯`. El estado del documento vive aparte, en `Expediente.poliza`, y lo mueve Alianza (SEBAOT y SIFEN) a su ritmo — por eso son dos cosas distintas. La póliza **conserva el correlativo de la propuesta**: SEBAOT no acuña un número nuevo. El correlativo lo acuña ahora el **cierre del paquete documental**, no el pago: los documentos se cierran antes de firmarse, así que el número nace con ellos (`generarNumeroPropuesta` en `src/documentos/servicio.ts`).
 
@@ -228,7 +239,7 @@ Dos invariantes que la configuración no puede romper, las dos con test: **el cl
 
 Cada firma institucional aplicada queda en `Expediente.firmasInstitucionales` con su rol, nivel, modalidad y certificado, visible en la consola: un expediente `FIRMADO` que no dijera quién lo firmó no probaría nada. El certificado es simulado mientras Code100 sea un mock y la referencia lo dice (`DEMO-CERT-…`).
 
-**Divergencia declarada:** la Matriz V4 §2 dice que *"Alianza no firma la propuesta salvo exigencia del modelo"*; D-13 establece lo contrario y manda D-13. ALR-07 registra que Rodrigo y Legal actualicen la matriz.
+**Divergencia declarada:** la Matriz V4 §2 dice que _"Alianza no firma la propuesta salvo exigencia del modelo"_; D-13 establece lo contrario y manda D-13. ALR-07 registra que Rodrigo y Legal actualicen la matriz.
 
 ### Contrato oficial de `SignatureProvider` (Code100)
 
@@ -241,15 +252,27 @@ POST /signature/getSessionId    → code, state, cert_info (estado de firma)
 POST /signature/sign-pdf        → pdf_base64 firmado (documents_signeds)
 ```
 
-Reglas no negociables de esa integración: el documento único viaja en **un** `session_id` —con D-11 ya no hay dos archivos que pudieran ir en llamadas separadas—; se cierra (hash + versión) antes de enviarse a firmar; el orden de firmas es cliente (no cualificada) → Interseguros y Alianza (cualificada), nunca al revés, y sale de `firmantes-documento.ts`; se registran PDF, hash, canal, `session_id`, firmantes, fecha, hora, IP y callbacks.
+Reglas no negociables de esa integración: el documento único viaja en **un** `session_id` —con D-11 ya no hay dos archivos que pudieran ir en llamadas separadas—; se cierra (hash + versión) antes de enviarse a firmar; el orden de firmas es cliente → Interseguros → Alianza, **una después de otra y nunca al revés** (el proveedor confirmó que en paralelo produce documentos incompatibles), y sale de `firmantes-documento.ts`; se registran PDF, hash, canal, `session_id`, firmantes, fecha, hora, IP y callbacks.
+
+**Code100 no puede recibir la firma del cliente, y eso ya está respondido por escrito.**
+`docs/Integraciones/Code100 - Respuestas C1 a C12.md` (C1): Api Flow firma **exclusivamente con
+certificado cualificado que el firmante ya tenga emitido a su nombre**, y no existe flujo alternativo.
+El cliente de CONFÍO no lo tiene. Así que el adaptador oficial de `SignatureProvider`, cuando se
+escriba, cubre **las firmas institucionales**; quién ejecuta la del cliente es decisión de Gerencia y
+Legal (D1 del informe del 20-ago-2026), con la opción recomendada de que la resuelva SeguroLoTengo
+sobre lo que la plataforma ya hace: identidad verificada, OTP de un solo uso, IP, sello de tiempo y
+huella. Dos datos del proveedor que empujan en esa dirección: **no registra IP ni dispositivo del
+firmante** y **no emite acta de evidencias descargable**, así que el respaldo probatorio lo produce y
+conserva el portal de todos modos. **Ninguna pantalla nombra al proveedor**: dicen «te enviaremos un
+enlace» y «te confirmaremos la firma», y quedan válidas se decida lo que se decida.
 
 ### Confirmación de firma: dos vías, un `session_id` (CHG-33)
 
 La confirmación de que el cliente firmó llega por **dos** caminos, y los dos pueden llegar por el mismo acto: el sondeo de la pantalla cada dos segundos, y el retorno del navegador cuando la persona vuelve de la ventana de Code100 (`POST /api/p8/retorno`). La que llega primero transiciona; la segunda encuentra el expediente firmado, responde lo mismo con `duplicada: true` y deja evidencia propia (`P8_CONFIRMACION_DUPLICADA`). La idempotencia es por `session_id`, que es el `idCode100` del acto abierto.
 
-El origen (`SONDEO` / `RETORNO_NAVEGADOR` / `WEBHOOK`) viaja a la evidencia: *"¿por dónde se enteró el sistema de que esto se firmó?"* es una pregunta de auditoría, no de depuración.
+El origen (`SONDEO` / `RETORNO_NAVEGADOR` / `WEBHOOK`) viaja a la evidencia: _"¿por dónde se enteró el sistema de que esto se firmó?"_ es una pregunta de auditoría, no de depuración.
 
-**No hay webhook, y no es un olvido.** La documentación de Code100 expone cuatro endpoints y ninguno es un callback servidor a servidor; la única aparición de *callback* es el `redirect_uri` de OAuth. Inventarle payload y verificación sería inventar el contrato, así que `WEBHOOK` está declarado en el tipo pero sin implementación: queda como PEN-02. Ninguna ruta de retorno confía en lo que dice el navegador — recibe el aviso de que volvió y le pregunta al proveedor.
+**No hay webhook, y no es un olvido.** La documentación de Code100 expone cuatro endpoints y ninguno es un callback servidor a servidor; la única aparición de _callback_ es el `redirect_uri` de OAuth. Inventarle payload y verificación sería inventar el contrato, así que `WEBHOOK` está declarado en el tipo pero sin implementación: queda como PEN-02. Ninguna ruta de retorno confía en lo que dice el navegador — recibe el aviso de que volvió y le pregunta al proveedor.
 
 ### Idempotencia de webhooks (Bancard y Code100)
 
@@ -347,8 +370,8 @@ Segundo adaptador de AWS, para **demostrar el recorrido a distancia con cédulas
 
 Tiene tres relajaciones, y las tres están selladas en la evidencia con `VERSION_POLITICA_IDENTIDAD_DEMO`:
 
-1. **Sin prueba de vida** — `decidirPresenciaDemo` verifica que haya un rostro único, nítido y sin oclusión. Es *presencia*, no vida: una foto impresa frente a la cámara pasaría. Se llama distinto a propósito, para que la evidencia no afirme haber verificado algo que nadie verificó.
-2. **Umbral facial 90 (`UMBRAL_COINCIDENCIA_FACIAL_DEMO`), no 99.** El 99 compara contra el retrato digital de la cédula; acá el retrato es una foto de un plástico con reflejos, y a 99 se rechaza al propio titular. **`UMBRAL_COINCIDENCIA_FACIAL` sigue en 99 y sus tests siguen en verde** — bajar *ese* sigue poniendo la suite en rojo a propósito.
+1. **Sin prueba de vida** — `decidirPresenciaDemo` verifica que haya un rostro único, nítido y sin oclusión. Es _presencia_, no vida: una foto impresa frente a la cámara pasaría. Se llama distinto a propósito, para que la evidencia no afirme haber verificado algo que nadie verificó.
+2. **Umbral facial 90 (`UMBRAL_COINCIDENCIA_FACIAL_DEMO`), no 99.** El 99 compara contra el retrato digital de la cédula; acá el retrato es una foto de un plástico con reflejos, y a 99 se rechaza al propio titular. **`UMBRAL_COINCIDENCIA_FACIAL` sigue en 99 y sus tests siguen en verde** — bajar _ese_ sigue poniendo la suite en rojo a propósito.
 3. **OCR aproximado sin MRZ** (`cedula-aproximada.ts`), con heurísticas de rótulo y "la fecha más antigua es la de nacimiento". Con MRZ presente no se usa: el MRZ trae dígitos verificadores y siempre gana.
 
 **El constructor tira si `DEMO_MODE` no es `"true"`.** Las tres relajaciones juntas permitirían firmar un seguro de vida con la foto de otra persona, así que un despliegue de producción que apuntara acá por error no arranca en vez de aprobar identidades con criterio de demo. Las referencias de evidencia llevan prefijo `DEMO-` para que se distingan de un vistazo en la consola administrativa.
@@ -389,29 +412,29 @@ El plazo que el panel acorta es el de D-10 —24 horas para **pagar** un expedie
 
 **El acto de firma también se puede completar sin abrir el panel**, desde el modal de P8 (`ModalFirmadorSimulado.tsx` + `/api/p8/firmador-simulado`, extensión `route.demo.ts`). Es la misma simulación de Code100, presentada como lo que es —la ventana del proveedor, no una pantalla de SeguroLoTengo— y existe para no tener que mostrar la consola de trucos en una demostración por pantalla compartida. **Nunca muestra el código**: lo recibe tipeado (regla inviolable #2). A diferencia del endpoint del panel, no acepta `idCode100` del cliente: lo saca del expediente de la sesión, y esa es la propiedad que reemplaza a la clave del panel.
 
-El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. La palanca de *cortar el sellado a la mitad* que llevaba antes **desapareció con D-11**: con un solo documento no hay dos archivos que puedan quedar a medias. La falla equivalente —y la que sí tiene un estado que mostrar— es `FIRMAS_INSTITUCIONALES_FALLAN`, que vive en el panel: el cliente firma, las cualificadas no llegan y el expediente queda en `FIRMADO_CLIENTE` con el cobro inhabilitado.
+El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. La palanca de _cortar el sellado a la mitad_ que llevaba antes **desapareció con D-11**: con un solo documento no hay dos archivos que puedan quedar a medias. La falla equivalente —y la que sí tiene un estado que mostrar— es `FIRMAS_INSTITUCIONALES_FALLAN`, que vive en el panel: el cliente firma, las cualificadas no llegan y el expediente queda en `FIRMADO_CLIENTE` con el cobro inhabilitado.
 
 Tres reglas de las palancas del panel, todas verificadas por tests: **se consumen en un solo intento** (se ve el error una vez y el reintento funciona); **ninguna inventa un camino** — cada fallo produce un estado real que rechaza la validación de siempre, no una rama especial del código; y **ninguna existe fuera de `DEMO_MODE`**, ni siquiera si quedó armada antes de apagar el flag. El plazo de firma, además, solo se puede acortar: alargarlo sería cambiarle a la persona una condición ya informada (fila 30 de la matriz).
 
 Personas de prueba definidas en `src/adapters/mock/personas.ts`:
 
-- **Mónica Mariana Gorena Tapia** (C.I. 9.323.336) — camino feliz hasta P9  
-- **PEP positivo** — declaración 8 en Sí → Pantalla A  
-- **Salud incompatible** — declaraciones 1/2/3 incompatibles → Pantalla A  
-- **Biometría rechazada** — P5 no aprueba coincidencia facial  
+- **Mónica Mariana Gorena Tapia** (C.I. 9.323.336) — camino feliz hasta P9
+- **PEP positivo** — declaración 8 en Sí → Pantalla A
+- **Salud incompatible** — declaraciones 1/2/3 incompatibles → Pantalla A
+- **Biometría rechazada** — P5 no aprueba coincidencia facial
 - **No firma** — paga en P7 y deja vencer → Pantalla B
 
 ---
 
 ## Convenciones de UI
 
-- Cabecera de aseguradora/intermediario, stepper "Paso N de 8" y barra de plan seleccionado son componentes compartidos. **No los redefinas por pantalla.** El stepper recibe el **slug** de la pantalla, nunca un número: el orden vive en `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) y de ahí se deriva todo. Escribir un número a mano es cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".  
-- **Tema claro/oscuro:** el botón de día/noche vive dentro de `HeaderInstitucional`, así que aparece solo en toda pantalla que use la cabecera — no lo agregues por pantalla. Para la estructura usá los tokens semánticos (`bg-fondo`, `bg-superficie`, `border-borde-sutil`, `text-titulo`, `text-cuerpo`, `text-etiqueta`), que se reescriben con el tema; para los bloques de acento (verde de seguridad, naranja de acción, rojo de bloqueo) usá la escala de marca con su variante `dark:` explícita. Referencia visual viva en `/design-system`. La paleta (claro y oscuro) es la de `docs/GUIA_DE_ESTILOS.md` —alineada a interseguros360.com por decisión de producto, reemplaza a la descripta en `docs/ESPECIFICACION_PANTALLAS.md`—; el tema oscuro tampoco tiene respaldo en la matriz de cumplimiento. La preferencia es cosmética: vive en `localStorage`, no es dato del expediente y no genera evidencia.  
-- P0, Pantalla A y Pantalla B están **fuera del contador de 8 pasos** y usan su propio indicador.  
-- Los botones de continuar arrancan deshabilitados y se habilitan solo con los requisitos de esa pantalla cumplidos.  
-- Los campos autocompletados por OCR en P5 se muestran con ícono de candado y **no son editables**; el único camino ante discrepancia es repetir la captura.  
-- Mobile-first: el producto es B2C y la mayoría del tráfico será celular.  
-- Nunca muestres el OTP, el número completo de tarjeta ni datos sin enmascarar en la UI del flujo.  
+- Cabecera de aseguradora/intermediario, stepper "Paso N de 8" y barra de plan seleccionado son componentes compartidos. **No los redefinas por pantalla.** El stepper recibe el **slug** de la pantalla, nunca un número: el orden vive en `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) y de ahí se deriva todo. Escribir un número a mano es cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".
+- **Tema claro/oscuro:** el botón de día/noche vive dentro de `HeaderInstitucional`, así que aparece solo en toda pantalla que use la cabecera — no lo agregues por pantalla. Para la estructura usá los tokens semánticos (`bg-fondo`, `bg-superficie`, `border-borde-sutil`, `text-titulo`, `text-cuerpo`, `text-etiqueta`), que se reescriben con el tema; para los bloques de acento (verde de seguridad, naranja de acción, rojo de bloqueo) usá la escala de marca con su variante `dark:` explícita. Referencia visual viva en `/design-system`. La paleta (claro y oscuro) es la de `docs/GUIA_DE_ESTILOS.md` —alineada a interseguros360.com por decisión de producto, reemplaza a la descripta en `docs/ESPECIFICACION_PANTALLAS.md`—; el tema oscuro tampoco tiene respaldo en la matriz de cumplimiento. La preferencia es cosmética: vive en `localStorage`, no es dato del expediente y no genera evidencia.
+- P0, Pantalla A y Pantalla B están **fuera del contador de 8 pasos** y usan su propio indicador.
+- Los botones de continuar arrancan deshabilitados y se habilitan solo con los requisitos de esa pantalla cumplidos.
+- Los campos autocompletados por OCR en P5 se muestran con ícono de candado y **no son editables**; el único camino ante discrepancia es repetir la captura.
+- Mobile-first: el producto es B2C y la mayoría del tráfico será celular.
+- Nunca muestres el OTP, el número completo de tarjeta ni datos sin enmascarar en la UI del flujo.
 - Textos en español rioplatense-paraguayo (voseo), exactamente como figuran en la especificación.
 
 ---
@@ -466,12 +489,11 @@ Además de `npm run typecheck && npm run lint && npm test`:
 
 ## Qué no hacer
 
-- No agregues librerías pesadas sin justificarlo primero.  
-- No uses `any` en TypeScript. El dominio del expediente es tipado estricto.  
-- No escribas lógica de negocio dentro de componentes React — va en `src/domain/`.  
-- No hagas commits que dejen tests en rojo.  
+- No agregues librerías pesadas sin justificarlo primero.
+- No uses `any` en TypeScript. El dominio del expediente es tipado estricto.
+- No escribas lógica de negocio dentro de componentes React — va en `src/domain/`.
+- No hagas commits que dejen tests en rojo.
 - No implementes más de una pantalla por sesión: pedime que abramos una sesión nueva.
 - No inventes artículos de ley, endpoints, campos de API o pasos del flujo que no figuren en los documentos fuente.
 - No generes Nota de Cobertura — el producto no la contempla. El **Certificado de Cobertura Provisional** (D-12) es otra cosa y sí existe: no compromete cobertura anticipada, se emite recién con el cobro acreditado y solo constata desde cuándo corre lo que ese cobro compró.
 - No introduzcas un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`, ni dejes su documentación técnica suelta en la raíz de `docs/`: va en `docs/Integraciones/`.
-

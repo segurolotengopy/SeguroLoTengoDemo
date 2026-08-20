@@ -2,7 +2,8 @@
 
 **Fecha:** 19 de agosto de 2026 · **Base:** reunión Interseguros 18-ago-2026 + PantallasDemo2 + Matriz Legal Final V4 (16-ago-2026)
 **Insumo de auditoría:** `docs/auditoria/ESTADO_ACTUAL.md` (Fase 0) · **Decisiones:** `docs/plan/DECISIONES.md` (D-01…D-22)
-**Estado:** BORRADOR PARA APROBACIÓN — nada de este plan se implementa sin la aprobación explícita de Andres, y ninguna parte que dependa de una decisión `PENDIENTE` se implementa antes de que esa decisión esté `DECIDIDA`.
+**Estado (20-ago-2026):** L1 a L5e **cerrados** y las **ocho pantallas reformuladas e implementadas** (§1-bis a), con E2E 7/7; queda **L6**. Ver §1-bis para lo que cambió después de escribirse este plan. Texto original conservado abajo
+**Estado original:** BORRADOR PARA APROBACIÓN — nada de este plan se implementa sin la aprobación explícita de Andres, y ninguna parte que dependa de una decisión `PENDIENTE` se implementa antes de que esa decisión esté `DECIDIDA`.
 
 ---
 
@@ -10,11 +11,87 @@
 
 **Qué cambia.** El wizard pasa de 9 pasos a **8**: el plan sube al paso 1 y el OTP de WhatsApp al paso 2 (CHG-01); el OTP de correo desaparece como paso (NC-02) y el correo —con doble tipeo— se integra a la pantalla de identidad (CHG-14/17); la **firma se adelanta al paso 6 y el pago pasa al 7** (Matriz V4 §7: el QR de Bancard solo se habilita con firma válida); la Solicitud y el FIPF se consolidan en **un único PDF** con un solo acto de firma (CHG-30); aparece el **Certificado de Cobertura Provisional** como documento nuevo, emitido solo con pago confirmado y enviado automáticamente a WhatsApp y correo (CHG-42/44); los datos fiscales se mudan de declaraciones a pago (CHG-26/34); y la trazabilidad se ensancha a **todos** los clics, descargas, reproducciones y aceptaciones, con IP y versión de texto (TRV-01/CMP-15). Transversales: voseo homogéneo, enlaces a las webs oficiales, disclaimer de marca tras feature flag, barra de plan omnipresente, responsive móvil apilado.
 
-**Qué no cambia (NC-01…NC-08).** Todo lo no listado: arquitectura de puertos y adaptadores, motor de documentos determinista, política de identidad versionada (umbral 99, MRZ, prueba de vida), consola administrativa, panel de demo, asistencia de identidad, reglas de negocio de producto (24 h post-pago, carencias, 18–64, solo titular, pago único anual en guaraníes), firma no cualificada del cliente vía Code100, y el disclaimer de Bancard.
+**Qué no cambia (NC-01…NC-08).** Todo lo no listado: arquitectura de puertos y adaptadores, motor de documentos determinista, política de identidad versionada (umbral 99, MRZ, prueba de vida), consola administrativa, panel de demo, asistencia de identidad, reglas de negocio de producto (24 h post-pago, carencias, 18–64, solo titular, pago único anual en guaraníes), firma no cualificada del cliente —cuyo **ejecutor dejó de estar definido**, ver §1-bis— y el disclaimer de Bancard.
 
 **Por qué.** La reunión del 18-ago fija el alcance funcional/UX; la Matriz V4 es la fuente maestra de cumplimiento ("el importante en realidad es la matriz") y su secuencia técnica §7 es la que ordena firma→pago→CPC. Cuatro acuerdos de la reunión chocan con mínimos de la matriz y **no se implementan sin decisión** (ALR-01…ALR-04 → D-01…D-04). El plan además re-basa cinco reglas internas del repo que el código hace imposibles de violar (D-06…D-12): se cambian con registro, no se esquivan.
 
 **Riesgo dominante.** El lote L4 (inversión firma↔pago + PDF unificado) toca la máquina de estados, el servicio de documentos y dos integraciones a la vez; se mitiga con el gate por lote, la batería E2E (7/7 en verde hoy) ampliada antes de tocar, y rollback por revert del merge del lote.
+
+---
+
+## 1-bis. Actualización del 20 de agosto de 2026
+
+Tres hechos posteriores a la redacción de este plan lo modifican. Ninguno
+invalida un lote cerrado; los tres cambian lo que sigue.
+
+### a · Reformulación de las pantallas al formato de la maqueta
+
+Por instrucción expresa de Andres, las ocho pantallas se reformulan contra
+`docs/antecedentes/PantallasDemo2.pdf`. El detalle vive en
+`docs/plan/REFORMULACION_PANTALLAS_MAQUETA.md`, que **manda sobre este plan en
+todo lo relativo a formato, campos visibles y textos de pantalla**. Rige además
+un **gate nuevo**: la maqueta de cada pantalla se aprueba antes de escribir el
+código. Las ocho están aprobadas.
+
+Cuatro puntos donde eso pisa decisiones de este plan:
+
+| Punto del plan | Qué queda |
+| :---- | :---- |
+| **D-04** (montos de la Matriz V4: 290.000 / 475.000 / 660.000) | **Derogado en montos.** Rigen los de la maqueta: `Gs. 319.000 / 522.500 / 726.000`. Obligó a subir `ID_VERSION_OFERTA` a `OFERTA-CONFIO-v2`. El código de producto y la resolución siguen como marcadores `CDXXXXX`. |
+| **CHG-15** (edición con cotejo: solo nombres y apellidos) | **Ampliado a sexo y nacionalidad.** Cerrados quedan **cédula y fecha de nacimiento**, que son de los que cuelgan la regla #8 (edad) y la #11 (bloqueo por cédula). |
+| **CMP-01** (identificación regulatoria permanente) | Se muda de franja única al pie de la cabecera a **línea de registro bajo cada entidad**. Sigue visible, legible y permanente. |
+| **P0** (pantalla de información previa) | **Eliminada.** La raíz redirige al paso 1, que absorbió las fichas de producto y el video. |
+
+Además: **«no cualificada» sale de todas las pantallas** (pasos 6 y 8) — los
+documentos y la evidencia la conservan, que es donde tiene valor probatorio—, y
+el pie de información precontractual sale del paso 1.
+
+### b · Code100 no puede recibir la firma del cliente
+
+El proveedor respondió las doce consultas técnicas
+(`docs/Integraciones/Code100 - Respuestas C1 a C12.md`, fuente de verdad de la
+integración): **Api Flow firma exclusivamente con certificado cualificado que
+el firmante ya tenga emitido a su nombre**. El cliente de CONFÍO no lo tiene.
+
+Consecuencias sobre este plan:
+
+- **PEN-01/PEN-02 dejan de estar abiertos por falta de respuesta**: hay
+  respuesta, y es un `no` para la firma del cliente. Lo que queda abierto es
+  **una decisión de negocio y legal** —cómo firma el cliente— y no una
+  dependencia técnica.
+- El **modelo de firmantes no cambia**: el cliente firma simple y las
+  institucionales cualificadas (D-13). Cambia **quién ejecuta** la firma del
+  cliente. La opción recomendada en el informe a la Gerencia es que la resuelva
+  SeguroLoTengo con lo que la plataforma ya hace: identidad verificada, OTP de
+  un solo uso, IP, sello de tiempo y huella del documento.
+- **Las tres firmas van en fila india**, no en paralelo. El código ya las
+  aplica en orden; lo que queda desactualizado es la **fila 37 de la matriz**,
+  que dice "en paralelo" — tarea de documentación, junto con ALR-06/ALR-07.
+- Code100 **no registra IP ni dispositivo y no emite acta de evidencias
+  descargable**: el respaldo probatorio de la fila 42 lo produce y conserva
+  SeguroLoTengo igual. No es una obligación nueva; queda explícita.
+- Advertencias abiertas del proveedor: credenciales del ambiente de pruebas sin
+  entregar, rechazo del firmante no informado (solo se sabe que venció el
+  plazo), conservación de largo plazo pendiente de solicitar, y la consulta
+  sobre si las firmas institucionales admiten modo automático —de esa respuesta
+  depende que la emisión sea automática o requiera dos personas firmando cada
+  póliza—.
+
+**Decisiones pendientes de la Gerencia (D1/D2/D3 del informe).** Ninguna
+bloquea el demo ni el resto de los lotes: bloquean la conexión real con el
+servicio de firma. Los textos del paso 6 ya son neutrales respecto del
+proveedor, así que no hay que reescribirlos cuando se decida.
+
+### c · El OTP de prueba por WhatsApp
+
+El modo interino que transportaba el OTP en una plantilla de categoría
+MARKETING quedó **descartado** (choca con el límite anti-spam `131049`, que
+aplica solo a esa categoría), y la plantilla UTILITY que iba a reemplazarlo fue
+**rechazada por Meta** (`INCORRECT_CATEGORY`: el clasificador exige
+AUTHENTICATION, bloqueada por la falta de Business Verification). El modo
+vigente es `session_text`, con la única fricción de la ventana de 24 h, que
+**solo abre un mensaje del usuario**. Mitigación adoptada: el número de pruebas
+se ofrece como enlace `wa.me` con el mensaje precargado.
 
 ---
 
@@ -224,7 +301,7 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 | **L5c · Verificación pública (CMP-06)** ✅ **hecho (20-ago-2026)** | `/verificar/<código>`, el destino del QR de cada documento con huella: pública, sin sesión y **sin ningún dato de la persona**. Publica código, correlativo, versión, sello de tiempo, SHA-256, firmantes y —solo el certificado— la ventana de cobertura declarada. Comparador de huella que calcula el SHA-256 del archivo **en el dispositivo**, sin subirlo. El comprobante responde con motivo propio en vez de "no encontrado". La base del QR sale del origen de la petición que cierra el documento | ✅ desbloqueado; requiere L5b | **Cumplidos (20-ago-2026):** 1027 tests en verde; typecheck, lint y build en verde; E2E que abre la ruta **sin sesión** y verifica los tres códigos |
 | **L5d · Entrega con acuse (CHG-44, CMP-05)** ✅ **hecho (20-ago-2026)** | Puerto `MessagingProvider` (noveno) con su adaptador simulado y su suite de contrato; despachador en `entrega-documentos.ts` con la máquina `PENDIENTE → ENVIADO → ACUSADO \| FALLIDO`, reintentos con espera creciente y evidencia por paso; registro por canal en la tabla única. Mensaje de D-18 palabra por palabra. Estado de cada canal a la vista en la confirmación. Dos palancas nuevas en el panel: mensajería caída y entrega sin acuse. Registrado como ítem 34 del catálogo de integraciones | ✅ desbloqueado (D-18); requiere L5c | **Cumplidos (20-ago-2026):** 1055 tests en verde; typecheck, lint y build en verde; `ENVIADO` y `ACUSADO` verificados como estados distintos |
 | **L5e · Remisión a Alianza y devoluciones** ✅ **hecho (20-ago-2026)** | CHG-47: la derivación por elegibilidad remite el caso sola, con el `origen` (`AUTOMATICA`/`CONSOLA`) en la evidencia; la acción de la consola queda como reenvío. D-02: `solicitarDevolucion` / `acreditarDevolucion` sobre un cobro acreditado, trámite persistido en `Expediente.devolucion`, y vista + acciones en la consola con la duración del trámite a la vista | ✅ desbloqueado (D-02, D-14); requiere L5b | **Cumplidos (20-ago-2026):** 1085 tests en verde; typecheck, lint y build en verde; devolución seguible de punta a punta con evidencia de cada paso |
-| **L6 · Trazabilidad y hardening** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final) | L2 | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
+| **L6 · Trazabilidad y hardening** ← **único lote pendiente** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final). **Se le suma** la reevaluación de la evidencia por visita en `/verificar/<código>`, que L5c dejó explícitamente para cuando existiera rate limiting | L2 + reformulación de pantallas (§1-bis a) | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
 
 ---
 
@@ -236,7 +313,7 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 
 | Riesgo / dependencia | Dueño | Mitigación |
 |---|---|---|
-| PEN-01/PEN-02 · Code100 no confirma PDF unificado ni callback | Andres (insistir) / Code100 | Diseño ya asume polling de respaldo; el mock implementa el contrato deseado; si Code100 no soporta firma única, fallback: dos documentos en un `session_id` (contrato actual, regla #3) |
+| PEN-01/PEN-02 · **respondidos el 20-ago**: Code100 firma solo con certificado cualificado y no expone callback servidor a servidor | Gerencia (D1/D2/D3) / equipo técnico | El diseño ya asume polling de respaldo y el `WEBHOOK` queda declarado sin implementar. La firma del cliente sale del alcance de Code100: ver §1-bis b. Nada de esto bloquea el demo |
 | PEN-03 · cámara en computadora | Andres | Ya viable técnicamente; verificación E2E desktop en Fase 3 |
 | PEN-08 · cédula boliviana solo demo | Andres | Ya soportado (`IDENTITY_PAISES_CEDULA=PY,BO`); documentado como decisión de demo |
 | PEN-10 · firma en Bolivia (ATT/Agetic/Digert) | futuro | Solo nota de arquitectura: `SignatureProvider` ya es puerto; un adaptador boliviano es intercambiable |
