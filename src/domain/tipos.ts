@@ -510,6 +510,65 @@ export interface FirmaInstitucional {
 }
 
 // ---------------------------------------------------------------------------
+// Certificado de Cobertura Provisional (D-12)
+// ---------------------------------------------------------------------------
+
+/**
+ * El Certificado de Cobertura Provisional: el documento que le queda a la
+ * persona en la mano mientras Alianza emite la póliza (D-12, CHG-42).
+ *
+ * **No es la póliza y no la reemplaza.** Es lo que el producto sí puede
+ * entregar en el acto: la constancia de que el premio se cobró, de cuándo
+ * empieza a correr la cobertura y de qué la respalda. La póliza la emite
+ * Alianza por SEBAOT a su ritmo (`PolizaDelExpediente`), y este documento no
+ * presume su número: el correlativo que lleva es el de la propuesta, y el
+ * número oficial de diez dígitos de la SIS solo existe cuando Alianza lo
+ * acuña (CMP-18).
+ *
+ * **Tampoco es una Nota de Cobertura**, que el producto sigue sin contemplar:
+ * la Nota de Cobertura es un instrumento de cobertura inmediata que compromete
+ * a la aseguradora antes de la emisión, y acá no hay nada de eso — hay un
+ * cobro acreditado, una fecha de inicio calculada y una firma de Alianza sobre
+ * lo que ya ocurrió.
+ *
+ * **Solo existe con el pago confirmado**, y no por convención: se emite dentro
+ * de la misma escritura que lleva el expediente a `PAGO_CONFIRMADO`
+ * (`registrarPagoConfirmadoP7`). No hay camino por el que un expediente tenga
+ * certificado sin cobro, ni cobro sin certificado — que es la atomicidad que
+ * pide CMP-07.
+ *
+ * Los expedientes que llegaron a `PAGO_CONFIRMADO` **antes** de D-12 traen
+ * este campo en `null` y no se reescriben (regla inviolable #10): quien los
+ * lea tiene que contemplar la ausencia, no completarla.
+ */
+export interface CertificadoCobertura {
+  /** Identidad del documento: `CPC-<correlativo>`. */
+  readonly codigo: string;
+  /** Documento del que cuelga: `PROP-<correlativo>`, el paquete firmado. */
+  readonly codigoPaquete: string;
+  readonly version: number;
+  /** Regla #4: huella del PDF cerrado, calculada sobre los bytes definitivos. */
+  readonly hashSha256: string;
+  readonly emitidoEn: string; // ISO 8601
+  /**
+   * Inicio de la cobertura: **el instante del pago acreditado más 24 horas
+   * exactas** (CHG-41). Se persiste calculado y no se recalcula al leerlo: es
+   * un dato del contrato, no una función del reloj de quien lo consulta.
+   */
+  readonly inicioCobertura: string; // ISO 8601
+  /** Fin de la vigencia anual contratada, un año después del inicio. */
+  readonly finCobertura: string; // ISO 8601
+  /** Referencia de la operación de Bancard que respalda la cobertura. */
+  readonly referenciaBancard: string;
+  /**
+   * Firmas del documento, según `firmantes-documento.ts` (D-13): solo Alianza,
+   * en modalidad `PREFIRMADO`. El cliente no firma el CPC —no se le pide que
+   * acepte nada nuevo— y por eso acá no hay ningún acto de Code100.
+   */
+  readonly firmas: readonly FirmaInstitucional[];
+}
+
+// ---------------------------------------------------------------------------
 // Emisión de la póliza (P9)
 // ---------------------------------------------------------------------------
 
@@ -647,6 +706,13 @@ export interface Expediente {
   readonly firma: Firma | null;
   /** Firmas institucionales aplicadas sobre el paquete, en orden (D-13). */
   readonly firmasInstitucionales: readonly FirmaInstitucional[];
+  /**
+   * Certificado de Cobertura Provisional (D-12), emitido en la misma escritura
+   * que confirma el pago. `null` mientras no haya cobro — y también en los
+   * expedientes que cobraron antes de que este documento existiera, que no se
+   * reescriben (regla inviolable #10).
+   */
+  readonly certificadoCobertura: CertificadoCobertura | null;
   /** Estado de la emisión en Alianza (P9). No contiene la póliza, solo su estado. */
   readonly poliza: PolizaDelExpediente | null;
 
@@ -685,6 +751,7 @@ export function crearExpedienteInicial(input: {
     actoDeFirma: null,
     firma: null,
     firmasInstitucionales: [],
+    certificadoCobertura: null,
     poliza: null,
     expedienteAnteriorId: input.expedienteAnteriorId ?? null,
     creadoEn: input.ahora,

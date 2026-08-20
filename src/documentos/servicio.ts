@@ -54,7 +54,17 @@ import type { DocumentoCerrado, Expediente, PaqueteDocumental, RegistroEvidencia
 import type { ContextoPeticion, RepositorioExpediente } from "../domain/verificacion-canal";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { SignatureProvider } from "../ports/signature-provider";
-import { renderizarPaquete } from "./plantillas";
+import { renderizarCertificado, renderizarPaquete } from "./plantillas";
+import {
+  VERSION_INICIAL_CERTIFICADO,
+  armarContenidoCertificado,
+  codigoCertificado,
+  finCoberturaDesde,
+  inicioCoberturaDesde,
+} from "../domain/certificado-cobertura";
+import type { CampoFaltanteCertificado } from "../domain/certificado-cobertura";
+import { firmantesDe } from "../domain/firmantes-documento";
+import type { CertificadoCobertura, FirmaInstitucional } from "../domain/tipos";
 
 // ---------------------------------------------------------------------------
 // Dependencias
@@ -441,6 +451,131 @@ async function cerrarDocumento(
       hashSha256,
       clave: guardado.clave,
       bytes: bytes.length,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Certificado de Cobertura Provisional (D-12, CHG-42)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ruta del CPC en el bucket de evidencias. Va junto a los demás documentos del
+ * expediente y con su versión en el nombre, por el mismo motivo que el
+ * paquete: reemitir una versión nueva nunca puede pisar la que se hasheó.
+ */
+export function claveCertificado(expedienteId: string, codigo: string, version: number): string {
+  return `expedientes/${expedienteId}/documentos/${codigo}-v${version}.pdf`;
+}
+
+export const PASO_EVIDENCIA_CERTIFICADO = "P7_CERTIFICADO_COBERTURA";
+
+export type MotivoRechazoCertificado =
+  | "EXPEDIENTE_INCOMPLETO"
+  | "ALMACENAMIENTO_INCONSISTENTE";
+
+export type ResultadoEmitirCertificado =
+  | {
+      readonly ok: true;
+      readonly certificado: CertificadoCobertura;
+      readonly clave: string;
+      readonly bytes: number;
+    }
+  | {
+      readonly ok: false;
+      readonly motivo: MotivoRechazoCertificado;
+      readonly detalle?: string;
+      readonly faltantes?: readonly CampoFaltanteCertificado[];
+    };
+
+export interface DependenciasCertificado {
+  readonly archivos: RepositorioArchivos;
+  readonly urlBaseVerificacion?: string;
+}
+
+/**
+ * Renderiza, hashea y guarda el Certificado de Cobertura Provisional, y
+ * devuelve su ficha — **sin tocar el expediente**.
+ *
+ * Que no persista nada es la pieza que hace atómica la secuencia de CMP-07.
+ * Quien lo llama es `confirmarPagoP7`, con la proyección del expediente ya
+ * cobrado en la mano y antes de guardar: el certificado y el estado
+ * `PAGO_CONFIRMADO` entran al repositorio en la **misma** escritura, así que
+ * no existe la ventana en la que el expediente cobró y todavía no tiene
+ * certificado, ni la contraria. Si el render o el guardado fallan, la
+ * confirmación del pago no ocurre y el próximo sondeo la reintenta entera.
+ *
+ * El archivo sí queda escrito en S3 antes que el expediente, y es la única
+ * asimetría posible: un PDF huérfano en el bucket no afirma nada de nadie —no
+ * está referenciado por ningún expediente— mientras que un expediente que
+ * apuntara a un archivo inexistente sí sería una mentira.
+ *
+ * Determinismo (regla del servicio): el instante de emisión entra por
+ * parámetro y es el mismo con el que se confirma el pago. Reintentar la
+ * confirmación con el mismo instante produce los mismos bytes y el mismo
+ * hash.
+ */
+export async function emitirCertificadoCobertura(
+  deps: DependenciasCertificado,
+  entrada: { readonly expediente: Expediente; readonly emitidoEn: string },
+): Promise<ResultadoEmitirCertificado> {
+  const { expediente, emitidoEn } = entrada;
+
+  const contenido = armarContenidoCertificado(expediente, {
+    emitidoEn,
+    version: VERSION_INICIAL_CERTIFICADO,
+    urlBaseVerificacion: deps.urlBaseVerificacion,
+  });
+  if (!contenido.ok) {
+    return { ok: false, motivo: "EXPEDIENTE_INCOMPLETO", faltantes: contenido.faltantes };
+  }
+
+  const bytes = renderizarCertificado(contenido.contenido);
+  const codigo = codigoCertificado(contenido.contenido.correlativo);
+  const hashSha256 = sha256Hex(bytes);
+  const clave = claveCertificado(expediente.id, codigo, contenido.contenido.version);
+
+  const guardado = await deps.archivos.guardarArchivo(clave, bytes, CONTENT_TYPE_PDF);
+  // Mismo control que en el cierre del paquete: el repositorio hashea lo que
+  // efectivamente escribió, y si difiere el certificado no se registra.
+  if (guardado.hashSha256 !== hashSha256) {
+    return {
+      ok: false,
+      motivo: "ALMACENAMIENTO_INCONSISTENTE",
+      detalle:
+        `La huella del certificado guardado no coincide con la del renderizado (${codigo}): ` +
+        `${guardado.hashSha256} ≠ ${hashSha256}.`,
+    };
+  }
+
+  const pagoConfirmadoEn = expediente.pago?.confirmadoEn ?? emitidoEn;
+  const inicioCobertura = inicioCoberturaDesde(pagoConfirmadoEn);
+
+  // D-13 · quién firma el CPC sale de la configuración, igual que en el
+  // paquete: Alianza, cualificada y prefirmada. El certificado es simulado
+  // mientras Code100 sea un mock, y la referencia lo dice.
+  const firmas: readonly FirmaInstitucional[] = firmantesDe("CPC").map((firmante) => ({
+    rol: firmante.rol,
+    nivel: firmante.nivel,
+    modalidad: firmante.modalidad,
+    certificado: `DEMO-CERT-${firmante.rol}-CPC-${contenido.contenido.correlativo}`,
+    aplicadaEn: emitidoEn,
+  }));
+
+  return {
+    ok: true,
+    clave: guardado.clave,
+    bytes: bytes.length,
+    certificado: {
+      codigo,
+      codigoPaquete: contenido.contenido.encabezado.codigoVinculado,
+      version: contenido.contenido.version,
+      hashSha256,
+      emitidoEn,
+      inicioCobertura,
+      finCobertura: finCoberturaDesde(inicioCobertura),
+      referenciaBancard: expediente.pago?.referenciaBancard ?? "",
+      firmas,
     },
   };
 }

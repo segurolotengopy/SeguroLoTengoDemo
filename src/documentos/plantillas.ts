@@ -45,6 +45,7 @@ import type { Lienzo } from "./layout";
 import { anchoDeTexto, crearDocumentoPdf, partirEnLineas } from "./pdf";
 import type { DocumentoPdf, Pagina } from "./pdf";
 import type {
+  CampoDocumento,
   ContenidoFipf,
   ContenidoPaquete,
   ContenidoSolicitud,
@@ -52,6 +53,7 @@ import type {
   EncabezadoDocumento,
   PlanDocumento,
 } from "../domain/documentos";
+import type { ContenidoCertificado, CoberturaCertificado } from "../domain/certificado-cobertura";
 
 const AUTOR_PDF = "Interseguros S.A. · SeguroLoTengo.com";
 
@@ -371,5 +373,206 @@ function renderizarEnDosPasadas(
 export function renderizarPaquete(contenido: ContenidoPaquete): Uint8Array {
   return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
     dibujarPaquete(documento, contenido, total),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Certificado de Cobertura Provisional (D-12)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tabla de coberturas del certificado: suma asegurada y carencia, una fila por
+ * cobertura.
+ *
+ * La carencia va **al lado de cada suma** y no en una frase al pie, que es
+ * como la lleva la Solicitud. Es el mismo dato dicho de dos formas distintas a
+ * propósito: quien lee la Solicitud está contratando y quien lee el
+ * certificado está por usar la cobertura, y esa persona busca "¿esto ya está
+ * cubierto?" cobertura por cobertura.
+ */
+function tablaDeCoberturas(lienzo: Lienzo, coberturas: readonly CoberturaCertificado[]): void {
+  const altoFila = 20;
+  const anchoCarencia = 90;
+  const anchoSuma = 150;
+  const anchoRotulo = ANCHO_UTIL - anchoSuma - anchoCarencia;
+
+  lienzo.asegurarEspacio(altoFila * (coberturas.length + 1) + 6);
+  let y = lienzo.y;
+
+  // Encabezado de la tabla.
+  lienzo.pagina.rectangulo(MARGEN, y - 8, ANCHO_UTIL, altoFila, { relleno: FONDO_SUAVE, borde: BORDE });
+  lienzo.pagina.texto(MARGEN + 8, y + 3, "COBERTURA", { fuente: "negrita", tamano: 6.2, color: ETIQUETA });
+  lienzo.pagina.texto(MARGEN + anchoRotulo, y + 3, "SUMA ASEGURADA", {
+    fuente: "negrita",
+    tamano: 6.2,
+    color: ETIQUETA,
+  });
+  lienzo.pagina.texto(MARGEN + anchoRotulo + anchoSuma, y + 3, "CARENCIA", {
+    fuente: "negrita",
+    tamano: 6.2,
+    color: ETIQUETA,
+  });
+  y += altoFila;
+
+  coberturas.forEach((cobertura) => {
+    lienzo.pagina.rectangulo(MARGEN, y - 8, ANCHO_UTIL, altoFila, { borde: BORDE, relleno: BLANCO_PURO });
+    lienzo.pagina.texto(MARGEN + 8, y + 4, recortarAlAncho(cobertura.rotulo, anchoRotulo - 16, 7.4), {
+      tamano: 7.4,
+      color: TINTA,
+    });
+    lienzo.pagina.texto(
+      MARGEN + anchoRotulo,
+      y + 4,
+      recortarAlAncho(cobertura.sumaAsegurada, anchoSuma - 8, 7.4),
+      { fuente: "negrita", tamano: 7.4, color: AZUL },
+    );
+    lienzo.pagina.texto(MARGEN + anchoRotulo + anchoSuma, y + 4, cobertura.carencia, {
+      fuente: "negrita",
+      tamano: 7.4,
+      color: NARANJA,
+    });
+    y += altoFila;
+  });
+
+  lienzo.y = y + 6;
+}
+
+/**
+ * Bloque de firma del certificado.
+ *
+ * No reusa `bloqueDeFirmas` a propósito: aquel dibuja una línea con
+ * `Firma y aclaración` debajo, que es lo correcto para un documento que
+ * alguien va a firmar. El CPC llega **prefirmado** (D-13) —el suscriptor de
+ * Alianza ya lo firmó cuando el cliente lo recibe—, así que una línea en
+ * blanco invitaría a firmar algo que no hay que firmar, y de paso ocuparía
+ * media carilla para no decir nada.
+ */
+function bloqueFirmaAplicada(lienzo: Lienzo, firmantes: readonly CampoDocumento[]): void {
+  const alto = 38;
+  lienzo.asegurarEspacio(alto + 6);
+  const y = lienzo.y;
+
+  const separacion = 8;
+  const ancho = (ANCHO_UTIL - separacion * (firmantes.length - 1)) / firmantes.length;
+
+  firmantes.forEach((firmante, posicion) => {
+    const x = MARGEN + posicion * (ancho + separacion);
+    lienzo.pagina.rectangulo(x, y - 8, ancho, alto, { borde: AZUL, relleno: FONDO_SUAVE, grosor: 0.8 });
+    lienzo.pagina.texto(x + 8, y + 3, firmante.etiqueta.toUpperCase(), {
+      fuente: "negrita",
+      tamano: 7.5,
+      color: AZUL,
+    });
+    lienzo.pagina.parrafo(x + 8, y + 16, ancho - 16, firmante.valor, {
+      tamano: 6.6,
+      color: TINTA,
+      interlineado: 8.4,
+    });
+    lienzo.pagina.texto(x + 8, y + 28, "FIRMA ELECTRÓNICA YA APLICADA SOBRE ESTE DOCUMENTO", {
+      fuente: "negrita",
+      tamano: 5.8,
+      color: VERDE,
+    });
+  });
+
+  lienzo.y = y + alto + 6;
+}
+
+/**
+ * Alto del bloque de cierre: encabezado de sección, caja de firma, leyenda y
+ * pie. Se reserva de una sola vez (ver `dibujarCertificado`).
+ */
+const ALTO_CIERRE_CERTIFICADO = 22 + 44 + 20 + 28;
+
+/**
+ * Dibuja el certificado completo.
+ *
+ * El orden de los bloques responde a lo que alguien busca con este documento
+ * en la mano y en ese orden: quién está cubierto, desde cuándo, por cuánto, qué
+ * lo pagó y qué lo respalda. La vigencia va segunda y destacada porque es el
+ * único dato que este documento aporta y la póliza todavía no.
+ *
+ * La advertencia de que esto **no es la póliza** va pegada a la vigencia y no
+ * al final, que es donde la habría puesto la costumbre: la confusión nace
+ * justamente al leer "tu cobertura empieza tal día", así que la aclaración
+ * tiene que estar ahí y no tres bloques después.
+ */
+function dibujarCertificado(
+  documento: DocumentoPdf,
+  contenido: ContenidoCertificado,
+  totalPaginas: number,
+): number {
+  const lienzo = crearLienzo(documento, (pagina, numeroPagina) =>
+    dibujarEncabezado(pagina, contenido.encabezado, numeroPagina, totalPaginas),
+  );
+
+  lienzo.pagina.texto(MARGEN, lienzo.y - 4, `Emitido el ${contenido.encabezado.selloDeTiempo}`, {
+    fuente: "negrita",
+    tamano: 7,
+    color: ETIQUETA,
+    alineacion: "centro",
+    ancho: ANCHO_UTIL,
+  });
+  lienzo.y += 8;
+
+  // El rótulo de modelo provisional va arriba de todo y no en letra chica al
+  // pie: es lo primero que un supervisor de la SIS tiene que ver
+  // (compuerta de producción §8.E.3).
+  franja(lienzo, contenido.leyendaProvisional, "neutro");
+
+  seccion(lienzo, 1, "Asegurado");
+  grillaDeCampos(lienzo, contenido.asegurado, 3);
+
+  seccion(lienzo, 2, "Vigencia de la cobertura");
+  grillaDeCampos(lienzo, contenido.vigencia, 3);
+  franja(lienzo, contenido.leyendaInicioCobertura, "verde");
+  franja(lienzo, contenido.leyendaNoEsPoliza, "rojo");
+
+  seccion(lienzo, 3, `Coberturas contratadas · Plan ${contenido.plan}`);
+  tablaDeCoberturas(lienzo, contenido.coberturas);
+
+  // El cobro y el documento firmado van bajo un mismo encabezado porque son
+  // las dos caras de la misma pregunta —qué respalda esta cobertura— y porque
+  // así el certificado entra en una sola carilla, que es como se lo va a
+  // mirar: en el teléfono, sin desplazarse.
+  seccion(lienzo, 4, "Pago acreditado y documento que lo respalda");
+  grillaDeCampos(lienzo, contenido.pago, 2);
+  grillaDeCampos(lienzo, contenido.respaldo, 3);
+  // La huella ocupa la fila entera: en media columna se recortaría, y un hash
+  // recortado no se puede comparar contra nada.
+  grillaDeCampos(lienzo, [contenido.huellaDocumentoFirmado], 1);
+
+  // El cierre —firma, leyenda y pie— se reserva entero antes de dibujarlo.
+  // Sin esto, un certificado que se pasa por unos pocos puntos manda a la
+  // carilla siguiente **solo el pie**, y una segunda página con nada más que
+  // el pie parece un documento roto. Reservado junto, o entra todo en la
+  // primera carilla o baja todo junto a la segunda.
+  lienzo.asegurarEspacio(ALTO_CIERRE_CERTIFICADO);
+  seccion(lienzo, 5, "Firma de la aseguradora");
+  bloqueFirmaAplicada(lienzo, contenido.firmantes);
+  lienzo.pagina.parrafo(MARGEN, lienzo.y, ANCHO_UTIL, contenido.leyendaFirma, {
+    tamano: 6.6,
+    color: TINTA,
+    interlineado: 8.6,
+  });
+  lienzo.y += 20;
+
+  // La URL de verificación no se repite acá: el pie ya la imprime en todas
+  // las carillas, y decirla dos veces en la misma no la hace más verificable.
+  pie(lienzo, contenido.encabezado);
+  return lienzo.numeroPagina;
+}
+
+/**
+ * El Certificado de Cobertura Provisional cerrado y listo para hashear.
+ *
+ * Mismo motor determinista que el paquete —dos pasadas, sin `/ID` aleatorio ni
+ * fecha del reloj— porque la exigencia es la misma: mismo contenido y mismo
+ * instante de emisión ⇒ mismos bytes ⇒ mismo SHA-256, que es lo que hace
+ * verificable el QR (CMP-06).
+ */
+export function renderizarCertificado(contenido: ContenidoCertificado): Uint8Array {
+  return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
+    dibujarCertificado(documento, contenido, total),
   );
 }

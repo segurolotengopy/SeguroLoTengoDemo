@@ -1,4 +1,5 @@
 import type {
+  CertificadoCobertura,
   DatosComplementariosP6,
   DatosFacturacionP7,
   Declaraciones,
@@ -19,6 +20,14 @@ import {
 import { PASOS_FLUJO } from "../rutas-flujo";
 import { firmantesConjuntos } from "../firmantes-documento";
 import { codigoFipf, codigoSolicitud } from "../documentos";
+import {
+  VERSION_INICIAL_CERTIFICADO,
+  codigoCertificado,
+  finCoberturaDesde,
+  inicioCoberturaDesde,
+} from "../certificado-cobertura";
+import { firmantesDe } from "../firmantes-documento";
+import type { EmisorCertificadoCobertura } from "../pago-p7";
 
 export const declaracionesCompatibles: Declaraciones = {
   estadoDeSalud: "SI",
@@ -246,6 +255,52 @@ export function expedienteFirmado(id = "EXP-TEST-P7"): Expediente {
 }
 
 /**
+ * Certificado de Cobertura Provisional del camino feliz (D-12).
+ *
+ * Las fechas de vigencia salen de las mismas funciones que usa el servicio, no
+ * de constantes escritas a mano: si alguien cambiara las 24 horas, este
+ * fixture cambiaría con él y los tests que fijan el número seguirían siendo
+ * los que hablan del número.
+ */
+export const certificadoFixture: CertificadoCobertura = (() => {
+  const inicioCobertura = inicioCoberturaDesde(pagoConfirmadoFixture.confirmadoEn ?? "");
+  return {
+    codigo: codigoCertificado(NUMERO_PROPUESTA_FIJO),
+    codigoPaquete: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
+    version: VERSION_INICIAL_CERTIFICADO,
+    hashSha256: "c".repeat(64),
+    emitidoEn: "2026-08-09T15:04:00.000Z",
+    inicioCobertura,
+    finCobertura: finCoberturaDesde(inicioCobertura),
+    referenciaBancard: REFERENCIA_BANCARD_FIJA,
+    firmas: firmantesDe("CPC").map((firmante) => ({
+      rol: firmante.rol,
+      nivel: firmante.nivel,
+      modalidad: firmante.modalidad,
+      certificado: `DEMO-CERT-${firmante.rol}-CPC-${NUMERO_PROPUESTA_FIJO}`,
+      aplicadaEn: "2026-08-09T15:04:00.000Z",
+    })),
+  };
+})();
+
+/**
+ * Emisor de certificado para los tests: devuelve la ficha del fixture con el
+ * instante de emisión que le pase el dominio, sin renderizar ningún PDF.
+ *
+ * Los tests que necesitan probar el PDF de verdad llaman a
+ * `emitirCertificadoCobertura`; los de P7 solo necesitan que la dependencia
+ * exista y responda, que es lo que el compilador ahora les exige.
+ */
+export function emisorCertificadoFalso(
+  opciones: { readonly falla?: boolean } = {},
+): EmisorCertificadoCobertura {
+  return async ({ emitidoEn }) => {
+    if (opciones.falla) return { ok: false, motivo: "ALMACENAMIENTO_INCONSISTENTE" };
+    return { ok: true, certificado: { ...certificadoFixture, emitidoEn } };
+  };
+}
+
+/**
  * Expediente con el cobro acreditado: la entrada de la emisión. Con el orden
  * nuevo llega firmado y con facturación, que se captura al pagar.
  */
@@ -253,7 +308,11 @@ export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
   const confirmado = transicionarExpediente(
     expedienteFirmado(id),
     "PAGO_CONFIRMADO",
-    { facturacion: facturacionFixture, pago: pagoConfirmadoFixture },
+    {
+      facturacion: facturacionFixture,
+      pago: pagoConfirmadoFixture,
+      certificadoCobertura: certificadoFixture,
+    },
     "2026-08-09T15:04:00.000Z",
   );
   if (!confirmado.ok) throw new Error(confirmado.error);

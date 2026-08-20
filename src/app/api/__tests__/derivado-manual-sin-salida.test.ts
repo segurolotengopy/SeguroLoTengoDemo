@@ -53,6 +53,7 @@ import {
 } from "@/domain/emision-p9";
 import { confirmarFirmaP8, iniciarFirmaP8 } from "@/domain/firma-p8";
 import { confirmarPagoP7, iniciarPagoP7, vencerPlazoPagoP7 } from "@/domain/pago-p7";
+import type { EmisorCertificadoCobertura } from "@/domain/pago-p7";
 import type { PaymentProvider } from "@/ports/payment-provider";
 import type { PolicyIssuer } from "@/ports/policy-issuer";
 import type { SignatureProvider } from "@/ports/signature-provider";
@@ -133,6 +134,16 @@ function pagosQueFallanSiSeUsan(): PaymentProvider {
     iniciarPagoTarjetaCredito: explotar("iniciarPagoTarjetaCredito"),
     consultarEstadoPago: explotar("consultarEstadoPago"),
     cancelarOLiberarReserva: explotar("cancelarOLiberarReserva"),
+  };
+}
+
+/**
+ * Emisor de CPC que estalla si alguien lo llama: un expediente derivado no
+ * llega nunca al cobro, así que tampoco puede llegar al certificado (D-12).
+ */
+function certificadoQueFallaSiSeUsa(): EmisorCertificadoCobertura {
+  return async () => {
+    throw new Error("Se emitió un Certificado de Cobertura con un expediente DERIVADO_MANUAL.");
   };
 }
 
@@ -453,6 +464,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
+            emitirCertificado: certificadoQueFallaSiSeUsa(),
           },
           {
             expedienteId: EXPEDIENTE_ID,
@@ -470,6 +482,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
+            emitirCertificado: certificadoQueFallaSiSeUsa(),
           },
           { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
         ),
@@ -792,6 +805,7 @@ describe("3. Inventario de rutas de la API", () => {
         pagos: pagosQueFallanSiSeUsan(),
         expedientes: repo,
         evidencias: evidenciasFalsas(),
+        emitirCertificado: certificadoQueFallaSiSeUsa(),
       },
       { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
     );

@@ -5,14 +5,18 @@ import {
   esEstadoTerminal,
   esTransicionLegal,
   registrarDeclaracionesP6,
+  registrarPagoConfirmadoP7,
   transicionarExpediente,
   transicionesLegalesDesde,
 } from "../expediente";
 import {
   avanzarHastaIdentidadVerificada,
+  certificadoFixture,
   crearExpediente,
   datosComplementariosFixture,
   declaracionesCompatibles,
+  expedienteFirmado,
+  pagoConfirmadoFixture,
   NUMERO_CASO_FIJO,
 } from "./fixtures";
 
@@ -237,5 +241,58 @@ describe("edadEnRangoPermitido (regla de negocio #8)", () => {
   it("acepta exactamente 64 años cumplidos y rechaza 65", () => {
     expect(edadEnRangoPermitido("1962-01-01", new Date("2026-01-01"))).toBe(true);
     expect(edadEnRangoPermitido("1961-01-01", new Date("2026-01-01"))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Certificado de Cobertura Provisional en la transición del cobro (D-12)
+// ---------------------------------------------------------------------------
+
+describe("registrarPagoConfirmadoP7 · el certificado entra con el cobro", () => {
+  it("asienta el estado y el certificado en la misma transición", () => {
+    const resultado = registrarPagoConfirmadoP7(
+      expedienteFirmado(),
+      { pago: pagoConfirmadoFixture, certificado: certificadoFixture },
+      "2026-08-09T15:04:00.000Z",
+    );
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.expediente.estado).toBe("PAGO_CONFIRMADO");
+    expect(resultado.expediente.certificadoCobertura).toEqual(certificadoFixture);
+  });
+
+  /**
+   * Fila 47 · el certificado tiene que derivar del mismo correlativo que el
+   * expediente. Un CPC que citara otro número rompería el vínculo entre
+   * póliza, Solicitud, FIPF y pago, y este es el punto donde eso se corta:
+   * antes de persistir nada.
+   */
+  it("rechaza un certificado que no deriva del correlativo del expediente", () => {
+    const resultado = registrarPagoConfirmadoP7(
+      expedienteFirmado(),
+      {
+        pago: pagoConfirmadoFixture,
+        certificado: { ...certificadoFixture, codigo: "CPC-99999999" },
+      },
+      "2026-08-09T15:04:00.000Z",
+    );
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/no deriva del correlativo/);
+  });
+
+  it("rechaza un certificado que cuelga de otro paquete", () => {
+    const resultado = registrarPagoConfirmadoP7(
+      expedienteFirmado(),
+      {
+        pago: pagoConfirmadoFixture,
+        certificado: { ...certificadoFixture, codigoPaquete: "PROP-99999999" },
+      },
+      "2026-08-09T15:04:00.000Z",
+    );
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/no cuelga del paquete/);
   });
 });

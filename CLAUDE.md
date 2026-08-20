@@ -42,11 +42,14 @@ de paso y el stepper. Si el documento y esa lista discrepan, gana la lista.
 
 Cambios de este plan que tocan las reglas inviolables de más abajo, ya
 decididos: el OTP de correo se retiró (queda un solo OTP de canal, el de
-WhatsApp, Lote 2); la firma pasó a ocurrir **antes** del pago (Lote 4b);
-**faltan** unificar la Solicitud y el FIPF en un solo PDF (Lote 4c) y el
-Certificado de Cobertura Provisional (Lote 5). Cada regla se corrige acá cuando
-el lote que la cambia se implementa, no antes: hasta entonces, **la regla
-escrita abajo es la que rige el código que existe hoy**.
+WhatsApp, Lote 2); la firma pasó a ocurrir **antes** del pago (Lote 4b); la
+Solicitud y el FIPF se unificaron en un solo PDF (Lote 4c); y el **Certificado
+de Cobertura Provisional** existe desde el Lote 5a, emitido en la misma
+escritura que confirma el cobro. **Falta** el resto del Lote 5: ponerlo a
+descargar en la confirmación, entregarlo por WhatsApp y correo con acuse, y la
+ruta `/verificar/<código>` a la que apunta su QR. Cada regla se corrige acá
+cuando el lote que la cambia se implementa, no antes: hasta entonces, **la
+regla escrita abajo es la que rige el código que existe hoy**.
 
 ### Documentos fuente adicionales
 
@@ -187,6 +190,8 @@ INICIADO → PLAN\_SELECCIONADO → CANAL\_WA\_VERIFICADO → AUTORIZADO
 
 `FIRMADO_CLIENTE` es el estado entre la firma del cliente y las institucionales de Interseguros y Alianza (D-13). Existe como estado propio y no como un campo porque un sellado a medio hacer tiene que ser distinguible de un expediente sin firmar (regla inviolable #3): si Code100 confirma la firma del cliente y las institucionales fallan, el expediente queda ahí y el cobro sigue inhabilitado.
 
+`PAGO_CONFIRMADO` significa *"el dinero entró"* y, desde D-12, **también** que existe el Certificado de Cobertura Provisional: los dos entran por la misma transición, así que no hay estado intermedio en el que uno exista sin el otro (CMP-07). Ver "El Certificado de Cobertura Provisional" más abajo.
+
 `EMITIDO` significa **solicitud aceptada y emisión ordenada**, no "póliza en mano": P9 lo muestra como `Solicitud aceptada ✓` junto a `Póliza en preparación ⋯`. El estado del documento vive aparte, en `Expediente.poliza`, y lo mueve Alianza (SEBAOT y SIFEN) a su ritmo — por eso son dos cosas distintas. La póliza **conserva el correlativo de la propuesta**: SEBAOT no acuña un número nuevo. El correlativo lo acuña ahora el **cierre del paquete documental**, no el pago: los documentos se cierran antes de firmarse, así que el número nace con ellos (`generarNumeroPropuesta` en `src/documentos/servicio.ts`).
 
 `VENCIDO` significa **firmado y no pagado dentro de las 24 h** (D-10), y en el flujo vigente es el final del camino: no hubo cobro, así que no hay premio que devolver. El reloj arranca al aplicarse las firmas institucionales (`Expediente.plazoPagoVenceEn`) y lo apaga el cobro. La arista `VENCIDO → DEVOLUCION_EN_TRAMITE` **se conserva como legado**: hay expedientes que vencieron bajo el orden viejo con el pago hecho y no se los reescribe (regla #10); sin esa salida quedarían con dinero adentro y sin trámite al que ir. Quien la guarda es `iniciarDevolucionPantallaB`, que exige un pago acreditado — condición que un vencimiento nuevo nunca cumple.
@@ -256,7 +261,19 @@ El correlativo nace acá y no en el pago desde la inversión de D-08: los docume
 
 **No es un proveedor externo, así que no tiene puerto.** Los 7 puertos modelan integraciones con terceros; generar un PDF propio no lo es. Lo único que pasa por infraestructura es guardar el archivo, y eso ya entra por `src/repositories/archivo-repository.ts`.
 
-Reparto: `src/domain/documentos.ts` decide **qué dice** cada documento (proyección del Expediente, sin `node:*`); `plantillas.ts` + `layout.ts` cómo se distribuye en la hoja; `pdf.ts` + `tipografia.ts` escriben los bytes; `qr.ts` genera el QR de verificación; `servicio.ts` cierra, hashea, guarda, transiciona y deja evidencia.
+### El Certificado de Cobertura Provisional (D-12, Lote 5a)
+
+El motor produce **dos documentos**, no uno. El segundo es el CPC: `CPC-<correlativo>`, mismo correlativo que el paquete y con `PROP-<correlativo>` impreso como documento vinculado. Dice quién está cubierto, **desde cuándo**, por cuánto, qué lo pagó y qué lo respalda; lo firma solo Alianza y **prefirmado** (D-13), así que el cliente no firma nada nuevo. Contenido en `src/domain/certificado-cobertura.ts`, dibujo en `plantillas.ts`, emisión en `servicio.ts` (`emitirCertificadoCobertura`).
+
+**No es la póliza y no es una Nota de Cobertura.** La póliza la emite Alianza por SEBAOT con su número oficial de diez dígitos (CMP-18); la Nota de Cobertura sigue prohibida porque compromete cobertura anticipada, y el CPC no compromete nada: constata un cobro que ya ocurrió y la fecha que se deriva de él. El propio PDF lo dice, en rojo y en el cuerpo.
+
+**El inicio de la cobertura es el instante del cobro acreditado más 24 horas exactas** (CHG-41) — milisegundos sobre el instante absoluto, no "el día siguiente": es lo único que acierta en los bordes de mes, de año y en los cambios de horario. El fin es el aniversario, contado por calendario para que cruzar un bisiesto no adelante el vencimiento. Se calcula una sola vez, se persiste en el expediente y no se recalcula al leerlo.
+
+**Se emite dentro de la transición del pago, no después** (CMP-07). `confirmarPagoP7` cierra y hashea el PDF antes de transicionar, y `registrarPagoConfirmadoP7` asienta el estado y el certificado en la **misma** escritura: no existe un expediente cobrado sin certificado ni un certificado sin cobro. Si el certificado no se puede cerrar, el pago **no se confirma** (`CERTIFICADO_NO_EMITIDO`) y el próximo sondeo reintenta la operación entera — el dinero ya está en Bancard y la clave de idempotencia impide cobrarlo de nuevo. Los expedientes que cobraron antes de D-12 traen el campo en `null` y no se reescriben (regla inviolable #10).
+
+Quien emite vive en `src/documentos/` y quien lo llama es el dominio, así que la función **entra inyectada** (`DependenciasP7.emitirCertificado`) y no importada: al revés sería un ciclo de módulos. Es obligatoria en el tipo, para que el compilador impida un `DependenciasP7` capaz de cobrar sin certificar.
+
+Reparto: `src/domain/documentos.ts` y `src/domain/certificado-cobertura.ts` deciden **qué dice** cada documento (proyección del Expediente, sin `node:*`); `plantillas.ts` + `layout.ts` cómo se distribuye en la hoja; `pdf.ts` + `tipografia.ts` escriben los bytes; `qr.ts` genera el QR de verificación; `servicio.ts` cierra, hashea, guarda, transiciona y deja evidencia.
 
 Tres cosas no negociables de este servicio:
 
@@ -266,7 +283,7 @@ Tres cosas no negociables de este servicio:
 
 **El QR es decisión de producto, no obligación legal**: no hay fila en la matriz de cumplimiento que lo exija (la 77 exige el hash individual y la 47 vincular por correlativo o hash, cosas que el paquete cumple sin él). Codifica **solo** `<URL_BASE>/<código>` — nunca el hash (el QR va dentro del PDF que se hashea) ni ningún dato de la persona.
 
-**Pendiente:** la ruta `/verificar/<código>` a la que apunta el QR todavía no existe, y el servicio no está expuesto por HTTP — lo va a cablear el Route Handler de P8 con `crearArchivoRepository()`, que ya está.
+**Pendiente:** la ruta `/verificar/<código>` a la que apunta el QR de los dos documentos todavía no existe (CMP-06, resto del Lote 5), y el CPC todavía no se ofrece para descargar en la confirmación ni se entrega por WhatsApp y correo (CHG-42/43/44).
 
 ---
 
@@ -377,6 +394,7 @@ Resumen condensado de `docs/SeguroLoTengo-integraciones-externas-alta-resolucion
 - No enviar datos médicos, cédula, OTP ni pagos a CRM, analítica o registros técnicos tipo Sentry/PostHog/HubSpot (regla inviolable #7).
 - Callbacks de proveedores firmados, verificables, idempotentes y vinculados a la misma propuesta (ver "Idempotencia de webhooks" arriba).
 - Solicitud y FIPF: **un solo PDF**, un correlativo, dos códigos internos visibles, un acto de firma (D-11, regla inviolable #3).
+- Certificado de Cobertura Provisional: solo con el cobro acreditado, en la misma escritura que lo confirma, firmado por Alianza y sin número oficial de póliza (D-12, CMP-04/06/07/18).
 - Póliza y factura las emite y envía Alianza (SEBAOT); descarga inmediata desde SeguroLoTengo solo de Solicitud y FIPF firmados.
 - No usar automatizaciones administrativas (n8n o similar) para controlar la secuencia crítica pago → firma → emisión.
 - No introducir un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`.
@@ -408,7 +426,7 @@ Además de `npm run typecheck && npm run lint && npm test`:
 4. Si usa una integración externa: ¿está descrita en `docs/Tabla de Integraciones externas - Tabla.csv`? ¿Respeta las "Reglas transversales de integraciones" de arriba?
 5. ¿Se generan y persisten las evidencias probatorias correspondientes (hash, timestamp, IP, canal, resultado) vía `EvidenceStore`?
 6. ¿La firma, si aplica, va sobre el documento único y con los firmantes que declara `firmantes-documento.ts` (D-13)?
-7. ¿El pago, si aplica, ocurre **después** de la firma (D-08) y es idempotente? ¿El único estado de origen es `FIRMADO`? ¿La emisión exige el cobro confirmado (fila 44)?
+7. ¿El pago, si aplica, ocurre **después** de la firma (D-08) y es idempotente? ¿El único estado de origen es `FIRMADO`? ¿El Certificado de Cobertura Provisional se emite en la misma escritura que el cobro (D-12, CMP-07)? ¿La emisión exige el cobro confirmado (fila 44)?
 8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica, o (a futuro) al asistente IA?
 
 ---
@@ -421,6 +439,6 @@ Además de `npm run typecheck && npm run lint && npm test`:
 - No hagas commits que dejen tests en rojo.  
 - No implementes más de una pantalla por sesión: pedime que abramos una sesión nueva.
 - No inventes artículos de ley, endpoints, campos de API o pasos del flujo que no figuren en los documentos fuente.
-- No generes Nota de Cobertura — el producto no la contempla.
+- No generes Nota de Cobertura — el producto no la contempla. El **Certificado de Cobertura Provisional** (D-12) es otra cosa y sí existe: no compromete cobertura anticipada, se emite recién con el cobro acreditado y solo constata desde cuándo corre lo que ese cobro compró.
 - No introduzcas un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`, ni dejes su documentación técnica suelta en la raíz de `docs/`: va en `docs/Integraciones/`.
 

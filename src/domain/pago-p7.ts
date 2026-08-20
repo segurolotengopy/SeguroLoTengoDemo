@@ -75,6 +75,7 @@ import {
 } from "./expediente";
 import { esMedioDePago, pagoAcreditado } from "./tipos";
 import type {
+  CertificadoCobertura,
   DatosFacturacionP7,
   EstadoExpediente,
   Expediente,
@@ -96,7 +97,37 @@ export interface DependenciasP7 {
   readonly nuevoId?: () => string;
   /** A dónde vuelve Bancard después del formulario seguro de tarjeta. */
   readonly urlRetornoTarjeta?: string;
+  /**
+   * Emisión del Certificado de Cobertura Provisional (D-12), que ocurre en la
+   * misma escritura que confirma el pago.
+   *
+   * **Entra como función inyectada y no como import** porque quien la
+   * implementa vive en `src/documentos/`, que a su vez importa este dominio:
+   * traerla acá directamente cerraría un ciclo de módulos. El precio es que
+   * hay que acordarse de cablearla en el composition root, y a cambio el
+   * dominio sigue sin saber nada de PDF, de S3 ni de `node:crypto`.
+   *
+   * **Es obligatoria**, y no opcional con una rama que la saltee: un
+   * `DependenciasP7` sin emisor podría confirmar un cobro sin certificado, que
+   * es exactamente lo que CMP-07 prohíbe. Hacerla requerida traslada esa
+   * garantía al compilador.
+   */
+  readonly emitirCertificado: EmisorCertificadoCobertura;
 }
+
+/**
+ * Lo que P7 necesita del emisor del certificado: recibe el expediente ya
+ * proyectado con el cobro adentro y devuelve la ficha del documento cerrado,
+ * o el motivo por el que no pudo emitirlo. **No persiste el expediente** — eso
+ * lo hace `confirmarPagoP7` en una sola escritura junto con el pago.
+ */
+export type EmisorCertificadoCobertura = (entrada: {
+  readonly expediente: Expediente;
+  readonly emitidoEn: string;
+}) => Promise<
+  | { readonly ok: true; readonly certificado: CertificadoCobertura }
+  | { readonly ok: false; readonly motivo: string; readonly detalle?: string }
+>;
 
 /**
  * Único estado desde el que este paso puede operar.
@@ -110,6 +141,7 @@ export const ESTADO_REQUERIDO_P7: EstadoExpediente = "FIRMADO";
 export const PASO_EVIDENCIA_INICIO_P7 = "P7_INICIO_PAGO";
 export const PASO_EVIDENCIA_CONFIRMACION_P7 = "P7_CONFIRMACION_PAGO";
 export const PASO_EVIDENCIA_VENCIMIENTO_P7 = "P7_VENCIMIENTO_PLAZO_PAGO";
+export const PASO_EVIDENCIA_CERTIFICADO_P7 = "P7_CERTIFICADO_COBERTURA";
 
 export const URL_RETORNO_TARJETA_POR_DEFECTO = "/pago/retorno";
 
@@ -205,6 +237,16 @@ export type MotivoRechazoP7 =
   | "PAGO_CANCELADO"
   /** El expediente firmado caducó sin pagarse (D-10). Terminal: no hay reintento. */
   | "PLAZO_VENCIDO"
+  /**
+   * D-12 · Bancard acreditó el cobro pero el Certificado de Cobertura
+   * Provisional no se pudo cerrar, así que el pago **no se confirmó**: la
+   * secuencia pago → CPC es atómica (CMP-07) y confirmar sin certificado
+   * dejaría a la persona cobrada y sin constancia de desde cuándo está
+   * cubierta. El expediente se queda en `FIRMADO` y el próximo sondeo lo
+   * reintenta entero — el dinero ya entró en Bancard, la operación no se
+   * repite (la clave de idempotencia es la misma).
+   */
+  | "CERTIFICADO_NO_EMITIDO"
   /**
    * Otra petición escribió el expediente entre la lectura y el guardado y el
    * conflicto persistió tras los reintentos (`src/domain/concurrencia.ts`).
@@ -736,17 +778,45 @@ async function intentarConfirmarPagoP7(
     return { ok: true, confirmado: false, medio: pago.medio, referenciaBancard: pago.referenciaBancard };
   }
 
+  const pagoAcreditadoAhora: Pago = {
+    ...pago,
+    // Se copia el estado que reportó Bancard, no uno inferido acá.
+    // `ultimos4Digitos` de la consulta se descarta a propósito.
+    estado: consulta.estado,
+    confirmadoEn: fecha,
+  };
+
+  // D-12 · el Certificado de Cobertura Provisional se cierra **antes** de
+  // transicionar, sobre la proyección del expediente ya cobrado: el documento
+  // tiene que poder decir el instante exacto de la acreditación, que es el que
+  // fija el inicio de la cobertura (CHG-41). Si no se puede cerrar, el pago no
+  // se confirma — no existe un expediente cobrado sin certificado (CMP-07).
+  const certificado = await deps.emitirCertificado({
+    expediente: { ...expediente, pago: pagoAcreditadoAhora },
+    emitidoEn: fecha,
+  });
+  if (!certificado.ok) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: entrada.expedienteId,
+      paso: PASO_EVIDENCIA_CERTIFICADO_P7,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: resumenSeguroP7({
+        medio: pago.medio,
+        montoGs: pago.montoGs,
+        referenciaBancard: pago.referenciaBancard,
+        estadoPago: consulta.estado,
+        numeroPropuesta: expediente.numeroPropuesta,
+        idempotencyKey: pago.idempotencyKey,
+      }),
+    });
+    return { ok: false, motivo: "CERTIFICADO_NO_EMITIDO", detalle: certificado.detalle };
+  }
+
   const transicion = registrarPagoConfirmadoP7(
     expediente,
-    {
-      pago: {
-        ...pago,
-        // Se copia el estado que reportó Bancard, no uno inferido acá.
-        // `ultimos4Digitos` de la consulta se descarta a propósito.
-        estado: consulta.estado,
-        confirmadoEn: fecha,
-      },
-    },
+    { pago: pagoAcreditadoAhora, certificado: certificado.certificado },
     fecha,
   );
 
@@ -770,6 +840,27 @@ async function intentarConfirmarPagoP7(
       numeroPropuesta: transicion.expediente.numeroPropuesta,
       idempotencyKey: pago.idempotencyKey,
     }),
+  });
+
+  // Evidencia propia del certificado: es un documento con su código, su
+  // huella y su firma institucional, y la fila 77 pide poder citarlo por
+  // separado. Acá no viaja ningún dato de la persona ni de la tarjeta.
+  await registrarEvidencia(deps, reloj, {
+    expedienteId: entrada.expedienteId,
+    paso: PASO_EVIDENCIA_CERTIFICADO_P7,
+    fecha,
+    contexto: entrada.contexto,
+    resultado: "EXITOSO",
+    detalle: {
+      certificado: certificado.certificado.codigo,
+      version: certificado.certificado.version,
+      hashCertificado: certificado.certificado.hashSha256,
+      paquete: certificado.certificado.codigoPaquete,
+      inicioCobertura: certificado.certificado.inicioCobertura,
+      finCobertura: certificado.certificado.finCobertura,
+      firmantes: certificado.certificado.firmas.map((firma) => firma.rol).join(","),
+      certificados: certificado.certificado.firmas.map((firma) => firma.certificado).join(","),
+    },
   });
 
   return {

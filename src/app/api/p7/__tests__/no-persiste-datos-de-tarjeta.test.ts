@@ -30,6 +30,7 @@
  *    log plano, que es la vía por la que un dato así se escapa sin que nadie
  *    lo note.
  */
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -39,6 +40,8 @@ import type { Expediente, MedioDePago, RegistroEvidencia } from "@/domain/tipos"
 import type { ContextoPeticion, RepositorioExpediente } from "@/domain/verificacion-canal";
 import type { EvidenceStore } from "@/ports/evidence-store";
 import { expedienteFirmado } from "@/domain/__tests__/fixtures";
+import { emitirCertificadoCobertura } from "@/documentos";
+import type { EmisorCertificadoCobertura } from "@/domain/pago-p7";
 
 // ---------------------------------------------------------------------------
 // Lo que se considera "dato de tarjeta"
@@ -169,6 +172,11 @@ async function recorrerP7(medio: MedioDePago) {
     pagos: crearPaymentProviderMock({ demoraGeneracionMs: 0, demoraAcreditacionMs: 0 }),
     expedientes,
     evidencias,
+    // El emisor **real** del certificado, sobre un almacén en memoria: el CPC
+    // es una salida más del paso de pago (D-12) y el barrido de abajo tiene
+    // que poder mirar adentro. Con un doble que devolviera una ficha inventada
+    // este test dejaría de cubrir el documento nuevo.
+    emitirCertificado: emisorCertificadoReal(),
     ahora: () => AHORA,
   };
 
@@ -190,6 +198,25 @@ async function recorrerP7(medio: MedioDePago) {
   const confirmacion = await confirmarPagoP7(deps, { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO });
 
   return { inicio, confirmacion, expediente: expedientes.actual(), evidencias: evidencias.registros };
+}
+
+/**
+ * Emisor de CPC de verdad, guardando el PDF en memoria. El hash lo calcula el
+ * "repositorio" igual que S3, que es lo que el servicio compara antes de dar
+ * el certificado por cerrado.
+ */
+function emisorCertificadoReal(): EmisorCertificadoCobertura {
+  const archivos = {
+    async guardarArchivo(clave: string, contenido: Uint8Array) {
+      return { clave, hashSha256: createHash("sha256").update(contenido).digest("hex") };
+    },
+  };
+  return async ({ expediente, emitidoEn }) => {
+    const resultado = await emitirCertificadoCobertura({ archivos }, { expediente, emitidoEn });
+    return resultado.ok
+      ? { ok: true, certificado: resultado.certificado }
+      : { ok: false, motivo: resultado.motivo, detalle: resultado.detalle };
+  };
 }
 
 // ---------------------------------------------------------------------------

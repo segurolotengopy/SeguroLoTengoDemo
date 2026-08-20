@@ -21,6 +21,7 @@
  */
 import type {
   ActoDeFirmaEnCurso,
+  CertificadoCobertura,
   PolizaDelExpediente,
   DatosComplementariosP6,
   DatosFacturacionP7,
@@ -34,6 +35,7 @@ import type {
 } from "./tipos";
 import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, pagoAcreditado } from "./tipos";
 import { codigoFipf, codigoSolicitud } from "./documentos";
+import { codigoCertificado } from "./certificado-cobertura";
 import { firmantesConjuntos } from "./firmantes-documento";
 import { evaluarElegibilidad } from "./elegibilidad";
 
@@ -304,10 +306,19 @@ export function registrarIntentoPagoP7(
  *
  * El vencimiento no entra acá: bajo el orden nuevo el plazo se abre al firmar
  * (`abrirPlazoDePago`, D-10) y lo que hace esta transición es cerrarlo.
+ *
+ * **El Certificado de Cobertura Provisional entra en esta misma transición**
+ * (D-12), y es obligatorio: no existe la forma de asentar un cobro sin la
+ * constancia de desde cuándo corre la cobertura que ese cobro compró. Es la
+ * atomicidad que pide CMP-07 hecha estructura — una sola escritura lleva el
+ * estado y el documento, así que ninguna de las dos mitades puede quedar sin
+ * la otra. El certificado ya viene cerrado y hasheado desde
+ * `src/documentos/servicio.ts`; acá solo se lo valida contra el correlativo y
+ * se lo asienta.
  */
 export function registrarPagoConfirmadoP7(
   expediente: Expediente,
-  confirmacion: { readonly pago: Pago },
+  confirmacion: { readonly pago: Pago; readonly certificado: CertificadoCobertura },
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
   if (!pagoAcreditado(confirmacion.pago.estado)) {
@@ -317,7 +328,33 @@ export function registrarPagoConfirmadoP7(
     };
   }
 
-  return transicionarExpediente(expediente, "PAGO_CONFIRMADO", { pago: confirmacion.pago }, ahora);
+  // Mismo control que en el cierre del paquete: los códigos del certificado
+  // tienen que derivar del correlativo del expediente. Un CPC que citara otro
+  // número rompería el vínculo de la fila 47 (Res. SS SG. 215/15, punto 14).
+  const correlativo = expediente.numeroPropuesta;
+  if (!correlativo) {
+    return { ok: false, error: "No se puede confirmar el pago sin correlativo de propuesta." };
+  }
+  const certificado = confirmacion.certificado;
+  if (certificado.codigo !== codigoCertificado(correlativo)) {
+    return {
+      ok: false,
+      error: `El certificado ${certificado.codigo} no deriva del correlativo ${correlativo}.`,
+    };
+  }
+  if (certificado.codigoPaquete !== codigoSolicitud(correlativo)) {
+    return {
+      ok: false,
+      error: `El certificado ${certificado.codigo} no cuelga del paquete ${codigoSolicitud(correlativo)}.`,
+    };
+  }
+
+  return transicionarExpediente(
+    expediente,
+    "PAGO_CONFIRMADO",
+    { pago: confirmacion.pago, certificadoCobertura: certificado },
+    ahora,
+  );
 }
 
 // ---------------------------------------------------------------------------

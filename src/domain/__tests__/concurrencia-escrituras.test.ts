@@ -49,6 +49,8 @@ import type { Expediente, Pago, PolizaDelExpediente, RegistroEvidencia } from ".
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
 import {
   NUMERO_PROPUESTA_FIJO,
+  certificadoFixture,
+  emisorCertificadoFalso,
   expedienteEnPaqueteGenerado,
   expedienteFirmado,
   facturacionFixture,
@@ -169,6 +171,7 @@ function armarPago(expediente: Expediente, ahora: string) {
       pagos: bancardNoUsado,
       expedientes: repositorio,
       evidencias,
+      emitirCertificado: emisorCertificadoFalso(),
       ahora: () => ahora,
       nuevoId: () => `ev-${(contador += 1)}`,
     },
@@ -228,6 +231,7 @@ describe("pago · escrituras concurrentes sobre el mismo expediente", () => {
       pagos: bancardNoUsado,
       expedientes: repositorioSiempreEnConflicto(expediente),
       evidencias,
+      emitirCertificado: emisorCertificadoFalso(),
       ahora: () => DESPUES_DEL_PLAZO,
       nuevoId: () => "ev-1",
     };
@@ -296,7 +300,7 @@ function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
 
   const cobrado = registrarPagoConfirmadoP7(
     conIntento.expediente,
-    { pago: pagoConfirmadoFixture },
+    { pago: pagoConfirmadoFixture, certificado: certificadoFixture },
     "2026-08-09T15:10:30.000Z",
   );
   if (!cobrado.ok) throw new Error(cobrado.error);
@@ -426,6 +430,7 @@ describe("P7 · escrituras concurrentes sobre el mismo expediente", () => {
       pagos: bancardConfirmado,
       expedientes: repositorio,
       evidencias,
+      emitirCertificado: emisorCertificadoFalso(),
       ahora: () => "2026-08-09T15:01:00.000Z",
       nuevoId: () => `ev-${(contador += 1)}`,
     };

@@ -18,25 +18,37 @@
  * - `pdf.ts` + `tipografia.ts` — cómo se escriben los bytes del PDF.
  * - `qr.ts` — el QR de verificación que va impreso en cada carilla.
  * - `servicio.ts` — cerrar, hashear, guardar, transicionar y dejar evidencia.
+ *
+ * Desde D-12 el motor produce **dos** documentos: el paquete único (Solicitud
+ * + FIPF, que se cierra antes de firmar) y el Certificado de Cobertura
+ * Provisional (que se emite con el pago acreditado). Comparten motor,
+ * determinismo y QR de verificación; se diferencian en cuándo nacen y en quién
+ * los firma (`src/domain/firmantes-documento.ts`).
  */
 export {
   CONTENT_TYPE_PDF,
   ESTADO_REQUERIDO_DOCUMENTOS,
+  PASO_EVIDENCIA_CERTIFICADO,
   PASO_EVIDENCIA_DOCUMENTOS,
   archivarDocumentosFirmados,
+  claveCertificado,
   claveDocumento,
   claveDocumentoFirmado,
+  emitirCertificadoCobertura,
   generarPaqueteDocumental,
 } from "./servicio";
 export type {
   DependenciasArchivadoFirmados,
+  DependenciasCertificado,
   DependenciasDocumentos,
   DocumentoGenerado,
+  MotivoRechazoCertificado,
   MotivoRechazoDocumentos,
   RepositorioArchivos,
   ResultadoArchivadoFirmados,
+  ResultadoEmitirCertificado,
   ResultadoGenerarPaquete,
 } from "./servicio";
-export { renderizarPaquete } from "./plantillas";
+export { renderizarCertificado, renderizarPaquete } from "./plantillas";
 export { generarMatrizQr } from "./qr";
 export type { MatrizQr } from "./qr";

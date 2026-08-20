@@ -33,7 +33,15 @@ import {
 } from "../pago-p7";
 import type { EstadoPago, Expediente, MedioDePago, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
-import { PAQUETE_FIXTURE, PLAZO_PAGO_FIJO, expedienteFirmado } from "./fixtures";
+import {
+  NUMERO_PROPUESTA_FIJO,
+  PAQUETE_FIXTURE,
+  PLAZO_PAGO_FIJO,
+  certificadoFixture,
+  emisorCertificadoFalso,
+  expedienteFirmado,
+} from "./fixtures";
+import { codigoCertificado } from "../certificado-cobertura";
 
 // ---------------------------------------------------------------------------
 // Dobles en memoria
@@ -158,6 +166,7 @@ function armar(expediente: Expediente, bancard = bancardFalso()) {
       pagos: bancard.provider,
       expedientes,
       evidencias,
+      emitirCertificado: emisorCertificadoFalso(),
       ahora: () => AHORA,
       nuevoId: (() => {
         let n = 0;
@@ -438,6 +447,117 @@ describe("P7 · confirmación de la garantía de pago", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Certificado de Cobertura Provisional (D-12, CHG-42, CMP-07)
+// ---------------------------------------------------------------------------
+
+describe("pago · el certificado se emite con el cobro, en la misma escritura", () => {
+  /**
+   * CMP-07 · la secuencia firma → pago → CPC es atómica. Lo que este test
+   * fija es la forma que toma esa atomicidad acá: el expediente que queda
+   * guardado tiene el estado **y** el certificado, porque los dos entraron por
+   * la misma transición.
+   */
+  it("un expediente cobrado siempre tiene certificado", async () => {
+    const { deps, expedientes } = armar(expedienteListoParaPagar());
+
+    await iniciarPagoP7(deps, ENTRADA_QR);
+    const resultado = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    expect(resultado).toMatchObject({ ok: true, confirmado: true, estado: "PAGO_CONFIRMADO" });
+    const guardado = expedientes.actual();
+    expect(guardado.certificadoCobertura?.codigo).toBe(codigoCertificado(NUMERO_PROPUESTA_FIJO));
+    // El instante de emisión es el mismo con el que se confirmó el cobro: el
+    // documento no puede decir una hora y el expediente otra.
+    expect(guardado.certificadoCobertura?.emitidoEn).toBe(AHORA);
+    expect(guardado.pago?.confirmadoEn).toBe(AHORA);
+  });
+
+  /**
+   * Y la mitad que importa de verdad: si el certificado no se puede cerrar,
+   * **el pago no se confirma**. El expediente se queda en FIRMADO y el
+   * siguiente sondeo reintenta la operación entera; el dinero ya está en
+   * Bancard y la clave de idempotencia impide que se cobre de nuevo.
+   */
+  it("si el certificado no se puede emitir, el cobro no se confirma", async () => {
+    const { deps, expedientes, evidencias } = armar(expedienteListoParaPagar());
+    const depsSinCertificado = { ...deps, emitirCertificado: emisorCertificadoFalso({ falla: true }) };
+
+    await iniciarPagoP7(depsSinCertificado, ENTRADA_QR);
+    const resultado = await confirmarPagoP7(depsSinCertificado, {
+      expedienteId: "EXP-TEST-1",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado).toMatchObject({ ok: false, motivo: "CERTIFICADO_NO_EMITIDO" });
+    const guardado = expedientes.actual();
+    expect(guardado.estado).toBe("FIRMADO");
+    expect(guardado.certificadoCobertura).toBeNull();
+    // Y queda constancia de por qué no se confirmó.
+    expect(
+      evidencias.registros.some(
+        (registro) => registro.paso === "P7_CERTIFICADO_COBERTURA" && registro.resultado === "FALLIDO",
+      ),
+    ).toBe(true);
+  });
+
+  it("el reintento después de una falla del certificado sí confirma, sin cobrar de nuevo", async () => {
+    const { deps, expedientes, bancard } = armar(expedienteListoParaPagar());
+
+    await iniciarPagoP7(deps, ENTRADA_QR);
+    const llamadasTrasIniciar = bancard.llamadas.length;
+
+    await confirmarPagoP7(
+      { ...deps, emitirCertificado: emisorCertificadoFalso({ falla: true }) },
+      { expedienteId: "EXP-TEST-1", contexto: CONTEXTO },
+    );
+    const reintento = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    expect(reintento).toMatchObject({ ok: true, confirmado: true });
+    expect(expedientes.actual().certificadoCobertura).not.toBeNull();
+    // Ninguna operación nueva en Bancard: el reintento consulta, no cobra.
+    expect(bancard.llamadas).toHaveLength(llamadasTrasIniciar);
+  });
+
+  /**
+   * Fila 77 · el certificado es un documento con su propio código y su propia
+   * huella, así que deja su propia evidencia. Y regla inviolable #7: ahí no
+   * viaja ningún dato de la persona ni de la tarjeta.
+   */
+  it("deja evidencia propia, con el código, la huella y la vigencia, y sin datos de la persona", async () => {
+    const { deps, evidencias, expedientes } = armar(expedienteListoParaPagar());
+
+    await iniciarPagoP7(deps, ENTRADA_QR);
+    await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    const registro = evidencias.registros.find(
+      (entrada) => entrada.paso === "P7_CERTIFICADO_COBERTURA" && entrada.resultado === "EXITOSO",
+    );
+    expect(registro).toBeDefined();
+    expect(registro?.detalle).toContain(codigoCertificado(NUMERO_PROPUESTA_FIJO));
+    expect(registro?.detalle).toContain(certificadoFixture.hashSha256);
+    expect(registro?.detalle).toContain("inicioCobertura=");
+    expect(registro?.detalle).toContain("ALIANZA");
+
+    const identidad = expedientes.actual().identidad;
+    expect(registro?.detalle).not.toContain(identidad?.numeroCedula ?? "@@");
+    expect(registro?.detalle).not.toContain(identidad?.nombres ?? "@@");
+  });
+
+  it("el sondeo de un expediente ya cobrado no vuelve a emitir el certificado", async () => {
+    const { deps, expedientes } = armar(expedienteListoParaPagar());
+
+    await iniciarPagoP7(deps, ENTRADA_QR);
+    await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+    const primero = expedientes.actual().certificadoCobertura;
+
+    await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    // Reemitirlo cambiaría la huella de un documento ya cerrado (regla #4).
+    expect(expedientes.actual().certificadoCobertura).toEqual(primero);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Fallas de Bancard
 // ---------------------------------------------------------------------------
 
@@ -460,7 +580,13 @@ describe("P7 · fallas de Bancard", () => {
     const evidencias = evidenciasFalsas();
 
     const resultado = await iniciarPagoP7(
-      { pagos: bancardQueFalla("TIMEOUT"), expedientes, evidencias, ahora: () => AHORA },
+      {
+        pagos: bancardQueFalla("TIMEOUT"),
+        expedientes,
+        evidencias,
+        emitirCertificado: emisorCertificadoFalso(),
+        ahora: () => AHORA,
+      },
       ENTRADA_QR,
     );
 
@@ -474,7 +600,13 @@ describe("P7 · fallas de Bancard", () => {
     const expedientes = repositorioFalso(expedienteListoParaPagar());
 
     const resultado = await iniciarPagoP7(
-      { pagos: bancardQueFalla("RECHAZADA"), expedientes, evidencias: evidenciasFalsas(), ahora: () => AHORA },
+      {
+        pagos: bancardQueFalla("RECHAZADA"),
+        expedientes,
+        evidencias: evidenciasFalsas(),
+        emitirCertificado: emisorCertificadoFalso(),
+        ahora: () => AHORA,
+      },
       ENTRADA_QR,
     );
 
