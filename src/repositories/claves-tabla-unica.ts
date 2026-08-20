@@ -13,6 +13,7 @@
  *
  * - Expediente (metadata):      pk = EXPEDIENTE#<id>      sk = META
  * - Evidencia (colección 1-N):  pk = EXPEDIENTE#<id>      sk = EVID#<fechaIso>#<evidenciaId>
+ * - Entrega (una por canal):    pk = EXPEDIENTE#<id>      sk = ENTREGA#<canal>
  * - OTP (ítem propio):          pk = OTP#<otpId>           sk = OTP#<otpId>
  *
  * La evidencia queda anidada bajo la partición del expediente (patrón
@@ -53,9 +54,17 @@ export function claveExpediente(expedienteId: string): { pk: string; sk: string 
   return { pk: `EXPEDIENTE${SEPARADOR}${expedienteId}`, sk: "META" };
 }
 
-export function prefijoEvidenciaDeExpediente(expedienteId: string): string {
+/**
+ * Partición de un expediente. Debajo de ella viven su metadata, su evidencia y
+ * sus entregas: es lo que permite pedir "todo lo de este expediente" con un
+ * solo Query y sin índice secundario.
+ */
+export function particionDeExpediente(expedienteId: string): string {
   return `EXPEDIENTE${SEPARADOR}${expedienteId}`;
 }
+
+/** Alias histórico de `particionDeExpediente`, conservado por sus llamadores. */
+export const prefijoEvidenciaDeExpediente = particionDeExpediente;
 
 /**
  * `fechaIso` va primero en el sort key (antes del id) para que el orden
@@ -69,8 +78,22 @@ export function claveEvidencia(
   fechaIso: string,
 ): { pk: string; sk: string } {
   return {
-    pk: prefijoEvidenciaDeExpediente(expedienteId),
+    pk: particionDeExpediente(expedienteId),
     sk: `EVID${SEPARADOR}${fechaIso}${SEPARADOR}${evidenciaId}`,
+  };
+}
+
+/**
+ * Entrega de documentos: **una por canal y por expediente** (CHG-44).
+ *
+ * Que el canal sea el sort key entero —y no lleve fecha ni id— es lo que hace
+ * idempotente al despachador: dos pasadas escriben en la misma clave, así que
+ * no puede haber dos entregas del mismo canal.
+ */
+export function claveEntrega(expedienteId: string, canal: string): { pk: string; sk: string } {
+  return {
+    pk: particionDeExpediente(expedienteId),
+    sk: `ENTREGA${SEPARADOR}${canal}`,
   };
 }
 

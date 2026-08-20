@@ -15,6 +15,7 @@ import {
   DETALLE_INICIO_COBERTURA_P9,
   DOCUMENTOS_POR_RECIBIR,
   HITOS_CONTRATACION,
+  LEYENDA_ENTREGA_FALLIDA_P9,
   LEYENDA_SIN_NOTA_DE_COBERTURA,
   NOMBRE_CERTIFICADO_P9,
   NOMBRE_COMPROBANTE_P9,
@@ -24,6 +25,7 @@ import {
   ROTULO_CANAL_CORREO_P9,
   ROTULO_CANAL_WHATSAPP_P9,
   ROTULO_DOCUMENTO_P9,
+  ROTULO_ESTADO_ENTREGA,
   ROTULO_ESTADO_POLIZA,
   ROTULO_ESTADO_POLIZA_P9,
   ROTULO_ESTADO_SOLICITUD_P9,
@@ -84,6 +86,15 @@ interface CertificadoDescargable {
   readonly inicioCobertura: string;
   readonly finCobertura: string;
   readonly emitidoEn: string;
+}
+
+interface EntregaPorCanal {
+  readonly canal: string;
+  readonly destinoEnmascarado: string;
+  readonly estado: string;
+  readonly intentos: number;
+  readonly proximoIntentoEn: string | null;
+  readonly acusadaEn: string | null;
 }
 
 interface Resumen {
@@ -219,6 +230,7 @@ export function ContratacionAceptada() {
   const [estadoPoliza, setEstadoPoliza] = useState<string | null>(null);
   const [estadoFactura, setEstadoFactura] = useState<string | null>(null);
   const [referenciaFactura, setReferenciaFactura] = useState<string | null>(null);
+  const [entregas, setEntregas] = useState<readonly EntregaPorCanal[]>([]);
   const [comunicaciones, setComunicaciones] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -239,6 +251,7 @@ export function ContratacionAceptada() {
           motivo?: string;
           resumen?: Resumen;
           documentosDisponibles?: boolean;
+          entregas?: readonly EntregaPorCanal[];
         };
         if (!vigente.current) return;
         if (!datos.ok || !datos.resumen) {
@@ -250,6 +263,7 @@ export function ContratacionAceptada() {
         setEstadoPoliza(datos.resumen.estadoPoliza);
         setEstadoFactura(datos.resumen.estadoFactura);
         setReferenciaFactura(datos.resumen.referenciaFactura);
+        setEntregas(datos.entregas ?? []);
       } catch {
         if (vigente.current) setError(MENSAJES.SEBAOT_NO_DISPONIBLE);
       }
@@ -263,6 +277,7 @@ export function ContratacionAceptada() {
       estadoPoliza?: string;
       estadoFactura?: string;
       referenciaFactura?: string | null;
+      entregas?: readonly EntregaPorCanal[];
     };
     if (!datos.ok) return true;
 
@@ -270,14 +285,25 @@ export function ContratacionAceptada() {
       setEstadoPoliza(datos.estadoPoliza ?? null);
       setEstadoFactura(datos.estadoFactura ?? null);
       setReferenciaFactura(datos.referenciaFactura ?? null);
+      setEntregas(datos.entregas ?? []);
     }
-    // Se deja de sondear cuando ya no queda nada por avanzar.
-    return datos.estadoPoliza === "EMITIDA" && datos.estadoFactura === "EMITIDA";
+    // Se deja de sondear cuando ya no queda nada por avanzar. La entrega cuenta
+    // (CHG-44): cortar el sondeo con la póliza emitida dejaría una entrega en
+    // cola sin nadie que la empuje, porque en el demo el despachador se cuelga
+    // justo de este sondeo.
+    const emision = datos.estadoPoliza === "EMITIDA" && datos.estadoFactura === "EMITIDA";
+    const entregaTerminada = (datos.entregas ?? []).every(
+      (entrega) => entrega.estado === "ACUSADO" || entrega.estado === "FALLIDO",
+    );
+    return emision && entregaTerminada;
   }, []);
 
   useEffect(() => {
     if (!resumen) return;
-    if (estadoPoliza === "EMITIDA" && estadoFactura === "EMITIDA") return;
+    const entregaTerminada = entregas.every(
+      (entrega) => entrega.estado === "ACUSADO" || entrega.estado === "FALLIDO",
+    );
+    if (estadoPoliza === "EMITIDA" && estadoFactura === "EMITIDA" && entregaTerminada) return;
 
     let cancelado = false;
     const temporizador = setInterval(() => {
@@ -296,7 +322,7 @@ export function ContratacionAceptada() {
       cancelado = true;
       clearInterval(temporizador);
     };
-  }, [resumen, estadoPoliza, estadoFactura, sondear]);
+  }, [resumen, estadoPoliza, estadoFactura, entregas, sondear]);
 
   async function cambiarComunicaciones(acepta: boolean) {
     // Optimista: es un consentimiento opcional que no condiciona nada. Si el
@@ -629,6 +655,55 @@ export function ContratacionAceptada() {
                 {ROTULO_CANAL_CORREO_P9}: {resumen?.correoEnmascarado ?? "—"} ·{" "}
                 {ROTULO_CANAL_WHATSAPP_P9}: {resumen?.whatsappEnmascarado ?? "—"}
               </p>
+
+              {/* ---------------------------------------------------------- */}
+              {/* CHG-44 · el estado real de cada envío, no una promesa       */}
+              {/* ---------------------------------------------------------- */}
+              {entregas.length > 0 ? (
+                <ul className="flex flex-col gap-1 border-t border-azul-200 pt-1.5 dark:border-azul-700">
+                  {entregas.map((entrega) => (
+                    <li
+                      key={entrega.canal}
+                      className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-azul-900 dark:text-azul-100"
+                    >
+                      <span className="font-bold">
+                        {entrega.canal === "WHATSAPP"
+                          ? ROTULO_CANAL_WHATSAPP_P9
+                          : ROTULO_CANAL_CORREO_P9}
+                      </span>
+                      <span>{entrega.destinoEnmascarado}</span>
+                      <span
+                        className={
+                          entrega.estado === "ACUSADO"
+                            ? "font-bold text-verde-700 dark:text-verde-300"
+                            : entrega.estado === "FALLIDO"
+                              ? "font-bold text-rojo-700 dark:text-rojo-300"
+                              : "font-bold text-naranja-700 dark:text-naranja-300"
+                        }
+                      >
+                        {entrega.estado === "ACUSADO" ? "✓ " : "⋯ "}
+                        {ROTULO_ESTADO_ENTREGA[entrega.estado] ?? entrega.estado}
+                      </span>
+                      {/* El número de intento solo aparece cuando hubo más de
+                          uno: en el camino normal es ruido. */}
+                      {entrega.intentos > 1 && entrega.estado !== "ACUSADO" ? (
+                        <span className="text-etiqueta">intento {entrega.intentos}</span>
+                      ) : null}
+                      {entrega.acusadaEn ? (
+                        <span className="text-etiqueta tabular-nums">{hora(entrega.acusadaEn)}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {/* La descarga sigue disponible, así que el aviso dice qué hacer
+                  y no solo que algo salió mal. */}
+              {entregas.some((entrega) => entrega.estado === "FALLIDO") ? (
+                <p className="rounded border border-rojo-300 bg-rojo-50 px-2 py-1 text-[11px] font-semibold text-rojo-900 dark:border-rojo-700 dark:bg-rojo-950 dark:text-rojo-100">
+                  {LEYENDA_ENTREGA_FALLIDA_P9}
+                </p>
+              ) : null}
             </div>
           </section>
         </div>

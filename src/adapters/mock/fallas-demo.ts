@@ -44,7 +44,9 @@ export type FallaDemo =
   | "BANCARD_TIMEOUT"
   | "CODE100_RECHAZO"
   | "FIRMAS_INSTITUCIONALES_FALLAN"
-  | "REGISTRO_CIVIL_CAIDO";
+  | "REGISTRO_CIVIL_CAIDO"
+  | "ENTREGA_NO_DISPONIBLE"
+  | "ENTREGA_SIN_ACUSE";
 
 export const FALLAS_DEMO: readonly FallaDemo[] = [
   "OTP_EXPIRADO",
@@ -53,12 +55,26 @@ export const FALLAS_DEMO: readonly FallaDemo[] = [
   "CODE100_RECHAZO",
   "FIRMAS_INSTITUCIONALES_FALLAN",
   "REGISTRO_CIVIL_CAIDO",
+  "ENTREGA_NO_DISPONIBLE",
+  "ENTREGA_SIN_ACUSE",
 ];
 
 /** Rótulos y explicación para el panel; no se usan en el flujo P0–P9. */
 export const DESCRIPCION_FALLA_DEMO: Readonly<
   Record<FallaDemo, { readonly rotulo: string; readonly donde: string; readonly efecto: string }>
 > = {
+  ENTREGA_NO_DISPONIBLE: {
+    rotulo: "Mensajería caída",
+    donde: "Paso 8, al entregar los documentos",
+    efecto:
+      "El proveedor no acepta el envío. Es una falla transitoria: el despachador programa otro intento con espera creciente y la pantalla muestra la entrega como pendiente, con el número de intento.",
+  },
+  ENTREGA_SIN_ACUSE: {
+    rotulo: "Entrega sin acuse",
+    donde: "Paso 8, después de que el envío fue aceptado",
+    efecto:
+      "El proveedor acepta el envío y después no confirma la recepción. Es lo que distingue ENVIADO de ACUSADO (CMP-05): sin esta palanca, los dos serían el mismo instante y el acuse no probaría nada.",
+  },
   REGISTRO_CIVIL_CAIDO: {
     rotulo: "Registro civil caído",
     donde: "Paso 4, con una cédula del formato anterior (sin MRZ)",

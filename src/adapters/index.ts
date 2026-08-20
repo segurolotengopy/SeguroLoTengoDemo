@@ -23,7 +23,11 @@ export type NombrePuerto =
   | "EVIDENCE"
   // Octavo puerto: consulta al registro civil (ítem 33). Nació del piloto de
   // tres formatos — es lo único que le da salida a la cédula sin MRZ.
-  | "REGISTRO_CIVIL";
+  | "REGISTRO_CIVIL"
+  // Noveno: entrega de los documentos emitidos por los canales verificados
+  // (CHG-44). No es el del OTP aunque comparta proveedor: aquel entrega un
+  // código, este entrega archivos a alguien ya identificado.
+  | "MESSAGING";
 
 export type ModoIntegracion = "mock" | "live";
 

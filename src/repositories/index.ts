@@ -19,6 +19,8 @@ import { obtenerOtpPepper } from "./secrets-client";
 import { crearOtpRepositoryDynamoDb } from "./otp-repository";
 import type { OtpRepository } from "./otp-repository";
 import { crearEvidenceStoreDynamoDb } from "./evidencia-repository";
+import { crearEntregaRepositoryDynamoDb } from "./entrega-repository";
+import type { RepositorioEntregas } from "../domain/entrega-documentos";
 import { crearExpedienteRepositoryDynamoDb } from "./expediente-repository";
 import type { ConsultaExpedientes, ExpedienteRepository } from "./expediente-repository";
 import { crearArchivoRepositoryS3 } from "./archivo-repository";
@@ -40,6 +42,14 @@ export function crearOtpRepository(): OtpRepository {
 
 export function crearEvidenceStore(): EvidenceStore {
   return crearEvidenceStoreDynamoDb({
+    documentClient: obtenerClienteDynamoDb(),
+    nombreTabla: nombreTablaExpedientes(),
+  });
+}
+
+/** Registros de entrega de documentos por canal (CHG-44, CMP-05). */
+export function crearEntregaRepository(): RepositorioEntregas {
+  return crearEntregaRepositoryDynamoDb({
     documentClient: obtenerClienteDynamoDb(),
     nombreTabla: nombreTablaExpedientes(),
   });
@@ -67,6 +77,7 @@ export function crearArchivoRepository(): ArchivoRepository {
 export type { OtpRepository, CrearOtpInput, OtpCreado, RegistroOtp, ResultadoReenvioOtpRepo } from "./otp-repository";
 export type { ConsultaExpedientes, ExpedienteRepository } from "./expediente-repository";
 export type { ArchivoRepository, ArchivoGuardado } from "./archivo-repository";
+export type { DependenciasEntregaRepository } from "./entrega-repository";
 
 /**
  * Almacén del estado de los mocks que **no puede vivir en memoria**.

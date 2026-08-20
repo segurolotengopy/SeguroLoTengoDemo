@@ -20,6 +20,7 @@ import type { PaymentProvider } from "../ports/payment-provider";
 import type { RegistroCivilProvider } from "../ports/registro-civil";
 import type { PolicyIssuer } from "../ports/policy-issuer";
 import type { SignatureProvider } from "../ports/signature-provider";
+import type { MessagingProvider } from "../ports/messaging-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
 import { SESv2Client } from "@aws-sdk/client-sesv2";
 import type { LectorMetadataOtp } from "../domain/verificacion-canal";
@@ -46,6 +47,7 @@ import { crearAlmacenEstadoDemo } from "../repositories";
 import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 import type { OtpFirmaRemoto } from "./mock/signature-provider";
+import { crearMessagingProviderMock } from "./mock/messaging-provider";
 import { crearPaymentProviderMock } from "./mock/payment-provider";
 import { crearPolicyIssuerMock } from "./mock/policy-issuer";
 import { crearRegistroCivilMock } from "./mock/registro-civil";
@@ -279,6 +281,29 @@ export function obtenerPaymentProvider(): PaymentProvider {
       throw new Error(
         "INTEGRATION_PAYMENT=live pero todavía no existe el adaptador oficial de PaymentProvider " +
           "(src/adapters/live/). Ver docs/Integraciones/ para los contratos de Bancard.",
+      );
+    },
+  });
+}
+
+/**
+ * Entrega de documentos por los canales verificados (CHG-44, CMP-05).
+ *
+ * Solo hay mock, y el `live` no es una tarea pendiente cualquiera: WhatsApp-
+ * Modular expone hoy un `otp-service` y ningún endpoint para mandar un
+ * documento, así que **no hay contrato que implementar**. Inventarlo sería
+ * inventar la integración, el mismo criterio con el que el webhook de Code100
+ * quedó declarado y sin implementar (PEN-02). El de correo sí es escribible
+ * sobre SES cuando la entrega salga del demo.
+ */
+export function obtenerMessagingProvider(): MessagingProvider {
+  return resolverAdaptador("MESSAGING", {
+    mock: () => crearMessagingProviderMock(),
+    live: () => {
+      throw new Error(
+        "INTEGRATION_MESSAGING=live pero todavía no existe el adaptador oficial de " +
+          "MessagingProvider. WhatsApp-Modular no expone hoy un endpoint de entrega de " +
+          "documentos; ver la cabecera de src/ports/messaging-provider.ts.",
       );
     },
   });

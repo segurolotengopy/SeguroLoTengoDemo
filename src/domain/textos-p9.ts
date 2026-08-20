@@ -204,6 +204,29 @@ export const BAJADA_ENTREGA_P9 =
 export const ROTULO_CANAL_CORREO_P9 = "Correo";
 export const ROTULO_CANAL_WHATSAPP_P9 = "WhatsApp";
 
+/**
+ * CHG-44 · el estado de la entrega, canal por canal.
+ *
+ * `ENVIADO` y `ACUSADO` se dicen distinto a propósito: el proveedor acepta un
+ * mensaje mucho antes de que llegue, y CMP-05 pide registrar el acuse, no el
+ * envío. Llamar "entregado" a lo que solo fue aceptado le mentiría a la
+ * persona sobre algo que puede comprobar mirando su teléfono.
+ */
+export const ROTULO_ESTADO_ENTREGA: Readonly<Record<string, string>> = {
+  PENDIENTE: "En cola de envío",
+  ENVIADO: "Enviado, esperando confirmación",
+  ACUSADO: "Entregado",
+  FALLIDO: "No se pudo entregar",
+};
+
+/**
+ * Qué hacer cuando la entrega no llegó. La descarga sigue disponible, así que
+ * el mensaje no es una disculpa sino una salida: dice qué hacer, no solo qué
+ * pasó.
+ */
+export const LEYENDA_ENTREGA_FALLIDA_P9 =
+  "No pudimos entregarte los documentos por ese canal. Descargalos de esta pantalla y escribinos si necesitás que te los reenviemos.";
+
 /** Leyenda obligatoria: el producto no contempla Nota de Cobertura. */
 export const LEYENDA_SIN_NOTA_DE_COBERTURA = "No se genera Nota de Cobertura.";
 

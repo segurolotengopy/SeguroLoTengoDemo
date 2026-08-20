@@ -87,6 +87,12 @@ test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
   }
   await verificarDescargas(page, correlativo);
 
+  // CHG-44 / CMP-05 · los documentos se entregan a los dos canales verificados
+  // y la pantalla muestra el acuse, no solo el envío.
+  await expect(page.getByText("Entregado").first()).toBeVisible({ timeout: 30_000 });
+  const entregas = page.locator("li", { hasText: "Entregado" });
+  await expect(entregas).toHaveCount(2);
+
   // CMP-06 · el QR de los dos documentos con huella lleva a una página que los
   // verifica de verdad.
   await verificarRutaPublica(page, correlativo);

@@ -44,9 +44,16 @@ describe("fallas forzadas del panel de demo", () => {
     // que sí sigue siendo posible es que las firmas cualificadas no lleguen
     // después de la del cliente, y esa tiene un estado que mostrar
     // —`FIRMADO_CLIENTE`— con el cobro inhabilitado (D-13).
+    // `ENTREGA_NO_DISPONIBLE` y `ENTREGA_SIN_ACUSE` las trajo la entrega de
+    // documentos (CHG-44) y son **dos** a propósito: una muestra el reintento
+    // con espera creciente y la otra la diferencia entre `ENVIADO` y
+    // `ACUSADO`, que es de donde cuelga CMP-05. Con una sola no se puede
+    // enseñar que aceptar no es entregar.
     expect([...FALLAS_DEMO].sort()).toEqual([
       "BANCARD_TIMEOUT",
       "CODE100_RECHAZO",
+      "ENTREGA_NO_DISPONIBLE",
+      "ENTREGA_SIN_ACUSE",
       "FIRMAS_INSTITUCIONALES_FALLAN",
       "OTP_EXPIRADO",
       "OTP_INTENTOS_AGOTADOS",

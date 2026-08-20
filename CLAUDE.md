@@ -49,10 +49,11 @@ escritura que confirma el cobro. El Lote 5b puso los **tres** descargables en
 la pantalla de confirmación —paquete firmado, certificado y comprobante de
 pago (D-05)— con el inicio de cobertura a la vista, y el Lote 5c abrió
 `/verificar/<código>`, la página pública a la que apuntan los QR (CMP-06).
-**Falta** el resto del Lote 5: entregar los documentos por WhatsApp y correo
-con acuse (CHG-44), y la Pantalla B con el seguimiento de devoluciones. Cada regla se corrige acá cuando el lote
-que la cambia se implementa, no antes: hasta entonces, **la regla escrita
-abajo es la que rige el código que existe hoy**.
+El Lote 5d entrega el certificado y el paquete firmado a los canales
+verificados, con acuse y reintentos (CHG-44, CMP-05). **Falta** el cierre del
+Lote 5: la Pantalla B con el seguimiento de devoluciones. Cada regla se corrige
+acá cuando el lote que la cambia se implementa, no antes: hasta entonces, **la
+regla escrita abajo es la que rige el código que existe hoy**.
 
 ### Documentos fuente adicionales
 
@@ -128,7 +129,7 @@ src/
 
   documentos/             \# generación de la Solicitud y el FIPF: PDF, QR, hash
 
-  ports/                  \# las 8 interfaces de proveedores externos
+  ports/                  \# las 9 interfaces de proveedores externos
 
   adapters/mock/          \# implementaciones simuladas
 
@@ -207,9 +208,11 @@ Toda transición pasa por `src/domain/expediente.ts`. **Ningún Route Handler mo
 
 ## Arquitectura de puertos y adaptadores
 
-Los 8 proveedores externos viven detrás de interfaces en `src/ports/`:
+Los 9 proveedores externos viven detrás de interfaces en `src/ports/`:
 
-`OtpProvider` · `IdentityProvider` · `ComplianceProvider` · `PaymentProvider` · `SignatureProvider` · `PolicyIssuer` · `EvidenceStore` · `RegistroCivilProvider`
+`OtpProvider` · `IdentityProvider` · `ComplianceProvider` · `PaymentProvider` · `SignatureProvider` · `PolicyIssuer` · `EvidenceStore` · `RegistroCivilProvider` · `MessagingProvider`
+
+`MessagingProvider` (CHG-44) es el noveno y **no es el del OTP**, aunque compartan proveedor real: aquel entrega un código de seis dígitos y gestiona su ciclo de vida; este entrega **archivos ya emitidos** a alguien que ya está identificado. Solo tiene mock, y el `live` no es una tarea pendiente cualquiera: WhatsApp-Modular expone hoy un `otp-service` y ningún endpoint de documentos, así que no hay contrato que implementar — inventarlo sería inventar la integración, el mismo criterio que dejó el webhook de Code100 declarado y sin implementar (PEN-02).
 
 **Regla dura:** ningún archivo fuera de `src/adapters/` puede importar un SDK de proveedor externo ni hacer fetch a una API externa. Todo pasa por el puerto. Lo mismo para el acceso a datos: nada llama al SDK de DynamoDB o S3 fuera de `src/repositories/`.
 
@@ -378,7 +381,7 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
-Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100, **firmas institucionales caídas**, registro civil caído), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100, **firmas institucionales caídas**, registro civil caído, **mensajería caída** y **entrega sin acuse**), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
 
 El plazo que el panel acorta es el de D-10 —24 horas para **pagar** un expediente ya firmado—, y se congela al aplicarse las firmas institucionales: para verlo caducar en segundos hay que fijarlo corto **antes** de firmar.
 

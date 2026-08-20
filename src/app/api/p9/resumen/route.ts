@@ -8,12 +8,21 @@
  *    `Solicitud aceptada ✓`— y ocurre en el momento en que la persona entra.
  * 2. **Archiva los PDF firmados** que devolvió Code100, para que los botones
  *    `DESCARGAR` tengan qué servir. Si ya están guardados no vuelve a pedirlos.
+ * 3. **Arranca la entrega** de los documentos a los canales verificados
+ *    (CHG-44). El primer intento sale acá, con la persona todavía mirando la
+ *    pantalla; los reintentos los avanza el sondeo.
  *
- * Ninguna de las dos rompe la pantalla si falla: el archivado se reintenta solo
- * en la próxima carga, y el resumen se responde igual con lo que haya.
+ * Ninguna de las tres rompe la pantalla si falla: el archivado y la entrega se
+ * reintentan en la próxima pasada, y el resumen se responde igual con lo que
+ * haya.
  */
 import { COOKIE_SESION, resolverContextoHttp, respuestaJson } from "@/app/api/_http/contexto-peticion";
-import { dependenciasArchivadoP9, dependenciasP9 } from "@/app/api/p9/_dependencias";
+import {
+  dependenciasArchivadoP9,
+  dependenciasEntregaP9,
+  dependenciasP9,
+} from "@/app/api/p9/_dependencias";
+import { despacharEntregas } from "@/domain/entrega-documentos";
 import { archivarDocumentosFirmados } from "@/documentos";
 import { emitirPolizaP9, leerResumenP9 } from "@/domain/emision-p9";
 import type { MotivoRechazoP9 } from "@/domain/emision-p9";
@@ -62,8 +71,27 @@ export async function GET(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "ESTADO_INVALIDO" }, { status: 409, cookies });
   }
 
+  // La entrega necesita el paquete firmado ya archivado, así que va después.
+  // Best-effort por lo mismo que el archivado: un problema de mensajería no
+  // puede impedir que la persona vea su contratación aceptada.
+  const entregas = await (async () => {
+    try {
+      const despacho = await despacharEntregas(dependenciasEntregaP9(), { expediente, contexto });
+      return despacho.entregas.map((entrega) => ({
+        canal: entrega.canal,
+        destinoEnmascarado: entrega.destinoEnmascarado,
+        estado: entrega.estado,
+        intentos: entrega.intentos,
+        proximoIntentoEn: entrega.proximoIntentoEn,
+        acusadaEn: entrega.acusadaEn,
+      }));
+    } catch {
+      return [];
+    }
+  })();
+
   return respuestaJson(
-    { ok: true, resumen, documentosDisponibles: archivado.ok },
+    { ok: true, resumen, documentosDisponibles: archivado.ok, entregas },
     { cookies },
   );
 }
