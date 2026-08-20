@@ -1,5 +1,6 @@
 "use client";
 
+import { ALIANZA, INTERSEGUROS, nombrePortal } from "@/domain/entidades";
 import { useEffect, useId, useState } from "react";
 import { DOCUMENTOS_ACLARACION } from "@/domain/textos-aclaraciones";
 import type { DocumentoAclaracion, IdDocumentoAclaracion } from "@/domain/textos-aclaraciones";
@@ -17,7 +18,7 @@ import type { DocumentoAclaracion, IdDocumentoAclaracion } from "@/domain/textos
 function comoTextoPlano(documento: DocumentoAclaracion): string {
   const lineas: string[] = [
     documento.titulo,
-    `SeguroLoTengo.com · Interseguros S.A. · Alianza Garantía Seguros y Reaseguros S.A.`,
+    `${nombrePortal()} · ${INTERSEGUROS.razonSocial} · ${ALIANZA.razonSocial}`,
     `Versión ${documento.version} — documento informativo del canal digital`,
     "",
   ];

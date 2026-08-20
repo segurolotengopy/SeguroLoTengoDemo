@@ -41,7 +41,7 @@
  * versión y huellas nuevas (regla #4) — que es justamente lo que no se quiere
  * que pase por recargar una pantalla.
  */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import {
   VERSION_INICIAL_PAQUETE,
   armarContenidoPaquete,
@@ -54,7 +54,19 @@ import type { DocumentoCerrado, Expediente, PaqueteDocumental, RegistroEvidencia
 import type { ContextoPeticion, RepositorioExpediente } from "../domain/verificacion-canal";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { SignatureProvider } from "../ports/signature-provider";
-import { renderizarFipf, renderizarSolicitud } from "./plantillas";
+import { renderizarCertificado, renderizarComprobante, renderizarPaquete } from "./plantillas";
+import { armarContenidoComprobante } from "../domain/comprobante-pago";
+import type { CampoFaltanteComprobante } from "../domain/comprobante-pago";
+import {
+  VERSION_INICIAL_CERTIFICADO,
+  armarContenidoCertificado,
+  codigoCertificado,
+  finCoberturaDesde,
+  inicioCoberturaDesde,
+} from "../domain/certificado-cobertura";
+import type { CampoFaltanteCertificado } from "../domain/certificado-cobertura";
+import { firmantesDe } from "../domain/firmantes-documento";
+import type { CertificadoCobertura, FirmaInstitucional } from "../domain/tipos";
 
 // ---------------------------------------------------------------------------
 // Dependencias
@@ -80,12 +92,48 @@ export interface DependenciasDocumentos {
   readonly evidencias: EvidenceStore;
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
+  /** Inyectable solo para que los tests puedan fijar el correlativo. */
+  readonly nuevoNumeroPropuesta?: () => string;
   /** Base del enlace que codifica el QR de verificación impreso en cada PDF. */
   readonly urlBaseVerificacion?: string;
 }
 
-/** Único estado desde el que se puede cerrar el paquete. */
-export const ESTADO_REQUERIDO_DOCUMENTOS = "PAGO_CONFIRMADO";
+/**
+ * Único estado desde el que se puede cerrar el paquete.
+ *
+ * Era `PAGO_CONFIRMADO` mientras se cobraba antes de firmar. Con el orden
+ * invertido (D-08) los documentos se cierran para poder firmarlos, así que se
+ * cierran apenas las declaraciones resultan compatibles y **antes** de que
+ * exista ninguna operación de pago.
+ */
+export const ESTADO_REQUERIDO_DOCUMENTOS = "DECLARACIONES_OK";
+
+export const LARGO_NUMERO_PROPUESTA = 8;
+
+/**
+ * Acuña el correlativo de la propuesta / futura póliza: `00018425` en la
+ * especificación. `codigoSolicitud` y `codigoFipf` le ponen los prefijos —
+ * **un solo correlativo, dos prefijos**.
+ *
+ * **Lo acuña el cierre del paquete, no el pago** (D-08). Mientras se cobraba
+ * primero, el número nacía al abrir la operación en Bancard y los documentos
+ * lo heredaban; invertido el orden, los documentos se cierran antes de que
+ * exista ninguna operación de pago, así que el número tiene que nacer con
+ * ellos y el pago pasa a ser uno más de los que lo citan.
+ *
+ * Vive acá y no en `src/domain/documentos.ts` porque necesita `node:crypto` y
+ * ese módulo es deliberadamente libre de `node:*` para poder viajar al
+ * navegador.
+ *
+ * Mismo criterio que `generarNumeroCaso` en `declaraciones-p6.ts`: ocho
+ * dígitos de `randomInt` (CSPRNG) y no un contador, porque en el demo no hay
+ * secuencia central y un correlativo adivinable expondría cuántas propuestas
+ * existen. El formato es decisión de producto: no tiene fila en la matriz de
+ * cumplimiento.
+ */
+export function generarNumeroPropuesta(): string {
+  return String(randomInt(0, 10 ** LARGO_NUMERO_PROPUESTA)).padStart(LARGO_NUMERO_PROPUESTA, "0");
+}
 
 export const PASO_EVIDENCIA_DOCUMENTOS = "P8_PAQUETE_DOCUMENTAL";
 
@@ -123,8 +171,8 @@ export type ResultadoGenerarPaquete =
       readonly generado: boolean;
       readonly correlativo: string;
       readonly paquete: PaqueteDocumental;
-      readonly solicitud: DocumentoGenerado;
-      readonly fipf: DocumentoGenerado;
+      /** El documento único del expediente (D-11). */
+      readonly documento: DocumentoGenerado;
     }
   | {
       readonly ok: false;
@@ -240,7 +288,15 @@ export async function generarPaqueteDocumental(
     return { ok: false, motivo: "ESTADO_INVALIDO" };
   }
 
-  const contenido = armarContenidoPaquete(expediente, {
+  // El correlativo se acuña acá, una sola vez y en memoria: recién se persiste
+  // junto con el paquete, en la misma escritura. Si el cierre falla más abajo
+  // no queda un número reservado sin documentos que lo lleven.
+  const conCorrelativo: Expediente =
+    expediente.numeroPropuesta
+      ? expediente
+      : { ...expediente, numeroPropuesta: (deps.nuevoNumeroPropuesta ?? generarNumeroPropuesta)() };
+
+  const contenido = armarContenidoPaquete(conCorrelativo, {
     cerradoEn: fecha,
     version: VERSION_INICIAL_PAQUETE,
     urlBaseVerificacion: deps.urlBaseVerificacion,
@@ -256,24 +312,25 @@ export async function generarPaqueteDocumental(
     return { ok: false, motivo: "EXPEDIENTE_INCOMPLETO", faltantes: contenido.faltantes };
   }
 
-  const cerrados = await cerrarDocumentos(deps, expediente.id, contenido.contenido);
-  if (!cerrados.ok) {
+  const cerrado = await cerrarDocumento(deps, conCorrelativo.id, contenido.contenido);
+  if (!cerrado.ok) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: entrada.expedienteId,
       fecha,
       contexto: entrada.contexto,
       resultado: "FALLIDO",
-      detalle: { motivo: "ALMACENAMIENTO_INCONSISTENTE", detalle: cerrados.detalle },
+      detalle: { motivo: "ALMACENAMIENTO_INCONSISTENTE", detalle: cerrado.detalle },
     });
-    return { ok: false, motivo: "ALMACENAMIENTO_INCONSISTENTE", detalle: cerrados.detalle };
+    return { ok: false, motivo: "ALMACENAMIENTO_INCONSISTENTE", detalle: cerrado.detalle };
   }
 
-  const paquete: PaqueteDocumental = {
-    solicitud: documentoCerrado(cerrados.solicitud, fecha),
-    fipf: documentoCerrado(cerrados.fipf, fecha),
-  };
+  const paquete: PaqueteDocumental = documentoCerrado(
+    cerrado.documento,
+    fecha,
+    codigoFipf(contenido.contenido.correlativo),
+  );
 
-  const transicion = registrarPaqueteDocumental(expediente, paquete, fecha);
+  const transicion = registrarPaqueteDocumental(conCorrelativo, paquete, fecha);
   if (!transicion.ok) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: entrada.expedienteId,
@@ -287,10 +344,11 @@ export async function generarPaqueteDocumental(
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
 
-  // Evidencia del cierre: códigos, versión y las dos huellas digitales. Es lo
-  // que exigen las filas 35, 47 y 77 de la matriz de cumplimiento, y nada
-  // más: acá no viaja ningún dato de salud, PEP, cédula ni tarjeta (regla
-  // inviolable #7).
+  // Evidencia del cierre: códigos, versión y la huella digital. Es lo que
+  // exigen las filas 35, 47 y 77 de la matriz de cumplimiento, y nada más:
+  // acá no viaja ningún dato de salud, PEP, cédula ni tarjeta (regla
+  // inviolable #7). Con el documento único hay **una** huella, no dos: la
+  // fila 77 exige el hash del instrumento, y el instrumento ahora es uno.
   await registrarEvidencia(deps, reloj, {
     expedienteId: entrada.expedienteId,
     fecha,
@@ -300,12 +358,10 @@ export async function generarPaqueteDocumental(
     detalle: {
       correlativo: contenido.contenido.correlativo,
       version: contenido.contenido.version,
-      solicitud: cerrados.solicitud.codigo,
-      hashSolicitud: cerrados.solicitud.hashSha256,
-      fipf: cerrados.fipf.codigo,
-      hashFipf: cerrados.fipf.hashSha256,
-      claveSolicitud: cerrados.solicitud.clave,
-      claveFipf: cerrados.fipf.clave,
+      documento: cerrado.documento.codigo,
+      seccionFipf: paquete.codigoSeccionFipf,
+      hashDocumento: cerrado.documento.hashSha256,
+      clave: cerrado.documento.clave,
     },
   });
 
@@ -314,17 +370,21 @@ export async function generarPaqueteDocumental(
     generado: true,
     correlativo: contenido.contenido.correlativo,
     paquete,
-    solicitud: cerrados.solicitud,
-    fipf: cerrados.fipf,
+    documento: cerrado.documento,
   };
 }
 
-function documentoCerrado(generado: DocumentoGenerado, cerradoEn: string): DocumentoCerrado {
+function documentoCerrado(
+  generado: DocumentoGenerado,
+  cerradoEn: string,
+  codigoSeccionFipf: string,
+): DocumentoCerrado {
   return {
     codigo: generado.codigo,
     version: generado.version,
     hashSha256: generado.hashSha256,
     cerradoEn,
+    codigoSeccionFipf,
   };
 }
 
@@ -333,76 +393,243 @@ function paqueteYaCerrado(expediente: Expediente): ResultadoGenerarPaquete | nul
   const paquete = expediente.paqueteDocumental;
   if (!paquete || !expediente.numeroPropuesta) return null;
 
-  const describir = (documento: DocumentoCerrado): DocumentoGenerado => ({
-    codigo: documento.codigo,
-    version: documento.version,
-    hashSha256: documento.hashSha256,
-    clave: claveDocumento(expediente.id, documento.codigo, documento.version),
-    bytes: null,
-  });
-
   return {
     ok: true,
     generado: false,
     correlativo: expediente.numeroPropuesta,
     paquete,
-    solicitud: describir(paquete.solicitud),
-    fipf: describir(paquete.fipf),
+    documento: {
+      codigo: paquete.codigo,
+      version: paquete.version,
+      hashSha256: paquete.hashSha256,
+      clave: claveDocumento(expediente.id, paquete.codigo, paquete.version),
+      bytes: null,
+    },
   };
 }
 
 type ResultadoCierre =
-  | { readonly ok: true; readonly solicitud: DocumentoGenerado; readonly fipf: DocumentoGenerado }
+  | { readonly ok: true; readonly documento: DocumentoGenerado }
   | { readonly ok: false; readonly detalle: string };
 
 /**
- * Renderiza, hashea y guarda los dos PDF.
+ * Renderiza, hashea y guarda **el** PDF.
  *
- * Los dos se renderizan y hashean **antes** de guardar ninguno: si el segundo
- * documento no se pudiera generar, no queda uno solo escrito en S3 esperando a
- * un paquete que nunca se va a cerrar.
+ * Era `cerrarDocumentos`, en plural, y su trabajo más delicado era el orden:
+ * renderizar y hashear los dos antes de guardar ninguno, para que un fallo a
+ * mitad no dejara un archivo solo en S3 esperando a un paquete que nunca se
+ * iba a cerrar. Con el documento único (D-11) ese cuidado desapareció junto
+ * con el problema: hay un archivo, y o se guarda o no.
  */
-async function cerrarDocumentos(
+async function cerrarDocumento(
   deps: DependenciasDocumentos,
   expedienteId: string,
   contenido: ContenidoPaquete,
 ): Promise<ResultadoCierre> {
-  const bytesSolicitud = renderizarSolicitud(contenido.solicitud);
-  const bytesFipf = renderizarFipf(contenido.fipf);
+  const bytes = renderizarPaquete(contenido);
+  const codigo = codigoSolicitud(contenido.correlativo);
 
-  const documentos = [
-    { codigo: codigoSolicitud(contenido.correlativo), bytes: bytesSolicitud },
-    { codigo: codigoFipf(contenido.correlativo), bytes: bytesFipf },
-  ] as const;
+  const hashSha256 = sha256Hex(bytes);
+  const clave = claveDocumento(expedienteId, codigo, contenido.version);
+  const guardado = await deps.archivos.guardarArchivo(clave, bytes, CONTENT_TYPE_PDF);
 
-  const guardados: DocumentoGenerado[] = [];
-  for (const documento of documentos) {
-    const hashSha256 = sha256Hex(documento.bytes);
-    const clave = claveDocumento(expedienteId, documento.codigo, contenido.version);
-    const guardado = await deps.archivos.guardarArchivo(clave, documento.bytes, CONTENT_TYPE_PDF);
+  // El repositorio también hashea lo que efectivamente escribió. Si no
+  // coincide con lo que se hasheó acá, el archivo guardado no es el que se
+  // está por registrar y el paquete no se cierra.
+  if (guardado.hashSha256 !== hashSha256) {
+    return {
+      ok: false,
+      detalle:
+        `La huella del archivo guardado no coincide con la del documento renderizado (${codigo}): ` +
+        `${guardado.hashSha256} ≠ ${hashSha256}.`,
+    };
+  }
 
-    // El repositorio también hashea lo que efectivamente escribió. Si no
-    // coincide con lo que se hasheó acá, el archivo guardado no es el que se
-    // está por registrar y el paquete no se cierra.
-    if (guardado.hashSha256 !== hashSha256) {
-      return {
-        ok: false,
-        detalle:
-          `La huella del archivo guardado no coincide con la del documento renderizado (${documento.codigo}): ` +
-          `${guardado.hashSha256} ≠ ${hashSha256}.`,
-      };
-    }
-
-    guardados.push({
-      codigo: documento.codigo,
+  return {
+    ok: true,
+    documento: {
+      codigo,
       version: contenido.version,
       hashSha256,
       clave: guardado.clave,
-      bytes: documento.bytes.length,
-    });
+      bytes: bytes.length,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Certificado de Cobertura Provisional (D-12, CHG-42)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ruta del CPC en el bucket de evidencias. **La huella forma parte de la
+ * clave**, y no es un adorno: es lo que hace imposible que dos emisiones
+ * simultáneas se pisen.
+ *
+ * El caso concreto: la pantalla de pago sondea en bucle y dos sondeos pueden
+ * solaparse. Los dos leen el expediente todavía en `FIRMADO`, los dos emiten
+ * un certificado —con instantes distintos, así que con bytes distintos— y los
+ * dos escriben en S3; después, el bloqueo optimista deja que solo uno asiente
+ * su certificado en el expediente. Con una clave que dependiera únicamente del
+ * código y la versión, el perdedor podía escribir último y dejar en S3 un
+ * archivo cuya huella no era la registrada: la descarga fallaba con
+ * `HUELLA_NO_COINCIDE` sobre un expediente perfectamente sano.
+ *
+ * Con la huella en la clave, cada emisión escribe en su propio lugar. El
+ * archivo del perdedor queda huérfano —no lo referencia ningún expediente, así
+ * que no afirma nada de nadie— y el del ganador es, por construcción,
+ * exactamente el que su huella dice.
+ */
+export function claveCertificado(
+  expedienteId: string,
+  codigo: string,
+  version: number,
+  hashSha256: string,
+): string {
+  return `expedientes/${expedienteId}/documentos/${codigo}-v${version}-${hashSha256}.pdf`;
+}
+
+export const PASO_EVIDENCIA_CERTIFICADO = "P7_CERTIFICADO_COBERTURA";
+
+export type MotivoRechazoCertificado =
+  | "EXPEDIENTE_INCOMPLETO"
+  | "ALMACENAMIENTO_INCONSISTENTE";
+
+export type ResultadoEmitirCertificado =
+  | {
+      readonly ok: true;
+      readonly certificado: CertificadoCobertura;
+      readonly clave: string;
+      readonly bytes: number;
+    }
+  | {
+      readonly ok: false;
+      readonly motivo: MotivoRechazoCertificado;
+      readonly detalle?: string;
+      readonly faltantes?: readonly CampoFaltanteCertificado[];
+    };
+
+export interface DependenciasCertificado {
+  readonly archivos: RepositorioArchivos;
+  readonly urlBaseVerificacion?: string;
+}
+
+/**
+ * Renderiza, hashea y guarda el Certificado de Cobertura Provisional, y
+ * devuelve su ficha — **sin tocar el expediente**.
+ *
+ * Que no persista nada es la pieza que hace atómica la secuencia de CMP-07.
+ * Quien lo llama es `confirmarPagoP7`, con la proyección del expediente ya
+ * cobrado en la mano y antes de guardar: el certificado y el estado
+ * `PAGO_CONFIRMADO` entran al repositorio en la **misma** escritura, así que
+ * no existe la ventana en la que el expediente cobró y todavía no tiene
+ * certificado, ni la contraria. Si el render o el guardado fallan, la
+ * confirmación del pago no ocurre y el próximo sondeo la reintenta entera.
+ *
+ * El archivo sí queda escrito en S3 antes que el expediente, y es la única
+ * asimetría posible: un PDF huérfano en el bucket no afirma nada de nadie —no
+ * está referenciado por ningún expediente— mientras que un expediente que
+ * apuntara a un archivo inexistente sí sería una mentira. Por eso la clave
+ * lleva la huella: dos emisiones simultáneas escriben en lugares distintos y
+ * ninguna puede pisar a la otra (ver `claveCertificado`).
+ *
+ * Determinismo (regla del servicio): el instante de emisión entra por
+ * parámetro y es el mismo con el que se confirma el pago. Reintentar la
+ * confirmación con el mismo instante produce los mismos bytes y el mismo
+ * hash.
+ */
+export async function emitirCertificadoCobertura(
+  deps: DependenciasCertificado,
+  entrada: { readonly expediente: Expediente; readonly emitidoEn: string },
+): Promise<ResultadoEmitirCertificado> {
+  const { expediente, emitidoEn } = entrada;
+
+  const contenido = armarContenidoCertificado(expediente, {
+    emitidoEn,
+    version: VERSION_INICIAL_CERTIFICADO,
+    urlBaseVerificacion: deps.urlBaseVerificacion,
+  });
+  if (!contenido.ok) {
+    return { ok: false, motivo: "EXPEDIENTE_INCOMPLETO", faltantes: contenido.faltantes };
   }
 
-  return { ok: true, solicitud: guardados[0], fipf: guardados[1] };
+  const bytes = renderizarCertificado(contenido.contenido);
+  const codigo = codigoCertificado(contenido.contenido.correlativo);
+  const hashSha256 = sha256Hex(bytes);
+  const clave = claveCertificado(expediente.id, codigo, contenido.contenido.version, hashSha256);
+
+  const guardado = await deps.archivos.guardarArchivo(clave, bytes, CONTENT_TYPE_PDF);
+  // Mismo control que en el cierre del paquete: el repositorio hashea lo que
+  // efectivamente escribió, y si difiere el certificado no se registra.
+  if (guardado.hashSha256 !== hashSha256) {
+    return {
+      ok: false,
+      motivo: "ALMACENAMIENTO_INCONSISTENTE",
+      detalle:
+        `La huella del certificado guardado no coincide con la del renderizado (${codigo}): ` +
+        `${guardado.hashSha256} ≠ ${hashSha256}.`,
+    };
+  }
+
+  const pagoConfirmadoEn = expediente.pago?.confirmadoEn ?? emitidoEn;
+  const inicioCobertura = inicioCoberturaDesde(pagoConfirmadoEn);
+
+  // D-13 · quién firma el CPC sale de la configuración, igual que en el
+  // paquete: Alianza, cualificada y prefirmada. El certificado es simulado
+  // mientras Code100 sea un mock, y la referencia lo dice.
+  const firmas: readonly FirmaInstitucional[] = firmantesDe("CPC").map((firmante) => ({
+    rol: firmante.rol,
+    nivel: firmante.nivel,
+    modalidad: firmante.modalidad,
+    certificado: `DEMO-CERT-${firmante.rol}-CPC-${contenido.contenido.correlativo}`,
+    aplicadaEn: emitidoEn,
+  }));
+
+  return {
+    ok: true,
+    clave: guardado.clave,
+    bytes: bytes.length,
+    certificado: {
+      codigo,
+      codigoPaquete: contenido.contenido.encabezado.codigoVinculado,
+      version: contenido.contenido.version,
+      hashSha256,
+      emitidoEn,
+      inicioCobertura,
+      finCobertura: finCoberturaDesde(inicioCobertura),
+      referenciaBancard: expediente.pago?.referenciaBancard ?? "",
+      firmas,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Comprobante de pago (D-05)
+// ---------------------------------------------------------------------------
+
+export type ResultadoComprobantePago =
+  | { readonly ok: true; readonly bytes: Uint8Array }
+  | { readonly ok: false; readonly faltantes: readonly CampoFaltanteComprobante[] };
+
+/**
+ * Arma y renderiza el comprobante del pago **al vuelo**, sin guardarlo ni
+ * hashearlo.
+ *
+ * Es la diferencia deliberada con los otros dos documentos del motor. El
+ * paquete y el certificado se cierran, se hashean y se guardan porque son
+ * instrumentos: uno se firma y el otro constata una cobertura. El comprobante
+ * es una proyección de datos que ya están persistidos en el expediente, así
+ * que guardarlo sería guardar dos veces lo mismo, y hashearlo sugeriría una
+ * inmutabilidad que no le hace falta a nadie.
+ *
+ * Lo que sí conserva es el **determinismo**: mismo expediente ⇒ mismos bytes.
+ * Sin eso, dos descargas del mismo pago darían dos archivos distintos, que es
+ * exactamente lo que hace desconfiar de un comprobante.
+ */
+export function generarComprobantePago(expediente: Expediente): ResultadoComprobantePago {
+  const contenido = armarContenidoComprobante(expediente);
+  if (!contenido.ok) return { ok: false, faltantes: contenido.faltantes };
+  return { ok: true, bytes: renderizarComprobante(contenido.contenido) };
 }
 
 // ---------------------------------------------------------------------------
@@ -410,11 +637,11 @@ async function cerrarDocumentos(
 // ---------------------------------------------------------------------------
 
 /**
- * Baja de Code100 los dos PDF firmados y los guarda, para que P9 los pueda
- * ofrecer en `DOCUMENTOS DISPONIBLES PARA DESCARGAR`.
+ * Baja de Code100 el PDF firmado y lo guarda, para que P9 lo pueda ofrecer en
+ * `DOCUMENTOS DISPONIBLES PARA DESCARGAR`.
  *
- * **Idempotente sin necesidad de estado nuevo**: si los dos archivos ya están
- * guardados no vuelve a pedirlos. Eso lo hace seguro de llamar en cada carga de
+ * **Idempotente sin necesidad de estado nuevo**: si el archivo ya está
+ * guardado no vuelve a pedirlo. Eso lo hace seguro de llamar en cada carga de
  * P9 y hace que un fallo de red se reintente solo la próxima vez, sin tener que
  * marcar en el expediente si el archivado ya ocurrió.
  *
@@ -422,13 +649,13 @@ async function cerrarDocumentos(
  * que se guardó tiene que coincidir con el que Code100 reportó en la `Firma` y
  * que ya está en el expediente. Si no coincide, el archivo no es el que se
  * firmó y no se registra como tal (fila 47 de la matriz de cumplimiento:
- * vincular Solicitud, FIPF, pago y firmas mediante correlativos o hashes).
+ * vincular documento, pago y firmas mediante correlativos o hashes).
  *
- * **Los dos o ninguno** (regla inviolable #3): las dos huellas se verifican
- * **antes** de escribir ningún archivo, con el mismo criterio que usa
- * `cerrarDocumentos` para el paquete sin firmar. Si el FIPF no coincide, la
- * Solicitud tampoco se guarda — si no, `GET /api/p8/documento?firmado=1` podría
- * servir una Solicitud firmada mientras el FIPF nunca llegó a archivarse.
+ * **La regla inviolable #3 ya no necesita defensa acá.** Antes esta función
+ * verificaba las dos huellas antes de escribir ningún archivo, porque servir
+ * una Solicitud firmada con el FIPF sin archivar habría partido el acto. Con
+ * el documento único (D-11) hay un archivo y una huella: no queda nada que
+ * pueda quedar a medias.
  */
 export interface DependenciasArchivadoFirmados {
   readonly archivos: RepositorioArchivos & {
@@ -438,7 +665,7 @@ export interface DependenciasArchivadoFirmados {
 }
 
 export type ResultadoArchivadoFirmados =
-  | { readonly ok: true; readonly claveSolicitud: string; readonly claveFipf: string }
+  | { readonly ok: true; readonly clave: string }
   | {
       readonly ok: false;
       readonly motivo: "SIN_FIRMA" | "PROVEEDOR_SIN_DOCUMENTOS" | "HUELLA_NO_COINCIDE";
@@ -453,54 +680,40 @@ export async function archivarDocumentosFirmados(
   const firma = expediente.firma;
   if (!paquete || !firma) return { ok: false, motivo: "SIN_FIRMA" };
 
-  const objetivos = [
-    { documento: paquete.solicitud, hashFirmado: firma.hashSolicitudFirmada },
-    { documento: paquete.fipf, hashFirmado: firma.hashFipfFirmado },
-  ] as const;
+  const clave = claveDocumentoFirmado(expediente.id, paquete.codigo, paquete.version);
 
-  const claves = objetivos.map(({ documento }) =>
-    claveDocumentoFirmado(expediente.id, documento.codigo, documento.version),
-  );
+  const yaGuardado = await deps.archivos.obtenerArchivo(clave);
+  if (yaGuardado !== null) return { ok: true, clave };
 
-  const yaGuardados = await Promise.all(claves.map((clave) => deps.archivos.obtenerArchivo(clave)));
-  if (yaGuardados.every((bytes) => bytes !== null)) {
-    return { ok: true, claveSolicitud: claves[0], claveFipf: claves[1] };
+  const bytes = await deps.firmas.descargarDocumentoFirmado(firma.idCode100);
+  if (!bytes) return { ok: false, motivo: "PROVEEDOR_SIN_DOCUMENTOS" };
+
+  // Se verifica la huella **antes** de escribir: si el PDF que devolvió el
+  // proveedor no es el que quedó registrado como firmado, no se guarda nada
+  // (fila 47 de la matriz: vincular documento, pago y firmas por hashes).
+  const hash = sha256Hex(bytes);
+  if (hash !== firma.hashDocumentoFirmado) {
+    return {
+      ok: false,
+      motivo: "HUELLA_NO_COINCIDE",
+      detalle:
+        `El PDF firmado de ${paquete.codigo} no coincide con la huella registrada: ` +
+        `${hash} ≠ ${firma.hashDocumentoFirmado}.`,
+    };
   }
 
-  const documentos = await deps.firmas.descargarDocumentosFirmados(firma.idCode100);
-  if (!documentos) return { ok: false, motivo: "PROVEEDOR_SIN_DOCUMENTOS" };
-
-  const bytes = [documentos.solicitud, documentos.fipf] as const;
-
-  // Primero se verifican las dos huellas, sin escribir nada. Recién si las dos
-  // corresponden se guardan los archivos.
-  for (let indice = 0; indice < objetivos.length; indice += 1) {
-    const hash = sha256Hex(bytes[indice]);
-    if (hash !== objetivos[indice].hashFirmado) {
-      return {
-        ok: false,
-        motivo: "HUELLA_NO_COINCIDE",
-        detalle:
-          `El PDF firmado de ${objetivos[indice].documento.codigo} no coincide con la huella registrada: ` +
-          `${hash} ≠ ${objetivos[indice].hashFirmado}.`,
-      };
-    }
+  const guardado = await deps.archivos.guardarArchivo(clave, bytes, CONTENT_TYPE_PDF);
+  // El repositorio también hashea lo que efectivamente escribió: si difiere,
+  // algo alteró el contenido entre la verificación y el almacenamiento.
+  if (guardado.hashSha256 !== firma.hashDocumentoFirmado) {
+    return {
+      ok: false,
+      motivo: "HUELLA_NO_COINCIDE",
+      detalle:
+        `El archivo guardado de ${paquete.codigo} no coincide con la huella registrada: ` +
+        `${guardado.hashSha256} ≠ ${firma.hashDocumentoFirmado}.`,
+    };
   }
 
-  for (let indice = 0; indice < objetivos.length; indice += 1) {
-    const guardado = await deps.archivos.guardarArchivo(claves[indice], bytes[indice], CONTENT_TYPE_PDF);
-    // El repositorio también hashea lo que efectivamente escribió: si difiere,
-    // algo alteró el contenido entre la verificación y el almacenamiento.
-    if (guardado.hashSha256 !== objetivos[indice].hashFirmado) {
-      return {
-        ok: false,
-        motivo: "HUELLA_NO_COINCIDE",
-        detalle:
-          `El archivo guardado de ${objetivos[indice].documento.codigo} no coincide con la huella registrada: ` +
-          `${guardado.hashSha256} ≠ ${objetivos[indice].hashFirmado}.`,
-      };
-    }
-  }
-
-  return { ok: true, claveSolicitud: claves[0], claveFipf: claves[1] };
+  return { ok: true, clave };
 }

@@ -40,6 +40,18 @@ import {
   reiniciarExpediente,
 } from "@/domain/consola-administrativa";
 import { guardarDatosYDeclaracionesP6 } from "@/domain/declaraciones-p6";
+
+/** Bloque económico crudo, tal como lo manda la pantalla del paso 4. */
+const COMPLEMENTARIOS_CRUDOS = {
+  domicilio: datosComplementariosFixture.domicilio,
+  ciudad: datosComplementariosFixture.ciudad,
+  situacionLaboral: datosComplementariosFixture.situacionLaboral,
+  actividad: datosComplementariosFixture.actividad,
+  profesion: datosComplementariosFixture.profesion,
+  empresa: datosComplementariosFixture.empresa,
+  ingresoMensualDeclaradoGs: "8.000.000",
+  origenFondos: datosComplementariosFixture.origenFondos,
+};
 import { generarPaqueteDocumental } from "@/documentos";
 import type { RepositorioArchivos } from "@/documentos";
 import {
@@ -51,8 +63,10 @@ import {
   emitirPolizaP9,
   registrarComunicacionesComercialesP9,
 } from "@/domain/emision-p9";
-import { confirmarFirmaP8, iniciarFirmaP8, vencerPlazoFirmaP8 } from "@/domain/firma-p8";
-import { confirmarPagoP7, iniciarPagoP7 } from "@/domain/pago-p7";
+import { confirmarFirmaP8, iniciarFirmaP8 } from "@/domain/firma-p8";
+import { confirmarPagoP7, iniciarPagoP7, vencerPlazoPagoP7 } from "@/domain/pago-p7";
+import { solicitarDevolucion } from "@/domain/devolucion";
+import type { EmisorCertificadoCobertura } from "@/domain/pago-p7";
 import type { PaymentProvider } from "@/ports/payment-provider";
 import type { PolicyIssuer } from "@/ports/policy-issuer";
 import type { SignatureProvider } from "@/ports/signature-provider";
@@ -60,7 +74,6 @@ import { esTransicionLegal, transicionarExpediente, transicionesLegalesDesde } f
 import { seleccionarPlan } from "@/domain/seleccion-plan";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "@/domain/tipos";
 import { analizarIdentidadP5, confirmarIdentidadP5, registrarCapturaP5 } from "@/domain/verificacion-identidad";
-import { enviarOtpCorreo, reenviarOtpCorreo, verificarOtpCorreo } from "@/domain/verificacion-canal-correo";
 import { enviarOtpWhatsapp, reenviarOtpWhatsapp, verificarOtpWhatsapp } from "@/domain/verificacion-canal-whatsapp";
 import type { ContextoPeticion, RepositorioExpediente } from "@/domain/verificacion-canal";
 import type { EvidenceStore } from "@/ports/evidence-store";
@@ -131,10 +144,19 @@ function pagosQueFallanSiSeUsan(): PaymentProvider {
   return {
     iniciarPagoQr: explotar("iniciarPagoQr"),
     iniciarPagoTarjetaDebito: explotar("iniciarPagoTarjetaDebito"),
-    iniciarPreautorizacionTarjeta: explotar("iniciarPreautorizacionTarjeta"),
+    iniciarPagoTarjetaCredito: explotar("iniciarPagoTarjetaCredito"),
     consultarEstadoPago: explotar("consultarEstadoPago"),
-    capturarPreautorizacion: explotar("capturarPreautorizacion"),
     cancelarOLiberarReserva: explotar("cancelarOLiberarReserva"),
+  };
+}
+
+/**
+ * Emisor de CPC que estalla si alguien lo llama: un expediente derivado no
+ * llega nunca al cobro, así que tampoco puede llegar al certificado (D-12).
+ */
+function certificadoQueFallaSiSeUsa(): EmisorCertificadoCobertura {
+  return async () => {
+    throw new Error("Se emitió un Certificado de Cobertura con un expediente DERIVADO_MANUAL.");
   };
 }
 
@@ -163,7 +185,7 @@ function firmasQueFallanSiSeUsan(): SignatureProvider {
   };
   return {
     iniciarFirma: explotar("iniciarFirma"),
-    descargarDocumentosFirmados: explotar("descargarDocumentosFirmados"),
+    descargarDocumentoFirmado: explotar("descargarDocumentoFirmado"),
     confirmarResultado: explotar("confirmarResultado"),
   };
 }
@@ -209,16 +231,7 @@ async function expedienteDerivado(): Promise<Expediente> {
     },
     {
       expedienteId: EXPEDIENTE_ID,
-      datos: {
-        domicilio: datosComplementariosFixture.domicilio,
-        ciudad: datosComplementariosFixture.ciudad,
-        situacionLaboral: datosComplementariosFixture.situacionLaboral,
-        actividad: datosComplementariosFixture.actividad,
-        profesion: datosComplementariosFixture.profesion,
-        empresa: datosComplementariosFixture.empresa,
-        ingresoMensualDeclaradoGs: "8000000",
-        beneficiarioTipo: "HEREDEROS_LEGALES",
-      },
+      beneficiario: { beneficiarioTipo: "HEREDEROS_LEGALES" },
       // Declaración 8 en "Sí": condición PEP.
       declaraciones: { "1": "SI", "2": "NO", "3": "NO", "4": "SI", "5": "SI", "6": "SI", "7": "SI", "8": "SI" },
       contexto: CONTEXTO,
@@ -240,7 +253,6 @@ const TODOS_LOS_ESTADOS: readonly EstadoExpediente[] = [
   "CANAL_WA_VERIFICADO",
   "PLAN_SELECCIONADO",
   "AUTORIZADO",
-  "CANAL_EMAIL_VERIFICADO",
   "IDENTIDAD_VERIFICADA",
   "DERIVADO_MANUAL",
   "DECLARACIONES_OK",
@@ -370,41 +382,6 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         ),
     },
     {
-      ruta: "p4/otp/enviar",
-      ejecutar: async (repo) => {
-        const { provider, lector } = otpFalso();
-        return enviarOtpCorreo(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
-          {
-            expedienteId: EXPEDIENTE_ID,
-            otpIdPrevio: null,
-            correoIngresado: "alguien@example.com",
-            contexto: CONTEXTO,
-          },
-        );
-      },
-    },
-    {
-      ruta: "p4/otp/reenviar",
-      ejecutar: async (repo) => {
-        const { provider, lector } = otpFalso();
-        return reenviarOtpCorreo(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
-          { expedienteId: EXPEDIENTE_ID, otpId: "otp-falso", contexto: CONTEXTO },
-        );
-      },
-    },
-    {
-      ruta: "p4/otp/verificar",
-      ejecutar: async (repo) => {
-        const { provider, lector } = otpFalso();
-        return verificarOtpCorreo(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
-          { expedienteId: EXPEDIENTE_ID, otpId: "otp-falso", codigoIngresado: "123456", contexto: CONTEXTO },
-        );
-      },
-    },
-    {
       ruta: "p5/captura",
       ejecutar: async (repo) =>
         registrarCapturaP5(
@@ -444,7 +421,10 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             expedienteId: EXPEDIENTE_ID,
             imagenes: IMAGENES,
             paisNacimiento: "Paraguay",
+            paisResidencia: "Paraguay",
             estadoCivil: "Soltero/a",
+            correo: "monica.gorena@example.com",
+            datosComplementarios: COMPLEMENTARIOS_CRUDOS,
             autorizacionBiometrica: true,
             contexto: CONTEXTO,
           },
@@ -457,16 +437,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
           { expedientes: repo, evidencias: evidenciasFalsas(), nuevoNumeroCaso: () => "CASO-2026-999999" },
           {
             expedienteId: EXPEDIENTE_ID,
-            datos: {
-              domicilio: datosComplementariosFixture.domicilio,
-              ciudad: datosComplementariosFixture.ciudad,
-              situacionLaboral: datosComplementariosFixture.situacionLaboral,
-              actividad: datosComplementariosFixture.actividad,
-              profesion: datosComplementariosFixture.profesion,
-              empresa: datosComplementariosFixture.empresa,
-              ingresoMensualDeclaradoGs: "8000000",
-              beneficiarioTipo: "HEREDEROS_LEGALES",
-            },
+            beneficiario: { beneficiarioTipo: "HEREDEROS_LEGALES" },
             declaraciones: {
               "1": "SI", "2": "NO", "3": "NO", "4": "SI",
               "5": "SI", "6": "SI", "7": "SI", "8": "NO",
@@ -490,12 +461,31 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
+            emitirCertificado: certificadoQueFallaSiSeUsa(),
           },
           {
             expedienteId: EXPEDIENTE_ID,
             medio: "QR_BANCARD",
             ruc: "",
-            origenLicitoDeFondos: true,
+            aceptaCertificadoYEntrega: true,
+            contexto: CONTEXTO,
+          },
+        ),
+    },
+    /**
+     * D-02 · la devolución exige un cobro acreditado, y un expediente derivado
+     * no llegó nunca a pagar: la `Regla del sistema` de la Pantalla A —*"no
+     * continuar a pago Bancard"*— hace imposible que tenga plata adentro.
+     */
+    {
+      ruta: "admin-consola/devolucion",
+      ejecutar: async (repo) =>
+        solicitarDevolucion(
+          { expedientes: repo, evidencias: evidenciasFalsas() },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            solicitante: "TITULAR",
+            motivo: "PEDIDO_DEL_TITULAR",
             contexto: CONTEXTO,
           },
         ),
@@ -508,6 +498,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
+            emitirCertificado: certificadoQueFallaSiSeUsa(),
           },
           { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
         ),
@@ -525,7 +516,6 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         iniciarFirmaP8(
           {
             firmas: firmasQueFallanSiSeUsan(),
-            pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
           },
@@ -538,11 +528,28 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         confirmarFirmaP8(
           {
             firmas: firmasQueFallanSiSeUsan(),
-            pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
           },
           { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
+        ),
+    },
+    /**
+     * El retorno del navegador es la segunda vía de confirmación (CHG-33) y
+     * entra por el mismo caso de uso: si mañana alguien le diera un camino
+     * propio, este caso lo obliga a rechazar un expediente derivado igual que
+     * el sondeo.
+     */
+    {
+      ruta: "p8/retorno",
+      ejecutar: async (repo) =>
+        confirmarFirmaP8(
+          {
+            firmas: firmasQueFallanSiSeUsan(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+          },
+          { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO, origen: "RETORNO_NAVEGADOR" },
         ),
     },
     /**
@@ -757,6 +764,7 @@ describe("3. Inventario de rutas de la API", () => {
     const CREAN_SIN_TOCAR_EL_ORIGINAL: readonly string[] = ["admin-consola/reinicio"];
 
     const CUBIERTAS: readonly string[] = [
+      "admin-consola/devolucion",
       "p1/otp/enviar",
       "p1/otp/reenviar",
       "p1/otp/verificar",
@@ -772,6 +780,7 @@ describe("3. Inventario de rutas de la API", () => {
       "p7/estado",
       "p7/pago",
       "p8/estado",
+      "p8/retorno",
       "p8/firma",
       "p8/resumen",
       "pantalla-b/caso",
@@ -783,11 +792,11 @@ describe("3. Inventario de rutas de la API", () => {
 
     /**
      * Puede escribir, pero no sobre un expediente derivado: el vencimiento del
-     * plazo de firma solo alcanza a PAGO_CONFIRMADO y PAQUETE_GENERADO, y
-     * devuelve `ok: true` sin tocar nada en cualquier otro estado — por eso no
-     * entra en `CASOS`, que exige un rechazo. Su prueba es la de abajo.
+     * plazo de pago solo alcanza a FIRMADO (D-10), y devuelve `ok: true` sin
+     * tocar nada en cualquier otro estado — por eso no entra en `CASOS`, que
+     * exige un rechazo. Su prueba es la de abajo.
      */
-    const INMUTABLES_SOBRE_UN_DERIVADO: readonly string[] = ["p8/vencimiento"];
+    const INMUTABLES_SOBRE_UN_DERIVADO: readonly string[] = ["p7/vencimiento"];
 
     const conocidas = new Set([
       ...SOLO_LECTURA,
@@ -804,16 +813,16 @@ describe("3. Inventario de rutas de la API", () => {
     ).toEqual([]);
   });
 
-  it("POST /api/p8/vencimiento deja intacto un expediente derivado", async () => {
+  it("POST /api/p7/vencimiento deja intacto un expediente derivado", async () => {
     const derivado = await expedienteDerivado();
     const { repo, actual } = repositorioFalso(derivado);
 
-    const resultado = await vencerPlazoFirmaP8(
+    const resultado = await vencerPlazoPagoP7(
       {
-        firmas: firmasQueFallanSiSeUsan(),
         pagos: pagosQueFallanSiSeUsan(),
         expedientes: repo,
         evidencias: evidenciasFalsas(),
+        emitirCertificado: certificadoQueFallaSiSeUsa(),
       },
       { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO },
     );

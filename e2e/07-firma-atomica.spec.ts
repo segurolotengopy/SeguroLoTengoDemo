@@ -2,83 +2,83 @@ import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { accionarFirmaPanel, leerSesionFirmaDelPanel, prepararEscenario } from "./support/demo-panel";
 import {
-  completarP1,
-  completarP2,
-  completarP3,
-  completarP4,
+  completarWhatsapp,
+  completarPlan,
+  completarPreparacion,
+  declararCorreo,
   completarP5Aprobado,
   completarP6,
-  completarP7Qr,
-  continuarAFirma,
   enviarEnlaceYAbrir,
   enviarP6,
-  firmarNormalmente,
 } from "./support/flujo";
 
 /**
- * Escenario 7 — Regla atómica de firma (regla inviolable #3).
+ * Escenario 7 — El sellado a medias, después de D-11.
  *
- * Se fuerza un fallo a mitad del proceso de firma en P8 (el botón "Firmar
- * con falla a mitad" del panel, que corta el sellado entre la Solicitud y el
- * FIPF). La aserción central: **ninguno de los dos documentos queda
- * firmado**, no que la pantalla haya mostrado un error.
+ * **Este escenario cambió de objeto.** Probaba la regla inviolable #3 cortando
+ * el sellado entre la Solicitud y el FIPF: la aserción era que ninguno de los
+ * dos quedara firmado. Con el PDF unificado esa falla dejó de existir —hay un
+ * archivo y una huella— así que la regla ya no necesita un escenario que la
+ * vigile: no hay dos cosas que puedan separarse.
  *
- * Con Mónica Mariana Gorena Tapia, hasta llegar a P8 con la garantía de pago
- * lista.
+ * Lo que sí puede quedar a medias, y es donde ahora vive el riesgo, es el
+ * tramo entre la firma del cliente y las institucionales (D-13). Eso es lo que
+ * se prueba acá: el cliente firma, las cualificadas de Interseguros y Alianza
+ * no llegan, y el expediente queda en `FIRMADO_CLIENTE` **con el cobro
+ * inhabilitado**. Es la diferencia entre un sellado incompleto y un expediente
+ * sin firmar, que es exactamente lo que D-13 pide poder distinguir.
+ *
+ * Con Mónica Mariana Gorena Tapia.
  */
-test("un fallo a mitad de la firma no deja ningún documento firmado", async ({ page }) => {
+test("si las firmas institucionales no llegan, el cobro sigue inhabilitado", async ({ page }) => {
   const persona = obtenerPersonaDemo("camino-feliz");
   if (!persona) throw new Error("Fixture 'camino-feliz' no encontrado en personas.ts.");
 
-  await prepararEscenario(page, { personaId: persona.id });
+  await prepararEscenario(page, {
+    personaId: persona.id,
+    fallas: ["FIRMAS_INSTITUCIONALES_FALLAN"],
+  });
 
-  await completarP1(page, persona);
-  await completarP2(page, persona);
-  await completarP3(page);
-  await completarP4(page, persona);
+  await completarPlan(page, persona);
+  await completarWhatsapp(page, persona);
+  await completarPreparacion(page);
+  await declararCorreo(page, persona);
   await completarP5Aprobado(page);
   await completarP6(page, persona);
-  await enviarP6(page, /\/p7-pago$/);
-  await completarP7Qr(page);
-  await continuarAFirma(page);
+  // D-08 · se firma en el paso 6, antes de que exista ninguna operación de pago.
+  await enviarP6(page, /\/firma$/);
 
   const idCode100 = await enviarEnlaceYAbrir(page);
 
-  // Antes de firmar: las dos huellas están sin firmar.
   const antes = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(antes.hashSolicitudFirmada).toBeNull();
-  expect(antes.hashFipfFirmado).toBeNull();
-  expect(antes.codigo, "Code100 tiene que haber emitido el tercer OTP al abrir el enlace.").not.toBeNull();
+  expect(antes.hashDocumentoFirmado).toBeNull();
+  expect(antes.codigo, "Code100 tiene que haber emitido el OTP al abrir el enlace.").not.toBeNull();
 
-  // Firma con falla forzada a mitad del sellado (misma API que usa el botón
-  // "Firmar con falla a mitad" del panel: código correcto, pero
-  // `fallarAMitad: true` corta la escritura entre las dos huellas).
-  const resultadoFallido = await accionarFirmaPanel(page, idCode100, {
+  // El cliente firma de verdad: Code100 sella el documento.
+  const firmado = await accionarFirmaPanel(page, idCode100, {
     accion: "FIRMAR",
     codigo: antes.codigo as string,
-    fallarAMitad: true,
   });
-  expect(resultadoFallido.ok, "la llamada con falla forzada tiene que fallar").toBeFalsy();
+  expect(firmado.ok, `firmar: ${JSON.stringify(firmado.datos)}`).toBeTruthy();
 
-  // La aserción central: NINGUNO de los dos documentos quedó firmado. No
-  // "uno sí y el otro no" — regla inviolable #3, sin estado intermedio.
+  // La firma del cliente existe del lado del proveedor: no se perdió.
   const despues = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(despues.hashSolicitudFirmada, "la Solicitud no debe quedar firmada tras el fallo a mitad").toBeNull();
-  expect(despues.hashFipfFirmado, "el FIPF no debe quedar firmado tras el fallo a mitad").toBeNull();
+  expect(despues.hashDocumentoFirmado).not.toBeNull();
 
-  // El expediente sigue en P8 — nunca llegó a P9 con una firma a medias.
-  await expect(page).toHaveURL(/\/p8-firma$/);
-  const resumenP9 = await page.request.get("/api/p9/resumen");
-  expect(resumenP9.status()).toBe(409);
+  // Pero la pantalla no avanza al pago: las institucionales no llegaron, así
+  // que el expediente se queda en FIRMADO_CLIENTE.
+  await expect(page).toHaveURL(/\/firma$/);
+  const resumenPago = await page.request.get("/api/p7/resumen");
+  expect(resumenPago.status(), "el paso de pago no puede estar disponible").toBe(409);
 
-  // La falla a mitad NO cierra el acto: como no se escribió nada, la sesión
-  // queda abierta y la persona puede reintentar el mismo acto. Es la semántica
-  // que documenta y prueba el unitario de dominio ("después de la falla,
-  // completar el acto firma los dos y recién ahí avanza", firma-p8.test.ts) —
-  // distinta del rechazo de Code100, que sí cierra la sesión.
-  await firmarNormalmente(page, idCode100);
+  // La falla se consume en un solo intento (regla de las palancas del panel).
+  // No se vuelve a firmar —el OTP es de uso único y ya se gastó, que es
+  // justamente la razón de que el tramo institucional se retome solo—: alcanza
+  // con que el sondeo corra de nuevo. Ahí sí avanza al pago.
+  await page.reload();
+  await expect(page).toHaveURL(/\/pago$/, { timeout: 30_000 });
 
+  // Y la firma del cliente siguió siendo la misma de siempre: no se repitió.
   const sesionFinal = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(sesionFinal.hashSolicitudFirmada).not.toBeNull();
-  expect(sesionFinal.hashFipfFirmado).not.toBeNull();
+  expect(sesionFinal.hashDocumentoFirmado).toBe(despues.hashDocumentoFirmado);
 });

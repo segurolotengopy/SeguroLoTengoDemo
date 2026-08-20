@@ -1,26 +1,19 @@
 /**
  * Suite de contrato para cualquier implementación de `SignatureProvider`
- * (mock u oficial), P8. Cubre la regla de negocio inviolable #3 (firma
- * atómica): el resultado exitoso trae ambos hashes firmados juntos, y no
- * hay forma de modelar un resultado parcial.
+ * (mock u oficial). Con el documento único (D-11) la firma atómica de la regla
+ * inviolable #3 dejó de ser algo que este contrato defienda: hay un documento
+ * y una huella, así que un resultado parcial no es representable.
  */
 import { describe, expect, it } from "vitest";
 import type { PaqueteDocumental } from "../../domain/tipos";
 import type { SignatureProvider } from "../signature-provider";
 
 const PAQUETE_DE_PRUEBA: PaqueteDocumental = {
-  solicitud: {
-    codigo: "PROP-00018425",
-    version: 1,
-    hashSha256: "a".repeat(64),
-    cerradoEn: "2026-01-01T00:00:00.000Z",
-  },
-  fipf: {
-    codigo: "FIPF-00018425",
-    version: 1,
-    hashSha256: "b".repeat(64),
-    cerradoEn: "2026-01-01T00:00:00.000Z",
-  },
+  codigo: "PROP-00018425",
+  codigoSeccionFipf: "FIPF-00018425",
+  version: 1,
+  hashSha256: "a".repeat(64),
+  cerradoEn: "2026-01-01T00:00:00.000Z",
 };
 
 export interface CableadoSignatureProvider {
@@ -49,7 +42,7 @@ export function runSignatureProviderContractTests(cableado: CableadoSignaturePro
         expedienteId: "EXP-CONTRATO-1",
         canal: "WHATSAPP",
         destino: "+595981000000",
-        paqueteDocumental: PAQUETE_DE_PRUEBA,
+        documento: PAQUETE_DE_PRUEBA,
       });
 
       expect(iniciada.idCode100.length).toBeGreaterThan(0);
@@ -66,7 +59,7 @@ export function runSignatureProviderContractTests(cableado: CableadoSignaturePro
         expedienteId: "EXP-CONTRATO-2",
         canal: "WHATSAPP",
         destino: "+595981000000",
-        paqueteDocumental: PAQUETE_DE_PRUEBA,
+        documento: PAQUETE_DE_PRUEBA,
       });
 
       const resultado = await p.confirmarResultado(iniciada.idCode100);
@@ -81,7 +74,7 @@ export function runSignatureProviderContractTests(cableado: CableadoSignaturePro
         expedienteId: "EXP-CONTRATO-3",
         canal: "WHATSAPP",
         destino: "+595981000000",
-        paqueteDocumental: PAQUETE_DE_PRUEBA,
+        documento: PAQUETE_DE_PRUEBA,
       });
 
       await cableado.completarActoDeFirma(p, iniciada.idCode100);
@@ -89,20 +82,18 @@ export function runSignatureProviderContractTests(cableado: CableadoSignaturePro
 
       expect(resultado.estado).toBe("FIRMADO");
       if (resultado.estado !== "FIRMADO") return;
-      expect(resultado.firma.hashSolicitudFirmada.length).toBeGreaterThan(0);
-      expect(resultado.firma.hashFipfFirmado.length).toBeGreaterThan(0);
+      expect(resultado.firma.hashDocumentoFirmado.length).toBeGreaterThan(0);
       expect(resultado.firma.idCode100).toBe(iniciada.idCode100);
       expect(resultado.firma.canal).toBe("WHATSAPP");
     });
 
-    // Nota (regla #3): `ResultadoFirma` no tiene forma de representar "un
-    // documento firmado y el otro no": la rama `FIRMADO` exige `firma: Firma`
-    // completa (ambos hashes son campos obligatorios en src/domain/tipos.ts) y
-    // las otras dos no exponen ningún hash. No existe un estado intermedio
-    // representable a nivel de tipos, así que el test de "firma parcial" es,
-    // por construcción, imposible de escribir contra esta interfaz. Lo que sí
-    // se verifica —que una falla a mitad del sellado no deje un documento
-    // firmado— es propio de cada implementación:
+    // Nota (regla #3): con el documento único (D-11) la regla dejó de ser algo
+    // que este contrato tenga que defender. La Solicitud y el FIPF son
+    // secciones del mismo PDF y este puerto recibe un `DocumentoCerrado`: no
+    // existe la operación que podría firmar uno y no el otro. Antes había acá
+    // una nota explicando por qué el test de "firma parcial" era imposible de
+    // escribir; ahora es imposible de *pensar*, que es lo que buscaba D-11.
+    // Lo propio de cada implementación sigue siendo:
     // src/adapters/mock/__tests__/signature-provider.test.ts.
 
     it("consultar dos veces una firma completa devuelve exactamente lo mismo (idempotente)", async () => {
@@ -111,7 +102,7 @@ export function runSignatureProviderContractTests(cableado: CableadoSignaturePro
         expedienteId: "EXP-CONTRATO-4",
         canal: "EMAIL",
         destino: "persona@example.com",
-        paqueteDocumental: PAQUETE_DE_PRUEBA,
+        documento: PAQUETE_DE_PRUEBA,
       });
 
       await cableado.completarActoDeFirma(p, iniciada.idCode100);

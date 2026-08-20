@@ -20,6 +20,29 @@
       ]
     },
     {
+      "Sid": "DynamoDBTablasEfimerasE2E",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:120005938663:table/slt-e2e-*",
+        "arn:aws:dynamodb:us-east-1:120005938663:table/slt-e2e-*/index/*"
+      ]
+    },
+    {
       "Sid": "S3EvidenciasBucket",
       "Effect": "Allow",
       "Action": [

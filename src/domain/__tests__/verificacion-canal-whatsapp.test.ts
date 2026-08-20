@@ -17,6 +17,8 @@ import {
   VERSION_TEXTO_AUTORIZACION_P1,
 } from "../verificacion-canal-whatsapp";
 import type { DependenciasP1, RepositorioExpediente } from "../verificacion-canal-whatsapp";
+import { transicionarExpediente } from "../expediente";
+import { crearExpediente } from "./fixtures";
 
 const CONTEXTO = { ip: "200.10.20.30", dispositivo: "vitest", sesionId: "sesion-1" };
 const NUMERO = "981000123";
@@ -87,9 +89,22 @@ function crearBanco(): Banco {
   };
 }
 
+/**
+ * Expediente con plan elegido, que es el estado real desde el que se llega a
+ * verificar el WhatsApp desde CHG-01. Antes este paso creaba el expediente;
+ * ahora lo crea la selección de plan, así que los tests tienen que traerlo
+ * hecho.
+ */
+function conPlanElegido(banco: Banco, id = "EXP-WA"): string {
+  const transicion = transicionarExpediente(crearExpediente(id), "PLAN_SELECCIONADO");
+  if (!transicion.ok) throw new Error(transicion.error);
+  banco.expedientes.todos.set(id, transicion.expediente);
+  return id;
+}
+
 async function enviarYObtenerCodigo(banco: Banco): Promise<{ expedienteId: string; otpId: string; codigo: string }> {
   const envio = await enviarOtpWhatsapp(banco.deps, {
-    expedienteId: null,
+    expedienteId: conPlanElegido(banco),
     otpIdPrevio: null,
     numeroIngresado: NUMERO,
     autorizacionAceptada: true,
@@ -138,7 +153,7 @@ describe("P1 · envío del OTP de WhatsApp", () => {
     const banco = crearBanco();
     const { expedienteId } = await enviarYObtenerCodigo(banco);
 
-    expect(banco.expedientes.todos.get(expedienteId)?.estado).toBe("INICIADO");
+    expect(banco.expedientes.todos.get(expedienteId)?.estado).toBe("PLAN_SELECCIONADO");
 
     const evidencia = banco.evidencias.registros.at(-1)!;
     expect(evidencia.paso).toBe("P1_OTP_WHATSAPP_ENVIO");
@@ -198,7 +213,11 @@ describe("P1 · verificación del código", () => {
       valor: "+595981000123",
       verificadoEn: "2026-03-15T12:00:00.000Z",
     });
-    expect(expediente.historial.map((h) => h.estado)).toEqual(["INICIADO", "CANAL_WA_VERIFICADO"]);
+    expect(expediente.historial.map((h) => h.estado)).toEqual([
+      "INICIADO",
+      "PLAN_SELECCIONADO",
+      "CANAL_WA_VERIFICADO",
+    ]);
   });
 
   it("un código incorrecto no transiciona el expediente y descuenta intentos", async () => {
@@ -216,7 +235,7 @@ describe("P1 · verificación del código", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("CODIGO_INCORRECTO");
     expect(resultado.intentosRestantes).toBe(2);
-    expect(banco.expedientes.todos.get(expedienteId)?.estado).toBe("INICIADO");
+    expect(banco.expedientes.todos.get(expedienteId)?.estado).toBe("PLAN_SELECCIONADO");
 
     const evidencia = banco.evidencias.registros.at(-1)!;
     expect(evidencia.resultado).toBe("FALLIDO");

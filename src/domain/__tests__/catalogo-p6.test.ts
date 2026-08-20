@@ -8,6 +8,7 @@ import {
   PROFESIONES,
   SITUACIONES_LABORALES,
   esIngresoMensualValido,
+  interpretarBeneficiarioP6,
   interpretarDatosComplementariosP6,
   interpretarMontoGuaranies,
   normalizarTextoP6,
@@ -23,7 +24,7 @@ const DATOS_VALIDOS = {
   profesion: datosComplementariosFixture.profesion,
   empresa: datosComplementariosFixture.empresa,
   ingresoMensualDeclaradoGs: 8_000_000,
-  beneficiarioTipo: "HEREDEROS_LEGALES",
+  origenFondos: datosComplementariosFixture.origenFondos,
 };
 
 describe("catálogos de los cinco selectores de P6", () => {
@@ -92,7 +93,7 @@ describe("interpretarDatosComplementariosP6", () => {
       "actividad",
       "profesion",
       "ingresoMensualDeclaradoGs",
-      "beneficiarioTipo",
+      "origenFondos",
     ]);
   });
 
@@ -104,10 +105,7 @@ describe("interpretarDatosComplementariosP6", () => {
   });
 
   it("una persona designada sin nombre, parentesco o domicilio no valida", () => {
-    const resultado = interpretarDatosComplementariosP6({
-      ...DATOS_VALIDOS,
-      beneficiarioTipo: "PERSONA_DESIGNADA",
-    });
+    const resultado = interpretarBeneficiarioP6({ beneficiarioTipo: "PERSONA_DESIGNADA" });
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
     expect(resultado.camposInvalidos).toEqual([
@@ -115,6 +113,16 @@ describe("interpretarDatosComplementariosP6", () => {
       "beneficiarioParentesco",
       "beneficiarioDomicilio",
     ]);
+  });
+
+  it("el origen de fondos tiene que estar en la lista propuesta", () => {
+    const resultado = interpretarDatosComplementariosP6({
+      ...DATOS_VALIDOS,
+      origenFondos: "Lo que sea",
+    });
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.camposInvalidos).toEqual(["origenFondos"]);
   });
 
   it("rechaza un valor de selector que no está en el catálogo", () => {

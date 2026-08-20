@@ -57,14 +57,15 @@ export async function armarFalla(page: Page, falla: FallaDemo): Promise<void> {
   );
 }
 
-/** Plazo que se le va a asignar al **próximo** pago que se confirme (P7). */
-export async function fijarPlazoFirmaMs(page: Page, plazoMs: number): Promise<void> {
-  await esperarOk(page.request.post("/api/demo-panel/plazo-firma", { data: { plazoMs } }), "fijar plazo de firma");
+/** Plazo que se le va a asignar a la **próxima** firma que se complete (D-10). */
+export async function fijarPlazoPagoMs(page: Page, plazoMs: number): Promise<void> {
+  await esperarOk(page.request.post("/api/demo-panel/plazo-pago", { data: { plazoMs } }), "fijar plazo de pago");
 }
 
 /**
+
  * Prepara el tablero del panel antes de un escenario: sesión, sin fallas
- * armadas, plazo de firma real (24 h) salvo que se pida otro, y la persona
+ * armadas, plazo de pago real (24 h) salvo que se pida otro, y la persona
  * indicada. Deja el tablero determinista para que un escenario no herede
  * nada del anterior (el estado del panel es del **proceso**, no por test).
  */
@@ -73,7 +74,9 @@ export async function prepararEscenario(
   opciones: {
     readonly personaId: IdPersonaDemo;
     readonly escenarioIdentidadForzado?: EscenarioIdentidadDemo | null;
-    readonly plazoFirmaMs?: number;
+    readonly plazoPagoMs?: number;
+    /** Fallas a armar para este escenario. Se consumen en un solo intento. */
+    readonly fallas?: readonly FallaDemo[];
   },
 ): Promise<void> {
   await iniciarSesionPanel(page);
@@ -81,8 +84,26 @@ export async function prepararEscenario(
   await desarmarTodasLasFallas(page);
   // 24 h reales por defecto: el plazo del panel es memoria del proceso y un
   // escenario anterior puede haberlo dejado corto.
-  await fijarPlazoFirmaMs(page, opciones.plazoFirmaMs ?? 24 * 60 * 60 * 1000);
+  await fijarPlazoPagoMs(page, opciones.plazoPagoMs ?? 24 * 60 * 60 * 1000);
   await fijarPersonaActiva(page, opciones.personaId, opciones.escenarioIdentidadForzado ?? null);
+  for (const falla of opciones.fallas ?? []) await armarFalla(page, falla);
+  await cerrarAvisoCookies(page);
+}
+
+/**
+ * Cierra el aviso de cookies, como haría una persona apenas entra.
+ *
+ * No es maquillaje para que pasen los tests: es lo que hace cualquiera que
+ * llega al portal, y dejarlo abierto durante todo el recorrido no representa a
+ * nadie. La marca queda en `localStorage`, así que no vuelve a aparecer en lo
+ * que dura el contexto del navegador.
+ *
+ * Se llama desde `prepararEscenario` porque ahí ya hay una página cargada y
+ * todavía no empezó el flujo.
+ */
+export async function cerrarAvisoCookies(page: Page): Promise<void> {
+  const boton = page.getByRole("button", { name: "Entendido", exact: true });
+  if (await boton.isVisible().catch(() => false)) await boton.click();
 }
 
 /**
@@ -118,8 +139,7 @@ export async function leerCodigoOtpDelPanel(page: Page, contieneEnDestino: strin
 export interface SesionFirmaLeida {
   readonly idCode100: string;
   readonly codigo: string | null;
-  readonly hashSolicitudFirmada: string | null;
-  readonly hashFipfFirmado: string | null;
+  readonly hashDocumentoFirmado: string | null;
 }
 
 /**
@@ -142,8 +162,7 @@ export async function leerSesionFirmaDelPanel(page: Page, idCode100: string): Pr
   const bloque = html.slice(inicio, siguiente === -1 ? html.length : siguiente);
 
   const codigo = bloque.match(/font-mono text-2xl font-bold tracking-widest text-titulo">(\d{6})</);
-  const hashSolicitud = bloque.match(/Solicitud firmada: <\/dt>\s*<dd class="inline">([^<]*)<\/dd>/);
-  const hashFipf = bloque.match(/FIPF firmado: <\/dt>\s*<dd class="inline">([^<]*)<\/dd>/);
+  const hashDocumento = bloque.match(/Documento firmado: <\/dt>\s*<dd class="inline">([^<]*)<\/dd>/);
 
   const limpiar = (valor: string | undefined): string | null => {
     if (!valor) return null;
@@ -154,8 +173,7 @@ export async function leerSesionFirmaDelPanel(page: Page, idCode100: string): Pr
   return {
     idCode100,
     codigo: codigo ? codigo[1] : null,
-    hashSolicitudFirmada: limpiar(hashSolicitud?.[1]),
-    hashFipfFirmado: limpiar(hashFipf?.[1]),
+    hashDocumentoFirmado: limpiar(hashDocumento?.[1]),
   };
 }
 
@@ -165,7 +183,7 @@ export type AccionFirmaPanel = "ABRIR" | "FIRMAR" | "RECHAZAR";
 export async function accionarFirmaPanel(
   page: Page,
   idCode100: string,
-  cuerpo: { readonly accion: AccionFirmaPanel; readonly codigo?: string; readonly fallarAMitad?: boolean },
+  cuerpo: { readonly accion: AccionFirmaPanel; readonly codigo?: string },
 ): Promise<{ readonly ok: boolean; readonly status: number; readonly datos: Record<string, unknown> }> {
   const respuesta = await page.request.post("/api/demo-panel/firma", {
     data: { idCode100, ...cuerpo },

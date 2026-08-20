@@ -58,7 +58,7 @@
  */
 import { randomInt, randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
-import { interpretarDatosComplementariosP6 } from "./catalogo-p6";
+import { interpretarBeneficiarioP6 } from "./catalogo-p6";
 import type { CampoP6 } from "./catalogo-p6";
 import {
   clasificarMotivoDerivacion,
@@ -67,6 +67,7 @@ import {
 } from "./elegibilidad";
 import type { MotivoDerivacion } from "./elegibilidad";
 import { registrarDeclaracionesP6 } from "./expediente";
+import { registrarRemisionFallida, remitirCasoAAlianza } from "./remision-alianza";
 import { VERSION_TEXTOS_DECLARACIONES_P6 } from "./textos-p6";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
@@ -100,7 +101,7 @@ export {
   PARENTESCOS,
   PROFESIONES,
   SITUACIONES_LABORALES,
-  interpretarDatosComplementariosP6,
+  interpretarBeneficiarioP6,
 } from "./catalogo-p6";
 export type { CampoP6 } from "./catalogo-p6";
 
@@ -135,8 +136,12 @@ export function generarNumeroCaso(ahora: Date = new Date()): string {
 
 export interface EntradaP6 {
   readonly expedienteId: string;
-  /** Cuerpo crudo del bloque 1: se interpreta y valida en el dominio. */
-  readonly datos: Readonly<Record<string, unknown>>;
+  /**
+   * Cuerpo crudo del beneficiario por fallecimiento: se interpreta y valida en
+   * el dominio. Los datos laborales y económicos **ya no vienen por acá**: se
+   * capturan en el paso 4, junto a la identidad (maqueta p.4).
+   */
+  readonly beneficiario: Readonly<Record<string, unknown>>;
   /** Respuestas del bloque 2, indexadas por número de declaración ("1".."8"). */
   readonly declaraciones: Readonly<Record<string, unknown>>;
   readonly contexto: ContextoPeticion;
@@ -159,7 +164,8 @@ export type ResultadoP6 =
       readonly expedienteId: string;
       readonly estado: EstadoExpediente;
       readonly elegibleParaEmisionAutomatica: true;
-      readonly siguientePantalla: "/p7-pago";
+      /** D-08 · se firma antes de pagar: el paso siguiente es la firma. */
+      readonly siguientePantalla: "/firma";
     }
   | {
       readonly ok: true;
@@ -286,9 +292,13 @@ export async function guardarDatosYDeclaracionesP6(
   const reloj = resolverReloj(deps);
   const fecha = reloj.ahora();
 
-  const datos = interpretarDatosComplementariosP6(entrada.datos);
-  if (!datos.ok) {
-    return { ok: false, motivo: "DATOS_INCOMPLETOS", camposInvalidos: datos.camposInvalidos };
+  const beneficiario = interpretarBeneficiarioP6(entrada.beneficiario);
+  if (!beneficiario.ok) {
+    return {
+      ok: false,
+      motivo: "DATOS_INCOMPLETOS",
+      camposInvalidos: beneficiario.camposInvalidos,
+    };
   }
 
   const declaraciones = interpretarDeclaracionesP6(entrada.declaraciones);
@@ -321,7 +331,7 @@ export async function guardarDatosYDeclaracionesP6(
   const transicion = registrarDeclaracionesP6(
     expediente,
     declaraciones.declaraciones,
-    datos.datos,
+    beneficiario.beneficiario,
     numeroCaso ?? "",
     fecha,
   );
@@ -361,8 +371,36 @@ export async function guardarDatosYDeclaracionesP6(
       expedienteId: entrada.expedienteId,
       estado: transicion.expediente.estado,
       elegibleParaEmisionAutomatica: true,
-      siguientePantalla: "/p7-pago",
+      siguientePantalla: "/firma",
     };
+  }
+
+  // CHG-47 · el caso se remite a Alianza en el mismo acto en que se deriva.
+  // Antes dependía de que alguien lo empujara desde la consola, en un caso que
+  // por definición ya salió del flujo automático.
+  //
+  // **Best-effort a propósito**: la derivación ya ocurrió y es terminal (regla
+  // inviolable #5). Si la remisión falla, el expediente no vuelve atrás — lo
+  // que queda es evidencia del fallo, visible en la consola, y el reenvío
+  // manual que sigue estando ahí.
+  try {
+    await remitirCasoAAlianza(
+      { evidencias: deps.evidencias, ahora: reloj.ahora, nuevoId: reloj.nuevoId },
+      { expediente: transicion.expediente, contexto: entrada.contexto, origen: "AUTOMATICA" },
+    );
+  } catch (error) {
+    await registrarRemisionFallida(
+      { evidencias: deps.evidencias, ahora: reloj.ahora, nuevoId: reloj.nuevoId },
+      {
+        expediente: transicion.expediente,
+        contexto: entrada.contexto,
+        detalle: error instanceof Error ? error.message : "desconocido",
+      },
+    ).catch(() => {
+      // Si tampoco se puede escribir la evidencia del fallo, no queda nada por
+      // hacer acá: la derivación está guardada y la consola muestra el caso
+      // igual, sin remisión registrada.
+    });
   }
 
   return {

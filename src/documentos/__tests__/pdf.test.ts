@@ -17,15 +17,15 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { armarContenidoPaquete } from "../../domain/documentos";
 import type { ContenidoPaquete } from "../../domain/documentos";
-import { expedienteEnPagoConfirmado } from "../../domain/__tests__/fixtures";
+import { expedienteEnPaqueteGenerado } from "../../domain/__tests__/fixtures";
 import { ANCHO_A4, anchoDeTexto, crearDocumentoPdf, partirEnLineas } from "../pdf";
-import { renderizarFipf, renderizarSolicitud } from "../plantillas";
+import { renderizarPaquete } from "../plantillas";
 import { bytesWinAnsi, escaparTextoPdf } from "../tipografia";
 
 const CERRADO_EN = "2026-08-09T15:05:00.000Z";
 
 function contenido(cerradoEn = CERRADO_EN): ContenidoPaquete {
-  const resultado = armarContenidoPaquete(expedienteEnPagoConfirmado(), { cerradoEn });
+  const resultado = armarContenidoPaquete(expedienteEnPaqueteGenerado(), { cerradoEn });
   if (!resultado.ok) throw new Error(`faltantes: ${resultado.faltantes.join(",")}`);
   return resultado.contenido;
 }
@@ -39,27 +39,33 @@ const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes)
 
 describe("determinismo (regla inviolable #4)", () => {
   it("el mismo contenido y la misma fecha de cierre producen los mismos bytes", () => {
-    const primera = renderizarSolicitud(contenido().solicitud);
-    const segunda = renderizarSolicitud(contenido().solicitud);
+    const primera = renderizarPaquete(contenido());
+    const segunda = renderizarPaquete(contenido());
 
     expect(sha256(segunda)).toBe(sha256(primera));
     expect(Buffer.from(segunda).equals(Buffer.from(primera))).toBe(true);
   });
 
   it("cambiar la fecha de cierre cambia la huella: es un documento distinto", () => {
-    const original = renderizarSolicitud(contenido().solicitud);
-    const otroDia = renderizarSolicitud(contenido("2026-08-10T09:00:00.000Z").solicitud);
+    const original = renderizarPaquete(contenido());
+    const otroDia = renderizarPaquete(contenido("2026-08-10T09:00:00.000Z"));
 
     expect(sha256(otroDia)).not.toBe(sha256(original));
   });
 
-  it("la Solicitud y el FIPF nunca comparten huella", () => {
+  it("la Solicitud y el FIPF viajan en el mismo archivo, con una sola huella (D-11)", () => {
+    // Antes este test verificaba que los dos documentos nunca compartieran
+    // huella. Con el PDF unificado la afirmación se invirtió: hay un archivo,
+    // y adentro tienen que estar los códigos de las dos secciones.
     const paquete = contenido();
-    expect(sha256(renderizarFipf(paquete.fipf))).not.toBe(sha256(renderizarSolicitud(paquete.solicitud)));
+    const texto = comoTexto(renderizarPaquete(paquete));
+
+    expect(texto).toContain(paquete.encabezado.codigo);
+    expect(texto).toContain(paquete.fipf.codigoSeccion);
   });
 
   it("no filtra el reloj del sistema en los metadatos", () => {
-    const texto = comoTexto(renderizarSolicitud(contenido().solicitud));
+    const texto = comoTexto(renderizarPaquete(contenido()));
     // La única fecha del archivo es la de cierre, en formato PDF.
     expect(texto).toContain("/CreationDate (D:20260809150500Z)");
     expect(texto).toContain("/ModDate (D:20260809150500Z)");
@@ -72,7 +78,7 @@ describe("determinismo (regla inviolable #4)", () => {
 // ---------------------------------------------------------------------------
 
 describe("estructura del PDF", () => {
-  const bytes = renderizarSolicitud(contenido().solicitud);
+  const bytes = renderizarPaquete(contenido());
   const texto = comoTexto(bytes);
 
   it("abre con la cabecera y cierra con el tráiler", () => {
@@ -138,13 +144,13 @@ describe("estructura del PDF", () => {
 
 describe("contenido impreso", () => {
   it("la Solicitud imprime plan, coberturas, premio, beneficiario y declaraciones médicas", () => {
-    const texto = comoTexto(renderizarSolicitud(contenido().solicitud));
+    const texto = comoTexto(renderizarPaquete(contenido()));
 
     expect(texto).toContain("PROP-00018425");
     expect(texto).toContain("FIPF-00018425"); // documento vinculado
     expect(texto).toContain("CONFÍO+");
     expect(texto).toContain("PLAN ELEGIDO");
-    expect(texto).toContain("Gs. 475.000");
+    expect(texto).toContain("Gs. 522.500");
     expect(texto).toContain("Diagn"); // "Diagnóstico de cáncer"
     expect(texto).toContain("Herederos legales");
     expect(texto).toContain("DECLARACIÓN MÉDICA");
@@ -152,8 +158,8 @@ describe("contenido impreso", () => {
     expect(texto).toContain("ACEPTACIÓN, FIRMA Y TRAZABILIDAD");
   });
 
-  it("el FIPF imprime datos personales, laborales, PEP, origen de fondos y evidencias", () => {
-    const texto = comoTexto(renderizarFipf(contenido().fipf));
+  it("la sección FIPF imprime datos personales, laborales, PEP, origen de fondos y evidencias", () => {
+    const texto = comoTexto(renderizarPaquete(contenido()));
 
     expect(texto).toContain("FIPF-00018425");
     expect(texto).toContain("PROP-00018425");
@@ -162,26 +168,32 @@ describe("contenido impreso", () => {
     expect(texto).toContain("CONDICIÓN PEP");
     expect(texto).toContain("ORIGEN DE FONDOS");
     expect(texto).toContain("EVIDENCIAS DIGITALES VINCULADAS");
-    expect(texto).toContain("FIRMA ELECTRÓNICA Y TRAZABILIDAD");
   });
 
-  it("los dos documentos llevan impreso el enlace de verificación del QR", () => {
-    const paquete = contenido();
-    expect(comoTexto(renderizarSolicitud(paquete.solicitud))).toContain(
-      "https://segurolotengo.com/verificar/PROP-00018425",
-    );
-    expect(comoTexto(renderizarFipf(paquete.fipf))).toContain(
-      "https://segurolotengo.com/verificar/FIPF-00018425",
-    );
+  it("lleva impreso el enlace de verificación del QR, uno solo (D-11)", () => {
+    const texto = comoTexto(renderizarPaquete(contenido()));
+    expect(texto).toContain("https://segurolotengo.com/verificar/PROP-00018425");
   });
 
-  it("ningún documento imprime el número de celular ni el correo sin enmascarar", () => {
-    const paquete = contenido();
-    for (const bytes of [renderizarSolicitud(paquete.solicitud), renderizarFipf(paquete.fipf)]) {
-      const texto = comoTexto(bytes);
-      expect(texto).not.toContain("+595981000456");
-      expect(texto).not.toContain("monica.gorena@example.com");
-    }
+  it("imprime la advertencia del art. 1556 y el sello de tiempo (CMP-09)", () => {
+    const texto = comoTexto(renderizarPaquete(contenido()));
+
+    // Literal de la Matriz V4 §4, marcado como inclusión obligatoria.
+    expect(texto).toContain("Art. 1556 del Código Civil Paraguayo");
+    expect(texto).toContain("Fecha de la solicitud:");
+  });
+
+  it("imprime las declaraciones de licitud/veracidad y de cuenta propia (Matriz §4)", () => {
+    const texto = comoTexto(renderizarPaquete(contenido()));
+
+    expect(texto).toContain("provienen de actividades lícitas");
+    expect(texto).toContain("actúo por cuenta propia");
+  });
+
+  it("no imprime el número de celular ni el correo sin enmascarar", () => {
+    const texto = comoTexto(renderizarPaquete(contenido()));
+    expect(texto).not.toContain("+595981000456");
+    expect(texto).not.toContain("monica.gorena@example.com");
   });
 });
 

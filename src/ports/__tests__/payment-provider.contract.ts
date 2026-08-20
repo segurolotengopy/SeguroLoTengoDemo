@@ -20,6 +20,7 @@
  * CLAUDE.md regla #6, así que no hace falta un test en runtime para eso.
  */
 import { describe, expect, it } from "vitest";
+import { pagoAcreditado } from "../../domain/tipos";
 import type { PaymentProvider } from "../payment-provider";
 
 export function runPaymentProviderContractTests(
@@ -102,18 +103,6 @@ export function runPaymentProviderContractTests(
      * Bancard): con débito el dinero ya se movió en P7, así que no hay nada
      * que capturar y pedirlo es un error de programación.
      */
-    it("rechaza capturar una operación de débito: no es una preautorización", async () => {
-      const p = await proveedor();
-      const debito = await p.iniciarPagoTarjetaDebito({
-        expedienteId: "EXP-CONTRATO-11",
-        propuestaId: "PROP-00018425",
-        montoGs: 475000,
-        urlRetorno: "https://segurolotengo.com/p7/retorno",
-        idempotencyKey: "IDEMP-CONTRATO-11",
-      });
-
-      await expect(p.capturarPreautorizacion(debito.referenciaBancard)).rejects.toThrow();
-    });
 
     it("distingue el medio de cada operación al consultarla", async () => {
       const p = await proveedor();
@@ -124,7 +113,7 @@ export function runPaymentProviderContractTests(
         urlRetorno: "https://segurolotengo.com/p7/retorno",
         idempotencyKey: "IDEMP-CONTRATO-12",
       });
-      const credito = await p.iniciarPreautorizacionTarjeta({
+      const credito = await p.iniciarPagoTarjetaCredito({
         expedienteId: "EXP-CONTRATO-12",
         propuestaId: "PROP-00018425",
         montoGs: 475000,
@@ -138,7 +127,7 @@ export function runPaymentProviderContractTests(
 
     it("inicia una preautorización de tarjeta con URL de formulario seguro de Bancard", async () => {
       const p = await proveedor();
-      const resultado = await p.iniciarPreautorizacionTarjeta({
+      const resultado = await p.iniciarPagoTarjetaCredito({
         expedienteId: "EXP-CONTRATO-3",
         propuestaId: "PROP-00018425",
         montoGs: 475000,
@@ -150,24 +139,17 @@ export function runPaymentProviderContractTests(
       expect(resultado.urlFormularioSeguro).toMatch(/^https?:\/\//);
     });
 
-    it("captura una preautorización de tarjeta y la deja en estado CAPTURADO", async () => {
+    /**
+     * Deshacer una operación tiene dos finales según si el dinero ya se movió,
+     * y el contrato exige que el proveedor los distinga: cancelar un cobro que
+     * nunca ocurrió no deja rastro contable, devolver uno acreditado sí. Qué
+     * final corresponde depende de cuán rápido acredite cada proveedor, así
+     * que el contrato verifica la propiedad —la operación deja de estar
+     * acreditada— y no un valor fijo.
+     */
+    it("al deshacer una operación la deja cancelada o devuelta, según haya cobrado", async () => {
       const p = await proveedor();
-      const inicio = await p.iniciarPreautorizacionTarjeta({
-        expedienteId: "EXP-CONTRATO-4",
-        propuestaId: "PROP-00018425",
-        montoGs: 475000,
-        urlRetorno: "https://segurolotengo.com/p7/retorno",
-        idempotencyKey: "IDEMP-CONTRATO-4",
-      });
-
-      const capturado = await p.capturarPreautorizacion(inicio.referenciaBancard);
-
-      expect(capturado.estado).toBe("CAPTURADO");
-    });
-
-    it("cancela o libera una reserva de tarjeta no capturada", async () => {
-      const p = await proveedor();
-      const inicio = await p.iniciarPreautorizacionTarjeta({
+      const inicio = await p.iniciarPagoTarjetaCredito({
         expedienteId: "EXP-CONTRATO-5",
         propuestaId: "PROP-00018425",
         montoGs: 475000,
@@ -177,7 +159,8 @@ export function runPaymentProviderContractTests(
 
       const cancelado = await p.cancelarOLiberarReserva(inicio.referenciaBancard);
 
-      expect(cancelado.estado).toBe("CANCELADO");
+      expect(["CANCELADO", "DEVUELTO"]).toContain(cancelado.estado);
+      expect(pagoAcreditado(cancelado.estado)).toBe(false);
     });
 
     it("reintenta iniciarPagoQr con la misma idempotencyKey y no crea un QR nuevo", async () => {
@@ -196,7 +179,7 @@ export function runPaymentProviderContractTests(
       expect(reintento.qrPayload).toBe(primero.qrPayload);
     });
 
-    it("reintenta iniciarPreautorizacionTarjeta con la misma idempotencyKey y no crea una preautorización nueva", async () => {
+    it("reintenta iniciarPagoTarjetaCredito con la misma idempotencyKey y no crea una preautorización nueva", async () => {
       const p = await proveedor();
       const input = {
         expedienteId: "EXP-CONTRATO-7",
@@ -206,29 +189,10 @@ export function runPaymentProviderContractTests(
         idempotencyKey: "IDEMP-CONTRATO-7",
       };
 
-      const primero = await p.iniciarPreautorizacionTarjeta(input);
-      const reintento = await p.iniciarPreautorizacionTarjeta(input);
+      const primero = await p.iniciarPagoTarjetaCredito(input);
+      const reintento = await p.iniciarPagoTarjetaCredito(input);
 
       expect(reintento.referenciaBancard).toBe(primero.referenciaBancard);
-    });
-
-    it("reintenta capturarPreautorizacion sobre una referencia ya CAPTURADO sin volver a cobrar", async () => {
-      const p = await proveedor();
-      const inicio = await p.iniciarPreautorizacionTarjeta({
-        expedienteId: "EXP-CONTRATO-8",
-        propuestaId: "PROP-00018425",
-        montoGs: 475000,
-        urlRetorno: "https://segurolotengo.com/p7/retorno",
-        idempotencyKey: "IDEMP-CONTRATO-8",
-      });
-
-      const primeraCaptura = await p.capturarPreautorizacion(inicio.referenciaBancard);
-      const segundaCaptura = await p.capturarPreautorizacion(inicio.referenciaBancard);
-
-      expect(primeraCaptura.estado).toBe("CAPTURADO");
-      expect(segundaCaptura.estado).toBe("CAPTURADO");
-      expect(segundaCaptura.referenciaBancard).toBe(primeraCaptura.referenciaBancard);
-      expect(segundaCaptura.montoGs).toBe(primeraCaptura.montoGs);
     });
   });
 }

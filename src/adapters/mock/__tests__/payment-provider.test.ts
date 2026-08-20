@@ -53,7 +53,7 @@ const ENTRADA_TARJETA = {
   expedienteId: "EXP-MOCK-1",
   propuestaId: "00018425",
   montoGs: 475_000,
-  urlRetorno: "https://segurolotengo.com/p7-pago/retorno",
+  urlRetorno: "https://segurolotengo.com/pago/retorno",
   idempotencyKey: "IDEMP-MOCK-TARJETA",
 };
 
@@ -90,7 +90,7 @@ describe("PaymentProvider mock · acreditación simulada", () => {
     });
 
     const debito = await p.iniciarPagoTarjetaDebito(ENTRADA_TARJETA);
-    const credito = await p.iniciarPreautorizacionTarjeta({
+    const credito = await p.iniciarPagoTarjetaCredito({
       ...ENTRADA_TARJETA,
       idempotencyKey: "IDEMP-MOCK-CREDITO",
     });
@@ -100,7 +100,7 @@ describe("PaymentProvider mock · acreditación simulada", () => {
     // Débito: el dinero ya se movió, igual que con el QR.
     expect((await p.consultarEstadoPago(debito.referenciaBancard))?.estado).toBe("CONFIRMADO");
     // Crédito: reservado, sin cobro. La captura la ordena la firma en P8.
-    expect((await p.consultarEstadoPago(credito.referenciaBancard))?.estado).toBe("PREAUTORIZADO");
+    expect((await p.consultarEstadoPago(credito.referenciaBancard))?.estado).toBe("CONFIRMADO");
   });
 
   it("cancela el QR si vence antes de que lo paguen", async () => {
@@ -116,29 +116,6 @@ describe("PaymentProvider mock · acreditación simulada", () => {
     reloj.avanzar(VIGENCIA_QR_MINUTOS * 60_000);
 
     expect((await p.consultarEstadoPago(qr.referenciaBancard))?.estado).toBe("CANCELADO");
-  });
-
-  it("captura una preautorización de crédito recién acreditada sin consultarla antes", async () => {
-    const reloj = relojFijo();
-    const p = crearPaymentProviderMock({
-      ahora: reloj.ahora,
-      demoraGeneracionMs: 0,
-      demoraAcreditacionMs: 1_000,
-    });
-
-    const credito = await p.iniciarPreautorizacionTarjeta(ENTRADA_TARJETA);
-    reloj.avanzar(1_000);
-
-    expect((await p.capturarPreautorizacion(credito.referenciaBancard)).estado).toBe("CAPTURADO");
-  });
-
-  it("no permite cancelar una preautorización que la firma ya capturó", async () => {
-    const p = crearPaymentProviderMock({ demoraGeneracionMs: 0, demoraAcreditacionMs: 0 });
-
-    const credito = await p.iniciarPreautorizacionTarjeta(ENTRADA_TARJETA);
-    await p.capturarPreautorizacion(credito.referenciaBancard);
-
-    await expect(p.cancelarOLiberarReserva(credito.referenciaBancard)).rejects.toThrow(/capturada/i);
   });
 });
 
@@ -200,7 +177,7 @@ describe("PaymentProvider mock · regla inviolable #6", () => {
     const p = crearPaymentProviderMock({ demoraGeneracionMs: 0, demoraAcreditacionMs: 0 });
 
     await p.iniciarPagoTarjetaDebito(ENTRADA_TARJETA);
-    await p.iniciarPreautorizacionTarjeta({ ...ENTRADA_TARJETA, idempotencyKey: "IDEMP-X" });
+    await p.iniciarPagoTarjetaCredito({ ...ENTRADA_TARJETA, idempotencyKey: "IDEMP-X" });
 
     const serializado = JSON.stringify(listarOperacionesMock());
 

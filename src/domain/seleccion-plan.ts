@@ -20,6 +20,7 @@ import type { EvidenceStore } from "../ports/evidence-store";
 import { ID_VERSION_OFERTA, OFERTA_VIGENTE, PLANES, esPlanId, serializarOfertaCanonica } from "./catalogo";
 import type { OfertaVersionada } from "./catalogo";
 import { transicionarExpediente } from "./expediente";
+import { crearExpedienteInicial } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal-whatsapp";
 import type { Expediente, PlanId, PlanSeleccionado, RegistroEvidencia } from "./tipos";
 
@@ -68,7 +69,8 @@ export type ResultadoSeleccionPlan =
     };
 
 export interface EntradaSeleccionPlan {
-  readonly expedienteId: string;
+  /** `null` en la primera visita: el expediente todavía no existe. */
+  readonly expedienteId: string | null;
   /** Llega como texto desde HTTP: se valida contra el catálogo antes de usarlo. */
   readonly planId: string;
   readonly contexto: ContextoPeticion;
@@ -141,9 +143,25 @@ export async function seleccionarPlan(
   }
   const planId: PlanId = entrada.planId;
 
-  const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
-  if (!expediente) {
-    return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+  // CHG-01 · elegir plan es ahora el primer paso, así que acá **nace** el
+  // expediente si todavía no existe. Antes lo creaba la verificación de
+  // WhatsApp, que era el paso 1; moverlo sin mover esto habría dejado el
+  // catálogo sin poder guardar nada.
+  //
+  // `entrada.expedienteId` puede llegar nulo (visita nueva) o apuntar a un
+  // expediente real (volver por `Cambiar plan`). Un id que no existe **no** se
+  // trata como visita nueva: sería crear un expediente con el id que mandó el
+  // cliente, y esos ids son la llave de todo el trámite.
+  let expediente: Expediente;
+  if (entrada.expedienteId === null) {
+    expediente = crearExpedienteInicial({ id: nuevoId(), ahora: fecha });
+    await deps.expedientes.crear(expediente);
+  } else {
+    const existente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+    if (!existente) {
+      return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+    }
+    expediente = existente;
   }
 
   const plan: PlanSeleccionado = {

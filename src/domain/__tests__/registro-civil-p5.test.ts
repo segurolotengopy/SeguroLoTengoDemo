@@ -95,10 +95,9 @@ function dependencias(opciones: {
 
   let expediente = crearExpedienteInicial({ id: EXPEDIENTE_ID, ahora: AHORA });
   for (const estado of [
-    "CANAL_WA_VERIFICADO",
     "PLAN_SELECCIONADO",
+    "CANAL_WA_VERIFICADO",
     "AUTORIZADO",
-    "CANAL_EMAIL_VERIFICADO",
   ] as const) {
     const paso = transicionarExpediente(expediente, estado);
     if (!paso.ok) throw new Error(paso.error);

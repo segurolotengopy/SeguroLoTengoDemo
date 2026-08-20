@@ -1,3 +1,4 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -14,7 +15,7 @@ import {
   FALLAS_DEMO,
   fallasArmadasDemo,
 } from "@/adapters/mock/fallas-demo";
-import { PLAZOS_FIRMA_DEMO, plazoFirmaMs } from "@/adapters/mock/plazo-firma-demo";
+import { PLAZOS_PAGO_DEMO, plazoPagoMs } from "@/adapters/mock/plazo-pago-demo";
 import {
   listarSesionesFirmaMock,
   obtenerCodigoFirmaDemo,
@@ -33,7 +34,7 @@ import type { SesionFirmaVisible } from "./ControlFirmaCode100";
 import { FormularioClave } from "./FormularioClave";
 import { SelectorFallas } from "./SelectorFallas";
 import { SelectorPersona } from "./SelectorPersona";
-import { SelectorPlazoFirma } from "./SelectorPlazoFirma";
+import { SelectorPlazoPago } from "./SelectorPlazoPago";
 
 /**
  * Panel de control del demo (CLAUDE.md → "Panel de demo"). NO es una de las
@@ -51,7 +52,7 @@ import { SelectorPlazoFirma } from "./SelectorPlazoFirma";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Panel de demo · SeguroLoTengo",
+  title: `Panel de demo · ${sufijoTitulo()}`,
   // El panel no debe aparecer en buscadores aunque quede accesible.
   robots: { index: false, follow: false },
 };
@@ -138,8 +139,7 @@ export default async function PanelDeDemo() {
             ? "ENLACE ABIERTO · ESPERANDO CÓDIGO"
             : "ENLACE ENVIADO",
       codigo: codigo?.codigo ?? null,
-      hashSolicitudFirmada: sesion.firma?.hashSolicitudFirmada ?? null,
-      hashFipfFirmado: sesion.firma?.hashFipfFirmado ?? null,
+      hashDocumentoFirmado: sesion.firma?.hashDocumentoFirmado ?? null,
     };
     }),
   );
@@ -192,7 +192,7 @@ export default async function PanelDeDemo() {
           {envios.length === 0 ? (
             <p className="text-sm text-cuerpo">
               Todavía no se envió ningún código en esta instancia. Andá a{" "}
-              <code className="font-mono">/p1-whatsapp</code>, ingresá un número y pedí el código.
+              <code className="font-mono">/whatsapp</code>, ingresá un número y pedí el código.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -247,7 +247,7 @@ export default async function PanelDeDemo() {
           </div>
         </div>
 
-        {/* Debajo: persona, fallos forzados y plazo de firma. */}
+        {/* Debajo: persona, fallos forzados y plazo de pago. */}
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
           <Tarjeta titulo="Persona de prueba activa">
             <SelectorPersona
@@ -262,8 +262,8 @@ export default async function PanelDeDemo() {
             <SelectorFallas fallas={fallas} />
           </Tarjeta>
 
-          <Tarjeta titulo="Plazo para firmar (P7 → P8)">
-            <SelectorPlazoFirma opciones={PLAZOS_FIRMA_DEMO} plazoActualMs={plazoFirmaMs()} />
+          <Tarjeta titulo="Plazo para pagar (firma → pago)">
+            <SelectorPlazoPago opciones={PLAZOS_PAGO_DEMO} plazoActualMs={plazoPagoMs()} />
           </Tarjeta>
         </div>
 

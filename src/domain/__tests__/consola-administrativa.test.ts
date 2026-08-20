@@ -253,8 +253,11 @@ describe("cola de asistencia de identidad en la consola", () => {
     // Había expedientes en ese estado y el staff no podía listarlos.
     expect(ESTADOS_EXPEDIENTE).toContain("ASISTENCIA_IDENTIDAD");
     expect(ESTADOS_EXPEDIENTE).toContain("DERIVADO_MANUAL");
-    // 16 estados: si alguien agrega uno, esta cuenta obliga a mirar el resto.
-    expect(ESTADOS_EXPEDIENTE).toHaveLength(16);
+    // D-08 agregó FIRMADO_CLIENTE, entre la firma del cliente y las
+    // institucionales; la consola tiene que poder listarlo como cualquier otro.
+    expect(ESTADOS_EXPEDIENTE).toContain("FIRMADO_CLIENTE");
+    // 17 estados: si alguien agrega uno, esta cuenta obliga a mirar el resto.
+    expect(ESTADOS_EXPEDIENTE).toHaveLength(17);
   });
 
   it("el reconocedor de estados acepta los del tipo y rechaza el resto", () => {

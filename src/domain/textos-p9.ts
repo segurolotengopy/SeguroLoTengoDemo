@@ -17,8 +17,10 @@
  *   o hashes (Res. SS SG. 215/15, punto 14; Ley 6822/21, arts. 44-46).
  * - 50 — Iniciar cobertura 24 horas después de confirmarse el pago; **debe
  *   constar expresamente** (Res. SS SG. 215/15, Anexo 1, numeral 6.13.14;
- *   Código Civil, art. 1374). Por eso el inicio de cobertura se informa en la
- *   póliza que emite Alianza y esta pantalla lo dice en vez de calcularlo.
+ *   Código Civil, art. 1374). Desde D-12 esa fecha **consta acá y en el
+ *   Certificado de Cobertura Provisional**, calculada al acreditarse el cobro;
+ *   antes la pantalla remitía a la póliza porque el portal todavía no la
+ *   sabía.
  * - 39 — Alianza firma la póliza mediante firma electrónica cualificada
  *   ("R4"; Res. SS SG. 215/15, art. 1; Ley 6822/21, arts. 38(2) y 43).
  * - 40 — La factura electrónica la emite SIFEN y **no** se firma con Code100
@@ -51,24 +53,61 @@ export interface HitoContratacion {
   readonly detalle: string;
 }
 
+/**
+ * Los cuatro hitos del wireframe p.8 (CHG-40), en el orden en que ocurren
+ * desde D-08: **primero se firma y después se cobra**.
+ *
+ * El tercero es el que cambió con D-12: era `Solicitud aceptada`, un hito que
+ * describía una validación interna de Alianza; ahora nombra el documento que
+ * la persona efectivamente recibe y puede descargar. La aceptación de la
+ * solicitud no desapareció —es lo que habilita el cuarto hito— pero dejó de
+ * ser lo que este bloque destaca: entre "un sistema validó tu caso" y "tenés
+ * tu certificado de cobertura", lo segundo es lo que la persona vino a buscar.
+ */
 export const HITOS_CONTRATACION: readonly HitoContratacion[] = [
   {
     numero: 1,
-    titulo: "Firmas Code100",
-    detalle: "Solicitud y FIPF completamente firmados.",
+    titulo: "Firma electrónica confirmada",
+    detalle: "Solicitud y FIPF firmados por vos, Interseguros y Alianza Garantía.",
   },
-  { numero: 2, titulo: "Pago Bancard", detalle: "Pago confirmado e identificado." },
+  { numero: 2, titulo: "Pago confirmado", detalle: "Cobro acreditado e identificado por Bancard." },
   {
     numero: 3,
-    titulo: "Solicitud aceptada",
-    detalle: "Validación automática de Alianza Garantía.",
+    titulo: "Certificado de Cobertura Provisional",
+    detalle: "Emitido y firmado por Alianza Garantía.",
   },
   {
     numero: 4,
-    titulo: "Póliza en preparación",
-    detalle: "Emisión y envío en breves momentos, a cargo de Alianza Garantía.",
+    titulo: "Emisión de la póliza y la factura",
+    detalle: "En proceso en el sistema de Alianza Garantía.",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Banda de pago confirmado y bloque de inicio de cobertura (CHG-40/41)
+// ---------------------------------------------------------------------------
+
+export const TITULO_PAGO_CONFIRMADO_P9 = "Pago confirmado por Bancard";
+
+export const ROTULO_PREMIO_PAGADO_P9 = "Premio total pagado";
+export const ROTULO_OPERACION_P9 = "Operación N.º";
+
+export const TITULO_INICIO_COBERTURA_P9 = "Inicio de la cobertura";
+
+/**
+ * CHG-41 · la frase del wireframe decía *"48 horas después de la confirmación
+ * del pago"*. **Son 24**, y no es un ajuste de redacción: es lo que la persona
+ * firmó en la declaración 4 de las declaraciones y lo que dice el certificado.
+ * Un número distinto en la pantalla y en el documento sería una contradicción
+ * entre dos cosas que la misma persona tiene a la vista.
+ *
+ * La fecha concreta no se calcula acá: sale del certificado, que la fijó al
+ * acreditarse el cobro (`certificado-cobertura.ts`).
+ */
+export const DETALLE_INICIO_COBERTURA_P9 =
+  "24 horas exactas después de la confirmación del pago.";
+
+export const ROTULO_FIN_VIGENCIA_P9 = "Vigencia hasta";
 
 // ---------------------------------------------------------------------------
 // `RESUMEN DE LA CONTRATACIÓN`
@@ -94,10 +133,16 @@ export const ROTULO_ESTADO_POLIZA: Readonly<Record<string, string>> = {
 
 export const TITULO_IMPORTANTE_P9 = "IMPORTANTE";
 
+/**
+ * El tercer aviso decía *"el inicio de cobertura será informado en la póliza
+ * electrónica"*, y era verdad mientras el portal no supiera la fecha. Con el
+ * certificado (D-12) sí la sabe, la muestra y la imprime, así que remitir a un
+ * documento que todavía no llegó habría sido esconder un dato que ya está.
+ */
 export const AVISOS_IMPORTANTE_P9: readonly string[] = [
   "La póliza será emitida por Alianza Garantía y entregada en breves momentos.",
   "La recibirás en el correo y el WhatsApp que verificaste.",
-  "El inicio de cobertura será informado en la póliza electrónica emitida por Alianza Garantía.",
+  "El Certificado de Cobertura Provisional ya está disponible para descargar: es tu respaldo hasta que llegue la póliza.",
 ];
 
 // ---------------------------------------------------------------------------
@@ -127,13 +172,60 @@ export const DOCUMENTOS_POR_RECIBIR: readonly DocumentoPorRecibir[] = [
 
 export const TITULO_DOCUMENTOS_PARA_DESCARGAR = "DOCUMENTOS DISPONIBLES PARA DESCARGAR";
 
-export const NOMBRE_SOLICITUD_P9 = "Solicitud de Seguro de Vida Oncológico";
-export const NOMBRE_FIPF_P9 = "Formulario de Identificación de Persona Física";
+/** D-11 · un solo documento firmado para descargar: Solicitud + FIPF. */
+export const NOMBRE_DOCUMENTO_P9 = "Solicitud de Seguro de Vida Oncológico y FIPF (firmado)";
 
 export const DETALLE_FIRMANTES_P9 =
   "Firmado por cliente, Interseguros y Alianza Garantía.";
 
+/** D-12 · el certificado, segundo descargable. */
+export const NOMBRE_CERTIFICADO_P9 = "Certificado de Cobertura Provisional";
+
+export const DETALLE_CERTIFICADO_P9 =
+  "Firmado por Alianza Garantía. Es tu respaldo desde el inicio de la cobertura y hasta que llegue la póliza.";
+
+/** D-05 · el comprobante del pago, tercer descargable. */
+export const NOMBRE_COMPROBANTE_P9 = "Comprobante de pago del premio";
+
+export const DETALLE_COMPROBANTE_P9 =
+  "Constancia del cobro acreditado por Bancard. No es la factura: la emite Alianza Garantía por SIFEN.";
+
 export const BOTON_DESCARGAR_P9 = "DESCARGAR";
+
+// ---------------------------------------------------------------------------
+// Entrega de documentos (wireframe p.8)
+// ---------------------------------------------------------------------------
+
+export const TITULO_ENTREGA_P9 = "RECIBIRÁS LOS DOCUMENTOS EN";
+
+export const BAJADA_ENTREGA_P9 =
+  "Alianza Garantía revisará la solicitud y enviará los documentos directamente a tus canales verificados.";
+
+export const ROTULO_CANAL_CORREO_P9 = "Correo";
+export const ROTULO_CANAL_WHATSAPP_P9 = "WhatsApp";
+
+/**
+ * CHG-44 · el estado de la entrega, canal por canal.
+ *
+ * `ENVIADO` y `ACUSADO` se dicen distinto a propósito: el proveedor acepta un
+ * mensaje mucho antes de que llegue, y CMP-05 pide registrar el acuse, no el
+ * envío. Llamar "entregado" a lo que solo fue aceptado le mentiría a la
+ * persona sobre algo que puede comprobar mirando su teléfono.
+ */
+export const ROTULO_ESTADO_ENTREGA: Readonly<Record<string, string>> = {
+  PENDIENTE: "En cola de envío",
+  ENVIADO: "Enviado, esperando confirmación",
+  ACUSADO: "Entregado",
+  FALLIDO: "No se pudo entregar",
+};
+
+/**
+ * Qué hacer cuando la entrega no llegó. La descarga sigue disponible, así que
+ * el mensaje no es una disculpa sino una salida: dice qué hacer, no solo qué
+ * pasó.
+ */
+export const LEYENDA_ENTREGA_FALLIDA_P9 =
+  "No pudimos entregarte los documentos por ese canal. Descargalos de esta pantalla y escribinos si necesitás que te los reenviemos.";
 
 /** Leyenda obligatoria: el producto no contempla Nota de Cobertura. */
 export const LEYENDA_SIN_NOTA_DE_COBERTURA = "No se genera Nota de Cobertura.";
@@ -156,29 +248,30 @@ export const PASOS_QUE_OCURRIRA_P9: readonly string[] = [
 // ---------------------------------------------------------------------------
 
 /**
- * Contactos institucionales. **Son marcadores**, igual que en la Pantalla A: el
- * PDF de referencia los deja como `[datos oficiales]`, así que acá tampoco se
- * inventa un teléfono ni un correo. Reemplazarlos por los reales antes de
- * cualquier uso que no sea la demostración.
+ * CHG-45 · el bloque `¿Necesitás ayuda?` del wireframe p.8.
+ *
+ * Los datos ya no viven acá. Salían de este módulo como `[datos oficiales]`
+ * —un marcador que en la pantalla se veía como un marcador— y ahora salen de
+ * `src/domain/entidades.ts`, que es la fuente única de razón social,
+ * domicilio, teléfono, correo y sitio de las dos entidades. Lo que la matriz
+ * todavía no cerró (D-19) sigue viajando como `null` y **la pantalla lo
+ * omite**: mostrar un hueco rotulado es peor que no mostrar la línea.
  */
-export interface ContactoP9 {
-  readonly actor: string;
-  readonly rol: string;
-  readonly datos: string;
-}
+export const TITULO_AYUDA_P9 = "¿NECESITÁS AYUDA?";
 
-export const CONTACTOS_P9: readonly ContactoP9[] = [
-  {
-    actor: "Alianza Garantía Seguros y Reaseguros S.A.",
-    rol: "Emisión, cobertura y reclamos",
-    datos: "[datos oficiales]",
-  },
-  {
-    actor: "Interseguros S.A. — Corredores de Seguros",
-    rol: "Asistencia y seguimiento",
-    datos: "[datos oficiales]",
-  },
-];
+export const BAJADA_AYUDA_P9 =
+  "Escribinos por cualquier duda sobre tu contratación, tu cobertura o tus documentos.";
+
+/**
+ * D-17 · botón de WhatsApp directo con Interseguros, **solo en esta pantalla**
+ * salvo que se lo extienda por flag. Sin número configurado no se dibuja.
+ */
+export const BOTON_WHATSAPP_P9 = "ESCRIBIR POR WHATSAPP";
+
+/** Mensaje con el que se abre el chat: la persona no debería tener que explicar quién es. */
+export function mensajeWhatsappP9(numeroPropuesta: string): string {
+  return `Hola, necesito ayuda con mi contratación ${numeroPropuesta}.`;
+}
 
 export const TITULO_COMUNICACIONES_COMERCIALES = "COMUNICACIONES COMERCIALES · OPCIONAL";
 
@@ -195,3 +288,13 @@ export const TEXTO_COMUNICACIONES_COMERCIALES =
 export const VERSION_COMUNICACIONES_COMERCIALES = "2026-01-P9-v1";
 
 export const ROTULO_BOTON_FINALIZAR_P9 = "FINALIZAR / Volver al inicio";
+
+/**
+ * CHG-46 · leyenda de cierre, debajo del botón FINALIZAR.
+ *
+ * Lo último que lee la persona no debería ser un botón que la echa: acá
+ * termina el trámite digital, pero no la relación con el corredor. La pidió
+ * Rodrigo al cerrar el repaso de la pantalla (reunión 00:43:59).
+ */
+export const LEYENDA_CIERRE_P9 =
+  "Interseguros continuará brindándote asesoramiento y asistencia durante todo el proceso.";

@@ -1,17 +1,37 @@
 "use client";
 
 /**
- * Barra de plan seleccionado, presente de P3 a P8 (ver
- * docs/ESPECIFICACION_PANTALLAS.md → "Elementos comunes a todas las
- * pantallas"): check, "PLAN SELECCIONADO", nombre del plan, premio anual con
- * IVA incluido, y un enlace configurable a la derecha.
+ * Barra de plan seleccionado, en el formato de la maqueta (`PantallasDemo2.pdf`
+ * — presente en todas sus páginas desde el paso 2; la reunión, 00:03:05:
+ * *"siempre hay que mantener… lo que ha elegido y el valor de la prima"*):
+ * escudo naranja, `Plan seleccionado` con el nombre debajo, el premio a la
+ * derecha en naranja, y una ranura configurable al final (enlace o chip de
+ * estado según la pantalla).
  *
- * El texto exacto del premio y del enlace cambia según la pantalla (P7/P8
- * dicen "premio anual · IVA incluido" y P8 usa el enlace "Volver al pago" en
- * vez de "Cambiar plan"), así que esta pieza no hardcodea esas variantes: la
- * pantalla que la usa decide el texto. Puramente presentacional, sin lógica
- * de negocio ni acceso a datos del expediente.
+ * El texto exacto del premio y del enlace cambia según la pantalla, así que
+ * esta pieza no hardcodea esas variantes: la pantalla que la usa decide el
+ * texto. Puramente presentacional, sin lógica de negocio ni acceso a datos
+ * del expediente.
  */
+
+/** Escudo con cruz de la maqueta. Decorativo: la información va en el texto. */
+function IconoEscudo() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-8 w-8 shrink-0 text-naranja-600 dark:text-naranja-400"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3l7 2.5v5.2c0 4.6-3 8.2-7 10.3-4-2.1-7-5.7-7-10.3V5.5L12 3z" />
+      <path d="M12 8v6M9 11h6" />
+    </svg>
+  );
+}
 export interface BarraPlanSeleccionadoProps {
   /** Ej.: "Seguro de Vida Oncológico · CONFÍO+" */
   planNombre: string;
@@ -34,24 +54,21 @@ export function BarraPlanSeleccionado({
 }: BarraPlanSeleccionadoProps) {
   return (
     <div
-      className={`flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-verde-200 bg-verde-50 px-4 py-3 dark:border-verde-800 dark:bg-verde-950 ${className}`}
+      className={`flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border-2 border-borde-sutil bg-superficie px-4 py-2.5 ${className}`}
     >
-      <div className="flex min-w-0 items-start gap-2.5">
-        <span
-          aria-hidden="true"
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-verde-600 text-[11px] font-bold text-hueso-50"
-        >
-          ✓
-        </span>
+      <div className="flex min-w-0 items-center gap-3">
+        <IconoEscudo />
         <div className="min-w-0 leading-tight">
-          <p className="text-[10px] font-semibold tracking-wide text-verde-700 uppercase dark:text-verde-300">
+          <p className="text-[10px] font-semibold tracking-wide text-etiqueta uppercase">
             Plan seleccionado
           </p>
-          <p className="truncate text-sm font-semibold text-titulo">
-            {planNombre}
-          </p>
-          <p className="text-sm text-cuerpo">{premioTexto}</p>
+          <p className="truncate text-sm font-bold text-titulo">{planNombre}</p>
         </div>
+        <span aria-hidden="true" className="hidden h-8 w-px bg-borde-sutil sm:block" />
+        {/* El valor de la prima, en naranja como lo destaca la maqueta. */}
+        <p className="text-base font-bold text-naranja-700 tabular-nums dark:text-naranja-300">
+          {premioTexto}
+        </p>
       </div>
 
       {enlaceHref ? (

@@ -71,9 +71,8 @@ export interface PolizaMock {
   readonly numeroPoliza: string;
   readonly expedienteId: string;
   readonly referenciaBancard: string;
-  /** Huellas de los dos documentos firmados que respaldan la emisión. */
-  readonly hashSolicitudFirmada: string;
-  readonly hashFipfFirmado: string;
+  /** Huella del documento firmado que respalda la emisión (D-11). */
+  readonly hashDocumentoFirmado: string;
   readonly solicitadaEn: string;
   readonly emitibleDesde: string;
   readonly facturableDesde: string;
@@ -146,10 +145,9 @@ export function crearPolicyIssuerMock(opciones: OpcionesPolicyIssuerMock = {}): 
         numeroPoliza: input.propuestaId,
         expedienteId: input.expedienteId,
         referenciaBancard: input.referenciaBancard,
-        // `firma` llega completa por tipo (regla inviolable #3): no hay forma
-        // de pedir una emisión con un solo documento firmado.
-        hashSolicitudFirmada: input.firma.hashSolicitudFirmada,
-        hashFipfFirmado: input.firma.hashFipfFirmado,
+        // Un documento, una huella (D-11): no hay forma de pedir una emisión
+        // con parte del instrumento sin firmar.
+        hashDocumentoFirmado: input.firma.hashDocumentoFirmado,
         solicitadaEn: solicitada.toISOString(),
         emitibleDesde: new Date(solicitada.getTime() + demoraEmisionMs).toISOString(),
         facturableDesde: new Date(solicitada.getTime() + demoraFacturaMs).toISOString(),

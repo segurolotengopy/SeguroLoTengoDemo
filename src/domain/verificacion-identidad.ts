@@ -56,6 +56,13 @@ import type {
 } from "../ports/identity-provider";
 import { evaluarBloqueoPorCedula } from "./consola-administrativa";
 import type { LectorExpedientesPorCedula } from "./consola-administrativa";
+import { normalizarCorreo } from "./correo";
+import { cotejarCorreccion } from "./cotejo-ocr";
+// Los datos laborales y económicos se capturan **acá** desde la reformulación
+// de pantallas (maqueta p.4). El intérprete y el catálogo conservan el sufijo
+// `P6`: cambió qué pantalla los envía, no el modelo (NC-04).
+import { interpretarDatosComplementariosP6 } from "./catalogo-p6";
+import type { CorreccionesOcr } from "./cotejo-ocr";
 import { esEstadoCivil, esPaisNacimiento, requisitosPendientes } from "./catalogo-identidad";
 import type { IdRequisitoP5, RequisitosP5, TipoCapturaP5 } from "./catalogo-identidad";
 import { transicionarExpediente } from "./expediente";
@@ -105,7 +112,21 @@ export interface DependenciasP5 {
 }
 
 /** Único estado desde el que P5 puede operar. */
-export const ESTADO_REQUERIDO_P5: EstadoExpediente = "CANAL_EMAIL_VERIFICADO";
+/**
+ * Se entra a identidad desde la autorización inicial (D-06).
+ *
+ * Antes se entraba desde `CANAL_EMAIL_VERIFICADO`, que era el estado que
+ * dejaba el paso de correo. Al retirarse ese paso, el correo se declara en
+ * esta misma pantalla y el estado previo pasa a ser `AUTORIZADO`.
+ */
+export const ESTADO_REQUERIDO_P5: EstadoExpediente = "AUTORIZADO";
+
+/**
+ * Estado previo de los expedientes que empezaron antes del retiro del OTP de
+ * correo. Se acepta además del requerido para que un trámite a medio camino no
+ * quede trabado por un cambio de diseño (regla #10: no se los reescribe).
+ */
+export const ESTADO_LEGADO_P5: EstadoExpediente = "CANAL_EMAIL_VERIFICADO";
 
 export const PASO_EVIDENCIA_CAPTURA_P5 = "P5_CAPTURA_IDENTIDAD";
 export const PASO_EVIDENCIA_ANALISIS_P5 = "P5_ANALISIS_IDENTIDAD";
@@ -266,7 +287,9 @@ async function exigirExpedienteEnP5(
 ): Promise<ResultadoEstado> {
   const expediente = await deps.expedientes.obtenerPorId(expedienteId);
   if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
-  if (expediente.estado !== ESTADO_REQUERIDO_P5) return { ok: false, motivo: "ESTADO_INVALIDO" };
+  if (expediente.estado !== ESTADO_REQUERIDO_P5 && expediente.estado !== ESTADO_LEGADO_P5) {
+    return { ok: false, motivo: "ESTADO_INVALIDO" };
+  }
   return { ok: true, expediente };
 }
 
@@ -802,7 +825,32 @@ export interface EntradaConfirmacionP5 {
   readonly imagenes: ImagenesP5;
   /** Selector obligatorio; se valida contra `catalogo-identidad.ts`. */
   readonly paisNacimiento: string;
+  /** País de residencia (bloque 1 del FIPF). Lo declara la persona. */
+  readonly paisResidencia: string;
   readonly estadoCivil: string;
+  /**
+   * Correo declarado, escrito dos veces en la pantalla (CHG-14/17, D-06).
+   *
+   * Llega acá y no en un paso propio porque ya no tiene código que verificar:
+   * lo que lo respalda es el doble tipeo más la declaración de veracidad que
+   * la persona firma después. Se valida y se normaliza en el dominio; la
+   * pantalla solo comprueba que las dos escrituras coincidan.
+   */
+  readonly correo: string;
+  /**
+   * Correcciones a lo que el OCR leyó (CHG-15): nombres, apellidos, sexo y
+   * nacionalidad. Cada una se coteja contra la lectura antes de aceptarse —se
+   * admite arreglar, no reemplazar—. Ver `cotejo-ocr.ts`.
+   */
+  readonly correcciones?: CorreccionesOcr;
+  /**
+   * Cuerpo crudo de los datos laborales y económicos: domicilio, ciudad,
+   * situación laboral, actividad, profesión, empleador, ingreso mensual y
+   * origen de fondos. Se interpretan y validan en el dominio, igual que
+   * cuando los mandaba la pantalla de declaraciones: el estado del formulario
+   * es del navegador y no puede decidir qué entra al FIPF.
+   */
+  readonly datosComplementarios: Readonly<Record<string, unknown>>;
   /** Checkbox de captura y comparación de imagen facial y prueba de vida. */
   readonly autorizacionBiometrica: boolean;
   readonly contexto: ContextoPeticion;
@@ -813,6 +861,10 @@ export type MotivoRechazoIdentidad =
   | "ESTADO_INVALIDO"
   | "AUTORIZACION_BIOMETRICA_REQUERIDA"
   | "PAIS_O_ESTADO_CIVIL_INVALIDO"
+  | "CORREO_INVALIDO"
+  | "CORRECCION_NO_COINCIDE"
+  /** Faltan datos laborales o económicos obligatorios, o alguno no es válido. */
+  | "DATOS_INCOMPLETOS"
   | "CAPTURAS_INCOMPLETAS"
   | "REQUISITOS_INCOMPLETOS"
   | "EDAD_FUERA_DE_RANGO"
@@ -834,6 +886,8 @@ export type ResultadoConfirmacionP5 =
       readonly requisitos?: RequisitosP5;
       readonly pendientes?: readonly IdRequisitoP5[];
       readonly datos?: DatosIdentidadP5 | null;
+      /** Solo con `DATOS_INCOMPLETOS`: qué campos del bloque económico faltan. */
+      readonly camposInvalidos?: readonly string[];
     };
 
 /**
@@ -866,9 +920,27 @@ export async function confirmarIdentidadP5(
   }
 
   const paisYEstadoCivilCompletos =
-    esPaisNacimiento(entrada.paisNacimiento) && esEstadoCivil(entrada.estadoCivil);
+    esPaisNacimiento(entrada.paisNacimiento) &&
+    esPaisNacimiento(entrada.paisResidencia) &&
+    esEstadoCivil(entrada.estadoCivil);
   if (!paisYEstadoCivilCompletos) {
     return { ok: false, motivo: "PAIS_O_ESTADO_CIVIL_INVALIDO" };
+  }
+
+  // El correo se valida acá y no solo en la pantalla: sin código que lo
+  // verifique, esta es la única barrera entre un correo mal escrito y una
+  // póliza que nunca llega a destino.
+  const correo = normalizarCorreo(entrada.correo);
+  if (!correo.ok) return { ok: false, motivo: "CORREO_INVALIDO" };
+
+  // Mismo intérprete de siempre: la mudanza de pantalla no cambió el modelo.
+  const complementarios = interpretarDatosComplementariosP6(entrada.datosComplementarios);
+  if (!complementarios.ok) {
+    return {
+      ok: false,
+      motivo: "DATOS_INCOMPLETOS",
+      camposInvalidos: complementarios.camposInvalidos,
+    };
   }
 
   const estado = await exigirExpedienteEnP5(deps, entrada.expedienteId);
@@ -948,16 +1020,48 @@ export async function confirmarIdentidadP5(
     coincidenciaFacialAprobada: verificacion.coincidenciaFacialAprobada,
   };
 
+  // CHG-15 · las correcciones se cotejan **acá**, en el servidor. La pantalla
+  // ya no deja escribir cualquier cosa, pero esconder un campo es cosmético:
+  // cualquiera arma la petición a mano, y lo que se guarda termina en un
+  // documento firmado.
+  const nombres = cotejarCorreccion(
+    "nombres",
+    verificacion.datos.nombres,
+    entrada.correcciones?.nombres,
+  );
+  if (!nombres.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+
+  const apellidos = cotejarCorreccion(
+    "apellidos",
+    verificacion.datos.apellidos,
+    entrada.correcciones?.apellidos,
+  );
+  if (!apellidos.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+
+  const sexo = cotejarCorreccion("sexo", verificacion.datos.sexo, entrada.correcciones?.sexo);
+  if (!sexo.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+
+  const nacionalidad = cotejarCorreccion(
+    "nacionalidad",
+    verificacion.datos.nacionalidad,
+    entrada.correcciones?.nacionalidad,
+  );
+  if (!nacionalidad.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+
   const identidad: Identidad = {
-    // Los seis campos de la cédula salen del proveedor, no de la petición.
+    // Los dos campos de los que cuelgan reglas del negocio salen del proveedor
+    // y no de la petición: la fecha decide el corte de edad (regla #8) y la
+    // cédula es la llave del bloqueo (regla #11). Los otros cuatro admiten
+    // corrección cotejada — arreglar la lectura, no reemplazarla.
     numeroCedula: verificacion.datos.numeroCedula,
-    nombres: verificacion.datos.nombres,
-    apellidos: verificacion.datos.apellidos,
+    nombres: nombres.valor,
+    apellidos: apellidos.valor,
     fechaNacimiento: verificacion.datos.fechaNacimiento,
-    sexo: verificacion.datos.sexo,
-    nacionalidad: verificacion.datos.nacionalidad,
+    sexo: sexo.valor,
+    nacionalidad: nacionalidad.valor,
     // Los dos únicos que completa la persona.
     paisNacimiento: entrada.paisNacimiento,
+    paisResidencia: entrada.paisResidencia,
     estadoCivil: entrada.estadoCivil,
     captura,
   };
@@ -965,7 +1069,17 @@ export async function confirmarIdentidadP5(
   const transicion = transicionarExpediente(
     estado.expediente,
     "IDENTIDAD_VERIFICADA",
-    { identidad },
+    {
+      identidad,
+      // Declarado, no verificado: el origen queda asentado en el expediente
+      // para que después nadie lea este correo como si hubiera pasado por un
+      // código (D-06).
+      canalEmail: { valor: correo.correo, verificadoEn: fecha, origen: "DOBLE_TIPEO" },
+      // Maqueta p.4: se capturan acá y no en las declaraciones. Entran en la
+      // misma escritura que la identidad, así que no existe un expediente con
+      // identidad verificada y datos económicos a medias.
+      datosComplementarios: complementarios.datos,
+    },
     fecha,
   );
 

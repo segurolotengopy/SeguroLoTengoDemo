@@ -55,8 +55,14 @@ import { transicionarExpediente } from "./expediente";
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import { HITOS_SEGUIMIENTO } from "./textos-pantalla-b";
-import { esPagoDefinitivoAntesDeFirma } from "./tipos";
-import type { EstadoExpediente, Expediente, MedioDePago, RegistroEvidencia } from "./tipos";
+import { pagoAcreditado } from "./tipos";
+import type {
+  DevolucionDelExpediente,
+  EstadoExpediente,
+  Expediente,
+  MedioDePago,
+  RegistroEvidencia,
+} from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
 
 // ---------------------------------------------------------------------------
@@ -185,13 +191,35 @@ export async function iniciarDevolucionPantallaB(
   }
 
   const pago = expediente.pago;
-  // Sin cobro no hay devolución: con crédito la reserva ya se liberó en P8.
-  if (!pago || !esPagoDefinitivoAntesDeFirma(pago.medio)) {
+  // Sin cobro acreditado no hay nada que devolver. Con los tres medios
+  // cobrando directo (D-02), el criterio dejó de depender del medio: depende
+  // de si el dinero entró.
+  if (!pago || !pagoAcreditado(pago.estado)) {
     return { ok: true, iniciado: false, estado: expediente.estado };
   }
 
   const fecha = reloj.ahora();
-  const transicion = transicionarExpediente(expediente, "DEVOLUCION_EN_TRAMITE", {}, fecha);
+  // Se escribe el mismo `Expediente.devolucion` que la vía nueva (D-02) para
+  // que la consola muestre los dos linajes con una sola forma. La evidencia sí
+  // sigue siendo la propia de este camino: son hechos distintos y la historia
+  // de un expediente viejo tiene que seguir contándose como ocurrió.
+  const devolucion: DevolucionDelExpediente = {
+    estado: "EN_TRAMITE",
+    solicitante: "INTERSEGUROS",
+    motivo: "VENCIMIENTO_LEGADO",
+    solicitadaEn: fecha,
+    montoGs: pago.montoGs,
+    medio: pago.medio,
+    referenciaBancard: pago.referenciaBancard,
+    acreditadaEn: null,
+    referenciaReintegro: null,
+  };
+  const transicion = transicionarExpediente(
+    expediente,
+    "DEVOLUCION_EN_TRAMITE",
+    { devolucion },
+    fecha,
+  );
   if (!transicion.ok) return { ok: false, motivo: "ESTADO_INVALIDO" };
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
@@ -207,7 +235,7 @@ export async function iniciarDevolucionPantallaB(
       montoGs: pago.montoGs,
       referenciaBancard: pago.referenciaBancard ?? "",
       propuesta: expediente.numeroPropuesta ?? "",
-      plazoFirmaVenceEn: expediente.plazoFirmaVenceEn ?? "",
+      plazoPagoVenceEn: expediente.plazoPagoVenceEn ?? "",
       // `ACTORES Y REGISTRO`: SeguroLoTengo genera las comunicaciones. Queda el
       // registro del aviso a los dos canales verificados; la entrega necesita
       // un proveedor de notificaciones que todavía no está en el catálogo.
@@ -259,7 +287,15 @@ export async function registrarDevolucionEjecutadaPantallaB(
   if (!pago) return { ok: false, motivo: "SIN_PAGO_QUE_DEVOLVER" };
 
   const fecha = reloj.ahora();
-  const transicion = transicionarExpediente(expediente, "DEVUELTO", {}, fecha);
+  const devolucion: DevolucionDelExpediente | null = expediente.devolucion
+    ? { ...expediente.devolucion, estado: "ACREDITADA", acreditadaEn: fecha }
+    : null;
+  const transicion = transicionarExpediente(
+    expediente,
+    "DEVUELTO",
+    devolucion ? { devolucion } : {},
+    fecha,
+  );
   if (!transicion.ok) return { ok: false, motivo: "ESTADO_INVALIDO" };
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
@@ -304,14 +340,17 @@ export interface CasoVencido {
   readonly referenciaBancard: string | null;
   readonly premioGs: number;
   readonly medio: MedioDePago | null;
-  /** `true` con QR y débito: hay premio que devolver. `false` con crédito. */
+  /**
+   * `true` solo si el dinero efectivamente entró — lo que bajo el orden nuevo
+   * no puede pasar en un expediente vencido, y bajo el viejo sí pasaba.
+   */
   readonly hayPremioQueDevolver: boolean;
   readonly nombreAsegurado: string | null;
   readonly documentoEnmascarado: string | null;
   readonly whatsappEnmascarado: string | null;
   readonly correoEnmascarado: string | null;
   readonly pagoConfirmadoEn: string | null;
-  readonly plazoFirmaVenceEn: string | null;
+  readonly plazoPagoVenceEn: string | null;
   readonly hitos: readonly HitoSeguimientoCalculado[];
 }
 
@@ -374,7 +413,7 @@ export function leerCasoVencido(
     referenciaBancard: pago?.referenciaBancard ?? null,
     premioGs: pago?.montoGs ?? expediente.plan?.premioAnualGs ?? 0,
     medio: pago?.medio ?? null,
-    hayPremioQueDevolver: pago ? esPagoDefinitivoAntesDeFirma(pago.medio) : false,
+    hayPremioQueDevolver: pago ? pagoAcreditado(pago.estado) : false,
     nombreAsegurado: identidad ? `${identidad.nombres} ${identidad.apellidos}`.trim() : null,
     documentoEnmascarado: identidad ? enmascararCedula(identidad.numeroCedula) : null,
     whatsappEnmascarado: expediente.canalWhatsapp
@@ -382,7 +421,14 @@ export function leerCasoVencido(
       : null,
     correoEnmascarado: expediente.canalEmail ? enmascararCorreo(expediente.canalEmail.valor) : null,
     pagoConfirmadoEn: pago?.confirmadoEn ?? null,
-    plazoFirmaVenceEn: expediente.plazoFirmaVenceEn,
-    hitos: calcularHitos(pago?.confirmadoEn ?? null, expediente.plazoFirmaVenceEn, ahora),
+    plazoPagoVenceEn: expediente.plazoPagoVenceEn,
+    // D-08 · el reloj arranca con la firma, no con el pago. Para los
+    // expedientes vencidos bajo el orden viejo —que sí pagaron y no firmaron—
+    // se usa el pago, que es el hito que tenían.
+    hitos: calcularHitos(
+      expediente.firma?.firmadoEn ?? pago?.confirmadoEn ?? null,
+      expediente.plazoPagoVenceEn,
+      ahora,
+    ),
   };
 }

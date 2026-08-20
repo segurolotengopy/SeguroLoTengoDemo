@@ -77,10 +77,7 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "CODIGO_REQUERIDO" }, { status: 400 });
   }
 
-  const resultado = await firmarEnCode100Mock(idCode100, codigo, {
-    fallarAMitadDelSellado: cuerpo.fallarAMitad === true,
-    otpRemoto,
-  });
+  const resultado = await firmarEnCode100Mock(idCode100, codigo, { otpRemoto });
 
   if (!resultado.ok) {
     return respuestaJson(
@@ -100,7 +97,6 @@ export async function POST(request: Request): Promise<Response> {
   return respuestaJson({
     ok: true,
     firmadoEn: resultado.firma.firmadoEn,
-    hashSolicitudFirmada: resultado.firma.hashSolicitudFirmada,
-    hashFipfFirmado: resultado.firma.hashFipfFirmado,
+    hashDocumentoFirmado: resultado.firma.hashDocumentoFirmado,
   });
 }

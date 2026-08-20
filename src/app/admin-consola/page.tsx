@@ -1,3 +1,4 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -24,7 +25,7 @@ import { FormularioClaveConsola } from "./FormularioClaveConsola";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Consola administrativa · SeguroLoTengo",
+  title: `Consola administrativa · ${sufijoTitulo()}`,
   robots: { index: false, follow: false },
 };
 

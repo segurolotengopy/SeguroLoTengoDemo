@@ -88,10 +88,9 @@ function armar(): {
 
   let expediente = crearExpedienteInicial({ id: EXPEDIENTE_ID, ahora: AHORA });
   for (const estado of [
-    "CANAL_WA_VERIFICADO",
     "PLAN_SELECCIONADO",
+    "CANAL_WA_VERIFICADO",
     "AUTORIZADO",
-    "CANAL_EMAIL_VERIFICADO",
   ] as const) {
     const paso = transicionarExpediente(expediente, estado);
     if (!paso.ok) throw new Error(paso.error);
@@ -156,7 +155,7 @@ describe("acumulación de intentos", () => {
       if (!resultado.ok) return;
 
       expect(resultado.asistenciaIdentidad ?? null).toBeNull();
-      expect(leer().estado).toBe("CANAL_EMAIL_VERIFICADO");
+      expect(leer().estado).toBe("AUTORIZADO");
       expect(leer().intentosIdentidadFallidos).toBe(intento);
     }
   });
@@ -205,7 +204,7 @@ describe("acumulación de intentos", () => {
 
     await analizar(conIdentidadBuena);
     expect(leer().intentosIdentidadFallidos).toBe(0);
-    expect(leer().estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(leer().estado).toBe("AUTORIZADO");
   });
 });
 

@@ -1,25 +1,25 @@
 /**
- * Puerto de firma electrónica (Code100), P8: inicia el acto de firma único
- * sobre la Solicitud y el FIPF ya cerrados y hasheados (regla de negocio
- * inviolable #4), envía el enlace al canal verificado elegido por el
- * cliente, y confirma el resultado.
+ * Puerto de firma electrónica (Code100): inicia el acto de firma único sobre
+ * el documento ya cerrado y hasheado (regla de negocio inviolable #4), envía
+ * el enlace al canal verificado elegido por el cliente, y confirma el
+ * resultado.
  *
- * El OTP que Code100 usa dentro del acto de firma es el tercer OTP del
- * flujo (P8) — distinto y no reutilizable respecto de los OTP de celular
- * (P1) y correo (P4) de `OtpProvider` (regla de negocio inviolable #1).
+ * El OTP que Code100 usa dentro del acto de firma es el del acto de firma —
+ * distinto y no reutilizable respecto del OTP de celular de `OtpProvider`
+ * (regla de negocio inviolable #1).
  * **Vive del lado del proveedor**: la persona lo tipea en la pantalla de
  * Code100, no en SeguroLoTengo, así que no hay ningún método de esta
  * interfaz que lo reciba ni lo devuelva. Un adaptador mock que necesite
  * mostrarlo en el panel de demo lo hace por un canal aparte, igual que
  * `OtpProvider` (regla inviolable #2).
  *
- * Regla de negocio inviolable #3 (atómica): esta interfaz no admite ningún
- * tipo de retorno que represente "un documento firmado y el otro no". La
- * rama `FIRMADO` de `confirmarResultado` trae una `Firma` completa —de
- * `src/domain/tipos.ts`, con `hashSolicitudFirmada` y `hashFipfFirmado`
- * como campos obligatorios, no opcionales— o el puerto reporta que no se
- * firmó nada. No existe un tercer estado intermedio representable a nivel
- * de tipos.
+ * Regla de negocio inviolable #3 (atómica): **ya no hace falta defenderla
+ * acá**. Este puerto recibía un `PaqueteDocumental` de dos documentos y su
+ * trabajo era no admitir ningún retorno que representara "uno firmado y el
+ * otro no". Con el documento único (D-11) hay un archivo y una huella: la
+ * Solicitud y el FIPF son secciones del mismo PDF y no existe la operación
+ * que podría separarlas. La regla pasó de ser una restricción de tipos a ser
+ * una propiedad de la estructura, que es más fuerte.
  *
  * Respaldo normativo (`docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`,
  * categoría "R4 - FIRMA ELECTRÓNICA MEDIANTE CODE100"): fila 34 (el cliente
@@ -32,15 +32,15 @@
  * Contrato técnico del adaptador oficial:
  * `docs/Integraciones/Documentacion Firmador - API FLOW.pdf`.
  */
-import type { CanalFirma, Firma, PaqueteDocumental } from "../domain/tipos";
+import type { CanalFirma, DocumentoCerrado, Firma } from "../domain/tipos";
 
 export interface IniciarFirmaInput {
   readonly expedienteId: string;
   /** Canal verificado elegido por el cliente en P8 (WhatsApp o correo). */
   readonly canal: CanalFirma;
   readonly destino: string;
-  /** Debe corresponder a documentos ya cerrados y hasheados (regla #4); no hay firma sobre PDF abierto. */
-  readonly paqueteDocumental: PaqueteDocumental;
+  /** Debe corresponder a un documento ya cerrado y hasheado (regla #4); no hay firma sobre PDF abierto. */
+  readonly documento: DocumentoCerrado;
 }
 
 export interface FirmaIniciada {
@@ -61,10 +61,9 @@ export type MotivoNoFirmado = "RECHAZADA" | "EXPIRADA" | "CANCELADA" | "ERROR_PR
 /**
  * Estado del acto de firma, tal como lo reporta `POST /signature/getSessionId`.
  *
- * Los tres estados son mutuamente excluyentes y ninguno de ellos puede
- * describir una firma a medias: `PENDIENTE` no expone ningún hash firmado,
- * `FIRMADO` los exige a los dos dentro de una `Firma`, y `NO_FIRMADO` no
- * tiene dónde ponerlos (regla inviolable #3).
+ * Los tres estados son mutuamente excluyentes: `PENDIENTE` no expone ningún
+ * hash firmado, `FIRMADO` trae la `Firma` con la huella del documento, y
+ * `NO_FIRMADO` no tiene dónde ponerla.
  */
 export type ResultadoFirma =
   | {
@@ -73,6 +72,21 @@ export type ResultadoFirma =
       readonly venceEn: string;
       /** `true` cuando la persona ya abrió el enlace y Code100 le pidió el OTP de firma. */
       readonly enlaceAbierto: boolean;
+      /**
+       * Caducidad de la sesión **según el proveedor**, no según nuestro reloj.
+       *
+       * `POST /signature/getSessionId` devuelve `fecha_expiracion` y
+       * `expirado`, y no documenta una duración fija: en el ejemplo de Code100
+       * una sesión creada 14-ene 17:10 UTC expira 15-ene 14:12, unas 21 horas.
+       * Por eso no se la deduce restando de `venceEn` —eso sería hardcodear su
+       * política— sino que se la lee (D-10).
+       *
+       * Es un hecho distinto del plazo de 24 h del expediente, que es nuestro:
+       * la sesión puede caducar antes sin que el expediente venza, y entonces
+       * lo que corresponde es pedir un enlace nuevo, no dar por perdido el
+       * trámite.
+       */
+      readonly expirada: boolean;
     }
   | { readonly estado: "FIRMADO"; readonly firma: Firma }
   | {
@@ -96,39 +110,24 @@ export class ErrorCode100 extends Error {
   }
 }
 
-/**
- * Los dos PDF firmados que devuelve `POST /signature/sign-pdf`
- * (`documents_signeds` en la documentación de Code100).
- *
- * Regla inviolable #3, otra vez: **los dos o ninguno**. No hay campos
- * opcionales, así que no existe forma de recibir la Solicitud firmada sin el
- * FIPF. Y sus huellas tienen que coincidir con las de la `Firma` que devolvió
- * `confirmarResultado`: son los mismos archivos.
- */
-export interface DocumentosFirmados {
-  readonly solicitud: Uint8Array;
-  readonly fipf: Uint8Array;
-}
-
 export interface SignatureProvider {
   /**
-   * Envía el enlace único de firma para **ambos** documentos al canal
-   * elegido (fila 36 de la matriz: un mismo enlace Code100 para la Solicitud
-   * y el FIPF). Lanza `ErrorCode100` si el proveedor no acepta el paquete.
+   * Envía el enlace de firma al canal elegido (fila 36 de la matriz: un mismo
+   * enlace Code100 para la Solicitud y el FIPF, que ahora son secciones del
+   * mismo PDF). Lanza `ErrorCode100` si el proveedor no acepta el documento.
    */
   iniciarFirma(input: IniciarFirmaInput): Promise<FirmaIniciada>;
 
   /**
-   * Baja los dos PDF firmados de un acto ya completado, para archivarlos y
-   * ponerlos a descargar en P9. `null` si el acto todavía no se firmó o no
-   * existe — nunca uno solo.
+   * Baja el PDF firmado de un acto ya completado, para archivarlo y ponerlo a
+   * descargar en P9. `null` si el acto todavía no se firmó o no existe.
    *
-   * Va aparte de `confirmarResultado` a propósito: el sondeo de P8 corre cada
-   * dos segundos y no tiene por qué arrastrar dos PDF en cada vuelta. Es el
-   * mismo reparto que hace Code100 entre `getSessionId` (estado) y `sign-pdf`
-   * (los archivos).
+   * Va aparte de `confirmarResultado` a propósito: el sondeo de la pantalla de
+   * firma corre cada dos segundos y no tiene por qué arrastrar un PDF en cada
+   * vuelta. Es el mismo reparto que hace Code100 entre `getSessionId` (estado)
+   * y `sign-pdf` (el archivo).
    */
-  descargarDocumentosFirmados(idCode100: string): Promise<DocumentosFirmados | null>;
+  descargarDocumentoFirmado(idCode100: string): Promise<Uint8Array | null>;
 
   /**
    * Estado del acto de firma iniciado con `idCode100`. Es el método que

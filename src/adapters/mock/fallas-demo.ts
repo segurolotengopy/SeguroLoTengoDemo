@@ -3,7 +3,12 @@
  * demo": *"forzar fallos puntuales (OTP expirado, intentos agotados, timeout
  * de Bancard, rechazo de Code100)"*).
  *
- * Son los cuatro de CLAUDE.md más uno —`BANCARD_CAPTURA_FALLIDA`— que agregó la
+ * Son los cuatro de CLAUDE.md. La palanca `BANCARD_CAPTURA_FALLIDA` se retiró
+ * al desaparecer la preautorización (D-02): sin captura no hay captura que
+ * hacer fallar. Lo que la reemplaza como escenario de cobro fallido es el
+ * timeout, que sigue vigente y ahora cubre a los tres medios.
+ *
+ * Nota histórica de la que venía —la agregó la
  * auditoría de cumplimiento de P8/P9: es la única forma de ejercitar en vivo la
  * fila 44 de la matriz (*"Si falla el cobro, no solicitar la emisión
  * automática"*), que sin palanca quedaba probada solo por tests. No es una
@@ -27,7 +32,7 @@
  * - `BANCARD_TIMEOUT` y `CODE100_RECHAZO` entran por el `fallaForzada` que los
  *   adaptadores mock de pago y firma ya exponían.
  *
- * Igual que la persona activa y el plazo de firma, esto es memoria del proceso
+ * Igual que la persona activa y el plazo de pago, esto es memoria del proceso
  * y solo funciona con `DEMO_MODE=true`.
  */
 
@@ -37,55 +42,73 @@ export type FallaDemo =
   | "OTP_EXPIRADO"
   | "OTP_INTENTOS_AGOTADOS"
   | "BANCARD_TIMEOUT"
-  | "BANCARD_CAPTURA_FALLIDA"
   | "CODE100_RECHAZO"
-  | "REGISTRO_CIVIL_CAIDO";
+  | "FIRMAS_INSTITUCIONALES_FALLAN"
+  | "REGISTRO_CIVIL_CAIDO"
+  | "ENTREGA_NO_DISPONIBLE"
+  | "ENTREGA_SIN_ACUSE";
 
 export const FALLAS_DEMO: readonly FallaDemo[] = [
   "OTP_EXPIRADO",
   "OTP_INTENTOS_AGOTADOS",
   "BANCARD_TIMEOUT",
-  "BANCARD_CAPTURA_FALLIDA",
   "CODE100_RECHAZO",
+  "FIRMAS_INSTITUCIONALES_FALLAN",
   "REGISTRO_CIVIL_CAIDO",
+  "ENTREGA_NO_DISPONIBLE",
+  "ENTREGA_SIN_ACUSE",
 ];
 
 /** Rótulos y explicación para el panel; no se usan en el flujo P0–P9. */
 export const DESCRIPCION_FALLA_DEMO: Readonly<
   Record<FallaDemo, { readonly rotulo: string; readonly donde: string; readonly efecto: string }>
 > = {
+  ENTREGA_NO_DISPONIBLE: {
+    rotulo: "Mensajería caída",
+    donde: "Paso 8, al entregar los documentos",
+    efecto:
+      "El proveedor no acepta el envío. Es una falla transitoria: el despachador programa otro intento con espera creciente y la pantalla muestra la entrega como pendiente, con el número de intento.",
+  },
+  ENTREGA_SIN_ACUSE: {
+    rotulo: "Entrega sin acuse",
+    donde: "Paso 8, después de que el envío fue aceptado",
+    efecto:
+      "El proveedor acepta el envío y después no confirma la recepción. Es lo que distingue ENVIADO de ACUSADO (CMP-05): sin esta palanca, los dos serían el mismo instante y el acuse no probaría nada.",
+  },
   REGISTRO_CIVIL_CAIDO: {
     rotulo: "Registro civil caído",
-    donde: "P5, con una cédula del formato anterior (sin MRZ)",
+    donde: "Paso 4, con una cédula del formato anterior (sin MRZ)",
     efecto:
       "La consulta al registro civil no responde y la persona no puede continuar. Queda distinguido en la evidencia de un 'no existe': una caída del registro no dice nada sobre ella. La derivación automática a revisión manual todavía no está implementada.",
   },
   OTP_EXPIRADO: {
     rotulo: "OTP expirado",
-    donde: "P1 o P4, al pedir el código",
+    donde: "Paso 2, al pedir el código de WhatsApp",
     efecto: "El próximo código nace vencido: al verificarlo, la pantalla informa que expiró.",
   },
   OTP_INTENTOS_AGOTADOS: {
     rotulo: "3 intentos agotados",
-    donde: "P1 o P4, al pedir el código",
+    donde: "Paso 2, al pedir el código de WhatsApp",
     efecto: "El próximo código llega con los tres intentos ya quemados: hay que reenviar.",
   },
   BANCARD_TIMEOUT: {
     rotulo: "Timeout de Bancard",
-    donde: "P7, al generar el QR o abrir el formulario",
+    donde: "Paso 7, al generar el QR o abrir el formulario",
     efecto:
       "Bancard no responde. El reintento reutiliza la misma clave de idempotencia, así que no cobra dos veces.",
   },
-  BANCARD_CAPTURA_FALLIDA: {
-    rotulo: "Falla la captura de Bancard",
-    donde: "P8, al confirmarse la firma con tarjeta de crédito",
-    efecto:
-      "La firma queda registrada pero el cobro no. P8 no deja pasar a P9 y reintenta: sin cobro no se pide la emisión (fila 44).",
-  },
   CODE100_RECHAZO: {
     rotulo: "Rechazo de Code100",
-    donde: "P8, al enviar el enlace de firma",
+    donde: "Paso 6, al enviar el enlace de firma",
     efecto: "Code100 rechaza la apertura del acto. No queda ningún documento firmado.",
+  },
+  FIRMAS_INSTITUCIONALES_FALLAN: {
+    rotulo: "Firmas institucionales caídas",
+    donde: "Paso 6, justo después de que el cliente firma",
+    efecto:
+      "El cliente firma y las firmas cualificadas de Interseguros y Alianza no llegan. El " +
+      "expediente queda en FIRMADO_CLIENTE y el cobro sigue inhabilitado: un sellado a medio " +
+      "hacer es distinguible de un expediente sin firmar (D-13). El próximo sondeo lo retoma.",
   },
 };
 

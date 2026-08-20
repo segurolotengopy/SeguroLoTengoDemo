@@ -4,14 +4,14 @@ import type { Page } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarP1,
-  completarP2,
-  completarP3,
-  completarP4,
+  completarWhatsapp,
+  completarPlan,
+  completarPreparacion,
+  declararCorreo,
   completarP5Aprobado,
   completarP6,
   completarP7Qr,
-  continuarAFirma,
+  continuarAConfirmacion,
   enviarEnlaceYAbrir,
   enviarP6,
   firmarNormalmente,
@@ -77,38 +77,45 @@ test.describe("capturas para gerencia", () => {
 
     await prepararEscenario(page, { personaId: persona.id });
 
-    await page.goto("/p1-whatsapp");
-    await capturar(page, "01-p1-whatsapp");
+    await page.goto("/plan");
+    // La captura muestra un plan ya elegido, como la página 1 de la maqueta
+    // (cinta y radio marcados). `completarPlan` vuelve a elegirlo después:
+    // el radio es idempotente.
+    await page.getByRole("article").nth(1).getByRole("radio").click();
+    await capturar(page, "01-plan");
 
-    await completarP1(page, persona);
-    await capturar(page, "02-p2-plan");
+    await completarPlan(page, persona);
+    await capturar(page, "02-whatsapp");
 
-    await completarP2(page, persona);
-    await capturar(page, "03-p3-preparacion");
+    await completarWhatsapp(page, persona);
+    await capturar(page, "03-preparacion");
 
-    await completarP3(page);
-    await capturar(page, "04-p4-correo");
+    await completarPreparacion(page);
+    await capturar(page, "04-identidad");
 
-    await completarP4(page, persona);
-    await capturar(page, "05-p5-identidad");
+    await declararCorreo(page, persona);
 
     await completarP5Aprobado(page);
-    await capturar(page, "06-p6-declaraciones");
+    await capturar(page, "05-declaraciones");
 
     await completarP6(page, persona);
-    await enviarP6(page, /\/p7-pago$/);
-    await capturar(page, "07-p7-pago");
-
-    await completarP7Qr(page);
-    await continuarAFirma(page);
-    await expect(page).toHaveURL(/\/p8-firma$/);
-    await capturar(page, "08-p8-firma");
+    // D-08 · se firma en el paso 6 y se paga en el 7.
+    await enviarP6(page, /\/firma$/);
+    await capturar(page, "06-firma");
 
     const idCode100 = await enviarEnlaceYAbrir(page);
     await firmarNormalmente(page, idCode100);
-    await expect(page).toHaveURL(/\/p9-confirmacion$/);
+    await expect(page).toHaveURL(/\/pago$/);
+    await capturar(page, "07-pago");
+
+    await completarP7Qr(page);
+    await continuarAConfirmacion(page);
+    await expect(page).toHaveURL(/\/confirmacion$/);
     await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
-    await capturar(page, "09-p9-confirmacion");
+    // El encabezado se renderiza en el servidor y aparece antes que los datos:
+    // sin esperar al resumen, la captura sale con todos los campos en "—".
+    await expect(page.getByText(/PROP-\d{8}/).first()).toBeVisible();
+    await capturar(page, "08-confirmacion");
   });
 
   test("Pantalla A — derivación a revisión manual (PEP)", async ({ page }) => {
@@ -117,10 +124,10 @@ test.describe("capturas para gerencia", () => {
     if (!persona) throw new Error("Fixture 'pep-positivo' no encontrado.");
 
     await prepararEscenario(page, { personaId: persona.id });
-    await completarP1(page, persona);
-    await completarP2(page, persona);
-    await completarP3(page);
-    await completarP4(page, persona);
+    await completarPlan(page, persona);
+    await completarWhatsapp(page, persona);
+    await completarPreparacion(page);
+    await declararCorreo(page, persona);
     await completarP5Aprobado(page);
     await completarP6(page, persona);
     await enviarP6(page, /\/revision-manual$/);
@@ -136,19 +143,24 @@ test.describe("capturas para gerencia", () => {
     const persona = obtenerPersonaDemo("no-firma");
     if (!persona) throw new Error("Fixture 'no-firma' no encontrado.");
 
-    await prepararEscenario(page, { personaId: persona.id, plazoFirmaMs: 30_000 });
-    await completarP1(page, persona);
-    await completarP2(page, persona);
-    await completarP3(page);
-    await completarP4(page, persona);
+    await prepararEscenario(page, { personaId: persona.id, plazoPagoMs: 30_000 });
+    await completarPlan(page, persona);
+    await completarWhatsapp(page, persona);
+    await completarPreparacion(page);
+    await declararCorreo(page, persona);
     await completarP5Aprobado(page);
     await completarP6(page, persona);
-    await enviarP6(page, /\/p7-pago$/);
-    await completarP7Qr(page);
-    await continuarAFirma(page);
+    await enviarP6(page, /\/firma$/);
+
+    // D-08 · se firma, no se paga, y el expediente caduca sin cobro: la
+    // Pantalla B no promete ninguna devolución.
+    const idCode100 = await enviarEnlaceYAbrir(page);
+    await firmarNormalmente(page, idCode100);
 
     await expect(page).toHaveURL(/\/solicitud-vencida$/, { timeout: 60_000 });
-    await expect(page.getByText("VENCIDO · DEVOLUCIÓN EN TRÁMITE")).toBeVisible();
+    await expect(
+      page.getByText("No se realizó ningún cobro:", { exact: false }),
+    ).toBeVisible();
     await capturar(page, "11-pantalla-b-solicitud-vencida");
   });
 });
