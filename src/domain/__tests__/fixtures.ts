@@ -39,7 +39,13 @@ export const datosComplementariosFixture: DatosComplementariosP6 = {
   profesion: "Contador/a",
   empresa: "Estudio Contable SRL",
   ingresoMensualDeclaradoGs: 8_000_000,
-  beneficiario: { tipo: "HEREDEROS_LEGALES", nombreCompleto: null, parentesco: null, domicilio: null },
+  beneficiario: {
+    tipo: "HEREDEROS_LEGALES",
+    nombreCompleto: null,
+    parentesco: null,
+    domicilio: null,
+    numeroCedula: null,
+  },
 };
 
 /**

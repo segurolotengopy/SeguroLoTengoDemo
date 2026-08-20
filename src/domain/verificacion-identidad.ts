@@ -57,6 +57,8 @@ import type {
 import { evaluarBloqueoPorCedula } from "./consola-administrativa";
 import type { LectorExpedientesPorCedula } from "./consola-administrativa";
 import { normalizarCorreo } from "./correo";
+import { cotejarCorreccion } from "./cotejo-ocr";
+import type { CorreccionesOcr } from "./cotejo-ocr";
 import { esEstadoCivil, esPaisNacimiento, requisitosPendientes } from "./catalogo-identidad";
 import type { IdRequisitoP5, RequisitosP5, TipoCapturaP5 } from "./catalogo-identidad";
 import { transicionarExpediente } from "./expediente";
@@ -829,6 +831,12 @@ export interface EntradaConfirmacionP5 {
    * pantalla solo comprueba que las dos escrituras coincidan.
    */
   readonly correo: string;
+  /**
+   * Correcciones a lo que el OCR leyó (CHG-15). Solo nombres y apellidos, y
+   * cada una se coteja contra la lectura antes de aceptarse: se admite
+   * arreglar, no reemplazar. Ver `cotejo-ocr.ts`.
+   */
+  readonly correcciones?: CorreccionesOcr;
   /** Checkbox de captura y comparación de imagen facial y prueba de vida. */
   readonly autorizacionBiometrica: boolean;
   readonly contexto: ContextoPeticion;
@@ -840,6 +848,7 @@ export type MotivoRechazoIdentidad =
   | "AUTORIZACION_BIOMETRICA_REQUERIDA"
   | "PAIS_O_ESTADO_CIVIL_INVALIDO"
   | "CORREO_INVALIDO"
+  | "CORRECCION_NO_COINCIDE"
   | "CAPTURAS_INCOMPLETAS"
   | "REQUISITOS_INCOMPLETOS"
   | "EDAD_FUERA_DE_RANGO"
@@ -981,11 +990,31 @@ export async function confirmarIdentidadP5(
     coincidenciaFacialAprobada: verificacion.coincidenciaFacialAprobada,
   };
 
+  // CHG-15 · las correcciones se cotejan **acá**, en el servidor. La pantalla
+  // ya no deja escribir cualquier cosa, pero esconder un campo es cosmético:
+  // cualquiera arma la petición a mano, y lo que se guarda termina en un
+  // documento firmado.
+  const nombres = cotejarCorreccion(
+    "nombres",
+    verificacion.datos.nombres,
+    entrada.correcciones?.nombres,
+  );
+  if (!nombres.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+
+  const apellidos = cotejarCorreccion(
+    "apellidos",
+    verificacion.datos.apellidos,
+    entrada.correcciones?.apellidos,
+  );
+  if (!apellidos.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+
   const identidad: Identidad = {
-    // Los seis campos de la cédula salen del proveedor, no de la petición.
+    // Los cuatro campos de los que cuelgan reglas del negocio salen del
+    // proveedor y no de la petición: la fecha decide el corte de edad (regla
+    // #8) y la cédula es la llave del bloqueo (regla #11).
     numeroCedula: verificacion.datos.numeroCedula,
-    nombres: verificacion.datos.nombres,
-    apellidos: verificacion.datos.apellidos,
+    nombres: nombres.valor,
+    apellidos: apellidos.valor,
     fechaNacimiento: verificacion.datos.fechaNacimiento,
     sexo: verificacion.datos.sexo,
     nacionalidad: verificacion.datos.nacionalidad,

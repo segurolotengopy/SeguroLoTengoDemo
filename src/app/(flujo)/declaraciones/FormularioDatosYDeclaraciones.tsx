@@ -130,6 +130,7 @@ export function FormularioDatosYDeclaraciones() {
   const [beneficiarioNombre, setBeneficiarioNombre] = useState("");
   const [beneficiarioParentesco, setBeneficiarioParentesco] = useState("");
   const [beneficiarioDomicilio, setBeneficiarioDomicilio] = useState("");
+  const [beneficiarioCedula, setBeneficiarioCedula] = useState("");
 
   const [respuestas, setRespuestas] = useState<Respuestas>({});
   const [mostrarAyudaPep, setMostrarAyudaPep] = useState(false);
@@ -151,6 +152,7 @@ export function FormularioDatosYDeclaraciones() {
       beneficiarioNombreCompleto: beneficiarioNombre,
       beneficiarioParentesco,
       beneficiarioDomicilio,
+      beneficiarioCedula,
     }),
     [
       domicilio,
@@ -164,6 +166,7 @@ export function FormularioDatosYDeclaraciones() {
       beneficiarioNombre,
       beneficiarioParentesco,
       beneficiarioDomicilio,
+      beneficiarioCedula,
     ],
   );
 
@@ -493,6 +496,29 @@ export function FormularioDatosYDeclaraciones() {
                   marcado("beneficiarioDomicilio") ? "border-rojo-500" : ""
                 }`}
               />
+            </div>
+
+            {/* CHG-24 · sin asterisco y sin validación de formato: la norma
+                pide nombre y domicilio del beneficiario designado, no su
+                cédula. Se ofrece porque facilita el cobro el día del siniestro,
+                y dejarla vacía no frena nada (CMP-21). */}
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p6-benef-cedula" className="text-xs font-semibold text-etiqueta">
+                N.° de cédula del beneficiario
+              </label>
+              <input
+                id="p6-benef-cedula"
+                type="text"
+                inputMode="numeric"
+                value={beneficiarioCedula}
+                onChange={(e) => setBeneficiarioCedula(e.target.value)}
+                placeholder="Opcional"
+                aria-describedby="p6-benef-cedula-ayuda"
+                className={CLASE_CAMPO}
+              />
+              <p id="p6-benef-cedula-ayuda" className="text-xs text-etiqueta">
+                Opcional. Si no la tenés a mano, podés continuar sin completarla.
+              </p>
             </div>
           </div>
         ) : null}

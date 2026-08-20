@@ -10,6 +10,7 @@ import { EnlaceAclaracion } from "@/components/shared";
 import { ESTADOS_CIVILES, PAISES_NACIMIENTO, REQUISITOS_P5 } from "@/domain/catalogo-identidad";
 import type { IdRequisitoP5, TipoCapturaP5 } from "@/domain/catalogo-identidad";
 import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
+import { esCampoCorregible } from "@/domain/cotejo-ocr";
 import { rutaSiguienteDe } from "@/domain/rutas-flujo";
 
 /**
@@ -128,6 +129,11 @@ const MENSAJES: Readonly<Record<string, string>> = {
     "Todavía faltan requisitos. Revisá las capturas: el único camino es repetirlas.",
   EDAD_FUERA_DE_RANGO: `Según la cédula, la edad no está entre ${EDAD_MINIMA_PERMITIDA} y ${EDAD_MAXIMA_PERMITIDA} años, así que el proceso no puede continuar.`,
   CORREO_INVALIDO: "Revisá el correo: no parece una dirección válida.",
+  // Dice qué hacer, no solo qué pasó: si el dato es realmente otro, el camino
+  // es repetir la captura, no seguir escribiendo.
+  CORRECCION_NO_COINCIDE:
+    "Lo que escribiste no se parece a lo que dice tu cédula. Corregí solo errores de lectura; " +
+    "si el dato es otro, repetí la captura.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",
 };
 
@@ -247,6 +253,11 @@ export function VerificacionIdentidad({
   // CHG-14/17 · el correo se declara acá, sin código que lo verifique (D-06).
   // El doble tipeo es lo que reemplaza al OTP como control de tipeo, así que
   // se conserva tal cual estaba en la pantalla que desapareció.
+  // CHG-15 · correcciones a lo que leyó el OCR. Solo nombres y apellidos: los
+  // otros cuatro campos siguen bloqueados porque de ellos cuelgan el corte de
+  // edad y el bloqueo por cédula. Vacío significa "sin corregir".
+  const [correcciones, setCorrecciones] = useState<Partial<Record<string, string>>>({});
+  const [campoEnEdicion, setCampoEnEdicion] = useState<string | null>(null);
   const [correo, setCorreo] = useState("");
   const [correoRepetido, setCorreoRepetido] = useState("");
   const [autorizacionBiometrica, setAutorizacionBiometrica] = useState(false);
@@ -507,6 +518,10 @@ export function VerificacionIdentidad({
         },
       };
       setCapturas(siguientes);
+      // Un dato viejo del OCR no puede sobrevivir a una captura nueva, y una
+      // corrección tampoco: quedaría corrigiendo una lectura que ya no existe.
+      setCorrecciones({});
+      setCampoEnEdicion(null);
       // Un dato viejo del OCR no puede sobrevivir a una captura nueva.
       setDatos(null);
       setRequisitosServidor(null);
@@ -551,6 +566,7 @@ export function VerificacionIdentidad({
         paisNacimiento,
         estadoCivil,
         correo,
+        ...correcciones,
         autorizacionBiometrica,
       });
 
@@ -819,28 +835,64 @@ export function VerificacionIdentidad({
         </p>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {CAMPOS_BLOQUEADOS.map(({ id, etiqueta }) => (
-            <div key={id} className="flex flex-col gap-1">
-              <label
-                htmlFor={`p5-${id}`}
-                className="flex items-center gap-1.5 text-xs font-semibold text-etiqueta"
-              >
-                <span aria-hidden="true">🔒</span>
-                {etiqueta}
-              </label>
-              <input
-                id={`p5-${id}`}
-                type="text"
-                readOnly
-                // Bloqueado por regla de P5: el valor lo pone el OCR y no
-                // existe forma de editarlo desde acá.
-                aria-readonly="true"
-                value={valorDelCampo(datos, id)}
-                placeholder="Se completa automáticamente"
-                className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie-suave px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-              />
-            </div>
-          ))}
+          {CAMPOS_BLOQUEADOS.map(({ id, etiqueta }) => {
+            const corregible = esCampoCorregible(id);
+            const enEdicion = campoEnEdicion === id;
+            // Lo corregido si existe, y si no lo que leyó el OCR.
+            const valorMostrado = correcciones[id] ?? valorDelCampo(datos, id);
+            const hayDatos = valorDelCampo(datos, id) !== "";
+
+            return (
+              <div key={id} className="flex flex-col gap-1">
+                <label
+                  htmlFor={`p5-${id}`}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-etiqueta"
+                >
+                  {/* CHG-15 · el candado deja de ser decorativo en los dos
+                      campos corregibles: es el botón que abre la edición. En
+                      los otros cuatro sigue siendo un ícono, porque de ellos
+                      cuelgan el corte de edad y el bloqueo por cédula. */}
+                  {corregible && hayDatos ? (
+                    <button
+                      type="button"
+                      onClick={() => setCampoEnEdicion(enEdicion ? null : id)}
+                      aria-pressed={enEdicion}
+                      aria-label={
+                        enEdicion ? `Terminar de corregir ${etiqueta}` : `Corregir ${etiqueta}`
+                      }
+                      className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+                    >
+                      {enEdicion ? "🔓" : "🔒"}
+                    </button>
+                  ) : (
+                    <span aria-hidden="true">🔒</span>
+                  )}
+                  {etiqueta}
+                </label>
+                <input
+                  id={`p5-${id}`}
+                  type="text"
+                  readOnly={!enEdicion}
+                  aria-readonly={!enEdicion}
+                  value={valorMostrado}
+                  onChange={(evento) =>
+                    setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
+                  }
+                  placeholder="Se completa automáticamente"
+                  className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
+                    enEdicion
+                      ? "border-naranja-400 bg-superficie"
+                      : "border-borde-sutil bg-superficie-suave"
+                  }`}
+                />
+                {enEdicion ? (
+                  <p className="text-xs text-etiqueta">
+                    Corregí solo errores de lectura. El dato final se coteja con tu cédula.
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
 
           <div className="flex flex-col gap-1">
             <label htmlFor="p5-pais" className="text-xs font-semibold text-etiqueta">

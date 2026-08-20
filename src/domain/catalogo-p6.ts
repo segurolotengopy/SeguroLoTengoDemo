@@ -236,6 +236,7 @@ export function interpretarDatosComplementariosP6(
   let nombreCompleto: string | null = null;
   let parentesco: string | null = null;
   let domicilioBeneficiario: string | null = null;
+  let cedulaBeneficiario: string | null = null;
 
   if (esDesignada) {
     nombreCompleto = normalizarTextoP6(bruto.beneficiarioNombreCompleto);
@@ -247,6 +248,13 @@ export function interpretarDatosComplementariosP6(
 
     domicilioBeneficiario = normalizarTextoP6(bruto.beneficiarioDomicilio);
     if (domicilioBeneficiario === "") camposInvalidos.push("beneficiarioDomicilio");
+
+    // CHG-24 · la cédula del beneficiario es opcional y **no bloqueante**: si
+    // viene vacía se guarda como ausente y el trámite sigue. No se valida el
+    // formato por la misma razón — exigir una forma a un dato que la norma no
+    // pide sería inventar un requisito (CMP-21).
+    const cedulaTexto = normalizarTextoP6(bruto.beneficiarioCedula);
+    cedulaBeneficiario = cedulaTexto === "" ? null : cedulaTexto;
   }
 
   if (camposInvalidos.length > 0 || ingresoMensualDeclaradoGs === null) {
@@ -269,8 +277,15 @@ export function interpretarDatosComplementariosP6(
             nombreCompleto,
             parentesco,
             domicilio: domicilioBeneficiario,
+            numeroCedula: cedulaBeneficiario,
           }
-        : { tipo: "HEREDEROS_LEGALES", nombreCompleto: null, parentesco: null, domicilio: null },
+        : {
+            tipo: "HEREDEROS_LEGALES",
+            nombreCompleto: null,
+            parentesco: null,
+            domicilio: null,
+            numeroCedula: null,
+          },
     },
   };
 }

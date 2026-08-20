@@ -240,6 +240,19 @@ export interface Beneficiario {
   readonly nombreCompleto: string | null; // requerido solo si PERSONA_DESIGNADA
   readonly parentesco: string | null;
   readonly domicilio: string | null;
+  /**
+   * Cédula del beneficiario designado (CHG-24). **Opcional y no bloqueante.**
+   *
+   * La Res. SIS 215/17 (num. 11.4) exige nombre y domicilio cuando se designa
+   * expresamente a alguien; la cédula no la pide nadie. Se ofrece porque
+   * facilita el cobro el día del siniestro, y se deja vacía sin consecuencia
+   * porque quien contrata no siempre tiene a mano el documento de un tercero
+   * —y frenarlo ahí sería exigirle más que la norma (CMP-21)—.
+   *
+   * Si el área de cumplimiento de Alianza llegara a exigirla en algún caso,
+   * eso sería una regla de riesgo documentada y no un requisito legal general.
+   */
+  readonly numeroCedula: string | null;
 }
 
 export interface DatosComplementariosP6 {

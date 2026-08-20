@@ -142,6 +142,7 @@ const CAMINO_FELIZ: PersonaDemo = {
       nombreCompleto: null,
       parentesco: null,
       domicilio: null,
+    numeroCedula: null,
     },
   },
   declaraciones: DECLARACIONES_TODAS_COMPATIBLES,
@@ -189,6 +190,9 @@ const PEP_POSITIVO: PersonaDemo = {
       nombreCompleto: "Silvia Raquel Duarte Ocampos",
       parentesco: "Cónyuge",
       domicilio: "Calle Palma 812, Centro, Asunción",
+      // Sin cédula a propósito: el campo es opcional y la persona de prueba
+      // ejercita justamente el caso de que se deje vacío (CMP-21).
+      numeroCedula: null,
     },
   },
   declaraciones: { ...DECLARACIONES_TODAS_COMPATIBLES, condicionPep: "SI" },
@@ -237,6 +241,7 @@ const SALUD_INCOMPATIBLE: PersonaDemo = {
       nombreCompleto: null,
       parentesco: null,
       domicilio: null,
+    numeroCedula: null,
     },
   },
   declaraciones: {
@@ -298,6 +303,7 @@ const BIOMETRIA_RECHAZADA: PersonaDemo = {
       nombreCompleto: null,
       parentesco: null,
       domicilio: null,
+    numeroCedula: null,
     },
   },
   // Nunca llega a responderlas: el recorrido se detiene en P5.
@@ -346,6 +352,7 @@ const NO_FIRMA: PersonaDemo = {
       nombreCompleto: null,
       parentesco: null,
       domicilio: null,
+    numeroCedula: null,
     },
   },
   declaraciones: DECLARACIONES_TODAS_COMPATIBLES,

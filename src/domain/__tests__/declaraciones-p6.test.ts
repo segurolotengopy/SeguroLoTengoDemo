@@ -166,6 +166,50 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
     expect(beneficiario?.parentesco).toBe("Cónyuge");
   });
 
+  it("la cédula del beneficiario es opcional y no frena el trámite (CHG-24/CMP-21)", async () => {
+    // La Res. SIS 215/17 exige nombre y domicilio del beneficiario designado,
+    // no su cédula. Quien contrata no siempre tiene a mano el documento de un
+    // tercero, y frenarlo ahí sería exigirle más que la norma.
+    const { deps, expedientes } = armar(enIdentidadVerificada());
+
+    const resultado = await guardarDatosYDeclaracionesP6(deps, {
+      expedienteId: "EXP-TEST-1",
+      datos: {
+        ...DATOS_CRUDOS,
+        beneficiarioTipo: "PERSONA_DESIGNADA",
+        beneficiarioNombreCompleto: "Silvia Raquel Duarte Ocampos",
+        beneficiarioParentesco: "Cónyuge",
+        beneficiarioDomicilio: "Calle Palma 812, Centro, Asunción",
+        // Sin cédula, a propósito.
+      },
+      declaraciones: RESPUESTAS_COMPATIBLES,
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(true);
+    expect(expedientes.actual().datosComplementarios?.beneficiario.numeroCedula).toBeNull();
+  });
+
+  it("guarda la cédula del beneficiario cuando sí se completa", async () => {
+    const { deps, expedientes } = armar(enIdentidadVerificada());
+
+    await guardarDatosYDeclaracionesP6(deps, {
+      expedienteId: "EXP-TEST-1",
+      datos: {
+        ...DATOS_CRUDOS,
+        beneficiarioTipo: "PERSONA_DESIGNADA",
+        beneficiarioNombreCompleto: "Silvia Raquel Duarte Ocampos",
+        beneficiarioParentesco: "Cónyuge",
+        beneficiarioDomicilio: "Calle Palma 812, Centro, Asunción",
+        beneficiarioCedula: "4123456",
+      },
+      declaraciones: RESPUESTAS_COMPATIBLES,
+      contexto: CONTEXTO,
+    });
+
+    expect(expedientes.actual().datosComplementarios?.beneficiario.numeroCedula).toBe("4123456");
+  });
+
   it("elegir herederos legales borra los datos de una persona designada que se hubiera tipeado antes", async () => {
     const { deps, expedientes } = armar(enIdentidadVerificada());
 

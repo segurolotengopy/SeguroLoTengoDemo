@@ -48,6 +48,13 @@ export async function POST(request: Request): Promise<Response> {
     paisNacimiento: typeof cuerpo.paisNacimiento === "string" ? cuerpo.paisNacimiento : "",
     estadoCivil: typeof cuerpo.estadoCivil === "string" ? cuerpo.estadoCivil : "",
     correo: typeof cuerpo.correo === "string" ? cuerpo.correo : "",
+    // Solo se leen los dos campos corregibles; cualquier otra clave que venga
+    // en el cuerpo se ignora en silencio, que es lo que corresponde con un
+    // dato que el dominio no admite corregir.
+    correcciones: {
+      ...(typeof cuerpo.nombres === "string" ? { nombres: cuerpo.nombres } : {}),
+      ...(typeof cuerpo.apellidos === "string" ? { apellidos: cuerpo.apellidos } : {}),
+    },
     autorizacionBiometrica: cuerpo.autorizacionBiometrica === true,
     contexto,
   });
