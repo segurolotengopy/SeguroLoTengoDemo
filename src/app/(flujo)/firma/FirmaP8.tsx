@@ -222,12 +222,27 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
         setActo(datos.resumen.acto);
         if (datos.resumen.acto) setCanal(datos.resumen.acto.canal);
         else if (!datos.resumen.canalWhatsappEnmascarado) setCanal("EMAIL");
-        if (datos.resumen.firmadoEn) setFirmado(true);
+
+        // `firmado` acá significa "no hay nada más que esperar", y eso **no**
+        // es lo mismo que "existe una firma": con el expediente en
+        // FIRMADO_CLIENTE el cliente ya firmó pero faltan las institucionales
+        // (D-13), y quien las retoma es el sondeo. Darlo por terminado al ver
+        // `firmadoEn` apagaba el sondeo y dejaba a la persona encallada en
+        // esta pantalla — lo encontró el escenario E2E del tramo caído.
+        if (datos.resumen.estado === "FIRMADO_CLIENTE") return;
+
+        if (datos.resumen.firmadoEn) {
+          setFirmado(true);
+          // El acto ya está completo: si alguien recarga esta pantalla con el
+          // expediente firmado, lo que corresponde es llevarlo a donde
+          // quedó, no dejarlo mirando documentos que ya firmó.
+          router.push("/pago");
+        }
       } catch {
         if (vigente.current) setError(MENSAJES.CODE100_NO_DISPONIBLE);
       }
     })();
-  }, [irAPantallaB]);
+  }, [irAPantallaB, router]);
 
   const sondear = useCallback(async (): Promise<boolean> => {
     const respuesta = await fetch("/api/p8/estado");
