@@ -194,11 +194,27 @@ export function FormularioPagoP7() {
 
   // La cuenta llegó a cero: se le pide al servidor que evalúe el plazo. El que
   // decide sigue siendo él, contra su propio reloj — adelantar la hora del
-  // navegador no adelanta nada.
+  // navegador no adelanta nada, porque vuelve a mirar la hora real y contesta
+  // que todavía no.
+  //
+  // `enVuelo` impide que se apilen peticiones. El efecto depende de
+  // `restanteMs`, que cambia **cada segundo**, así que una vez pasado el cero
+  // se dispararía un POST por segundo; si el primero tarda —y este endpoint
+  // escribe dos veces en DynamoDB— la cola crece sola y termina de tumbar al
+  // servidor que ya estaba lento. Se vio en la corrida completa de la batería
+  // E2E: el escenario del vencimiento se quedó sin redirigir y el siguiente
+  // heredó un servidor trabado, mientras que aislado pasaba.
+  //
+  // Lo que **no** hace es cortar el reintento: si el servidor contesta que el
+  // plazo todavía no se cumplió, el próximo tick vuelve a preguntar. Solo se
+  // impide que haya dos preguntas a la vez.
+  const vencimientoEnVuelo = useRef(false);
   useEffect(() => {
     if (restanteMs === null || restanteMs > 0 || confirmado) return;
+    if (vencimientoEnVuelo.current) return;
 
     let cancelado = false;
+    vencimientoEnVuelo.current = true;
     void (async () => {
       try {
         const respuesta = await fetch("/api/p7/vencimiento", { method: "POST" });
@@ -210,6 +226,8 @@ export function FormularioPagoP7() {
         if (datos.ok && datos.vencio) irAPantallaB();
       } catch {
         // Se reintenta con el próximo tick del contador.
+      } finally {
+        vencimientoEnVuelo.current = false;
       }
     })();
 
