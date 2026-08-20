@@ -215,7 +215,7 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 | **L1 · Transversales de bajo riesgo** ✅ **hecho (19-ago-2026)** | TRV-04/05 + CMP-01, CHG-03/05/09/10/11/12/13/16/19/20/21/22/31/35/36/46, gitignore de fixtures (D-21), lint de copys, chequeo previo de inotify. **Reasignados a L4** (dependen del reordenamiento): CHG-37, CHG-38, CHG-39. **Reasignado a L2**: TRV-03 (la marca aparece en 69 lugares, incluidos todos los títulos de página; el barrido va junto con el de renumeración). **Verificados sin cambio**: CHG-27 (ya resuelto por el rediseño compacto), CHG-28, CHG-32, D-01 (el consentimiento comercial ya vive separado en la última pantalla) | ✅ desbloqueado (D-15, D-16) | **Cumplidos (19-ago-2026):** lint de copys en verde; ningún cambio de flujo; 941 tests unitarios y de contrato en verde; batería E2E 7/7 en verde |
 | **L2 · Reordenamiento del wizard** ✅ **hecho (20-ago-2026)** | CHG-01/02, D-22 (rutas semánticas + redirects), retiro del OTP de correo (D-06), correo en identidad (CHG-14/17), TRV-02 compacta, identificadores `Pv2-N` (D-14), **TRV-03 + D-03** (barrido de la marca en las 69 apariciones, detrás del flag) | ✅ desbloqueado (D-06, D-08, D-14, D-22) | Wizard de 8 pasos navegable ida/vuelta; redirects 308 viejos→nuevos; expedientes legados legibles; E2E reescrita para el orden nuevo en verde |
 | **L3 · Pantallas 4–5** ✅ **hecho (20-ago-2026)** | CHG-15 (cotejo en edición: solo nombres y apellidos; los cuatro campos de los que cuelgan la edad y el bloqueo siguen cerrados), CHG-18 (config por producto, sin campos normativos), CHG-24 (cédula del beneficiario opcional). **Verificado sin cambio:** CHG-26 (los datos fiscales nunca estuvieron en declaraciones) | L2 + fixtures copiados (D-21) | Fixtures de Rodrigo pasan OCR con prellenado y cotejo; campo oculto nunca bloquea; beneficiario cédula-opcional no bloqueante |
-| **L4 · Firma y pago invertidos** | CHG-29 (visor), CHG-30 (PDF unificado), CHG-33 (callback+polling), D-13 (firmas corredor + Alianza configurables), **D-02 (QR + TC + TD sin preautorización, tarjeta por flujo alojado)**, CHG-34, D-10 (caducidad 24 h), CMP-07/08/09 | ✅ desbloqueado (D-02, D-05, D-10, D-11, D-13); requiere L3 | Secuencia §7 completa en mock; cobro inhabilitado antes del callback de firma; regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
+| **L4 · Firma y pago invertidos** ⚠️ **hay que partirlo, ver Anexo D** | CHG-29 (visor), CHG-30 (PDF unificado), CHG-33 (callback+polling), D-13 (firmas corredor + Alianza configurables), **D-02 (QR + TC + TD sin preautorización, tarjeta por flujo alojado)**, CHG-34, D-10 (caducidad 24 h), CMP-07/08/09 | ✅ desbloqueado (D-02, D-05, D-10, D-11, D-13); requiere L3 | Secuencia §7 completa en mock; cobro inhabilitado antes del callback de firma; regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
 | **L5 · Confirmación, CPC, notificaciones y devoluciones** | CHG-40…46, D-12 (CPC), CHG-44 (job entrega + acuse), CHG-47/D-14 (Pv2-B), **flujo de seguimiento de devoluciones (D-02) + vista en consola**, CMP-05/06 | ✅ desbloqueado (D-05, D-12, D-17, D-18); D-19 con datos parametrizados; requiere L4 | CPC solo con pago confirmado; envío automático con reintentos y acuse; inicio = pago + 24 h exactas incluyendo bordes de mes; devolución seguible de punta a punta con evidencia |
 | **L6 · Trazabilidad y hardening** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final) | L2 | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
 
@@ -298,6 +298,47 @@ Cierre de Fase 3: `docs/plan/INFORME_VERIFICACION_v2.md` con resultados, desviac
 ---
 
 *Gate de Fase 1: este plan no habilita tocar código. Requiere (a) aprobación explícita del plan y (b) resolución de las decisiones bloqueantes del lote que se quiera arrancar (§6).*
+
+---
+
+## Anexo D — El Lote 4 hay que partirlo, y por qué se descubrió tarde
+
+El plan estimó L4 como un lote (riesgo A) que junta la inversión de firma y
+pago, el PDF unificado, el callback de Code100, los tres medios de pago sin
+preautorización y la caducidad de 24 horas. Al ejecutarlo aparece que **esas
+piezas no son independientes: se estorban entre sí**.
+
+**Lo que se hizo** (rama `wip/l4-inversion-firma-pago`, 81 tests en rojo, sin
+mergear): el grafo invertido, el estado `FIRMADO_CLIENTE` entre la firma del
+cliente y las institucionales, los estados requeridos de los cuatro casos de
+uso, y el retiro de la exigencia de garantía de pago para cerrar el paquete y
+para firmar —esa condición era del orden viejo y con el orden nuevo hace
+imposible llegar a la firma—. La lista de pasos se reordenó moviendo dos
+elementos, que era exactamente lo que L2 prometía.
+
+**Dónde se frenó y por qué importa.** Los tests que quedaban en rojo prueban la
+captura de la preautorización de tarjeta *después* de firmar. La decisión D-02
+elimina la preautorización del flujo. Arreglar esos tests habría sido trabajo
+sobre código que el mismo lote va a borrar — y peor, habría dejado la impresión
+de avance mientras se acumulaba trabajo descartable.
+
+**Secuencia propuesta para retomar**, en este orden y no en otro:
+
+1. **L4a · Medios de pago (D-02).** Quitar la preautorización, dejar QR, débito
+   y crédito con cobro directo. Se hace *antes* que la inversión porque borra
+   código y tests que si no habría que migrar dos veces.
+2. **L4b · Inversión firma ↔ pago (D-08).** Retomar la rama de trabajo sobre un
+   flujo que ya no tiene preautorización. La caducidad de 24 h (D-10) entra
+   acá, porque depende de que el vencimiento ocurra antes del cobro.
+3. **L4c · PDF unificado y firmas (D-11, D-13, CHG-30).** Un solo documento, un
+   solo hash, tres firmantes configurables. Es autocontenido y no depende de
+   los dos anteriores.
+4. **L4d · Callback de firma y habilitación del cobro (CHG-33, CMP-07/08).**
+   Último, porque conecta lo que los tres anteriores dejaron en su lugar.
+
+**La lección para el resto del plan:** un lote cuyo riesgo se estimó en A y que
+toca máquina de estados, motor de documentos y dos integraciones no era un
+lote, eran cuatro. Los criterios de aceptación estaban bien; el tamaño, no.
 
 ---
 
