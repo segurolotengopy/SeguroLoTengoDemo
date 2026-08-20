@@ -36,7 +36,7 @@ export function BotonReiniciar({ expedienteId }: { expedienteId: string | null }
         return;
       }
       setConfirmando(false);
-      setMensaje("Listo. Andá a /p1-whatsapp para empezar un expediente nuevo.");
+      setMensaje("Listo. Andá a /whatsapp para empezar un expediente nuevo.");
       router.refresh();
     } catch {
       setError("No pudimos conectarnos.");

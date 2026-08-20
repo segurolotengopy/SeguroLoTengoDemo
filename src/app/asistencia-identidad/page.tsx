@@ -1,3 +1,4 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HeaderInstitucional } from "@/components/shared";
@@ -41,7 +42,7 @@ import { DatosDelCaso } from "./DatosDelCaso";
  */
 
 export const metadata: Metadata = {
-  title: "No pudimos verificar tu identidad · SeguroLoTengo",
+  title: `No pudimos verificar tu identidad · ${sufijoTitulo()}`,
   description:
     "El sistema no pudo verificar la identidad automáticamente. No es un rechazo: un asesor puede ayudarte a completar la verificación.",
 };
@@ -153,7 +154,7 @@ export default function PantallaAsistenciaIdentidad() {
         <footer className="flex flex-col gap-3 border-t border-borde-tenue pt-3">
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
-              href="/p1-whatsapp"
+              href="/plan"
               className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-600 px-4 text-sm font-bold tracking-wide text-white uppercase transition-colors hover:bg-naranja-700 dark:bg-naranja-500 dark:hover:bg-naranja-600"
             >
               {ROTULO_BOTON_REINTENTAR}

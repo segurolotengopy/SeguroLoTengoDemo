@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarP1,
-  completarP2,
-  completarP3,
-  completarP4,
+  completarWhatsapp,
+  completarPlan,
+  completarPreparacion,
+  declararCorreo,
   completarP5Aprobado,
   completarP6,
   completarP7Qr,
@@ -37,18 +37,18 @@ test("pago confirmado sin firma dentro del plazo dispara Pantalla B", async ({ p
 
   await prepararEscenario(page, { personaId: persona.id, plazoFirmaMs: 30_000 });
 
-  await completarP1(page, persona);
-  await completarP2(page, persona);
-  await completarP3(page);
-  await completarP4(page, persona);
+  await completarPlan(page, persona);
+  await completarWhatsapp(page, persona);
+  await completarPreparacion(page);
+  await declararCorreo(page, persona);
   await completarP5Aprobado(page);
   await completarP6(page, persona);
-  await enviarP6(page, /\/p7-pago$/);
+  await enviarP6(page, /\/pago$/);
   await completarP7Qr(page);
   await continuarAFirma(page);
 
   // No se envía ningún enlace de firma: se deja transcurrir el plazo.
-  await expect(page).toHaveURL(/\/p8-firma$/);
+  await expect(page).toHaveURL(/\/firma$/);
   await expect(page.getByText("Tiempo restante para firmar")).toBeVisible();
 
   // El propio P8 lleva sola a Pantalla B en cuanto el plazo se cumple: ni

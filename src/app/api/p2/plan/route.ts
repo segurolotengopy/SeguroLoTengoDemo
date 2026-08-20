@@ -30,12 +30,15 @@ export async function POST(request: Request): Promise<Response> {
   const planId = typeof cuerpo.planId === "string" ? cuerpo.planId.trim() : "";
 
   const { contexto, expedienteId } = resolverContextoHttp(request);
-  if (!expedienteId) {
-    // Sin expediente no hubo P1: el WhatsApp todavía no está verificado.
-    return respuestaJson({ ok: false, motivo: "SESION_INVALIDA" }, { status: 400 });
-  }
 
-  const resultado = await seleccionarPlan(dependenciasP2(), { expedienteId, planId, contexto });
+  // Sin cookie de expediente no es un error: elegir plan es el primer paso del
+  // flujo (CHG-01) y acá nace el trámite. La respuesta devuelve la cookie con
+  // el id que acuñó el dominio.
+  const resultado = await seleccionarPlan(dependenciasP2(), {
+    expedienteId: expedienteId ?? null,
+    planId,
+    contexto,
+  });
 
   if (!resultado.ok) {
     const status =

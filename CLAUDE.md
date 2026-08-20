@@ -101,7 +101,8 @@ src/
 
   app/                    \# App Router: una carpeta por pantalla
 
-    (flujo)/p1-whatsapp/  ... hasta p9-confirmacion
+    (flujo)/plan, whatsapp, preparacion, identidad,
+            declaraciones, pago, firma, confirmacion   \# 8 pasos, sin número en el slug
 
     revision-manual/      \# Pantalla A
 
@@ -144,7 +145,7 @@ infra/                    \# Terraform
 
 Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley 4868/13, Ley 1334/98, Ley 827/96, Res. SS SG. 215/15 y 223/17, Res. SEPRELAD 71/19 y 50/20, Res. BCP 25/21 — ver cita exacta por fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`). El código debe hacerlas **imposibles de violar**, no solo evitarlas.
 
-1. **Tres OTP independientes**: celular (P1), correo (P4) y firma (P8). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos.  
+1. **Un OTP de canal, más el del acto de firma**: celular (paso 2) y firma (paso 7). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. **El OTP de correo se retiró** (D-06 del Plan v2, Lote 2): el correo se declara con doble tipeo dentro de la pantalla de identidad y se respalda con la declaración de veracidad que se firma después. El estado `CANAL_EMAIL_VERIFICADO` sobrevive como legado, sin aristas de entrada, porque hay expedientes históricos ahí (regla #10).  
 2. **Solo el hash del OTP se persiste.** Nunca el código en claro, ni en base, ni en logs, ni en respuestas de API. En modo demo el código se expone únicamente a través del panel de demo, nunca por la API del flujo.  
 3. **Regla atómica de firma**: la Solicitud y el FIPF se firman en una sola operación o ninguna. No existe estado intermedio con uno firmado.  
 4. **Los PDF se cierran y se hashean (SHA-256) antes de habilitar la firma.** Cualquier modificación posterior invalida el paquete: hay que regenerar versión y hashes.  
@@ -160,9 +161,7 @@ Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley
 
 ## Máquina de estados del expediente
 
-INICIADO → CANAL\_WA\_VERIFICADO → PLAN\_SELECCIONADO → AUTORIZADO
-
-  → CANAL\_EMAIL\_VERIFICADO
+INICIADO → PLAN\_SELECCIONADO → CANAL\_WA\_VERIFICADO → AUTORIZADO
 
      ├─ ASISTENCIA\_IDENTIDAD (terminal, NO bloquea la cédula)
 
@@ -319,9 +318,9 @@ Personas de prueba definidas en `src/adapters/mock/personas.ts`:
 
 ## Convenciones de UI
 
-- Cabecera de aseguradora/intermediario, stepper "Paso N de 9" y barra de plan seleccionado son componentes compartidos. **No los redefinas por pantalla.**  
+- Cabecera de aseguradora/intermediario, stepper "Paso N de 8" y barra de plan seleccionado son componentes compartidos. **No los redefinas por pantalla.** El stepper recibe el **slug** de la pantalla, nunca un número: el orden vive en `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) y de ahí se deriva todo. Escribir un número a mano es cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".  
 - **Tema claro/oscuro:** el botón de día/noche vive dentro de `HeaderInstitucional`, así que aparece solo en toda pantalla que use la cabecera — no lo agregues por pantalla. Para la estructura usá los tokens semánticos (`bg-fondo`, `bg-superficie`, `border-borde-sutil`, `text-titulo`, `text-cuerpo`, `text-etiqueta`), que se reescriben con el tema; para los bloques de acento (verde de seguridad, naranja de acción, rojo de bloqueo) usá la escala de marca con su variante `dark:` explícita. Referencia visual viva en `/design-system`. La paleta (claro y oscuro) es la de `docs/GUIA_DE_ESTILOS.md` —alineada a interseguros360.com por decisión de producto, reemplaza a la descripta en `docs/ESPECIFICACION_PANTALLAS.md`—; el tema oscuro tampoco tiene respaldo en la matriz de cumplimiento. La preferencia es cosmética: vive en `localStorage`, no es dato del expediente y no genera evidencia.  
-- P0, Pantalla A y Pantalla B están **fuera del contador de 9 pasos** y usan su propio indicador.  
+- P0, Pantalla A y Pantalla B están **fuera del contador de 8 pasos** y usan su propio indicador.  
 - Los botones de continuar arrancan deshabilitados y se habilitan solo con los requisitos de esa pantalla cumplidos.  
 - Los campos autocompletados por OCR en P5 se muestran con ícono de candado y **no son editables**; el único camino ante discrepancia es repetir la captura.  
 - Mobile-first: el producto es B2C y la mayoría del tráfico será celular.  

@@ -47,6 +47,7 @@ export async function POST(request: Request): Promise<Response> {
     imagenes: { frente: frente.imagen, dorso: dorso.imagen, selfie: selfie.captura },
     paisNacimiento: typeof cuerpo.paisNacimiento === "string" ? cuerpo.paisNacimiento : "",
     estadoCivil: typeof cuerpo.estadoCivil === "string" ? cuerpo.estadoCivil : "",
+    correo: typeof cuerpo.correo === "string" ? cuerpo.correo : "",
     autorizacionBiometrica: cuerpo.autorizacionBiometrica === true,
     contexto,
   });

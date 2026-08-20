@@ -7,7 +7,7 @@ export { HeaderInstitucional } from "./HeaderInstitucional";
 export type { HeaderInstitucionalProps } from "./HeaderInstitucional";
 
 export { StepperPasos } from "./StepperPasos";
-export type { PasoFlujo } from "./StepperPasos";
+
 
 export { BarraPlanSeleccionado } from "./BarraPlanSeleccionado";
 export type { BarraPlanSeleccionadoProps } from "./BarraPlanSeleccionado";

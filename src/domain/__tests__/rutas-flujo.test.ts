@@ -7,7 +7,14 @@
  */
 import { describe, expect, it } from "vitest";
 import { ESTADOS_EXPEDIENTE } from "../tipos";
-import { PANTALLA_POR_ESTADO, destinoDelExpediente } from "../rutas-flujo";
+import {
+  PANTALLA_POR_ESTADO,
+  PASOS_FLUJO,
+  REDIRECCIONES_RUTAS_VIEJAS,
+  TOTAL_PASOS,
+  destinoDelExpediente,
+  numeroDePaso,
+} from "../rutas-flujo";
 
 describe("PANTALLA_POR_ESTADO", () => {
   it("cubre todos los estados del expediente, sin excepción", () => {
@@ -21,17 +28,39 @@ describe("PANTALLA_POR_ESTADO", () => {
   });
 
   it("manda cada paso del flujo a su pantalla", () => {
-    expect(PANTALLA_POR_ESTADO.INICIADO).toBe("/p1-whatsapp");
-    expect(PANTALLA_POR_ESTADO.CANAL_WA_VERIFICADO).toBe("/p2-plan");
-    expect(PANTALLA_POR_ESTADO.CANAL_EMAIL_VERIFICADO).toBe("/p5-identidad");
-    expect(PANTALLA_POR_ESTADO.IDENTIDAD_VERIFICADA).toBe("/p6-declaraciones");
+    // Orden nuevo (CHG-01): el plan primero, el WhatsApp después.
+    expect(PANTALLA_POR_ESTADO.INICIADO).toBe("/plan");
+    expect(PANTALLA_POR_ESTADO.PLAN_SELECCIONADO).toBe("/whatsapp");
+    expect(PANTALLA_POR_ESTADO.CANAL_WA_VERIFICADO).toBe("/preparacion");
+    expect(PANTALLA_POR_ESTADO.AUTORIZADO).toBe("/identidad");
+    expect(PANTALLA_POR_ESTADO.IDENTIDAD_VERIFICADA).toBe("/declaraciones");
+  });
+
+  it("el estado legado del correo verificado sigue teniendo a dónde ir", () => {
+    // D-06 retiró el paso, pero los expedientes que quedaron ahí no se
+    // reescriben (regla #10): tienen que poder terminar su trámite.
+    expect(PANTALLA_POR_ESTADO.CANAL_EMAIL_VERIFICADO).toBe("/identidad");
+  });
+
+  it("el número de paso sale de la lista y no de cada pantalla", () => {
+    expect(numeroDePaso("/plan")).toBe(1);
+    expect(numeroDePaso("/whatsapp")).toBe(2);
+    expect(numeroDePaso("/confirmacion")).toBe(TOTAL_PASOS);
+    expect(numeroDePaso("/no-existe")).toBeNull();
+  });
+
+  it("toda ruta vieja redirige a una que existe", () => {
+    const slugs = new Set(PASOS_FLUJO.map((paso) => paso.slug));
+    for (const [vieja, nueva] of Object.entries(REDIRECCIONES_RUTAS_VIEJAS)) {
+      expect(slugs.has(nueva), `${vieja} redirige a ${nueva}, que no es un paso`).toBe(true);
+    }
   });
 
   it("los dos estados con el pago hecho apuntan a P8", () => {
     // El paquete se cierra al entrar a P8, así que PAGO_CONFIRMADO y
     // PAQUETE_GENERADO son la misma pantalla desde el lado de la persona.
-    expect(PANTALLA_POR_ESTADO.PAGO_CONFIRMADO).toBe("/p8-firma");
-    expect(PANTALLA_POR_ESTADO.PAQUETE_GENERADO).toBe("/p8-firma");
+    expect(PANTALLA_POR_ESTADO.PAGO_CONFIRMADO).toBe("/firma");
+    expect(PANTALLA_POR_ESTADO.PAQUETE_GENERADO).toBe("/firma");
   });
 });
 
@@ -40,7 +69,7 @@ describe("destinoDelExpediente", () => {
     const destino = destinoDelExpediente("CANAL_EMAIL_VERIFICADO");
     expect(destino.terminal).toBe(false);
     expect(destino.rotulo).toContain("Continuá");
-    expect(destino.ruta).toBe("/p5-identidad");
+    expect(destino.ruta).toBe("/identidad");
   });
 
   it("no promete continuar desde un estado terminal", () => {

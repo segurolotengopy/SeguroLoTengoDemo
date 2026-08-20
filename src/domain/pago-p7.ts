@@ -99,7 +99,7 @@ export const PASO_EVIDENCIA_CONFIRMACION_P7 = "P7_CONFIRMACION_PAGO";
 /** `PLAZO PARA FIRMAR: 24 HORAS` (especificación de P7 y nota inferior de P8). */
 export const PLAZO_FIRMA_MS = 24 * 60 * 60 * 1000;
 
-export const URL_RETORNO_TARJETA_POR_DEFECTO = "/p7-pago/retorno";
+export const URL_RETORNO_TARJETA_POR_DEFECTO = "/pago/retorno";
 
 // ---------------------------------------------------------------------------
 // Correlativo de la propuesta
@@ -251,7 +251,7 @@ export type ResultadoConfirmarPagoP7 =
       readonly plazoFirmaVenceEn: string;
       /** `true` con QR y débito: el dinero ya se movió y una firma que no llega obliga a devolver. */
       readonly pagoDefinitivo: boolean;
-      readonly siguientePantalla: "/p8-firma";
+      readonly siguientePantalla: "/firma";
     }
   | { readonly ok: false; readonly motivo: MotivoRechazoP7; readonly detalle?: string };
 
@@ -614,7 +614,7 @@ async function intentarConfirmarPagoP7(
       numeroPropuesta: expediente.numeroPropuesta ?? "",
       plazoFirmaVenceEn: expediente.plazoFirmaVenceEn ?? "",
       pagoDefinitivo: esPagoDefinitivoAntesDeFirma(pago.medio),
-      siguientePantalla: "/p8-firma",
+      siguientePantalla: "/firma",
     };
   }
 
@@ -707,7 +707,7 @@ async function intentarConfirmarPagoP7(
     numeroPropuesta: transicion.expediente.numeroPropuesta ?? "",
     plazoFirmaVenceEn,
     pagoDefinitivo: esPagoDefinitivoAntesDeFirma(pago.medio),
-    siguientePantalla: "/p8-firma",
+    siguientePantalla: "/firma",
   };
 }
 

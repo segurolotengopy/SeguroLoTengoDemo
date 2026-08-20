@@ -4,10 +4,10 @@ import type { Page } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarP1,
-  completarP2,
-  completarP3,
-  completarP4,
+  completarWhatsapp,
+  completarPlan,
+  completarPreparacion,
+  declararCorreo,
   completarP5Aprobado,
   completarP6,
   completarP7Qr,
@@ -77,38 +77,37 @@ test.describe("capturas para gerencia", () => {
 
     await prepararEscenario(page, { personaId: persona.id });
 
-    await page.goto("/p1-whatsapp");
-    await capturar(page, "01-p1-whatsapp");
+    await page.goto("/plan");
+    await capturar(page, "01-plan");
 
-    await completarP1(page, persona);
-    await capturar(page, "02-p2-plan");
+    await completarPlan(page, persona);
+    await capturar(page, "02-whatsapp");
 
-    await completarP2(page, persona);
-    await capturar(page, "03-p3-preparacion");
+    await completarWhatsapp(page, persona);
+    await capturar(page, "03-preparacion");
 
-    await completarP3(page);
-    await capturar(page, "04-p4-correo");
+    await completarPreparacion(page);
+    await capturar(page, "04-identidad");
 
-    await completarP4(page, persona);
-    await capturar(page, "05-p5-identidad");
+    await declararCorreo(page, persona);
 
     await completarP5Aprobado(page);
-    await capturar(page, "06-p6-declaraciones");
+    await capturar(page, "05-declaraciones");
 
     await completarP6(page, persona);
-    await enviarP6(page, /\/p7-pago$/);
-    await capturar(page, "07-p7-pago");
+    await enviarP6(page, /\/pago$/);
+    await capturar(page, "06-pago");
 
     await completarP7Qr(page);
     await continuarAFirma(page);
-    await expect(page).toHaveURL(/\/p8-firma$/);
-    await capturar(page, "08-p8-firma");
+    await expect(page).toHaveURL(/\/firma$/);
+    await capturar(page, "07-firma");
 
     const idCode100 = await enviarEnlaceYAbrir(page);
     await firmarNormalmente(page, idCode100);
-    await expect(page).toHaveURL(/\/p9-confirmacion$/);
+    await expect(page).toHaveURL(/\/confirmacion$/);
     await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
-    await capturar(page, "09-p9-confirmacion");
+    await capturar(page, "08-confirmacion");
   });
 
   test("Pantalla A — derivación a revisión manual (PEP)", async ({ page }) => {
@@ -117,10 +116,10 @@ test.describe("capturas para gerencia", () => {
     if (!persona) throw new Error("Fixture 'pep-positivo' no encontrado.");
 
     await prepararEscenario(page, { personaId: persona.id });
-    await completarP1(page, persona);
-    await completarP2(page, persona);
-    await completarP3(page);
-    await completarP4(page, persona);
+    await completarPlan(page, persona);
+    await completarWhatsapp(page, persona);
+    await completarPreparacion(page);
+    await declararCorreo(page, persona);
     await completarP5Aprobado(page);
     await completarP6(page, persona);
     await enviarP6(page, /\/revision-manual$/);
@@ -137,13 +136,13 @@ test.describe("capturas para gerencia", () => {
     if (!persona) throw new Error("Fixture 'no-firma' no encontrado.");
 
     await prepararEscenario(page, { personaId: persona.id, plazoFirmaMs: 30_000 });
-    await completarP1(page, persona);
-    await completarP2(page, persona);
-    await completarP3(page);
-    await completarP4(page, persona);
+    await completarPlan(page, persona);
+    await completarWhatsapp(page, persona);
+    await completarPreparacion(page);
+    await declararCorreo(page, persona);
     await completarP5Aprobado(page);
     await completarP6(page, persona);
-    await enviarP6(page, /\/p7-pago$/);
+    await enviarP6(page, /\/pago$/);
     await completarP7Qr(page);
     await continuarAFirma(page);
 

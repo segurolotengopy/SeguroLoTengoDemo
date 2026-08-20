@@ -81,7 +81,7 @@ function avanzarHasta(id: string, ...estados: EstadoExpediente[]): Expediente {
 }
 
 function conPlanSeleccionado(id = "EXP-P3"): Expediente {
-  return avanzarHasta(id, "CANAL_WA_VERIFICADO", "PLAN_SELECCIONADO");
+  return avanzarHasta(id, "PLAN_SELECCIONADO", "CANAL_WA_VERIFICADO");
 }
 
 beforeEach(() => {
@@ -192,7 +192,7 @@ describe("registrarAutorizacionInicial", () => {
     });
 
     expect(resultado).toEqual({ ok: false, motivo: "AUTORIZACION_REQUERIDA" });
-    expect(expedientes.todos.get("EXP-P3")?.estado).toBe("PLAN_SELECCIONADO");
+    expect(expedientes.todos.get("EXP-P3")?.estado).toBe("CANAL_WA_VERIFICADO");
     expect(expedientes.todos.get("EXP-P3")?.autorizacionInicial).toBeNull();
     expect(evidencias.registros).toHaveLength(0);
   });
@@ -208,18 +208,23 @@ describe("registrarAutorizacionInicial", () => {
     expect(evidencias.registros).toHaveLength(0);
   });
 
-  it("no deja autorizar sin haber elegido plan, y deja evidencia del intento", async () => {
-    avanzarHasta("EXP-SIN-PLAN", "CANAL_WA_VERIFICADO");
+  it("no deja autorizar sin haber verificado el WhatsApp, y deja evidencia del intento", async () => {
+    // Con el orden nuevo (CHG-01) "autorizar sin plan" dejó de ser posible por
+    // construcción: elegir plan es el primer paso y sin él no hay expediente.
+    // Lo que este paso sí tiene que seguir protegiendo es el orden inverso —
+    // llegar a la autorización salteando el código de WhatsApp—, que es la
+    // barrera que la reunión puso ahí a propósito.
+    avanzarHasta("EXP-SIN-WA", "PLAN_SELECCIONADO");
 
     const resultado = await registrarAutorizacionInicial(deps, {
-      expedienteId: "EXP-SIN-PLAN",
+      expedienteId: "EXP-SIN-WA",
       aceptada: true,
       contexto: CONTEXTO,
     });
 
     expect(resultado).toEqual({ ok: false, motivo: "ESTADO_INVALIDO" });
-    expect(expedientes.todos.get("EXP-SIN-PLAN")?.estado).toBe("CANAL_WA_VERIFICADO");
-    expect(expedientes.todos.get("EXP-SIN-PLAN")?.autorizacionInicial).toBeNull();
+    expect(expedientes.todos.get("EXP-SIN-WA")?.estado).toBe("PLAN_SELECCIONADO");
+    expect(expedientes.todos.get("EXP-SIN-WA")?.autorizacionInicial).toBeNull();
     expect(evidencias.registros).toHaveLength(1);
     expect(evidencias.registros[0]?.resultado).toBe("FALLIDO");
   });

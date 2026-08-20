@@ -3,7 +3,7 @@ import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { INTENTOS_MAXIMOS_OTP } from "@/domain/reglas-otp";
 import { enmascararCelular } from "@/domain/telefono";
 import { prepararEscenario, leerCodigoOtpDelPanel } from "./support/demo-panel";
-import { celularLocal } from "./support/flujo";
+import { completarPlan, celularLocal, esperarHidratacion } from "./support/flujo";
 
 /**
  * Escenario 5 — OTP agotado en P1.
@@ -25,7 +25,11 @@ test("tres intentos fallidos de OTP en P1 bloquean el código y exigen reenvío"
 
   await prepararEscenario(page, { personaId: persona.id });
 
-  await page.goto("/p1-whatsapp");
+  // El expediente nace al elegir plan (CHG-01), así que este escenario ya no
+  // puede entrar directo a la verificación del canal: sin plan no hay trámite
+  // al que asociarle el código.
+  await completarPlan(page, persona);
+  await esperarHidratacion(page);
   await page.locator("#p1-destino").fill(celularLocal(persona));
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Enviar código", exact: true }).click();

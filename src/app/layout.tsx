@@ -1,3 +1,4 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import { BandaDemo } from "@/components/shared/BandaDemo";
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SeguroLoTengo",
+  title: sufijoTitulo(),
   description:
     "Marca y canal digital de Interseguros S.A. — Seguro de Vida Oncológico CONFÍO.",
 };

@@ -70,10 +70,9 @@ function crearEvidenciasEnMemoria(): EvidenceStore & { registros: RegistroEviden
 
 function expedienteEn(estado: EstadoExpediente): Expediente {
   const secuencia: EstadoExpediente[] = [
-    "CANAL_WA_VERIFICADO",
     "PLAN_SELECCIONADO",
+    "CANAL_WA_VERIFICADO",
     "AUTORIZADO",
-    "CANAL_EMAIL_VERIFICADO",
   ];
 
   let actual = crearExpedienteInicial({ id: EXPEDIENTE_ID, ahora: AHORA });
@@ -93,7 +92,7 @@ interface Banco {
 }
 
 function crearBanco(
-  estadoInicial: EstadoExpediente = "CANAL_EMAIL_VERIFICADO",
+  estadoInicial: EstadoExpediente = "AUTORIZADO",
   /**
    * Expedientes previos de la misma cédula, para ejercitar la regla de bloqueo
    * de nuevo registro (`docs/CONSOLA_ADMINISTRATIVA.md` §5). Por defecto no hay
@@ -129,6 +128,7 @@ async function confirmar(banco: Banco, cambios: Partial<Parameters<typeof confir
     imagenes: IMAGENES,
     paisNacimiento: PAIS,
     estadoCivil: ESTADO_CIVIL,
+      correo: "monica.gorena@example.com",
     autorizacionBiometrica: true,
     contexto: CONTEXTO,
     ...cambios,
@@ -191,7 +191,7 @@ describe("P5 · camino feliz", () => {
     // Todavía no eligió país ni estado civil.
     expect(resultado.requisitos.paisYEstadoCivilCompletos).toBe(false);
     // El análisis no transiciona nada.
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("confirma la identidad, transiciona a IDENTIDAD_VERIFICADA y persiste la Identidad completa", async () => {
@@ -252,7 +252,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     expect(resultado.motivo).toBe("EDAD_FUERA_DE_RANGO");
     expect(resultado.datos?.edadEnRango).toBe(false);
     // No deriva a Pantalla A: eso es exclusivo de las declaraciones de P6.
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("bloquea si la cédula ya tiene un expediente terminal sin póliza sin superar", async () => {
@@ -273,7 +273,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("CEDULA_BLOQUEADA");
     // El expediente en curso no avanza, y el viejo no se tocó.
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("deja pasar si el expediente terminal ya fue superado por un sucesor", async () => {
@@ -304,7 +304,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("REQUISITOS_INCOMPLETOS");
     expect(resultado.pendientes).toEqual(["coincidenciaFacial"]);
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("rechaza la captura por calidad insuficiente y deja el OCR sin datos", async () => {
@@ -336,7 +336,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("REQUISITOS_INCOMPLETOS");
     expect(resultado.pendientes).toContain("frenteYDorsoAprobados");
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("exige la autorización biométrica antes de tocar al proveedor", async () => {
@@ -364,9 +364,11 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     expect(!inventado.ok && inventado.motivo).toBe("PAIS_O_ESTADO_CIVIL_INVALIDO");
   });
 
-  it("no opera si el expediente no está en CANAL_EMAIL_VERIFICADO", async () => {
+  it("no opera si el expediente todavía no dio la autorización inicial", async () => {
+    // El estado de entrada pasó a ser AUTORIZADO al retirarse el paso de
+    // correo (D-06); el que ya no habilita es el anterior.
     conEscenario("APROBADO");
-    const banco = crearBanco("AUTORIZADO");
+    const banco = crearBanco("CANAL_WA_VERIFICADO");
 
     const captura = await registrarCapturaP5(banco.deps, {
       expedienteId: EXPEDIENTE_ID,
@@ -380,7 +382,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     expect(!captura.ok && captura.motivo).toBe("ESTADO_INVALIDO");
     expect(resultado.ok).toBe(false);
     expect(!resultado.ok && resultado.motivo).toBe("ESTADO_INVALIDO");
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_WA_VERIFICADO");
   });
 });
 
@@ -399,6 +401,7 @@ describe("P5 · los datos extraídos no se editan a mano", () => {
         imagenes: IMAGENES,
         paisNacimiento: PAIS,
         estadoCivil: ESTADO_CIVIL,
+      correo: "monica.gorena@example.com",
         autorizacionBiometrica: true,
         contexto: CONTEXTO,
       },

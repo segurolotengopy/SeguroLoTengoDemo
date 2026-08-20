@@ -54,9 +54,13 @@ let expedientes: ReturnType<typeof crearExpedientesEnMemoria>;
 let evidencias: ReturnType<typeof crearEvidenciasEnMemoria>;
 let deps: DependenciasP2;
 
-/** Expediente en CANAL_WA_VERIFICADO: el estado real con el que se llega a P2. */
-function conWhatsappVerificado(id = "EXP-P2"): Expediente {
-  const transicion = transicionarExpediente(crearExpediente(id), "CANAL_WA_VERIFICADO");
+/**
+ * Expediente en PLAN_SELECCIONADO, que es donde queda tras elegir por primera
+ * vez. Con el orden nuevo (CHG-01) el catálogo es el primer paso, así que a
+ * elegir plan se llega desde INICIADO y se vuelve por el enlace `Cambiar plan`.
+ */
+function conPlanElegido(id = "EXP-P2"): Expediente {
+  const transicion = transicionarExpediente(crearExpediente(id), "PLAN_SELECCIONADO");
   if (!transicion.ok) throw new Error(transicion.error);
   expedientes.todos.set(id, transicion.expediente);
   return transicion.expediente;
@@ -86,7 +90,7 @@ describe("hash de la oferta", () => {
 
 describe("seleccionarPlan", () => {
   it("guarda el plan con el ID de versión de la oferta y su hash SHA-256", async () => {
-    conWhatsappVerificado();
+    conPlanElegido();
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
@@ -111,7 +115,7 @@ describe("seleccionarPlan", () => {
   });
 
   it("toma el premio del catálogo, no de la petición", async () => {
-    conWhatsappVerificado();
+    conPlanElegido();
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
@@ -123,7 +127,7 @@ describe("seleccionarPlan", () => {
   });
 
   it("registra evidencia con la versión de la oferta y su hash", async () => {
-    conWhatsappVerificado();
+    conPlanElegido();
 
     await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
@@ -145,7 +149,7 @@ describe("seleccionarPlan", () => {
   });
 
   it("rechaza un plan que no está en el catálogo, sin tocar el expediente", async () => {
-    conWhatsappVerificado();
+    conPlanElegido();
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
@@ -154,7 +158,7 @@ describe("seleccionarPlan", () => {
     });
 
     expect(resultado).toEqual({ ok: false, motivo: "PLAN_INVALIDO" });
-    expect(expedientes.todos.get("EXP-P2")?.estado).toBe("CANAL_WA_VERIFICADO");
+    expect(expedientes.todos.get("EXP-P2")?.estado).toBe("PLAN_SELECCIONADO");
   });
 
   it("rechaza un expediente inexistente", async () => {
@@ -167,7 +171,11 @@ describe("seleccionarPlan", () => {
     expect(resultado).toEqual({ ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" });
   });
 
-  it("no deja elegir plan si el WhatsApp todavía no está verificado", async () => {
+  it("deja elegir plan desde el arranque, sin ningún canal verificado todavía", async () => {
+    // La premisa de este test se invirtió con CHG-01. Antes el plan exigía el
+    // WhatsApp verificado; ahora el plan **es** el primer paso y el catálogo
+    // es público, que es justamente el argumento por el que la reunión movió
+    // el OTP detrás: lo que hay antes del código no protege nada.
     expedientes.todos.set("EXP-NUEVO", crearExpediente("EXP-NUEVO"));
 
     const resultado = await seleccionarPlan(deps, {
@@ -176,13 +184,13 @@ describe("seleccionarPlan", () => {
       contexto: CONTEXTO,
     });
 
-    expect(resultado).toEqual({ ok: false, motivo: "ESTADO_INVALIDO" });
-    expect(expedientes.todos.get("EXP-NUEVO")?.estado).toBe("INICIADO");
-    expect(evidencias.registros[0]?.resultado).toBe("FALLIDO");
+    expect(resultado.ok).toBe(true);
+    expect(expedientes.todos.get("EXP-NUEVO")?.estado).toBe("PLAN_SELECCIONADO");
+    expect(expedientes.todos.get("EXP-NUEVO")?.canalWhatsapp).toBeNull();
   });
 
   it("permite cambiar de plan antes de la autorización, sin borrar el historial", async () => {
-    conWhatsappVerificado();
+    conPlanElegido();
 
     await seleccionarPlan(deps, { expedienteId: "EXP-P2", planId: "CONFIO", contexto: CONTEXTO });
     const segunda = await seleccionarPlan(deps, {
@@ -197,16 +205,16 @@ describe("seleccionarPlan", () => {
     expect(persistido?.plan?.planId).toBe("CONFIO_TOTAL");
     expect(persistido?.historial.map((entrada) => entrada.estado)).toEqual([
       "INICIADO",
-      "CANAL_WA_VERIFICADO",
+      "PLAN_SELECCIONADO",
       "PLAN_SELECCIONADO",
       "PLAN_SELECCIONADO",
     ]);
     expect(evidencias.registros).toHaveLength(2);
   });
 
-  it("no permite volver a P2 una vez autorizado en P3", async () => {
-    let actual = conWhatsappVerificado();
-    for (const estado of ["PLAN_SELECCIONADO", "AUTORIZADO"] as const) {
+  it("no permite volver al catálogo una vez dada la autorización inicial", async () => {
+    let actual = conPlanElegido();
+    for (const estado of ["CANAL_WA_VERIFICADO", "AUTORIZADO"] as const) {
       const paso = transicionarExpediente(actual, estado);
       if (!paso.ok) throw new Error(paso.error);
       actual = paso.expediente;

@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarP1,
-  completarP2,
-  completarP3,
-  completarP4,
+  completarWhatsapp,
+  completarPlan,
+  completarPreparacion,
+  declararCorreo,
   completarP5Aprobado,
   completarP6,
   enviarP6,
@@ -30,10 +30,10 @@ test("declaraciones de salud incompatibles derivan a Pantalla A, sin pago ni fir
 
   await prepararEscenario(page, { personaId: persona.id });
 
-  await completarP1(page, persona);
-  await completarP2(page, persona);
-  await completarP3(page);
-  await completarP4(page, persona);
+  await completarPlan(page, persona);
+  await completarWhatsapp(page, persona);
+  await completarPreparacion(page);
+  await declararCorreo(page, persona);
   await completarP5Aprobado(page);
   await completarP6(page, persona);
   await enviarP6(page, /\/revision-manual$/);

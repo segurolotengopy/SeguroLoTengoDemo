@@ -1,3 +1,5 @@
+import { nombrePortal, sufijoTitulo } from "@/domain/entidades";
+import { PASOS_FLUJO } from "@/domain/rutas-flujo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
@@ -13,13 +15,18 @@ import { HeaderInstitucional, StepperPasos } from "@/components/shared";
  */
 
 export const metadata: Metadata = {
-  title: "SeguroLoTengo · Seguro de Vida Oncológico CONFÍO",
+  title: `${sufijoTitulo()} · Seguro de Vida Oncológico CONFÍO`,
   description:
     "Información pública sobre el Seguro de Vida Oncológico CONFÍO. Marca y canal digital de Interseguros S.A.",
 };
 
 /** Ruta de P1; la contratación comienza recién ahí. */
-const RUTA_P1 = "/p1-whatsapp";
+/**
+ * A dónde entra quien decide empezar. Sale de la lista de pasos y no de una
+ * constante escrita a mano: con CHG-01 el primer paso pasó a ser el catálogo,
+ * y un literal acá habría dejado la puerta de entrada apuntando al paso 2.
+ */
+const RUTA_PRIMER_PASO = PASOS_FLUJO[0].slug;
 
 /**
  * Banda de marca propia de la pantalla (P0 y P2 la usan con distinto texto a
@@ -31,7 +38,7 @@ function BandaMarca() {
     <div className="w-full border-b border-borde-tenue bg-superficie">
       <div className="mx-auto flex w-full max-w-pantalla flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p className="text-sm font-bold tracking-wide text-titulo uppercase">
-          SeguroLoTengo.com
+          {nombrePortal()}
         </p>
         <p className="text-xs text-etiqueta">
           Marca y canal digital de Interseguros S.A.
@@ -105,16 +112,16 @@ export default function PantallaP0Informacion() {
             </p>
 
             <Link
-              href={RUTA_P1}
+              href={RUTA_PRIMER_PASO}
               // Tinta azul sobre el naranja de acción: hueso sobre naranja-500
               // da 2,8:1 y no llega al 4.5:1 de WCAG AA para texto de 14 px.
               className="inline-flex w-full items-center justify-center rounded-lg bg-naranja-500 px-5 py-3 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:w-auto"
             >
-              Verificar WhatsApp y cotizar →
+              Elegí tu plan y cotizá →
             </Link>
 
             <p className="text-sm font-semibold text-verde-700 dark:text-verde-300">
-              La contratación comienza recién en la Pantalla 1.
+              La contratación comienza recién en el paso 1.
             </p>
           </div>
 

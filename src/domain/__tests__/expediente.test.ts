@@ -37,14 +37,14 @@ describe("transicionarExpediente", () => {
   it("aplica una transición legal y agrega una entrada al historial", () => {
     const expediente = crearExpediente();
 
-    const resultado = transicionarExpediente(expediente, "CANAL_WA_VERIFICADO", {}, "2026-01-01T10:05:00.000Z");
+    const resultado = transicionarExpediente(expediente, "PLAN_SELECCIONADO", {}, "2026-01-01T10:05:00.000Z");
 
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
-    expect(resultado.expediente.estado).toBe("CANAL_WA_VERIFICADO");
+    expect(resultado.expediente.estado).toBe("PLAN_SELECCIONADO");
     expect(resultado.expediente.historial).toHaveLength(2);
     expect(resultado.expediente.historial[1]).toEqual({
-      estado: "CANAL_WA_VERIFICADO",
+      estado: "PLAN_SELECCIONADO",
       en: "2026-01-01T10:05:00.000Z",
     });
   });
@@ -52,7 +52,7 @@ describe("transicionarExpediente", () => {
   it("no muta el expediente original", () => {
     const expediente = crearExpediente();
 
-    transicionarExpediente(expediente, "CANAL_WA_VERIFICADO");
+    transicionarExpediente(expediente, "PLAN_SELECCIONADO");
 
     expect(expediente.estado).toBe("INICIADO");
     expect(expediente.historial).toHaveLength(1);

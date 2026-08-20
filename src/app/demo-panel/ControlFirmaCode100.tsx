@@ -209,7 +209,7 @@ export function ControlFirmaCode100({ sesiones }: ControlFirmaCode100Props) {
     return (
       <p className="text-sm text-cuerpo">
         Todavía no se abrió ningún acto de firma en esta instancia. Llegá a{" "}
-        <code className="font-mono">/p8-firma</code> y presioná{" "}
+        <code className="font-mono">/firma</code> y presioná{" "}
         <strong>ENVIAR ENLACE SEGURO DE FIRMA</strong>.
       </p>
     );

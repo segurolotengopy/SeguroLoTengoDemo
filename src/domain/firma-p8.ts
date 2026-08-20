@@ -100,7 +100,7 @@ export const PASO_EVIDENCIA_CAPTURA_P8 = "P8_CAPTURA_PAGO";
 export const PASO_EVIDENCIA_VENCIMIENTO_P8 = "P8_VENCIMIENTO_PLAZO_FIRMA";
 
 export const RUTA_PANTALLA_B = "/solicitud-vencida";
-export const RUTA_P9 = "/p9-confirmacion";
+export const RUTA_P9 = "/confirmacion";
 
 /** Re-exportado para que la pantalla no tenga que importar de P7 el mismo dato. */
 export { PLAZO_FIRMA_MS };

@@ -132,7 +132,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
     expect(resultado.elegibleParaEmisionAutomatica).toBe(true);
     expect(resultado.estado).toBe("DECLARACIONES_OK");
     if (resultado.elegibleParaEmisionAutomatica) {
-      expect(resultado.siguientePantalla).toBe("/p7-pago");
+      expect(resultado.siguientePantalla).toBe("/pago");
     }
 
     const expediente = expedientes.actual();

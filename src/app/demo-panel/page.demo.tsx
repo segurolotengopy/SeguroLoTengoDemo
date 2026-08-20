@@ -1,3 +1,4 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -51,7 +52,7 @@ import { SelectorPlazoFirma } from "./SelectorPlazoFirma";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Panel de demo · SeguroLoTengo",
+  title: `Panel de demo · ${sufijoTitulo()}`,
   // El panel no debe aparecer en buscadores aunque quede accesible.
   robots: { index: false, follow: false },
 };
@@ -192,7 +193,7 @@ export default async function PanelDeDemo() {
           {envios.length === 0 ? (
             <p className="text-sm text-cuerpo">
               Todavía no se envió ningún código en esta instancia. Andá a{" "}
-              <code className="font-mono">/p1-whatsapp</code>, ingresá un número y pedí el código.
+              <code className="font-mono">/whatsapp</code>, ingresá un número y pedí el código.
             </p>
           ) : (
             <div className="overflow-x-auto">

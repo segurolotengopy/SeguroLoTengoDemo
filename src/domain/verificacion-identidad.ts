@@ -56,6 +56,7 @@ import type {
 } from "../ports/identity-provider";
 import { evaluarBloqueoPorCedula } from "./consola-administrativa";
 import type { LectorExpedientesPorCedula } from "./consola-administrativa";
+import { normalizarCorreo } from "./correo";
 import { esEstadoCivil, esPaisNacimiento, requisitosPendientes } from "./catalogo-identidad";
 import type { IdRequisitoP5, RequisitosP5, TipoCapturaP5 } from "./catalogo-identidad";
 import { transicionarExpediente } from "./expediente";
@@ -105,7 +106,21 @@ export interface DependenciasP5 {
 }
 
 /** Único estado desde el que P5 puede operar. */
-export const ESTADO_REQUERIDO_P5: EstadoExpediente = "CANAL_EMAIL_VERIFICADO";
+/**
+ * Se entra a identidad desde la autorización inicial (D-06).
+ *
+ * Antes se entraba desde `CANAL_EMAIL_VERIFICADO`, que era el estado que
+ * dejaba el paso de correo. Al retirarse ese paso, el correo se declara en
+ * esta misma pantalla y el estado previo pasa a ser `AUTORIZADO`.
+ */
+export const ESTADO_REQUERIDO_P5: EstadoExpediente = "AUTORIZADO";
+
+/**
+ * Estado previo de los expedientes que empezaron antes del retiro del OTP de
+ * correo. Se acepta además del requerido para que un trámite a medio camino no
+ * quede trabado por un cambio de diseño (regla #10: no se los reescribe).
+ */
+export const ESTADO_LEGADO_P5: EstadoExpediente = "CANAL_EMAIL_VERIFICADO";
 
 export const PASO_EVIDENCIA_CAPTURA_P5 = "P5_CAPTURA_IDENTIDAD";
 export const PASO_EVIDENCIA_ANALISIS_P5 = "P5_ANALISIS_IDENTIDAD";
@@ -266,7 +281,9 @@ async function exigirExpedienteEnP5(
 ): Promise<ResultadoEstado> {
   const expediente = await deps.expedientes.obtenerPorId(expedienteId);
   if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
-  if (expediente.estado !== ESTADO_REQUERIDO_P5) return { ok: false, motivo: "ESTADO_INVALIDO" };
+  if (expediente.estado !== ESTADO_REQUERIDO_P5 && expediente.estado !== ESTADO_LEGADO_P5) {
+    return { ok: false, motivo: "ESTADO_INVALIDO" };
+  }
   return { ok: true, expediente };
 }
 
@@ -803,6 +820,15 @@ export interface EntradaConfirmacionP5 {
   /** Selector obligatorio; se valida contra `catalogo-identidad.ts`. */
   readonly paisNacimiento: string;
   readonly estadoCivil: string;
+  /**
+   * Correo declarado, escrito dos veces en la pantalla (CHG-14/17, D-06).
+   *
+   * Llega acá y no en un paso propio porque ya no tiene código que verificar:
+   * lo que lo respalda es el doble tipeo más la declaración de veracidad que
+   * la persona firma después. Se valida y se normaliza en el dominio; la
+   * pantalla solo comprueba que las dos escrituras coincidan.
+   */
+  readonly correo: string;
   /** Checkbox de captura y comparación de imagen facial y prueba de vida. */
   readonly autorizacionBiometrica: boolean;
   readonly contexto: ContextoPeticion;
@@ -813,6 +839,7 @@ export type MotivoRechazoIdentidad =
   | "ESTADO_INVALIDO"
   | "AUTORIZACION_BIOMETRICA_REQUERIDA"
   | "PAIS_O_ESTADO_CIVIL_INVALIDO"
+  | "CORREO_INVALIDO"
   | "CAPTURAS_INCOMPLETAS"
   | "REQUISITOS_INCOMPLETOS"
   | "EDAD_FUERA_DE_RANGO"
@@ -870,6 +897,12 @@ export async function confirmarIdentidadP5(
   if (!paisYEstadoCivilCompletos) {
     return { ok: false, motivo: "PAIS_O_ESTADO_CIVIL_INVALIDO" };
   }
+
+  // El correo se valida acá y no solo en la pantalla: sin código que lo
+  // verifique, esta es la única barrera entre un correo mal escrito y una
+  // póliza que nunca llega a destino.
+  const correo = normalizarCorreo(entrada.correo);
+  if (!correo.ok) return { ok: false, motivo: "CORREO_INVALIDO" };
 
   const estado = await exigirExpedienteEnP5(deps, entrada.expedienteId);
   if (!estado.ok) return { ok: false, motivo: estado.motivo };
@@ -965,7 +998,13 @@ export async function confirmarIdentidadP5(
   const transicion = transicionarExpediente(
     estado.expediente,
     "IDENTIDAD_VERIFICADA",
-    { identidad },
+    {
+      identidad,
+      // Declarado, no verificado: el origen queda asentado en el expediente
+      // para que después nadie lea este correo como si hubiera pasado por un
+      // código (D-06).
+      canalEmail: { valor: correo.correo, verificadoEn: fecha, origen: "DOBLE_TIPEO" },
+    },
     fecha,
   );
 

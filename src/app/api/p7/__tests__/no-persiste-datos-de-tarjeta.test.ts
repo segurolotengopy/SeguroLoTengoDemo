@@ -278,7 +278,7 @@ describe("P7 · ningún dato de tarjeta se persiste (runtime)", () => {
       expedienteId: EXPEDIENTE_ID,
       propuestaId: "00018425",
       montoGs: 475_000,
-      urlRetorno: "https://segurolotengo.com/p7-pago/retorno",
+      urlRetorno: "https://segurolotengo.com/pago/retorno",
       idempotencyKey: "IDEMP-ULTIMOS4",
     });
     const consulta = await proveedor.consultarEstadoPago(operacion.referenciaBancard);
@@ -315,8 +315,8 @@ const ARCHIVOS_DE_P7: readonly string[] = [
   "src/app/api/p7/pago/route.ts",
   "src/app/api/p7/estado/route.ts",
   "src/app/api/p7/resumen/route.ts",
-  "src/app/(flujo)/p7-pago/page.tsx",
-  "src/app/(flujo)/p7-pago/FormularioPagoP7.tsx",
+  "src/app/(flujo)/pago/page.tsx",
+  "src/app/(flujo)/pago/FormularioPagoP7.tsx",
 ];
 
 /** Quita comentarios: la prosa explica por qué NO se guarda el CVV. */
@@ -358,7 +358,7 @@ describe("P7 · ningún campo de tarjeta en la superficie de entrada", () => {
 
   it("el formulario de P7 no tiene ningún input que pueda recibir una tarjeta", () => {
     const fuente = readFileSync(
-      join(process.cwd(), "src/app/(flujo)/p7-pago/FormularioPagoP7.tsx"),
+      join(process.cwd(), "src/app/(flujo)/pago/FormularioPagoP7.tsx"),
       "utf8",
     );
 

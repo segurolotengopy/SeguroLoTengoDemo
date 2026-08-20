@@ -60,7 +60,6 @@ import { esTransicionLegal, transicionarExpediente, transicionesLegalesDesde } f
 import { seleccionarPlan } from "@/domain/seleccion-plan";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "@/domain/tipos";
 import { analizarIdentidadP5, confirmarIdentidadP5, registrarCapturaP5 } from "@/domain/verificacion-identidad";
-import { enviarOtpCorreo, reenviarOtpCorreo, verificarOtpCorreo } from "@/domain/verificacion-canal-correo";
 import { enviarOtpWhatsapp, reenviarOtpWhatsapp, verificarOtpWhatsapp } from "@/domain/verificacion-canal-whatsapp";
 import type { ContextoPeticion, RepositorioExpediente } from "@/domain/verificacion-canal";
 import type { EvidenceStore } from "@/ports/evidence-store";
@@ -240,7 +239,6 @@ const TODOS_LOS_ESTADOS: readonly EstadoExpediente[] = [
   "CANAL_WA_VERIFICADO",
   "PLAN_SELECCIONADO",
   "AUTORIZADO",
-  "CANAL_EMAIL_VERIFICADO",
   "IDENTIDAD_VERIFICADA",
   "DERIVADO_MANUAL",
   "DECLARACIONES_OK",
@@ -370,41 +368,6 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         ),
     },
     {
-      ruta: "p4/otp/enviar",
-      ejecutar: async (repo) => {
-        const { provider, lector } = otpFalso();
-        return enviarOtpCorreo(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
-          {
-            expedienteId: EXPEDIENTE_ID,
-            otpIdPrevio: null,
-            correoIngresado: "alguien@example.com",
-            contexto: CONTEXTO,
-          },
-        );
-      },
-    },
-    {
-      ruta: "p4/otp/reenviar",
-      ejecutar: async (repo) => {
-        const { provider, lector } = otpFalso();
-        return reenviarOtpCorreo(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
-          { expedienteId: EXPEDIENTE_ID, otpId: "otp-falso", contexto: CONTEXTO },
-        );
-      },
-    },
-    {
-      ruta: "p4/otp/verificar",
-      ejecutar: async (repo) => {
-        const { provider, lector } = otpFalso();
-        return verificarOtpCorreo(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
-          { expedienteId: EXPEDIENTE_ID, otpId: "otp-falso", codigoIngresado: "123456", contexto: CONTEXTO },
-        );
-      },
-    },
-    {
       ruta: "p5/captura",
       ejecutar: async (repo) =>
         registrarCapturaP5(
@@ -445,6 +408,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             imagenes: IMAGENES,
             paisNacimiento: "Paraguay",
             estadoCivil: "Soltero/a",
+      correo: "monica.gorena@example.com",
             autorizacionBiometrica: true,
             contexto: CONTEXTO,
           },

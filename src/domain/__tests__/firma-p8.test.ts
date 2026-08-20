@@ -353,7 +353,7 @@ describe("P8 · confirmar la firma", () => {
     expect(expediente.firma?.hashSolicitudFirmada).toHaveLength(64);
     expect(expediente.firma?.hashFipfFirmado).toHaveLength(64);
     expect(expediente.firma?.idCode100).toBe(enlace.acto.idCode100);
-    expect(resultado.siguientePantalla).toBe("/p9-confirmacion");
+    expect(resultado.siguientePantalla).toBe("/confirmacion");
   });
 
   it("es idempotente: sondear de nuevo devuelve lo mismo sin volver a transicionar", async () => {

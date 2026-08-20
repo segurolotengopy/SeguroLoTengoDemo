@@ -3,8 +3,8 @@
  * del expediente"). Esta es la única función de transición: ningún Route
  * Handler ni componente debe cambiar `estado` directamente.
  *
- *   INICIADO → CANAL_WA_VERIFICADO → PLAN_SELECCIONADO → AUTORIZADO
- *     → CANAL_EMAIL_VERIFICADO → IDENTIDAD_VERIFICADA
+ *   INICIADO → PLAN_SELECCIONADO → CANAL_WA_VERIFICADO → AUTORIZADO
+ *     → IDENTIDAD_VERIFICADA
  *        ├─ DERIVADO_MANUAL (terminal) → Pantalla A
  *        └─ DECLARACIONES_OK → PAGO_CONFIRMADO → PAQUETE_GENERADO
  *               ├─ VENCIDO → DEVOLUCION_EN_TRAMITE → DEVUELTO (Pantalla B)
@@ -33,20 +33,30 @@ import { evaluarElegibilidad } from "./elegibilidad";
 
 /** Grafo de transiciones legales: única fuente de verdad de la máquina de estados. */
 const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
-  INICIADO: ["CANAL_WA_VERIFICADO"],
-  CANAL_WA_VERIFICADO: ["PLAN_SELECCIONADO"],
-  // El autobucle es el enlace `Cambiar plan` de la barra de plan seleccionado
-  // (docs/ESPECIFICACION_PANTALLAS.md → "Elementos comunes"): volver a P2 y
-  // elegir otro plan antes de la autorización de P3. No agrega ningún estado
-  // alcanzable nuevo —desde acá se sigue saliendo solo a AUTORIZADO— y cada
-  // re-selección queda como una entrada más del historial append-only.
-  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "AUTORIZADO"],
-  AUTORIZADO: ["CANAL_EMAIL_VERIFICADO"],
+  // CHG-01 · el plan se elige primero y el OTP de WhatsApp viene después.
+  // Todo lo anterior al OTP es información pública, así que ponerlo delante no
+  // protegía nada; puesto acá, el código funciona como elemento disuasivo y da
+  // trazabilidad temprana de quién está avanzando.
+  INICIADO: ["PLAN_SELECCIONADO"],
+  // El autobucle es el enlace `Cambiar plan` de la barra de plan seleccionado:
+  // volver al catálogo y elegir otro antes de verificar el canal. No agrega
+  // ningún estado alcanzable nuevo —desde acá se sigue saliendo solo a
+  // CANAL_WA_VERIFICADO— y cada re-selección queda como una entrada más del
+  // historial append-only.
+  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "CANAL_WA_VERIFICADO"],
+  CANAL_WA_VERIFICADO: ["AUTORIZADO"],
+  // D-06 · sin OTP de correo, la autorización lleva directo a identidad.
+  // `CANAL_EMAIL_VERIFICADO` sobrevive como estado legado —hay expedientes
+  // históricos ahí y la consola tiene que seguir leyéndolos (regla #10)—, pero
+  // ya nadie entra: quedó sin aristas de entrada.
+  AUTORIZADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
   // La segunda salida es P5 sin poder verificar la identidad tras tres
   // análisis fallidos: en vez de dejar a la persona repitiendo capturas que no
   // van a alcanzar, el caso pasa a asistencia humana. No es la derivación de
   // la regla #5 —esa sigue siendo exclusiva de las declaraciones de P6— y no
   // bloquea la cédula: ver `ASISTENCIA_IDENTIDAD` en `tipos.ts`.
+  // Legado (D-06): sin aristas de entrada desde el flujo nuevo. Conserva sus
+  // salidas para que un expediente viejo detenido acá pueda terminar.
   CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
   // Terminal: desde asistencia no se vuelve al flujo digital de este
   // expediente. La persona no queda bloqueada — puede empezar uno nuevo con la

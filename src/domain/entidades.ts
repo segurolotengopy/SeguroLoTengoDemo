@@ -112,5 +112,31 @@ export const IDENTIFICACION_SIS = `${INTERSEGUROS.razonSocial} · ${INTERSEGUROS
  * visible: la marca la acompaña, no la reemplaza.
  */
 export function marcaVisible(): string | null {
-  return process.env.MARCA_FANTASIA_AUTORIZADA === "true" ? MARCA_FANTASIA : null;
+  // `NEXT_PUBLIC_` a propósito: esto se consulta tanto en el servidor como en
+  // componentes de cliente, y si cada lado leyera una variable distinta el
+  // servidor podría pintar la marca y el navegador la razón social, o al
+  // revés. Un mismo valor en las dos orillas evita esa discordancia.
+  return process.env.NEXT_PUBLIC_MARCA_FANTASIA_AUTORIZADA === "true" ? MARCA_FANTASIA : null;
+}
+
+/**
+ * Cómo nombrar al portal en un texto corrido.
+ *
+ * Con la marca autorizada devuelve la marca; sin autorización devuelve la
+ * denominación registrada, que es lo que la Res. 190/2025 permite exponer.
+ * Se usa en frases como "el código no pasa por …", donde hace falta un sujeto
+ * y no se puede dejar un hueco.
+ */
+export function nombrePortal(): string {
+  return marcaVisible() ?? INTERSEGUROS.razonSocial;
+}
+
+/**
+ * Sufijo de los títulos de pestaña: `Prepará lo necesario · <portal>`.
+ *
+ * Los títulos también son exposición pública —quedan en el historial del
+ * navegador y en las capturas—, así que siguen la misma regla que el resto.
+ */
+export function sufijoTitulo(): string {
+  return nombrePortal();
 }

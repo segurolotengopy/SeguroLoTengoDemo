@@ -60,10 +60,13 @@ import { crearEvidenceStoreDynamoDb } from "@/repositories/evidencia-repository"
 import { crearExpedienteRepositoryDynamoDb } from "@/repositories/expediente-repository";
 import { crearOtpRepositoryDynamoDb } from "@/repositories/otp-repository";
 import { crearFakeDynamoDocumentClient } from "@/repositories/__tests__/fake-dynamo-document-client";
+import { transicionarExpediente } from "@/domain/expediente";
+import { crearExpediente } from "@/domain/__tests__/fixtures";
 import { POST as postEnviar } from "../otp/enviar/route";
 import { POST as postReenviar } from "../otp/reenviar/route";
 import { POST as postVerificar } from "../otp/verificar/route";
 
+const EXPEDIENTE_ID = "EXP-P1-FUGA";
 const NOMBRE_TABLA = "tabla-de-prueba";
 
 type MetodoConsola = "log" | "info" | "warn" | "error" | "debug" | "trace";
@@ -87,6 +90,11 @@ function prepararEntorno(): Entorno {
     obtenerPepper: async () => PEPPER,
   });
   const expedientes = crearExpedienteRepositoryDynamoDb({ documentClient, nombreTabla: NOMBRE_TABLA });
+  // Desde CHG-01 el expediente nace al elegir plan, no acá: el recorrido de
+  // este paso empieza con uno ya creado y en PLAN_SELECCIONADO.
+  const conPlan = transicionarExpediente(crearExpediente(EXPEDIENTE_ID), "PLAN_SELECCIONADO");
+  if (!conPlan.ok) throw new Error(conPlan.error);
+  void expedientes.crear(conPlan.expediente);
   const evidencias = crearEvidenceStoreDynamoDb({ documentClient, nombreTabla: NOMBRE_TABLA });
   const otpProvider = crearOtpProviderMock({ otpRepository, retenerCodigoParaPanelDemo: true });
 
@@ -159,7 +167,7 @@ describe("P1 · el código del OTP nunca sale por la API del flujo ni por los lo
   it("no aparece en respuestas, cookies, base, evidencia ni logs en todo el recorrido de P1", async () => {
     // --- 1. Enviar ---------------------------------------------------------
     const respuestaEnvio = await postEnviar(
-      peticion({ numero: NUMERO, autorizacionAceptada: true }),
+      peticion({ numero: NUMERO, autorizacionAceptada: true }, `slt_expediente=${EXPEDIENTE_ID}`),
     );
     expect(respuestaEnvio.status).toBe(200);
 
@@ -230,7 +238,7 @@ describe("P1 · el código del OTP nunca sale por la API del flujo ni por los lo
   });
 
   it("el número completo tampoco sale: siempre enmascarado", async () => {
-    const respuesta = await postEnviar(peticion({ numero: NUMERO, autorizacionAceptada: true }));
+    const respuesta = await postEnviar(peticion({ numero: NUMERO, autorizacionAceptada: true }, `slt_expediente=${EXPEDIENTE_ID}`));
     const superficie = await superficieHttp(respuesta);
 
     expect(superficie).not.toContain("+595981000123");

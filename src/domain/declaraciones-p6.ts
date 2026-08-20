@@ -159,7 +159,7 @@ export type ResultadoP6 =
       readonly expedienteId: string;
       readonly estado: EstadoExpediente;
       readonly elegibleParaEmisionAutomatica: true;
-      readonly siguientePantalla: "/p7-pago";
+      readonly siguientePantalla: "/pago";
     }
   | {
       readonly ok: true;
@@ -361,7 +361,7 @@ export async function guardarDatosYDeclaracionesP6(
       expedienteId: entrada.expedienteId,
       estado: transicion.expediente.estado,
       elegibleParaEmisionAutomatica: true,
-      siguientePantalla: "/p7-pago",
+      siguientePantalla: "/pago",
     };
   }
 

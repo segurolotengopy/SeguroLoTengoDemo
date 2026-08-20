@@ -1,21 +1,26 @@
+import { nombrePortal } from "@/domain/entidades";
+import { PASOS_FLUJO, TOTAL_PASOS, numeroDePaso } from "@/domain/rutas-flujo";
+
 /**
  * Indicador de paso que va en el slot derecho de `HeaderInstitucional`.
  *
- * Ver docs/ESPECIFICACION_PANTALLAS.md → "Indicador de paso":
- *   - P0: `P0 · INFORMACIÓN` / `FUERA DEL CONTADOR 1-9`
- *   - P1 a P9: `PASO N DE 9` + 9 puntos, los completados en naranja.
- *   - Pantalla A: `PANTALLA A` / `SEGUROLOTENGO` / `EMISIÓN NO AUTOMÁTICA`
- *   - Pantalla B: `PANTALLA B` / `QR PAGADO · FIRMA NO COMPLETADA`
+ * Indicador de paso, en cuatro variantes: los pasos del flujo, la pantalla de
+ * información previa y las dos terminales.
+ *
+ * **El número no se pasa a mano: se pasa el slug.** Cada pantalla dice cuál es
+ * —`/pago`, `/firma`— y el número sale de `PASOS_FLUJO` (`rutas-flujo.ts`),
+ * que es donde vive el orden. Antes cada pantalla llevaba su número escrito, y
+ * por eso la de firma llegó a anunciar "Paso 7 de 7" cuando le correspondía el
+ * 6 (CHG-02): dos fuentes para el mismo dato terminan contradiciéndose. Con el
+ * slug no hay forma de que una pantalla se equivoque de número, ni de que el
+ * total quede desactualizado cuando el flujo cambie de largo.
  *
  * Puramente presentacional: no sabe en qué expediente ni estado está el
  * usuario, solo dibuja lo que se le indica por props.
  */
 
-const PASOS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
-export type PasoFlujo = (typeof PASOS)[number];
-
 type StepperPasosProps =
-  | { variante?: "flujo"; pasoActual: PasoFlujo; className?: string }
+  | { variante?: "flujo"; slug: string; className?: string }
   | { variante: "p0"; className?: string }
   | { variante: "pantalla-a"; className?: string }
   | { variante: "pantalla-b"; className?: string };
@@ -39,7 +44,7 @@ export function StepperPasos(props: StepperPasosProps) {
       <div className={`text-right leading-tight ${className}`}>
         <p className="text-sm font-bold text-rojo-700 dark:text-rojo-300">PANTALLA A</p>
         <p className="text-[11px] font-semibold tracking-wide text-rojo-600 uppercase dark:text-rojo-300">
-          SeguroLoTengo
+          {nombrePortal()}
         </p>
         <p className="text-[11px] font-semibold tracking-wide text-rojo-600 uppercase dark:text-rojo-300">
           Emisión no automática
@@ -59,15 +64,19 @@ export function StepperPasos(props: StepperPasosProps) {
     );
   }
 
-  const pasoActual = props.pasoActual;
+  // Si el slug no está en la lista, no se dibuja nada: es preferible una
+  // cabecera sin indicador que una que invente un número.
+  const pasoActual = numeroDePaso(props.slug);
+  if (pasoActual === null) return null;
 
   return (
     <div className={`flex flex-col items-end gap-1.5 ${className}`}>
       <p className="text-[11px] font-semibold tracking-wide text-etiqueta uppercase">
-        Paso {pasoActual} de 9
+        Paso {pasoActual} de {TOTAL_PASOS}
       </p>
       <div className="flex items-center gap-1.5" role="presentation">
-        {PASOS.map((paso) => {
+        {PASOS_FLUJO.map((_, indice) => {
+          const paso = indice + 1;
           const completado = paso <= pasoActual;
           return (
             <span

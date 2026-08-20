@@ -11,6 +11,7 @@ import type {
 import { crearExpedienteInicial } from "../tipos";
 import { PLANES } from "../catalogo";
 import { registrarPaqueteDocumental, transicionarExpediente } from "../expediente";
+import { PASOS_FLUJO } from "../rutas-flujo";
 import { codigoFipf, codigoSolicitud } from "../documentos";
 import { TEXTO_DECLARACION_ORIGEN_LICITO, VERSION_DECLARACION_ORIGEN_LICITO } from "../textos-p7";
 
@@ -54,13 +55,14 @@ export function crearExpediente(id = "EXP-TEST-1"): Expediente {
 
 /** Avanza un expediente recién creado hasta IDENTIDAD_VERIFICADA siguiendo el camino feliz. */
 export function avanzarHastaIdentidadVerificada(expediente: Expediente): Expediente {
-  const secuencia: EstadoExpediente[] = [
-    "CANAL_WA_VERIFICADO",
-    "PLAN_SELECCIONADO",
-    "AUTORIZADO",
-    "CANAL_EMAIL_VERIFICADO",
-    "IDENTIDAD_VERIFICADA",
-  ];
+  // El orden es el del flujo nuevo (CHG-01): el plan primero, el WhatsApp
+  // después, y sin paso de correo (D-06). Sale de `PASOS_FLUJO`, que es donde
+  // vive el orden: si mañana se reordena el wizard, este helper acompaña solo
+  // en vez de quedar describiendo un camino que ya no existe.
+  const secuencia: EstadoExpediente[] = PASOS_FLUJO.map((paso) => paso.estadoAlCompletar).slice(
+    0,
+    PASOS_FLUJO.findIndex((paso) => paso.estadoAlCompletar === "IDENTIDAD_VERIFICADA") + 1,
+  );
 
   let actual = expediente;
   for (const estado of secuencia) {

@@ -1,3 +1,4 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
@@ -31,7 +32,7 @@ import { CasoVencido } from "./CasoVencido";
  */
 
 export const metadata: Metadata = {
-  title: "Tu solicitud venció · SeguroLoTengo",
+  title: `Tu solicitud venció · ${sufijoTitulo()}`,
   description:
     "Pantalla B: el plazo de firma venció; se inició el procedimiento de devolución del premio. No existe póliza emitida ni cobertura iniciada.",
   // Es el desenlace de un expediente concreto, no una página pública.

@@ -422,7 +422,7 @@ describe("P7 · confirmación de la garantía de pago", () => {
       confirmado: true,
       estado: "PAGO_CONFIRMADO",
       pagoDefinitivo: true,
-      siguientePantalla: "/p8-firma",
+      siguientePantalla: "/firma",
     });
 
     const guardado = expedientes.actual();

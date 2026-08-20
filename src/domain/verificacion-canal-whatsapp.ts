@@ -62,7 +62,9 @@ export const PASO_EVIDENCIA_VERIFICACION = "P1_OTP_WHATSAPP_VERIFICACION";
 export const CANAL_WHATSAPP_P1: ConfiguracionCanal = {
   proposito: "VERIFICACION_CELULAR",
   canal: "WHATSAPP",
-  estadoRequerido: "INICIADO",
+  // CHG-01 · se verifica el WhatsApp recién con el plan elegido: es el paso 2
+  // del flujo nuevo, no el 1.
+  estadoRequerido: "PLAN_SELECCIONADO",
   estadoDestino: "CANAL_WA_VERIFICADO",
   campoCanal: "canalWhatsapp",
   // Regional desde 2026-08-14 (pruebas del demo con celulares de Bolivia y
@@ -80,7 +82,10 @@ export const CANAL_WHATSAPP_P1: ConfiguracionCanal = {
   },
   versionTextoAceptado: VERSION_TEXTO_AUTORIZACION_P1,
   requiereAutorizacion: true,
-  creaExpediente: true,
+  // Ya no crea el expediente: lo crea la selección de plan, que pasó a ser el
+  // primer paso (CHG-01). Llegar acá sin expediente significa que se perdió la
+  // sesión, igual que en cualquier otro paso intermedio.
+  creaExpediente: false,
 };
 
 export interface EntradaEnvioP1 extends Omit<EntradaEnvioCanal, "destinoIngresado"> {

@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarP1,
-  completarP2,
-  completarP3,
-  completarP4,
+  completarWhatsapp,
+  completarPlan,
+  completarPreparacion,
+  declararCorreo,
   completarP5Aprobado,
   completarP6,
   completarP7Qr,
@@ -35,17 +35,18 @@ test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
   await prepararEscenario(page, { personaId: persona.id });
 
   await page.goto("/");
-  await expect(page.getByText("La contratación comienza recién en la Pantalla 1.")).toBeVisible();
-  await page.getByRole("link", { name: "Verificar WhatsApp y cotizar →" }).click();
-  await expect(page).toHaveURL(/\/p1-whatsapp$/);
+  await expect(page.getByText("La contratación comienza recién en el paso 1.")).toBeVisible();
+  // La puerta de entrada lleva ahora al catálogo, que es el paso 1 (CHG-01).
+  await page.getByRole("link", { name: "Elegí tu plan y cotizá →" }).click();
+  await expect(page).toHaveURL(/\/plan$/);
 
-  await completarP1(page, persona);
-  await completarP2(page, persona);
-  await completarP3(page);
-  await completarP4(page, persona);
+  await completarPlan(page, persona);
+  await completarWhatsapp(page, persona);
+  await completarPreparacion(page);
+  await declararCorreo(page, persona);
   await completarP5Aprobado(page);
   await completarP6(page, persona);
-  await enviarP6(page, /\/p7-pago$/);
+  await enviarP6(page, /\/pago$/);
   await completarP7Qr(page);
   await continuarAFirma(page);
 
@@ -53,7 +54,7 @@ test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
   await firmarNormalmente(page, idCode100);
 
   // P9 · Paso 9 de 9 — Contratación aceptada.
-  await expect(page).toHaveURL(/\/p9-confirmacion$/);
+  await expect(page).toHaveURL(/\/confirmacion$/);
   await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
 
   const hitoSolicitud = page.locator("li", { hasText: "Solicitud aceptada" });

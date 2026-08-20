@@ -9,11 +9,10 @@
  * (`demo-panel.ts`), que es el único lugar donde el código existe en claro
  * (regla inviolable #2).
  */
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { PersonaDemo } from "@/adapters/mock/personas";
 import { enmascararCelular } from "@/domain/telefono";
-import { enmascararCorreo } from "@/domain/correo";
 import { accionarFirmaPanel, leerCodigoOtpDelPanel, leerSesionFirmaDelPanel } from "./demo-panel";
 
 /** `+595981000123` → `981000123`, lo que se tipea en el campo de P1. */
@@ -38,18 +37,90 @@ async function tipearOtp(page: Page, idPrefijo: string, codigo: string): Promise
  * pierde en silencio. `page.goto()` no lo necesita (ya espera `load`); esto
  * es solo para las transiciones que arrancan con `<Link>`/`router.push`.
  */
-async function esperarHidratacion(page: Page): Promise<void> {
+export async function esperarHidratacion(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
+
+  // `networkidle` dice que dejó de haber pedidos, no que React ya montó. En esa
+  // ventana los controles existen —los pintó el SSR— pero todavía no tienen
+  // handler, y la interacción se pierde **en silencio**: el clic no hace nada,
+  // el radio no cambia de estado, y lo que se ve después es una aserción
+  // agotando su plazo con el dedo apuntando al código.
+  //
+  // La señal que se usa es exacta y no temporal: React 18 cuelga sus
+  // propiedades internas (`__reactProps$…`, `__reactFiber$…`) de los nodos al
+  // hidratarlos. Que alguna aparezca sobre un control de la pantalla significa
+  // que el árbol de cliente ya montó. No hace falta tocar código de producción
+  // para saberlo: la señal ya está ahí, solo hay que mirarla.
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll("button, input, select, a")].some((nodo) =>
+            Object.keys(nodo).some((clave) => clave.startsWith("__react")),
+          ),
+        ),
+      { timeout: 15_000, message: "la pantalla nunca terminó de hidratarse" },
+    )
+    .toBe(true);
 }
 
-/** P1 · Paso 1 de 9 — Verificación de WhatsApp. Deja a la persona en /p2-plan. */
-export async function completarP1(page: Page, persona: PersonaDemo): Promise<void> {
-  await page.goto("/p1-whatsapp");
+/**
+ * Espera a que **ese** elemento esté hidratado, y recién entonces lo clickea.
+ *
+ * `networkidle` dice que dejó de haber pedidos, no que React ya montó. En esa
+ * ventana el botón existe —lo pintó el SSR— pero todavía no tiene handler, y
+ * el clic se pierde **en silencio**: no falla nada, simplemente no pasa nada,
+ * y lo que se ve después es una aserción de navegación agotando su plazo a los
+ * quince segundos. Un margen fijo tapa el problema la mayoría de las veces y
+ * lo deja aparecer justo cuando la máquina está cargada, que es la peor forma
+ * de fallar: intermitente y con el dedo apuntando al código.
+ *
+ * La señal que se usa acá es exacta en lugar de temporal. React 18 cuelga sus
+ * propiedades internas (`__reactProps$…`, `__reactFiber$…`) del nodo del DOM
+ * al hidratarlo; que existan sobre este botón significa que este botón ya
+ * tiene su handler. No se toca código de producción para lograrlo: la señal
+ * ya está ahí, solo hay que mirarla.
+ *
+ * Se prefiere esperar antes que reintentar el clic: estos botones hacen un
+ * POST que transiciona el expediente, y un segundo clic mandaría una petición
+ * que el dominio rechazaría por estado inválido — cambiaría un test frágil por
+ * uno que ensucia el expediente.
+ */
+export async function clickearHidratado(boton: Locator): Promise<void> {
+  await boton.waitFor({ state: "visible" });
+  await expect
+    .poll(
+      // `evaluate` sobre el localizador y no `querySelector` con el selector:
+      // los selectores de Playwright (`:has-text`, `:text-is`) no son CSS
+      // válido y el navegador los rechaza. Acá el nodo ya viene resuelto.
+      async () => boton.evaluate((nodo) => Object.keys(nodo).some((c) => c.startsWith("__react"))),
+      { timeout: 15_000, message: "el botón nunca terminó de hidratarse" },
+    )
+    .toBe(true);
+  await boton.click();
+}
+
+
+/**
+ * Paso 2 (`Pv2-2`) — Verificación de WhatsApp. Deja a la persona en
+ * /preparacion.
+ *
+ * Los helpers se nombran por pantalla y no por número desde CHG-01: el número
+ * es una propiedad de la posición y ya cambió una vez. `completarWhatsapp`
+ * seguirá diciendo la verdad cuando el paso se mueva otra vez.
+ */
+export async function completarWhatsapp(page: Page, persona: PersonaDemo): Promise<void> {
+  await expect(page).toHaveURL(/\/whatsapp$/);
+  // Antes este paso empezaba con un `goto` propio; ahora se llega navegando
+  // desde el catálogo, así que hay que esperar la hidratación como en el resto
+  // de las pantallas: sin React montado, marcar la casilla no cambia el estado
+  // y el botón de enviar se queda deshabilitado para siempre.
+  await esperarHidratacion(page);
   await page.locator("#p1-destino").fill(celularLocal(persona));
   await page.getByRole("checkbox").check();
   // `exact: true`: "Enviar código" es substring de "Reenviar código", que ya
   // está en el DOM (deshabilitado) antes de enviar el primero.
-  await page.getByRole("button", { name: "Enviar código", exact: true }).click();
+  await clickearHidratado(page.getByRole("button", { name: "Enviar código", exact: true }));
 
   const destinoEnmascarado = enmascararCelular(persona.celular);
   await expect(page.getByText(`Código enviado al número ${destinoEnmascarado}`)).toBeVisible();
@@ -61,7 +132,7 @@ export async function completarP1(page: Page, persona: PersonaDemo): Promise<voi
   const continuar = page.getByRole("link", { name: "Continuar →" });
   await expect(continuar).not.toHaveAttribute("aria-disabled", "true");
   await continuar.click();
-  await expect(page).toHaveURL(/\/p2-plan$/);
+  await expect(page).toHaveURL(/\/preparacion$/);
 }
 
 /**
@@ -80,8 +151,9 @@ const ROTULO_PLAN: Readonly<Record<PersonaDemo["planElegido"], string>> = {
   CONFIO_TOTAL: "CONFÍO TOTAL",
 };
 
-export async function completarP2(page: Page, persona: PersonaDemo): Promise<void> {
-  await expect(page).toHaveURL(/\/p2-plan$/);
+export async function completarPlan(page: Page, persona: PersonaDemo): Promise<void> {
+  // Primer paso del flujo: acá empieza el recorrido y acá nace el expediente.
+  await page.goto("/plan");
   await esperarHidratacion(page);
   const indice = ORDEN_PLANES.indexOf(persona.planElegido);
   expect(indice, `Plan desconocido: ${persona.planElegido}`).toBeGreaterThanOrEqual(0);
@@ -93,34 +165,30 @@ export async function completarP2(page: Page, persona: PersonaDemo): Promise<voi
   await expect(tarjeta.getByRole("button", { name: "Plan elegido", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: `Seleccionar ${rotulo} y continuar →`, exact: true }).click();
-  await expect(page).toHaveURL(/\/p3-preparacion$/);
+  await expect(page).toHaveURL(/\/whatsapp$/);
 }
 
-/** P3 · Paso 3 de 9 — Preparación y autorización inicial. */
-export async function completarP3(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p3-preparacion$/);
+/** Paso 3 (`Pv2-3`) — Preparación y autorización inicial. */
+export async function completarPreparacion(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/preparacion$/);
   await esperarHidratacion(page);
-  await page.getByRole("button", { name: "Tengo todo listo →" }).click();
-  await expect(page).toHaveURL(/\/p4-correo$/);
+  await clickearHidratado(page.getByRole("button", { name: "Tengo todo listo →" }));
+  await expect(page).toHaveURL(/\/identidad$/);
 }
 
-/** P4 · Paso 4 de 9 — Verificación de correo. Deja a la persona en /p5-identidad. */
-export async function completarP4(page: Page, persona: PersonaDemo): Promise<void> {
-  await expect(page).toHaveURL(/\/p4-correo$/);
+/**
+ * Declara el correo dentro de la pantalla de identidad (CHG-14/17, D-06).
+ *
+ * Reemplaza al viejo `completarP4`: el correo dejó de tener paso propio y de
+ * tener código. Lo que queda es escribirlo dos veces, que es el control que
+ * sustituye al OTP.
+ */
+export async function declararCorreo(page: Page, persona: PersonaDemo): Promise<void> {
+  await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
-  await page.locator("#p4-destino").fill(persona.correo);
-  await page.getByRole("button", { name: "Enviar código", exact: true }).click();
-
-  const destinoEnmascarado = enmascararCorreo(persona.correo);
-  await expect(page.getByText(`Código enviado a ${destinoEnmascarado}`)).toBeVisible();
-
-  const codigo = await leerCodigoOtpDelPanel(page, destinoEnmascarado);
-  await tipearOtp(page, "p4", codigo);
-
-  const continuar = page.getByRole("link", { name: "Continuar →" });
-  await expect(continuar).not.toHaveAttribute("aria-disabled", "true");
-  await continuar.click();
-  await expect(page).toHaveURL(/\/p5-identidad$/);
+  await page.locator("#p5-correo").fill(persona.correo);
+  await page.locator("#p5-correo-repetido").fill(persona.correo);
+  await expect(page.getByText("Las dos direcciones coinciden.")).toBeVisible();
 }
 
 /**
@@ -159,10 +227,10 @@ async function tomarCapturaP5(page: Page, toma: "FRENTE" | "DORSO" | "SELFIE"): 
 /**
  * P5 · Paso 5 de 9 — Verificación de identidad, camino que aprueba (frente,
  * dorso y selfie aprobadas, país y estado civil completos). Deja a la persona
- * en /p6-declaraciones.
+ * en /declaraciones.
  */
 export async function completarP5Aprobado(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p5-identidad$/);
+  await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
 
   await tomarCapturaP5(page, "FRENTE");
@@ -184,7 +252,7 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
   const continuar = page.getByRole("button", { name: "Validar identidad y continuar →" });
   await expect(continuar).toBeEnabled();
   await continuar.click();
-  await expect(page).toHaveURL(/\/p6-declaraciones$/);
+  await expect(page).toHaveURL(/\/declaraciones$/);
 }
 
 /**
@@ -192,7 +260,7 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
  * A propósito **no** navega a P6 — es lo que el escenario 4 tiene que probar.
  */
 export async function completarCapturasP5(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p5-identidad$/);
+  await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
   await tomarCapturaP5(page, "FRENTE");
   await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(1);
@@ -244,7 +312,7 @@ const CAMPO_DECLARACION: readonly (keyof PersonaDemo["declaraciones"])[] = [
  * bloquea: esa regla la aplica siempre el servidor.
  */
 export async function completarP6(page: Page, persona: PersonaDemo): Promise<void> {
-  await expect(page).toHaveURL(/\/p6-declaraciones$/);
+  await expect(page).toHaveURL(/\/declaraciones$/);
   await esperarHidratacion(page);
   const datos = persona.datosComplementarios;
 
@@ -288,11 +356,11 @@ export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<voi
 
 /**
  * P7 · Paso 7 de 9 — Facturación y garantía de pago, con QR Bancard. Deja a
- * la persona en /p7-pago, pago confirmado.
+ * la persona en /pago, pago confirmado.
  *
  * **No confía en el sondeo del propio cliente para confirmar el pago.**
  * Hallazgo al correr esta batería contra el stack real: `FormularioPagoP7`
- * (`src/app/(flujo)/p7-pago/FormularioPagoP7.tsx`, función `sondear`) deja de
+ * (`src/app/(flujo)/pago/FormularioPagoP7.tsx`, función `sondear`) deja de
  * sondear apenas `GET /api/p7/estado` responde una vez con `ok:false` —
  * incluida una respuesta transitoria de `PAGO_NO_INICIADO` (fila cerca del
  * borde de `DEMORA_ACREDITACION_MS`, `src/domain/pago-p7.ts:585-588`, cuando
@@ -308,7 +376,7 @@ export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<voi
  * el estado real ya asentado.
  */
 export async function completarP7Qr(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p7-pago$/);
+  await expect(page).toHaveURL(/\/pago$/);
   await esperarHidratacion(page);
   await page.getByLabel(/Declaro que los fondos utilizados/).check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
@@ -329,7 +397,7 @@ let ultimaRespuestaDiagnostico = "";
 
 export async function continuarAFirma(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Continuar a firma →" }).click();
-  await expect(page).toHaveURL(/\/p8-firma$/);
+  await expect(page).toHaveURL(/\/firma$/);
 }
 
 /**
@@ -338,7 +406,7 @@ export async function continuarAFirma(page: Page): Promise<void> {
  * `firmarNormalmente` / `firmarConFallaAMitad` de abajo, según el escenario.
  */
 export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
-  await expect(page).toHaveURL(/\/p8-firma$/);
+  await expect(page).toHaveURL(/\/firma$/);
   await esperarHidratacion(page);
   await expect(page.getByRole("heading", { name: "GARANTÍA DE PAGO LISTA" })).toBeVisible();
 
@@ -368,5 +436,5 @@ export async function firmarNormalmente(page: Page, idCode100: string): Promise<
   });
   expect(resultado.ok, `firmar: ${JSON.stringify(resultado.datos)}`).toBeTruthy();
 
-  await expect(page).toHaveURL(/\/p9-confirmacion$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/confirmacion$/, { timeout: 20_000 });
 }

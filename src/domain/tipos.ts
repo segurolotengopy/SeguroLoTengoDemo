@@ -113,8 +113,21 @@ export interface EntradaHistorialEstado {
 // ---------------------------------------------------------------------------
 
 export interface CanalVerificado {
-  readonly valor: string; // número o correo, ya verificado
+  readonly valor: string; // número o correo
   readonly verificadoEn: string;
+  /**
+   * Cómo quedó establecido el canal.
+   *
+   * `OTP` es el celular, y era también el correo hasta que se retiró su código
+   * (D-06). `DOBLE_TIPEO` es el correo desde entonces: la persona lo escribe
+   * dos veces y lo declara al firmar, que es el respaldo que reemplaza al
+   * código.
+   *
+   * Opcional porque los expedientes anteriores no lo traen y **no se los
+   * reescribe** (regla inviolable #10): ausente significa `OTP`, que es lo que
+   * eran todos.
+   */
+  readonly origen?: "OTP" | "DOBLE_TIPEO";
 }
 
 export type PlanId = "CONFIO" | "CONFIO_PLUS" | "CONFIO_TOTAL";

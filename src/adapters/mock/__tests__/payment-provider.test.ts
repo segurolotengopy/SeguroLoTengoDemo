@@ -53,7 +53,7 @@ const ENTRADA_TARJETA = {
   expedienteId: "EXP-MOCK-1",
   propuestaId: "00018425",
   montoGs: 475_000,
-  urlRetorno: "https://segurolotengo.com/p7-pago/retorno",
+  urlRetorno: "https://segurolotengo.com/pago/retorno",
   idempotencyKey: "IDEMP-MOCK-TARJETA",
 };
 

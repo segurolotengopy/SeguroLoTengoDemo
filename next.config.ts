@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { REDIRECCIONES_RUTAS_VIEJAS } from "./src/domain/rutas-flujo";
 
 /**
  * Exclusión del bundle del panel de demo (CLAUDE.md → "Panel de demo":
@@ -21,6 +22,24 @@ const esModoDemo = process.env.DEMO_MODE === "true";
 
 const nextConfig: NextConfig = {
   pageExtensions: esModoDemo ? ["demo.tsx", "demo.ts", "tsx", "ts"] : ["tsx", "ts"],
+
+  /**
+   * Rutas viejas del wizard (`/p1-whatsapp`, `/p7-pago`, …) hacia las nuevas.
+   *
+   * Permanentes (308) y no 404: hay enlaces con el formato viejo en mensajes
+   * de WhatsApp y correos ya enviados durante las pruebas, y un enlace roto en
+   * un canal de contratación termina en una llamada de alguien que cree que
+   * perdió su trámite. La tabla vive en el dominio (`rutas-flujo.ts`), junto
+   * al orden que la produjo, para que agregar un paso no obligue a acordarse
+   * de este archivo.
+   */
+  async redirects() {
+    return Object.entries(REDIRECCIONES_RUTAS_VIEJAS).map(([source, destination]) => ({
+      source,
+      destination,
+      permanent: true,
+    }));
+  },
 };
 
 export default nextConfig;
