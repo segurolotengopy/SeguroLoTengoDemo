@@ -54,6 +54,7 @@ export async function POST(request: Request): Promise<Response> {
     correcciones: {
       ...(typeof cuerpo.nombres === "string" ? { nombres: cuerpo.nombres } : {}),
       ...(typeof cuerpo.apellidos === "string" ? { apellidos: cuerpo.apellidos } : {}),
+      ...(typeof cuerpo.sexo === "string" ? { sexo: cuerpo.sexo } : {}),
     },
     autorizacionBiometrica: cuerpo.autorizacionBiometrica === true,
     contexto,

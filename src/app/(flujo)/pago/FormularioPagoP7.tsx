@@ -38,7 +38,7 @@ import {
   TITULO_PLAZO_FIRMA_P7,
   TITULO_REFERENCIAS_P7,
   TITULO_SEGURIDAD_P7,
-  VALOR_OFICIAL_DE_ALIANZA_P7,
+  NOTA_DESGLOSE_PROVISIONAL_P7,
 } from "@/domain/textos-p7";
 import { esPagoDefinitivoAntesDeFirma } from "@/domain/tipos";
 import type { MedioDePago } from "@/domain/tipos";
@@ -64,6 +64,9 @@ import type { MedioDePago } from "@/domain/tipos";
 interface Resumen {
   readonly numeroPropuesta: string | null;
   readonly montoGs: number;
+  readonly primaNetaGs: number;
+  readonly ivaGs: number;
+  readonly desgloseProvisional: boolean;
   readonly nombreAFacturar: string;
   readonly medio: MedioDePago | null;
   readonly referenciaBancard: string | null;
@@ -322,12 +325,23 @@ export function FormularioPagoP7() {
           <h3 className="pb-1 text-[11px] font-bold tracking-wide text-etiqueta uppercase">
             {TITULO_LIQUIDACION_P7}
           </h3>
-          <Fila rotulo={ROTULO_PRIMA_NETA_P7} valor={VALOR_OFICIAL_DE_ALIANZA_P7} />
-          <Fila rotulo={ROTULO_IVA_P7} valor={VALOR_OFICIAL_DE_ALIANZA_P7} />
+          <Fila
+            rotulo={ROTULO_PRIMA_NETA_P7}
+            valor={resumen ? formatearGuaranies(resumen.primaNetaGs) : "—"}
+          />
+          <Fila rotulo={ROTULO_IVA_P7} valor={resumen ? formatearGuaranies(resumen.ivaGs) : "—"} />
           <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-borde-tenue pt-2">
             <span className="text-sm font-bold text-titulo">{ROTULO_PREMIO_TOTAL_P7}</span>
             <span className="text-base font-bold text-titulo tabular-nums">{importe}</span>
           </div>
+          {/* El desglose se rotula como provisional mientras Alianza no
+              mande el oficial (D-04). Un importe con forma de definitivo se
+              lee como definitivo, y este va a una factura. */}
+          {resumen?.desgloseProvisional ? (
+            <p className="pt-1 text-[11px] text-naranja-800 dark:text-naranja-200">
+              {NOTA_DESGLOSE_PROVISIONAL_P7}
+            </p>
+          ) : null}
           <p className="pt-1 text-[11px] text-etiqueta">{NOTA_MONEDA_P7}</p>
           {/* CHG-36 · a quién le llega la plata. */}
           <p className="pt-1 text-[11px] text-cuerpo">{NOTA_DESTINO_DE_FONDOS_P7}</p>

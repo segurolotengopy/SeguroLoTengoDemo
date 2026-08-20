@@ -10,7 +10,7 @@ import { EnlaceAclaracion } from "@/components/shared";
 import { ESTADOS_CIVILES, PAISES_NACIMIENTO, REQUISITOS_P5 } from "@/domain/catalogo-identidad";
 import type { IdRequisitoP5, TipoCapturaP5 } from "@/domain/catalogo-identidad";
 import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
-import { esCampoCorregible } from "@/domain/cotejo-ocr";
+import { SEXOS_ADMITIDOS, esCampoCorregible } from "@/domain/cotejo-ocr";
 import { rutaSiguienteDe } from "@/domain/rutas-flujo";
 
 /**
@@ -869,22 +869,43 @@ export function VerificacionIdentidad({
                   )}
                   {etiqueta}
                 </label>
-                <input
-                  id={`p5-${id}`}
-                  type="text"
-                  readOnly={!enEdicion}
-                  aria-readonly={!enEdicion}
-                  value={valorMostrado}
-                  onChange={(evento) =>
-                    setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
-                  }
-                  placeholder="Se completa automáticamente"
-                  className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
-                    enEdicion
-                      ? "border-naranja-400 bg-superficie"
-                      : "border-borde-sutil bg-superficie-suave"
-                  }`}
-                />
+                {/* El sexo se corrige eligiendo entre los dos valores que
+                    puede decir una cédula, no escribiendo: un campo libre acá
+                    no arreglaría una lectura, abriría la puerta a cualquier
+                    cadena en un dato que va al documento firmado. */}
+                {enEdicion && id === "sexo" ? (
+                  <select
+                    id={`p5-${id}`}
+                    value={valorMostrado}
+                    onChange={(evento) =>
+                      setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
+                    }
+                    className="h-11 w-full rounded-lg border border-naranja-400 bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+                  >
+                    {SEXOS_ADMITIDOS.map((valor) => (
+                      <option key={valor} value={valor}>
+                        {valor}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={`p5-${id}`}
+                    type="text"
+                    readOnly={!enEdicion}
+                    aria-readonly={!enEdicion}
+                    value={valorMostrado}
+                    onChange={(evento) =>
+                      setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
+                    }
+                    placeholder="Se completa automáticamente"
+                    className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
+                      enEdicion
+                        ? "border-naranja-400 bg-superficie"
+                        : "border-borde-sutil bg-superficie-suave"
+                    }`}
+                  />
+                )}
                 {enEdicion ? (
                   <p className="text-xs text-etiqueta">
                     Corregí solo errores de lectura. El dato final se coteja con tu cédula.

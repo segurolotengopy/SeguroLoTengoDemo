@@ -21,7 +21,7 @@
  * para la persona.
  *
  * **No corregibles, y no es una omisión:** número de cédula, fecha de
- * nacimiento, sexo y nacionalidad.
+ * nacimiento y nacionalidad.
  *
  * - La **fecha de nacimiento** decide el corte de edad de 18 a 64 (regla
  *   inviolable #8, que exige verificarla contra el documento y *no* contra un
@@ -30,10 +30,12 @@
  * - El **número de cédula** es la llave del expediente y la base del bloqueo
  *   por cédula (regla inviolable #11). Editarlo permitiría empezar de nuevo
  *   con una cédula distinta de la fotografiada.
- * - **Sexo** y **nacionalidad** salen del MRZ con dígito verificador; una
- *   discrepancia ahí no es un error de lectura, es otro documento.
+ * - La **nacionalidad** decide si el documento habilita este producto, que se
+ *   vende solo a titulares de cédula paraguaya. Queda cerrada hasta que se
+ *   implemente la validación contra las variantes reales de la cédula
+ *   (pendiente de las imágenes que va a remitir Andres).
  *
- * Para esos cuatro el camino sigue siendo repetir la captura. La distinción no
+ * Para esos tres el camino sigue siendo repetir la captura. La distinción no
  * es de comodidad: es dónde una corrección libre convertiría un dato del
  * documento en un dato declarado.
  *
@@ -46,8 +48,15 @@
  * porque un apellido largo tiene más lugar donde el OCR se equivoque.
  */
 
-/** Campos leídos de la cédula que la persona puede corregir. */
-export const CAMPOS_CORREGIBLES = ["nombres", "apellidos"] as const;
+/**
+ * Campos leídos de la cédula que la persona puede corregir.
+ *
+ * `sexo` se sumó por decisión de Andres (20-ago-2026): es el campo donde el
+ * OCR falla con más frecuencia sin que eso signifique otro documento, y de él
+ * no cuelga ninguna regla de negocio. El corte de edad depende de la fecha y
+ * el bloqueo depende del número; el sexo no decide nada, solo se imprime.
+ */
+export const CAMPOS_CORREGIBLES = ["nombres", "apellidos", "sexo"] as const;
 
 export type CampoCorregible = (typeof CAMPOS_CORREGIBLES)[number];
 
@@ -127,6 +136,15 @@ export type ResultadoCotejo =
  * Devuelve el valor a persistir: el corregido si pasa el cotejo, o el del OCR
  * si no hubo corrección. Nunca inventa un valor intermedio.
  */
+/**
+ * Valores admitidos para el sexo.
+ *
+ * El sexo no se corrige escribiendo sino eligiendo entre los dos que puede
+ * decir una cédula. Un campo libre acá no arreglaría un error de lectura:
+ * abriría la puerta a cualquier cadena en un dato que va al documento firmado.
+ */
+export const SEXOS_ADMITIDOS = ["Masculino", "Femenino"] as const;
+
 export function cotejarCorreccion(
   campo: CampoCorregible,
   leidoPorOcr: string,
@@ -138,6 +156,17 @@ export function cotejarCorreccion(
 
   const ocrNormalizado = normalizarParaCotejo(leidoPorOcr);
   const correccionNormalizada = normalizarParaCotejo(corregido);
+
+  // El sexo se coteja contra la lista y no por distancia: son dos valores
+  // conocidos, así que "parecido" no aporta nada y sí dejaría pasar basura.
+  if (campo === "sexo") {
+    const admitido = SEXOS_ADMITIDOS.find(
+      (valor) => normalizarParaCotejo(valor) === correccionNormalizada,
+    );
+    return admitido
+      ? { ok: true, valor: admitido, corregido: normalizarParaCotejo(admitido) !== ocrNormalizado }
+      : { ok: false, motivo: "NO_COINCIDE_CON_LA_CEDULA", campo };
+  }
 
   if (correccionNormalizada === "") {
     return { ok: false, motivo: "NO_COINCIDE_CON_LA_CEDULA", campo };

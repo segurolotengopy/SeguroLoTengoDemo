@@ -16,9 +16,10 @@ import {
 } from "../cotejo-ocr";
 
 describe("qué campos se pueden corregir", () => {
-  it("acepta nombres y apellidos", () => {
+  it("acepta nombres, apellidos y sexo", () => {
     expect(esCampoCorregible("nombres")).toBe(true);
     expect(esCampoCorregible("apellidos")).toBe(true);
+    expect(esCampoCorregible("sexo")).toBe(true);
   });
 
   it("no acepta los cuatro campos de los que dependen reglas del negocio", () => {
@@ -26,7 +27,7 @@ describe("qué campos se pueden corregir", () => {
     // expediente y del bloqueo (regla #11). Sexo y nacionalidad salen del MRZ
     // con dígito verificador. Editarlos convertiría un dato del documento en
     // uno declarado.
-    for (const campo of ["fechaNacimiento", "numeroCedula", "sexo", "nacionalidad"]) {
+    for (const campo of ["fechaNacimiento", "numeroCedula", "nacionalidad"]) {
       expect(esCampoCorregible(campo), `${campo} no debería ser corregible`).toBe(false);
     }
   });
@@ -34,7 +35,27 @@ describe("qué campos se pueden corregir", () => {
   it("no crece por accidente", () => {
     // Si alguien agrega un campo a la lista, este test lo obliga a pasar por
     // acá y a mirar el comentario de arriba.
-    expect([...CAMPOS_CORREGIBLES]).toEqual(["nombres", "apellidos"]);
+    expect([...CAMPOS_CORREGIBLES]).toEqual(["nombres", "apellidos", "sexo"]);
+  });
+});
+
+describe("corrección del sexo", () => {
+  it("acepta uno de los dos valores que puede decir una cédula", () => {
+    const resultado = cotejarCorreccion("sexo", "Masculino", "Femenino");
+    expect(resultado).toEqual({ ok: true, valor: "Femenino", corregido: true });
+  });
+
+  it("normaliza lo que la persona eligió, sin importar cómo venga escrito", () => {
+    const resultado = cotejarCorreccion("sexo", "MASCULINO", "masculino");
+    expect(resultado.ok && resultado.valor).toBe("Masculino");
+    expect(resultado.ok && resultado.corregido).toBe(false);
+  });
+
+  it("RECHAZA cualquier otra cosa: no es un campo libre", () => {
+    // Sin esto, un campo de texto en el sexo dejaría escribir lo que sea en un
+    // dato que termina impreso en el documento firmado.
+    expect(cotejarCorreccion("sexo", "Masculino", "Otro").ok).toBe(false);
+    expect(cotejarCorreccion("sexo", "Masculino", "Masculinoo").ok).toBe(false);
   });
 });
 

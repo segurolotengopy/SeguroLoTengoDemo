@@ -48,6 +48,7 @@
  * `src/app/api/p7/__tests__/no-persiste-datos-de-tarjeta.test.ts`.
  */
 import { randomInt, randomUUID } from "node:crypto";
+import { desglosePremio } from "./catalogo";
 import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { PaymentProvider } from "../ports/payment-provider";
@@ -718,6 +719,10 @@ async function intentarConfirmarPagoP7(
 export interface ResumenPagoP7 {
   readonly numeroPropuesta: string | null;
   readonly montoGs: number;
+  /** Apertura del premio (CHG-35). Provisional hasta el desglose de Alianza. */
+  readonly primaNetaGs: number;
+  readonly ivaGs: number;
+  readonly desgloseProvisional: boolean;
   readonly nombreAFacturar: string;
   readonly medio: MedioDePago | null;
   readonly referenciaBancard: string | null;
@@ -735,9 +740,16 @@ export function leerResumenPagoP7(expediente: Expediente): ResumenPagoP7 | null 
     return null;
   }
 
+  // CHG-35 · el desglose se deriva del plan del expediente, no se recalcula en
+  // la pantalla: lo que se muestra tiene que ser lo mismo que se cobra.
+  const desglose = desglosePremio(expediente.plan.planId);
+
   return {
     numeroPropuesta: expediente.numeroPropuesta,
     montoGs: expediente.plan.premioAnualGs,
+    primaNetaGs: desglose.primaNetaGs,
+    ivaGs: desglose.ivaGs,
+    desgloseProvisional: desglose.esProvisional,
     nombreAFacturar: `${expediente.identidad.nombres} ${expediente.identidad.apellidos}`.trim(),
     medio: expediente.pago?.medio ?? null,
     referenciaBancard: expediente.pago?.referenciaBancard ?? null,

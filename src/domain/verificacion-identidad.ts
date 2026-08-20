@@ -1008,6 +1008,9 @@ export async function confirmarIdentidadP5(
   );
   if (!apellidos.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
 
+  const sexo = cotejarCorreccion("sexo", verificacion.datos.sexo, entrada.correcciones?.sexo);
+  if (!sexo.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+
   const identidad: Identidad = {
     // Los cuatro campos de los que cuelgan reglas del negocio salen del
     // proveedor y no de la petición: la fecha decide el corte de edad (regla
@@ -1016,7 +1019,7 @@ export async function confirmarIdentidadP5(
     nombres: nombres.valor,
     apellidos: apellidos.valor,
     fechaNacimiento: verificacion.datos.fechaNacimiento,
-    sexo: verificacion.datos.sexo,
+    sexo: sexo.valor,
     nacionalidad: verificacion.datos.nacionalidad,
     // Los dos únicos que completa la persona.
     paisNacimiento: entrada.paisNacimiento,

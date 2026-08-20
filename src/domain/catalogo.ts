@@ -110,6 +110,50 @@ export interface RegistroProducto {
 
 export const MARCADOR_PENDIENTE_ALIANZA = "CDXXXXX";
 
+/**
+ * Alícuota del IVA con la que se arma el desglose **del demo**.
+ *
+ * En Paraguay los seguros tributan al 10% (Ley 6380/2019). Se usa acá para que
+ * la pantalla de pago muestre números que cierran, no para afirmar cuánto
+ * tributa este producto: el desglose oficial lo fija Alianza y sigue
+ * pendiente (D-04).
+ */
+const ALICUOTA_IVA_DEMO = 0.1;
+
+export interface DesglosePremio {
+  readonly primaNetaGs: number;
+  readonly ivaGs: number;
+  readonly premioTotalGs: number;
+  /** `true` mientras el desglose no venga de Alianza. */
+  readonly esProvisional: boolean;
+}
+
+/**
+ * Abre el premio total en prima neta más IVA (CHG-35).
+ *
+ * Hasta ahora la pantalla mostraba el rótulo "Valor oficial de Alianza" en
+ * lugar de cada importe, porque la apertura no figura en ningún documento
+ * fuente y calcular un 10% por cuenta propia habría sido inventar el contenido
+ * de una factura. Para el demo hacen falta números que cierren, así que se
+ * derivan del premio —que sí está en la matriz— y **el resultado se rotula
+ * como provisional** en la pantalla.
+ *
+ * El IVA se calcula por diferencia y no multiplicando, para que la suma dé
+ * exacta siempre: con 290.000 el redondeo de la prima dejaría 289.999 o
+ * 290.001, y un total que no cierra en una pantalla de pago destruye la
+ * confianza más rápido que cualquier otra cosa.
+ */
+export function desglosePremio(planId: PlanId): DesglosePremio {
+  const premioTotalGs = PLANES[planId].premioAnualGs;
+  const primaNetaGs = Math.round(premioTotalGs / (1 + ALICUOTA_IVA_DEMO));
+  return {
+    primaNetaGs,
+    ivaGs: premioTotalGs - primaNetaGs,
+    premioTotalGs,
+    esProvisional: REGISTRO_PRODUCTO.esProvisional,
+  };
+}
+
 export const REGISTRO_PRODUCTO: RegistroProducto = {
   codigo: MARCADOR_PENDIENTE_ALIANZA,
   acto: MARCADOR_PENDIENTE_ALIANZA,

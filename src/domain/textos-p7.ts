@@ -79,19 +79,18 @@ export const ROTULO_PRIMA_NETA_P7 = "Prima neta anual";
 
 export const ROTULO_IVA_P7 = "IVA";
 
-/**
- * Valor que se muestra en `Prima neta anual` y en `IVA`.
- *
- * La especificación dice literalmente *"Prima neta anual y IVA con `Valor
- * oficial de Alianza`"*: la apertura del premio entre prima e impuesto la fija
- * la aseguradora y no figura en ningún documento fuente del proyecto. Se
- * muestra el rótulo tal cual en vez de calcular un 10% por nuestra cuenta —
- * inventar la apertura de un importe que va a una factura sería exactamente lo
- * que la fila 25 de la matriz prohíbe.
- */
-export const VALOR_OFICIAL_DE_ALIANZA_P7 = "Valor oficial de Alianza";
-
 export const ROTULO_PREMIO_TOTAL_P7 = "Premio total anual";
+
+/**
+ * Aviso de que la apertura del premio todavía no es la oficial (D-04).
+ *
+ * La matriz deja el desglose como PENDIENTE ALIANZA. Mostrar los importes sin
+ * decirlo sería peor que no mostrarlos: un número con forma de definitivo se
+ * lee como definitivo, y este va a una factura.
+ */
+export const NOTA_DESGLOSE_PROVISIONAL_P7 =
+  "Apertura provisional para la demostración: el desglose oficial entre prima e impuestos lo " +
+  "define Alianza Garantía.";
 
 /** CHG-35 · aclaración de moneda al pie de la liquidación. */
 export const NOTA_MONEDA_P7 = "Todos los importes están expresados en guaraníes.";
