@@ -567,6 +567,14 @@ export function VerificacionIdentidad({
           Captura documental y biométrica
         </h2>
 
+        {/* CHG-19 · restricción del producto, junto a la captura y no en una
+            pantalla anterior: es acá donde la persona saca el documento, y es
+            acá donde enterarse tarde cuesta el trámite entero. */}
+        <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-xs text-cuerpo dark:border-azul-700 dark:bg-azul-950">
+          <span className="font-bold text-azul-800 dark:text-azul-200">Importante:</span> este
+          seguro solo puede ser contratado por personas con cédula de identidad paraguaya.
+        </p>
+
         <div className="grid gap-3 sm:grid-cols-3">
           {TARJETAS.map((tarjeta) => {
             const { tipo, numero } = tarjeta;

@@ -82,6 +82,58 @@ export const ORDEN_PLANES: readonly PlanId[] = ["CONFIO", "CONFIO_PLUS", "CONFIO
 export const NOMBRE_PRODUCTO = "Seguro de Vida Oncológico CONFÍO";
 
 /**
+ * Identificación del producto ante la Superintendencia de Seguros (CHG-03).
+ *
+ * La Res. SS.SG. 215/17 (num. 9.f) exige exhibir el modelo registrado del plan
+ * con su código, su acto administrativo y una URL directa. **Todavía no los
+ * tenemos**: la Matriz Legal V4 los deja como PENDIENTE ALIANZA y ordena usar
+ * el marcador `CDXXXXX` hasta recibir los definitivos.
+ *
+ * Por eso el marcador no es un descuido sino la instrucción: publicar un
+ * código inventado sería peor que publicar uno visiblemente pendiente, porque
+ * un código con forma de código se lee como real. El rótulo de la pantalla
+ * dice que está pendiente, y `esProvisional` permite que cualquier vista lo
+ * marque sin repetir la regla.
+ *
+ * Al llegar los datos oficiales se reemplazan acá y `esProvisional` pasa a
+ * `false`: ninguna pantalla necesita cambiar.
+ */
+export interface RegistroProducto {
+  /** Código del plan registrado, o el marcador mientras no exista. */
+  readonly codigo: string;
+  /** Acto administrativo que lo aprueba. */
+  readonly acto: string;
+  /** URL directa al modelo registrado en el sitio de la aseguradora. */
+  readonly urlModelo: string | null;
+  readonly esProvisional: boolean;
+}
+
+export const MARCADOR_PENDIENTE_ALIANZA = "CDXXXXX";
+
+export const REGISTRO_PRODUCTO: RegistroProducto = {
+  codigo: MARCADOR_PENDIENTE_ALIANZA,
+  acto: MARCADOR_PENDIENTE_ALIANZA,
+  urlModelo: null,
+  esProvisional: true,
+};
+
+/**
+ * Documento de coberturas, exclusiones y condiciones que se enlaza por plan
+ * (CHG-05, decisión D-15).
+ *
+ * En la reunión quedó abierto si son tres documentos o uno solo; Rodrigo se
+ * inclinó por uno ("el mismo va a ser, yo creo") y la decisión fue dejarlo
+ * **parametrizable**. Un `Record` por plan resuelve las dos formas sin cambiar
+ * ninguna pantalla: hoy los tres apuntan al mismo documento; el día que Alianza
+ * mande uno por plan, se cambian estas tres líneas.
+ */
+export const DOCUMENTO_COBERTURAS_POR_PLAN: Readonly<Record<PlanId, "coberturas">> = {
+  CONFIO: "coberturas",
+  CONFIO_PLUS: "coberturas",
+  CONFIO_TOTAL: "coberturas",
+};
+
+/**
  * Identificador de esta versión de la oferta. Se persiste en el expediente
  * (`PlanSeleccionado.idVersionOferta`) y viaja a la evidencia de P2.
  *

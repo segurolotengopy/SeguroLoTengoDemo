@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnlaceAclaracion, HeaderInstitucional, StepperPasos } from "@/components/shared";
+import { REGISTRO_PRODUCTO } from "@/domain/catalogo";
 import { SelectorDePlanes } from "./SelectorDePlanes";
 
 /**
@@ -66,6 +67,21 @@ export default function PantallaP2Plan() {
       <BandaEncabezado />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
+        {/* CHG-03 · identificación del producto registrado. La Res. SS.SG.
+            215/17 pide el código del plan, su acto administrativo y la URL del
+            modelo. Todavía no los tenemos, así que se muestra el marcador con
+            su rótulo de pendiente: un código inventado se leería como real. */}
+        <p className="text-xs text-etiqueta">
+          <span className="font-semibold text-cuerpo">Producto inscrito:</span>{" "}
+          <span className="tabular-nums">{REGISTRO_PRODUCTO.codigo}</span> · Res. SS.SG. N.°{" "}
+          <span className="tabular-nums">{REGISTRO_PRODUCTO.acto}</span>
+          {REGISTRO_PRODUCTO.esProvisional ? (
+            <span className="ml-2 rounded-full border border-naranja-300 bg-naranja-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-naranja-800 uppercase dark:border-naranja-700 dark:bg-naranja-950 dark:text-naranja-200">
+              Pendiente de Alianza
+            </span>
+          ) : null}
+        </p>
+
         <SelectorDePlanes />
 
         {/* Un solo recuadro con los cuatro bloques informativos. */}

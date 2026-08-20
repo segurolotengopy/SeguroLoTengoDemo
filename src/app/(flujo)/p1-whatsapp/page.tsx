@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { resolverModoIntegracion } from "@/adapters/index";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
+import { AVISO_ALCANCE_VERIFICACION_P1 } from "@/domain/textos-p1";
 import { FormularioVerificacionWhatsapp } from "./FormularioVerificacionWhatsapp";
 
 /**
@@ -74,6 +75,11 @@ export default function PantallaP1Whatsapp() {
               : null
           }
         />
+
+        {/* CHG-10 · alcance de la verificación, al pie y en un solo bloque. */}
+        <p className="rounded-lg border border-borde-sutil bg-superficie-suave p-3 text-xs leading-snug text-cuerpo">
+          {AVISO_ALCANCE_VERIFICACION_P1}
+        </p>
 
         <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link

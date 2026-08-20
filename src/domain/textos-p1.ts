@@ -19,3 +19,17 @@ export const TEXTO_AUTORIZACION_P1 =
   "No autoriza publicidad.";
 
 export const VERSION_TEXTO_AUTORIZACION_P1 = "P1-AUTORIZACION-CANAL-v1";
+
+/**
+ * CHG-10 · qué significa y qué **no** significa haber verificado el número.
+ *
+ * La reunión (00:08:16) lo pidió al pie de la pantalla y con las dos mitades
+ * juntas, que es lo que lo hace útil: la primera desactiva el miedo a haberse
+ * comprometido a algo, y la segunda deja asentado lo único que la verificación
+ * sí prueba. Sin la segunda mitad el paso no tendría valor probatorio; sin la
+ * primera, la persona puede creer que ya contrató.
+ */
+export const AVISO_ALCANCE_VERIFICACION_P1 =
+  "La verificación no implica la contratación del seguro, la firma de documentos, el inicio de la " +
+  "cobertura ni la obligación de pago de prima. Sin embargo, constituye una declaración de que el " +
+  "número indicado es de mi propiedad y se encuentra bajo mi control.";
