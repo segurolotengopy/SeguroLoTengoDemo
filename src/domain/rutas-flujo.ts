@@ -163,6 +163,23 @@ export function rutaSiguienteDe(slug: string): string | null {
   return PASOS_FLUJO[indice + 1]?.slug ?? null;
 }
 
+/**
+ * El paso anterior a una pantalla, por su slug — ruta y título.
+ *
+ * El simétrico de `rutaSiguienteDe`, y existe por el mismo motivo, esta vez
+ * comprobado en la pantalla de firma: su enlace de volver decía "Volver a
+ * facturación y garantía de pago" y apuntaba a `/pago`, que era correcto
+ * cuando se pagaba antes de firmar. Con D-08 el pago pasó a ser el paso
+ * **siguiente**, así que ese enlace mandaba a la persona hacia adelante, a un
+ * paso que todavía no puede completar. Escrito a mano vuelve a pasar; derivado
+ * de `PASOS_FLUJO`, no.
+ */
+export function pasoAnteriorDe(slug: string): PasoDelFlujo | null {
+  const indice = PASOS_FLUJO.findIndex((paso) => paso.slug === slug);
+  if (indice <= 0) return null;
+  return PASOS_FLUJO[indice - 1] ?? null;
+}
+
 /** Ruta del paso siguiente al que deja este estado, o `null` si no hay. */
 export function rutaDelPasoSiguiente(estado: EstadoExpediente): string | null {
   const indice = PASOS_FLUJO.findIndex((paso) => paso.estadoAlCompletar === estado);

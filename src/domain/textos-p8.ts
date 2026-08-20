@@ -68,6 +68,11 @@ export const MARCA_PDF_CERRADO_P8 = "PDF cerrado · hash registrado";
 
 export const BOTON_VER_PDF_P8 = "VER PDF COMPLETO · SOLO LECTURA";
 
+/** Título del visor modal que abre ese botón, sin salir de la pantalla. */
+export const TITULO_VISOR_PDF_P8 = "Solicitud y FIPF · solo lectura";
+
+export const BOTON_CERRAR_VISOR_P8 = "CERRAR";
+
 /**
  * CHG-29 · por qué acá no hay botón de descarga.
  *
@@ -177,7 +182,7 @@ export const PASOS_PROGRESO_FIRMA_P8: readonly string[] = [
   "Te confirmamos y volvés al portal",
 ];
 
-export const ESTADO_ESPERANDO_CODE100_P8 = "Esperando la confirmación verificable de la firma";
+export const ESTADO_ESPERANDO_FIRMA_P8 = "Esperando la confirmación verificable de la firma";
 
 export const NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8 =
   "Firmada la Solicitud, el pago tiene seguimiento a 1, 5 y 12 horas y vence a las 24 horas.";
