@@ -198,7 +198,16 @@ export interface EncabezadoDocumento {
   readonly version: number;
   readonly cerradoEn: string;
   readonly titulo: string;
-  readonly urlVerificacion: string;
+  /**
+   * Enlace que codifica el QR de verificación, o `null` en los documentos que
+   * **no se verifican**.
+   *
+   * El comprobante de pago es el único caso: no es un instrumento con huella
+   * registrada sino una constancia de una operación que ya está probada por el
+   * certificado y por la Solicitud firmada. Dibujarle un QR sugeriría que se
+   * puede verificar por sí solo, y no se puede.
+   */
+  readonly urlVerificacion: string | null;
   /**
    * Fecha de la solicitud con sello de tiempo (CMP-09).
    *

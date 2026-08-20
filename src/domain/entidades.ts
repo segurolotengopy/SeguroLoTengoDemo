@@ -91,6 +91,98 @@ export const CORREO_RETRACTO_Y_DATOS = "segurolotengo@interseguros360.com";
  */
 export const WHATSAPP_ATENCION: string | null = null;
 
+// ---------------------------------------------------------------------------
+// Datos pendientes de D-19 · parametrizados, nunca inventados
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que la matriz todavía no cerró viaja por entorno.
+ *
+ * D-19 decidió que estos cuatro datos —teléfono y correo de atención de
+ * Interseguros, correo de atención de Alianza y el número del botón de
+ * WhatsApp— *"quedan parametrizables; Andres/Rodrigo pasan los datos cuando
+ * los tengan"*. Parametrizarlos es lo que permite mostrarlos en una
+ * demostración sin escribir un teléfono de fantasía en el código, que en una
+ * pantalla de seguros es un problema regulatorio.
+ *
+ * Sin variable definida, cada uno sigue siendo `null` y **la pantalla omite el
+ * dato** en vez de mostrar un marcador: un `[datos oficiales]` a la vista de
+ * un cliente es peor que no decir nada.
+ *
+ * `NEXT_PUBLIC_` porque el pie de la confirmación se dibuja en el servidor y
+ * el botón de WhatsApp en el cliente: si cada orilla leyera una variable
+ * distinta, podrían discrepar.
+ *
+ * **Cada variable se lee escrita entera y a mano** —`process.env.NEXT_PUBLIC_X`
+ * y nunca `process.env[nombre]`—: Next reemplaza esas expresiones por su valor
+ * al compilar el bundle del navegador, y una lectura por índice no se
+ * reemplaza. Con un helper genérico, el servidor vería el dato y el cliente
+ * `undefined`, que es la clase de discordancia que este módulo existe para
+ * evitar.
+ */
+function limpiar(valor: string | undefined): string | null {
+  return valor && valor.trim() !== "" ? valor.trim() : null;
+}
+
+export interface ContactoInstitucional {
+  readonly entidad: Entidad;
+  /** Qué resuelve esta entidad, para que la persona sepa a quién escribirle. */
+  readonly rol: string;
+  readonly telefono: string | null;
+  readonly correo: string | null;
+}
+
+/**
+ * Los dos contactos de la pantalla de confirmación (CHG-45), con lo que se
+ * sabe y sin lo que no.
+ */
+export function contactosInstitucionales(): readonly ContactoInstitucional[] {
+  return [
+    {
+      entidad: ALIANZA,
+      rol: "Emisión de la póliza, cobertura y reclamos",
+      telefono: limpiar(process.env.NEXT_PUBLIC_ALIANZA_TELEFONO) ?? ALIANZA.telefono,
+      correo: limpiar(process.env.NEXT_PUBLIC_ALIANZA_CORREO) ?? ALIANZA.correoAtencion,
+    },
+    {
+      entidad: INTERSEGUROS,
+      rol: "Asistencia y seguimiento de tu contratación",
+      telefono: limpiar(process.env.NEXT_PUBLIC_INTERSEGUROS_TELEFONO) ?? INTERSEGUROS.telefono,
+      // El correo de retracto y datos está CERRADO en la matriz solo para esos
+      // dos usos; como correo de atención general sigue pendiente, así que acá
+      // no se lo reusa (ver `CORREO_RETRACTO_Y_DATOS`).
+      correo: limpiar(process.env.NEXT_PUBLIC_INTERSEGUROS_CORREO) ?? INTERSEGUROS.correoAtencion,
+    },
+  ];
+}
+
+/**
+ * Número del botón de WhatsApp de la pantalla de confirmación (D-17).
+ *
+ * D-17 lo decidió **solo para esa pantalla**, con un flag para extenderlo:
+ * `NEXT_PUBLIC_WHATSAPP_EN_TODO_EL_FLUJO=true`. Mientras no exista número, no
+ * hay botón — no se enlaza un WhatsApp inventado.
+ */
+export function whatsappAtencion(): string | null {
+  return limpiar(process.env.NEXT_PUBLIC_WHATSAPP_ATENCION) ?? WHATSAPP_ATENCION;
+}
+
+/** D-17 · el botón vive en la confirmación salvo que se lo extienda por flag. */
+export function whatsappHabilitadoEn(pantalla: "CONFIRMACION" | "OTRA"): boolean {
+  if (whatsappAtencion() === null) return false;
+  if (pantalla === "CONFIRMACION") return true;
+  return process.env.NEXT_PUBLIC_WHATSAPP_EN_TODO_EL_FLUJO === "true";
+}
+
+/**
+ * El número en el formato que espera `wa.me`: solo dígitos, sin `+` ni
+ * separadores.
+ */
+export function enlaceWhatsapp(numero: string, mensaje: string): string {
+  const digitos = numero.replace(/\D/g, "");
+  return `https://wa.me/${digitos}?text=${encodeURIComponent(mensaje)}`;
+}
+
 /** Nombre comercial del portal. Ver `marcaVisible()` antes de mostrarlo. */
 export const MARCA_FANTASIA = "Seguro Lo Tengo";
 

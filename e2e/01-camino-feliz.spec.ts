@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
 import {
@@ -23,10 +24,10 @@ import {
  * compatibles) → P7 (pago QR) → P8 (firma Code100) → P9 (contratación
  * aceptada), con Mónica Mariana Gorena Tapia (C.I. 9.323.336).
  *
- * P9 tiene que mostrar `Solicitud aceptada ✓` junto a `Póliza en preparación
- * ⋯`: son dos hitos distintos (aceptación de la solicitud vs. estado del
- * documento, que mueve Alianza a su ritmo) — CLAUDE.md, "Máquina de estados
- * del expediente".
+ * La confirmación tiene que mostrar el `Certificado de Cobertura Provisional ✓`
+ * junto a `Emisión de la póliza y la factura ⋯`: son dos cosas distintas
+ * —el documento que el portal ya emitió (D-12) frente al que Alianza emite a
+ * su ritmo— y los tres descargables tienen que servir un PDF de verdad.
  */
 test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
   const persona = obtenerPersonaDemo("camino-feliz");
@@ -55,17 +56,71 @@ test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
   await completarP7Qr(page);
   await continuarAConfirmacion(page);
 
-  // P9 · Paso 9 de 9 — Contratación aceptada.
+  // Paso 8 · Contratación aceptada.
   await expect(page).toHaveURL(/\/confirmacion$/);
   await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
 
-  const hitoSolicitud = page.locator("li", { hasText: "Solicitud aceptada" });
-  await expect(hitoSolicitud.getByText("✓", { exact: false })).toBeVisible();
+  // El certificado ya existe cuando la pantalla carga: nació con el cobro
+  // (D-12), no lo emite esta pantalla.
+  const hitoCertificado = page.locator("li", { hasText: "Certificado de Cobertura Provisional" });
+  await expect(hitoCertificado.getByText("✓", { exact: false })).toBeVisible();
 
-  const hitoPoliza = page.locator("li", { hasText: "Póliza en preparación" });
+  const hitoPoliza = page.locator("li", { hasText: "Emisión de la póliza y la factura" });
   await expect(hitoPoliza).toBeVisible();
   await expect(hitoPoliza.getByText("⋯", { exact: false })).toBeVisible();
 
   await expect(page.getByText("ACEPTADA", { exact: true })).toBeVisible();
   await expect(page.getByText("No se genera Nota de Cobertura.")).toBeVisible();
+
+  // CHG-41 · la fecha de inicio de cobertura consta en la pantalla, no se
+  // remite a un documento que todavía no llegó.
+  // Por rol y no por texto: el rótulo se escribe en minúsculas (lo pone en
+  // mayúsculas el CSS) y "inicio de la cobertura" aparece además dentro de la
+  // descripción del certificado.
+  await expect(page.getByRole("heading", { name: "Inicio de la cobertura" })).toBeVisible();
+  await expect(page.getByText("24 horas exactas después de la confirmación del pago.")).toBeVisible();
+
+  // CHG-42/43 · los tres descargables, cada uno con su código y su PDF.
+  const correlativo = await propuestaVisible(page);
+  for (const codigo of [`CPC-${correlativo}`, `PROP-${correlativo}`, `REC-${correlativo}`]) {
+    await expect(page.getByText(codigo, { exact: true })).toBeVisible();
+  }
+  await verificarDescargas(page, correlativo);
 });
+
+/** El correlativo que la pantalla muestra, para armar los tres códigos. */
+async function propuestaVisible(page: Page): Promise<string> {
+  const codigo = await page.getByText(/^PROP-\d{8}$/).first().textContent();
+  const correlativo = (codigo ?? "").replace("PROP-", "");
+  expect(correlativo).toMatch(/^\d{8}$/);
+  return correlativo;
+}
+
+/**
+ * Los tres documentos se piden por el mismo endpoint y tienen que devolver un
+ * PDF de verdad. Se los pide desde el contexto de la página para que viaje la
+ * cookie de sesión: sin ella el endpoint responde 400, que es justamente la
+ * garantía de que nadie baja el certificado de otra persona.
+ */
+async function verificarDescargas(page: Page, correlativo: string): Promise<void> {
+  const pedidos: readonly { codigo: string; firmado: boolean; conHuella: boolean }[] = [
+    { codigo: `CPC-${correlativo}`, firmado: false, conHuella: true },
+    { codigo: `PROP-${correlativo}`, firmado: true, conHuella: true },
+    // El comprobante se genera al vuelo y no tiene huella registrada (D-05).
+    { codigo: `REC-${correlativo}`, firmado: false, conHuella: false },
+  ];
+
+  for (const { codigo, firmado, conHuella } of pedidos) {
+    const url = `/api/p8/documento?codigo=${codigo}${firmado ? "&firmado=1" : ""}&descargar=1`;
+    const respuesta = await page.request.get(url);
+    expect(respuesta.status(), `descarga de ${codigo}`).toBe(200);
+    expect(respuesta.headers()["content-type"]).toContain("application/pdf");
+    const cuerpo = await respuesta.body();
+    expect(cuerpo.subarray(0, 5).toString("latin1"), `${codigo} no es un PDF`).toBe("%PDF-");
+    if (conHuella) {
+      expect(respuesta.headers()["x-sha256"], `${codigo} sin huella`).toMatch(/^[0-9a-f]{64}$/);
+    } else {
+      expect(respuesta.headers()["x-sha256"]).toBeUndefined();
+    }
+  }
+}

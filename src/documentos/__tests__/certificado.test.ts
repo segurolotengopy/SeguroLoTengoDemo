@@ -56,8 +56,16 @@ describe("emisión del Certificado de Cobertura Provisional", () => {
     if (!resultado.ok) return;
 
     const codigo = codigoCertificado(NUMERO_PROPUESTA_FIJO);
-    const clave = claveCertificado(expediente.id, codigo, VERSION_INICIAL_CERTIFICADO);
+    const clave = claveCertificado(
+      expediente.id,
+      codigo,
+      VERSION_INICIAL_CERTIFICADO,
+      resultado.certificado.hashSha256,
+    );
     expect(resultado.clave).toBe(clave);
+    // La huella forma parte de la ruta: es lo que impide que dos emisiones
+    // simultáneas se pisen (ver `claveCertificado`).
+    expect(resultado.clave).toContain(resultado.certificado.hashSha256);
 
     const guardado = archivos.archivos.get(clave);
     expect(guardado).toBeDefined();
@@ -127,6 +135,37 @@ describe("emisión del Certificado de Cobertura Provisional", () => {
     if (!a.ok || !b.ok) return;
     expect(a.certificado.hashSha256).toBe(b.certificado.hashSha256);
     expect([...primera.archivos.values()][0]).toEqual([...segunda.archivos.values()][0]);
+  });
+
+  /**
+   * La carrera que este diseño existe para hacer imposible: dos sondeos
+   * solapados emiten con instantes distintos y los dos escriben en S3. Con una
+   * clave que solo dependiera del código y la versión, el que escribiera
+   * último dejaría en el bucket un archivo cuya huella no es la que el
+   * expediente registró, y la descarga fallaría sobre un expediente sano.
+   */
+  it("dos emisiones con instantes distintos escriben en claves distintas", async () => {
+    const archivos = repositorioArchivos();
+    const expediente = expedienteEnPagoConfirmado();
+
+    const a = await emitirCertificadoCobertura({ archivos }, { expediente, emitidoEn: EMITIDO_EN });
+    const b = await emitirCertificadoCobertura(
+      { archivos },
+      { expediente, emitidoEn: "2026-08-09T15:04:01.000Z" },
+    );
+
+    expect(a.ok && b.ok).toBe(true);
+    if (!a.ok || !b.ok) return;
+    expect(a.certificado.hashSha256).not.toBe(b.certificado.hashSha256);
+    expect(a.clave).not.toBe(b.clave);
+    // Los dos archivos conviven, y cada uno es exactamente lo que su huella dice.
+    expect(archivos.archivos.size).toBe(2);
+    for (const resultado of [a, b]) {
+      const guardado = archivos.archivos.get(resultado.clave);
+      expect(createHash("sha256").update(guardado as Uint8Array).digest("hex")).toBe(
+        resultado.certificado.hashSha256,
+      );
+    }
   });
 
   it("si el archivo guardado no coincide con lo renderizado, no se emite certificado", async () => {

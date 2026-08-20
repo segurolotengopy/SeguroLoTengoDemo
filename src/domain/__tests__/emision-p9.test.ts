@@ -36,12 +36,15 @@ import { registrarEmisionP9, transicionarExpediente } from "../expediente";
 import type { Expediente, PolizaDelExpediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
 import {
+  NUMERO_PROPUESTA_FIJO,
+  certificadoFixture,
   expedienteEnPaqueteGenerado,
   expedienteFirmado,
   facturacionFixture,
   firmaFixture,
   pagoConfirmadoFixture,
 } from "./fixtures";
+import { codigoComprobante } from "../comprobante-pago";
 
 const AHORA = "2026-08-09T15:20:00.000Z";
 
@@ -94,7 +97,13 @@ function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
   const cobrado = transicionarExpediente(
     firmado,
     "PAGO_CONFIRMADO",
-    { facturacion: facturacionFixture, pago: pagoConfirmadoFixture },
+    {
+      facturacion: facturacionFixture,
+      pago: pagoConfirmadoFixture,
+      // D-12 · el certificado nace en la misma escritura que el cobro, así que
+      // un expediente cobrado que no lo tuviera sería un estado imposible.
+      certificadoCobertura: certificadoFixture,
+    },
     "2026-08-09T15:04:00.000Z",
   );
   if (!cobrado.ok) throw new Error(cobrado.error);
@@ -383,6 +392,39 @@ describe("P9 · resumen para la pantalla", () => {
     expect(resumen?.documento.codigoSeccionFipf).toContain("FIPF-");
   });
 
+  /**
+   * D-12/D-05 · los otros dos descargables. El certificado viaja con sus
+   * fechas ya calculadas —no se recalculan al leer— y el comprobante solo con
+   * su código, porque se genera cuando alguien lo pide.
+   */
+  it("trae el certificado con su vigencia y el código del comprobante", async () => {
+    const { resumen } = await resumenDe();
+
+    expect(resumen?.certificado?.codigo).toBe(certificadoFixture.codigo);
+    expect(resumen?.certificado?.hashSha256).toBe(certificadoFixture.hashSha256);
+    expect(resumen?.certificado?.inicioCobertura).toBe(certificadoFixture.inicioCobertura);
+    expect(resumen?.certificado?.finCobertura).toBe(certificadoFixture.finCobertura);
+    expect(resumen?.codigoComprobante).toBe(codigoComprobante(NUMERO_PROPUESTA_FIJO));
+  });
+
+  /**
+   * Un expediente que cobró antes de D-12 no tiene certificado y **no se
+   * reescribe** (regla inviolable #10). La pantalla tiene que poder dibujarse
+   * igual: el resumen devuelve `null` en vez de inventar una fecha de inicio.
+   */
+  it("un expediente legado sin certificado se lee igual, con el certificado en null", async () => {
+    const legado: Expediente = {
+      ...expedienteListoParaEmitir(),
+      certificadoCobertura: null,
+    };
+    const entorno = armar(legado);
+    await emitirPolizaP9(entorno.deps, { expedienteId: "EXP-TEST-P9", contexto: CONTEXTO });
+
+    const resumen = leerResumenP9(entorno.repositorio.actual());
+    expect(resumen).not.toBeNull();
+    expect(resumen?.certificado).toBeNull();
+  });
+
   it("no expone la cédula completa ni ningún canal sin enmascarar", async () => {
     const { entorno, resumen } = await resumenDe();
     const expediente = entorno.repositorio.actual();
@@ -396,12 +438,18 @@ describe("P9 · resumen para la pantalla", () => {
   it("no hay ningún campo de póliza descargable ni de Nota de Cobertura", async () => {
     const { resumen } = await resumenDe();
 
-    // Del portal solo se descargan la Solicitud y el FIPF firmados: la póliza y
-    // la factura las envía Alianza a los canales verificados.
+    // Del portal salen tres documentos —paquete firmado, certificado y
+    // comprobante—; la póliza y la factura las envía Alianza a los canales
+    // verificados y no tienen aquí ni bytes ni URL.
     const serializado = JSON.stringify(resumen).toLowerCase();
-    expect(serializado).not.toContain("cobertura");
+    // La palabra "cobertura" sí aparece ahora, en las fechas de vigencia del
+    // certificado (D-12). Lo que no puede aparecer es la Nota de Cobertura,
+    // que es otro instrumento y que el producto no contempla.
+    expect(serializado).not.toContain("nota de cobertura");
+    expect(serializado).not.toContain("notacobertura");
     expect(serializado).not.toContain("urlpoliza");
     expect(serializado).not.toContain("pdfpoliza");
+    expect(serializado).not.toContain("descargapoliza");
   });
 
   it("no hay resumen antes de llegar a EMITIDO", () => {

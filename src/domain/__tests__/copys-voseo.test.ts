@@ -94,6 +94,8 @@ const VOSEO_MAL_ESCRITO: readonly string[] = [
 const EXENTOS: Readonly<Record<string, string>> = {
   "textos-pantalla-b.ACTORES_PANTALLA_B[1].rol":
     "Tercera persona: describe qué hace Interseguros, no le pide nada a la persona.",
+  "textos-p9.HITOS_CONTRATACION[0].titulo":
+    'Sustantivo, no imperativo: "Firma electrónica confirmada" nombra el hito (la firma), no le pide a nadie que firme.',
 };
 
 interface Copy {

@@ -1,15 +1,9 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  HeaderInstitucional,
-  IsologoAlianza,
-  IsologoInterseguros,
-  StepperPasos,
-} from "@/components/shared";
+import { HeaderInstitucional, StepperPasos } from "@/components/shared";
 import {
   BAJADA_P9,
-  CONTACTOS_P9,
   LEYENDA_CIERRE_P9,
   ROTULO_BOTON_FINALIZAR_P9,
   ROTULO_PRODUCTO_P9,
@@ -18,11 +12,14 @@ import {
 import { ContratacionAceptada } from "./ContratacionAceptada";
 
 /**
- * P9 · Paso 9 de 9 — Contratación aceptada.
+ * Paso 8 · Contratación aceptada — `/confirmacion`.
  *
- * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "P9 · Paso 9 de 9 —
- * Contratación aceptada". Se llega solo desde P8, con los dos documentos
- * firmados en un mismo acto y la garantía de pago resuelta.
+ * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "Paso 8 · Contratación
+ * aceptada". Se llega desde el pago, con el documento único firmado, el cobro
+ * acreditado y el Certificado de Cobertura Provisional ya emitido (D-12).
+ *
+ * El número de paso no se escribe acá: sale de `PASOS_FLUJO`
+ * (`src/domain/rutas-flujo.ts`) a través del stepper.
  *
  * Respaldo normativo del conjunto: filas 39, 40, 43, 47 y 50 de la matriz de
  * cumplimiento (Res. SS SG. 215/15, art. 1, punto 14 y Anexo 1 numeral 6.13.14;
@@ -30,17 +27,18 @@ import { ContratacionAceptada } from "./ContratacionAceptada";
  * art. 85; Código Civil, arts. 1348, 1373 y 1374).
  *
  * **No se genera Nota de Cobertura** y la póliza no se descarga desde acá: la
- * emite y la envía Alianza Garantía a los canales verificados. Del portal solo
- * salen la Solicitud y el FIPF firmados.
+ * emite y la envía Alianza Garantía a los canales verificados. Del portal
+ * salen tres documentos: el paquete firmado, el certificado y el comprobante
+ * de pago (D-05).
  *
- * Sin barra de plan seleccionado: la barra va de P3 a P8, y acá la contratación
- * ya está cerrada.
+ * Sin barra de plan seleccionado: la barra va del paso 3 al 7, y acá la
+ * contratación ya está cerrada.
  */
 
 export const metadata: Metadata = {
   title: `Contratación aceptada · ${sufijoTitulo()}`,
   description:
-    "Paso 9 de 9: la solicitud fue aceptada; Alianza Garantía emitirá y enviará la póliza a los canales verificados.",
+    "La solicitud fue aceptada; Alianza Garantía emitirá y enviará la póliza a los canales verificados.",
   // Es el desenlace de un expediente concreto, no una página pública.
   robots: { index: false, follow: false },
 };
@@ -69,7 +67,7 @@ export default function PantallaP9Confirmacion() {
         <ContratacionAceptada />
 
         {/* ---------------------------------------------------------------- */}
-        {/* Pie: cierre y contactos con isologos, debajo del botón            */}
+        {/* Pie: botón de cierre y leyenda de asesoramiento (CHG-46)          */}
         {/* ---------------------------------------------------------------- */}
         <footer className="flex flex-col gap-3 border-t border-borde-tenue pt-3">
           <Link
@@ -83,22 +81,6 @@ export default function PantallaP9Confirmacion() {
             {LEYENDA_CIERRE_P9}
           </p>
 
-          <dl className="grid gap-2 lg:grid-cols-2">
-            {CONTACTOS_P9.map((contacto, indice) => (
-              <div
-                key={contacto.actor}
-                className="flex items-center gap-3 rounded-lg border border-borde-tenue bg-superficie-suave p-2.5"
-              >
-                {indice === 0 ? <IsologoAlianza tamano={32} /> : <IsologoInterseguros tamano={32} />}
-                <div className="flex flex-col gap-0.5">
-                  <dt className="text-sm font-bold text-titulo">{contacto.actor}</dt>
-                  <dd className="text-xs text-cuerpo">
-                    {contacto.rol} · {contacto.datos}
-                  </dd>
-                </div>
-              </div>
-            ))}
-          </dl>
         </footer>
       </main>
     </div>

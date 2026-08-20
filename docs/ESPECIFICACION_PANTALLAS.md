@@ -295,19 +295,26 @@ Confirmado el cobro, `VER LA CONFIRMACIÓN →`.
 
 Encabezado verde: `¡Tu solicitud de seguro fue aceptada!` — Alianza Garantía emitirá tu póliza y la recibirás en breves momentos en tu correo y WhatsApp verificados. A la derecha: `SEGURO DE VIDA ONCOLÓGICO / CONFÍO+ · Gs. 475.000`.
 
-**`ESTADO DE LA CONTRATACIÓN`** (cuatro hitos con fecha y hora registradas): 1\. Firmas Code100 ✓ (documento único firmado por cliente, Interseguros y Alianza) · 2\. Pago Bancard ✓ (pago confirmado e identificado) · 3\. Solicitud aceptada ✓ (validación automática de Alianza Garantía) · 4\. Póliza en preparación ⋯ (emisión y envío a cargo de Alianza Garantía). **El orden de los dos primeros hitos se invirtió con D-08:** primero se firma, después se cobra.
+**Banda verde de cobro** (CHG-40): `Pago confirmado por Bancard` — Premio total pagado, Operación N.º y fecha y hora del cobro.
 
-**`RESUMEN DE LA CONTRATACIÓN`:** Número de propuesta `PROP-00018425` · Estado de la solicitud `ACEPTADA` · Referencia Bancard `[ID confirmado]`. Asegurado, documento, medio de pago (`QR Bancard / tarjeta terminada en ••••`), Estado de la póliza `EN PROCESO DE EMISIÓN`. Bloque `IMPORTANTE`: la póliza será emitida por Alianza Garantía y entregada en breves momentos; correo y WhatsApp verificados. El inicio de cobertura será informado en la póliza electrónica emitida por Alianza Garantía.
+**`ESTADO DE LA CONTRATACIÓN`** (cuatro hitos con fecha y hora registradas): 1\. Firma electrónica confirmada ✓ (documento único firmado por cliente, Interseguros y Alianza) · 2\. Pago confirmado ✓ (cobro acreditado e identificado por Bancard) · 3\. Certificado de Cobertura Provisional ✓ (emitido y firmado por Alianza Garantía) · 4\. Emisión de la póliza y la factura ⋯ (en proceso en el sistema de Alianza Garantía). **El orden de los dos primeros hitos se invirtió con D-08:** primero se firma, después se cobra. El tercero era `Solicitud aceptada` y cambió con D-12: nombra el documento que la persona recibe, no una validación interna.
+
+**Bloque `Inicio de la cobertura`** (CHG-41): la fecha y hora concretas, **24 horas exactas después de la confirmación del pago**, con la vigencia hasta el aniversario. La fecha sale del certificado, que la fijó al acreditarse el cobro; la pantalla no la recalcula. *(La frase del wireframe decía "48 horas" y es incorrecta: son 24, que es lo que la persona firmó en la declaración 4.)*
+
+**`RESUMEN DE LA CONTRATACIÓN`:** Número de propuesta `PROP-00018425` · Estado de la solicitud `ACEPTADA` · Referencia Bancard `[ID confirmado]`. Asegurado, documento, medio de pago (`QR Bancard / tarjeta terminada en ••••`), Estado de la póliza `EN PROCESO DE EMISIÓN`. Bloque `IMPORTANTE`: la póliza será emitida por Alianza Garantía y entregada en breves momentos; correo y WhatsApp verificados; el Certificado de Cobertura Provisional ya está disponible para descargar.
 
 **Documentos:**
 
+- `DOCUMENTOS DISPONIBLES PARA DESCARGAR` — **tres** (D-05, CHG-42/43), en este orden: `Certificado de Cobertura Provisional` (`CPC-…`, firmado por Alianza), `Solicitud de Seguro de Vida Oncológico y FIPF (firmado)` (`PROP-…`, firmado por cliente, Interseguros y Alianza) y `Comprobante de pago del premio` (`REC-…`). Los dos primeros muestran su SHA-256; el comprobante no tiene, porque se genera al pedirlo y no es un instrumento con huella registrada. Es acá donde la descarga se habilita: antes de firmar el visor no la ofrece (CHG-29).  
+- Leyenda: **No se genera Nota de Cobertura.**  
 - `DOCUMENTOS QUE RECIBIRÁS EN BREVES MOMENTOS` — Póliza electrónica y Factura electrónica, ambas con badge `EN EMISIÓN` (las emite y envía Alianza por correo y WhatsApp).  
-- `DOCUMENTOS DISPONIBLES PARA DESCARGAR` — **un** documento: `Solicitud de Seguro de Vida Oncológico y FIPF (firmado)`, con las firmas de cliente, Interseguros y Alianza Garantía, y botón `DESCARGAR`. Es acá donde la descarga se habilita: antes de firmar el visor no la ofrece (CHG-29).  
-- Leyenda: **No se genera Nota de Cobertura.**
+- `RECIBIRÁS LOS DOCUMENTOS EN` — correo y WhatsApp verificados, **enmascarados**.
 
 **`¿QUÉ OCURRIRÁ AHORA?`:** 1\. Emitir la póliza (Alianza mediante SEBAOT) → 2\. Firmar la póliza (Alianza mediante Code100) → 3\. Enviar al correo verificado → 4\. Enviar al WhatsApp verificado.
 
-**Pie:** contactos de Alianza (emisión, cobertura y reclamos) e Interseguros (asistencia y seguimiento). Bloque `COMUNICACIONES COMERCIALES · OPCIONAL`: checkbox **desmarcado por defecto** para recibir por WhatsApp y correo ofertas de otros seguros comercializados por Interseguros, revocable en cualquier momento. Botón `FINALIZAR / Volver al inicio`.
+**`¿NECESITÁS AYUDA?`** (CHG-45): botón `ESCRIBIR POR WHATSAPP` —solo en esta pantalla (D-17), y solo si hay número configurado— más las fichas de Alianza (emisión, cobertura y reclamos) e Interseguros (asistencia y seguimiento) con razón social, domicilio, teléfono, correo y sitio. Los datos salen de `src/domain/entidades.ts`; **lo que D-19 todavía no cerró no se muestra**, ni siquiera como marcador.
+
+**Pie:** bloque `COMUNICACIONES COMERCIALES · OPCIONAL` con checkbox **desmarcado por defecto** para recibir por WhatsApp y correo ofertas de otros seguros comercializados por Interseguros, revocable en cualquier momento. Botón `FINALIZAR / Volver al inicio` y leyenda de asesoramiento continuo (CHG-46).
 
 ---
 

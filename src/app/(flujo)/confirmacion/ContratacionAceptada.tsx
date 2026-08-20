@@ -3,53 +3,87 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AVISOS_IMPORTANTE_P9,
-  PASOS_QUE_OCURRIRA_P9,
-  TITULO_QUE_OCURRIRA_P9,
+  BAJADA_AYUDA_P9,
+  BAJADA_ENTREGA_P9,
+  BOTON_DESCARGAR_P9,
+  BOTON_WHATSAPP_P9,
   BADGE_EMITIDA,
   BADGE_EN_EMISION,
-  BOTON_DESCARGAR_P9,
+  DETALLE_CERTIFICADO_P9,
+  DETALLE_COMPROBANTE_P9,
   DETALLE_FIRMANTES_P9,
+  DETALLE_INICIO_COBERTURA_P9,
   DOCUMENTOS_POR_RECIBIR,
   HITOS_CONTRATACION,
   LEYENDA_SIN_NOTA_DE_COBERTURA,
+  NOMBRE_CERTIFICADO_P9,
+  NOMBRE_COMPROBANTE_P9,
   NOMBRE_DOCUMENTO_P9,
+  PASOS_QUE_OCURRIRA_P9,
   ROTULO_ASEGURADO_P9,
+  ROTULO_CANAL_CORREO_P9,
+  ROTULO_CANAL_WHATSAPP_P9,
   ROTULO_DOCUMENTO_P9,
   ROTULO_ESTADO_POLIZA,
   ROTULO_ESTADO_POLIZA_P9,
   ROTULO_ESTADO_SOLICITUD_P9,
+  ROTULO_FIN_VIGENCIA_P9,
   ROTULO_MEDIO_DE_PAGO_P9,
   ROTULO_NUMERO_PROPUESTA_P9,
+  ROTULO_OPERACION_P9,
+  ROTULO_PREMIO_PAGADO_P9,
   ROTULO_REFERENCIA_BANCARD_P9,
+  TEXTO_COMUNICACIONES_COMERCIALES,
+  TITULO_AYUDA_P9,
+  TITULO_COMUNICACIONES_COMERCIALES,
   TITULO_DOCUMENTOS_PARA_DESCARGAR,
   TITULO_DOCUMENTOS_QUE_RECIBIRAS,
+  TITULO_ENTREGA_P9,
   TITULO_ESTADO_CONTRATACION,
   TITULO_IMPORTANTE_P9,
-  TEXTO_COMUNICACIONES_COMERCIALES,
-  TITULO_COMUNICACIONES_COMERCIALES,
+  TITULO_INICIO_COBERTURA_P9,
+  TITULO_PAGO_CONFIRMADO_P9,
+  TITULO_QUE_OCURRIRA_P9,
   TITULO_RESUMEN_CONTRATACION,
   VALOR_ESTADO_SOLICITUD_ACEPTADA,
+  mensajeWhatsappP9,
 } from "@/domain/textos-p9";
 import { TEXTOS_MEDIOS_DE_PAGO_P7 } from "@/domain/textos-p7";
+import {
+  contactosInstitucionales,
+  enlaceWhatsapp,
+  whatsappHabilitadoEn,
+  whatsappAtencion,
+} from "@/domain/entidades";
+import { formatearGuaranies } from "@/domain/catalogo";
 
 /**
- * Los bloques de P9 que dependen del expediente: los cuatro hitos, el resumen
- * de la contratación, los documentos y el sondeo de la emisión.
+ * Los bloques de la confirmación que dependen del expediente: los cuatro
+ * hitos, la banda del cobro, el inicio de cobertura, el resumen, los tres
+ * descargables y el sondeo de la emisión.
  *
  * Dos cosas que esta pantalla **no** hace, y son las que más importan:
  *
  * - **No entrega la póliza ni la factura.** Las emite y las envía Alianza
  *   (SEBAOT y SIFEN) a los canales verificados; acá solo se muestra su estado.
- *   Los únicos archivos que se descargan del portal son la Solicitud y el FIPF
- *   firmados.
  * - **No genera Nota de Cobertura.** El producto no la contempla, y la leyenda
- *   está a la vista.
+ *   está a la vista. El Certificado de Cobertura Provisional es otra cosa
+ *   (D-12): no compromete cobertura anticipada, constata un cobro ya hecho.
  */
 
 interface DocumentoDescargable {
   readonly codigo: string;
   readonly version: number;
   readonly hashFirmado: string;
+}
+
+interface CertificadoDescargable {
+  readonly codigo: string;
+  readonly version: number;
+  readonly hashSha256: string;
+  readonly inicioCobertura: string;
+  readonly finCobertura: string;
+  readonly emitidoEn: string;
 }
 
 interface Resumen {
@@ -61,6 +95,7 @@ interface Resumen {
   readonly polizaEmitidaEn: string | null;
   readonly referenciaBancard: string | null;
   readonly medio: string | null;
+  readonly montoGs: number | null;
   readonly nombreAsegurado: string | null;
   readonly documentoEnmascarado: string | null;
   readonly whatsappEnmascarado: string | null;
@@ -69,11 +104,14 @@ interface Resumen {
   readonly pagoConfirmadoEn: string | null;
   readonly solicitudAceptadaEn: string;
   readonly documento: DocumentoDescargable;
+  readonly certificado: CertificadoDescargable | null;
+  readonly codigoComprobante: string;
 }
 
 const MENSAJES: Readonly<Record<string, string>> = {
   SESION_INVALIDA: "Se perdió la sesión. Volvé a empezar desde la verificación de WhatsApp.",
-  EXPEDIENTE_NO_ENCONTRADO: "Se perdió la sesión. Volvé a empezar desde la verificación de WhatsApp.",
+  EXPEDIENTE_NO_ENCONTRADO:
+    "Se perdió la sesión. Volvé a empezar desde la verificación de WhatsApp.",
   ESTADO_INVALIDO: "Este expediente todavía no llegó a la contratación aceptada.",
   SIN_FIRMA: "Todavía falta firmar la Solicitud y el FIPF.",
   COBRO_NO_CONFIRMADO:
@@ -113,43 +151,64 @@ function Badge({ emitido }: { emitido: boolean }) {
   );
 }
 
+/**
+ * Tarjeta de descarga. Los tres documentos entran por el mismo endpoint y se
+ * distinguen por su código: el paquete firmado necesita `&firmado=1`, el
+ * certificado y el comprobante no.
+ *
+ * `huella` es `null` en el comprobante, y la tarjeta lo refleja: no es un
+ * instrumento con huella registrada, así que mostrar un SHA-256 al lado
+ * afirmaría algo que no es (D-05).
+ */
 function TarjetaDescarga({
   nombre,
-  documento,
+  detalle,
+  codigo,
+  firmado,
+  huella,
   disponible,
+  pendiente,
 }: {
   nombre: string;
-  documento: DocumentoDescargable;
+  detalle: string;
+  codigo: string;
+  firmado: boolean;
+  huella: string | null;
   disponible: boolean;
+  /** Qué decir mientras el archivo todavía no está. El certificado no lo usa:
+   *  existe desde antes que la pantalla, porque nació con el cobro (D-12). */
+  pendiente?: string;
 }) {
-  const url = `/api/p8/documento?codigo=${encodeURIComponent(documento.codigo)}&firmado=1&descargar=1`;
+  const url = `/api/p8/documento?codigo=${encodeURIComponent(codigo)}${
+    firmado ? "&firmado=1" : ""
+  }&descargar=1`;
 
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie-suave p-4">
+    <article className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie-suave p-3">
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3 className="text-sm font-bold text-titulo">{nombre}</h3>
           <code className="font-mono text-xs font-semibold text-azul-700 dark:text-azul-200">
-            {documento.codigo}
+            {codigo}
           </code>
         </div>
-        <p className="text-sm text-cuerpo">{DETALLE_FIRMANTES_P9}</p>
+        <p className="text-xs text-cuerpo">{detalle}</p>
       </div>
 
       {disponible ? (
         <a
           href={url}
-          className="inline-flex h-10 items-center justify-center rounded-lg border border-azul-300 px-4 text-xs font-bold tracking-wide text-azul-800 uppercase transition-colors hover:bg-azul-50 sm:self-start dark:border-azul-600 dark:text-azul-200 dark:hover:bg-azul-950"
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-azul-300 px-4 text-xs font-bold tracking-wide text-azul-800 uppercase transition-colors hover:bg-azul-50 sm:self-start dark:border-azul-600 dark:text-azul-200 dark:hover:bg-azul-950"
         >
           {BOTON_DESCARGAR_P9}
         </a>
       ) : (
-        <p className="text-xs text-etiqueta">Preparando el archivo firmado…</p>
+        <p className="text-xs text-etiqueta">{pendiente ?? "Preparando el archivo…"}</p>
       )}
 
-      <p className="font-mono text-[11px] break-all text-etiqueta">
-        SHA-256 {documento.hashFirmado}
-      </p>
+      {huella ? (
+        <p className="font-mono text-[11px] break-all text-etiqueta">SHA-256 {huella}</p>
+      ) : null}
     </article>
   );
 }
@@ -266,18 +325,46 @@ export function ContratacionAceptada() {
   const textoMedio = TEXTOS_MEDIOS_DE_PAGO_P7.find((opcion) => opcion.medio === resumen?.medio);
   const polizaEmitida = estadoPoliza === "EMITIDA";
   const facturaEmitida = estadoFactura === "EMITIDA";
+  const certificado = resumen?.certificado ?? null;
 
-  // Los tres primeros hitos están cumplidos al llegar acá; el cuarto sigue el
-  // estado real de la póliza en Alianza.
+  // Los tres primeros hitos están cumplidos al llegar acá —firma, cobro y
+  // certificado nacen antes que esta pantalla—; el cuarto sigue el estado real
+  // de la póliza en Alianza.
   const fechasHito: readonly (string | null)[] = [
     resumen?.firmadoEn ?? null,
     resumen?.pagoConfirmadoEn ?? null,
-    resumen?.solicitudAceptadaEn ?? null,
+    certificado?.emitidoEn ?? null,
     resumen?.polizaEmitidaEn ?? null,
   ];
 
+  const numeroWhatsapp = whatsappAtencion();
+  const mostrarWhatsapp = whatsappHabilitadoEn("CONFIRMACION") && numeroWhatsapp !== null;
+
   return (
     <div className="flex flex-col gap-4">
+      {/* ------------------------------------------------------------------ */}
+      {/* Banda del cobro (CHG-40) — lo primero que la persona quiere leer     */}
+      {/* ------------------------------------------------------------------ */}
+      <section
+        aria-labelledby="p9-cobro"
+        className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-verde-300 bg-verde-50 px-4 py-3 dark:border-verde-700 dark:bg-verde-950"
+      >
+        <h2 id="p9-cobro" className="text-sm font-bold text-verde-900 dark:text-verde-100">
+          {TITULO_PAGO_CONFIRMADO_P9}
+        </h2>
+        <p className="text-sm text-verde-900 tabular-nums dark:text-verde-100">
+          {ROTULO_PREMIO_PAGADO_P9}:{" "}
+          <span className="font-bold">
+            {resumen?.montoGs != null ? formatearGuaranies(resumen.montoGs) : "—"}
+          </span>
+          {" · "}
+          {ROTULO_OPERACION_P9}{" "}
+          <span className="font-bold">{resumen?.referenciaBancard ?? "—"}</span>
+          {" · "}
+          {hora(resumen?.pagoConfirmadoEn ?? null)}
+        </p>
+      </section>
+
       {/* ------------------------------------------------------------------ */}
       {/* ESTADO DE LA CONTRATACIÓN — un solo recuadro para los cuatro hitos   */}
       {/* ------------------------------------------------------------------ */}
@@ -293,7 +380,11 @@ export function ContratacionAceptada() {
         </h2>
         <ol className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
           {HITOS_CONTRATACION.map((hito, indice) => {
-            const cumplido = indice < 3 ? resumen !== null : polizaEmitida;
+            // El tercero cuelga del certificado y no del resumen: un expediente
+            // legado, cobrado antes de D-12, llega acá sin certificado y ese
+            // hito tiene que quedar sin tilde en vez de mentir.
+            const cumplido =
+              indice === 2 ? certificado !== null : indice < 3 ? resumen !== null : polizaEmitida;
             return (
               <li key={hito.numero} className="flex flex-col gap-0.5">
                 <span
@@ -313,166 +404,296 @@ export function ContratacionAceptada() {
             );
           })}
         </ol>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Inicio de la cobertura (CHG-41) — la fecha, no una promesa        */}
+        {/* ---------------------------------------------------------------- */}
+        {certificado ? (
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 dark:border-naranja-700 dark:bg-naranja-950">
+            <h3 className="text-xs font-bold tracking-wide text-naranja-900 uppercase dark:text-naranja-100">
+              {TITULO_INICIO_COBERTURA_P9}
+            </h3>
+            <p className="text-sm font-bold text-naranja-900 tabular-nums dark:text-naranja-100">
+              {hora(certificado.inicioCobertura)}
+            </p>
+            <p className="text-[11px] text-naranja-900 dark:text-naranja-100">
+              {DETALLE_INICIO_COBERTURA_P9} {ROTULO_FIN_VIGENCIA_P9}{" "}
+              <span className="font-semibold tabular-nums">{hora(certificado.finCobertura)}</span>
+            </p>
+          </div>
+        ) : null}
       </section>
 
-      {/* En pantallas anchas: resumen a la izquierda, documentos a la derecha. */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Dos columnas: a la izquierda lo que la persona lee, a la derecha lo  */}
+      {/* que se lleva. El reparto no es estético: la columna de documentos    */}
+      {/* es la más larga, y repartir a ojo dejaba media carilla en blanco     */}
+      {/* al lado de ella.                                                     */}
+      {/* ------------------------------------------------------------------ */}
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      {/* ------------------------------------------------------------------ */}
-      {/* RESUMEN DE LA CONTRATACIÓN                                          */}
-      {/* ------------------------------------------------------------------ */}
-      <section
-        aria-labelledby="p9-resumen"
-        className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
-      >
-        <h2
-          id="p9-resumen"
-          className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
-        >
-          {TITULO_RESUMEN_CONTRATACION}
-        </h2>
-
-        <div className="flex flex-col divide-y divide-borde-tenue">
-          <Fila rotulo={ROTULO_NUMERO_PROPUESTA_P9} valor={resumen?.numeroPropuesta ?? "—"} />
-          <Fila
-            rotulo={ROTULO_ESTADO_SOLICITUD_P9}
-            valor={resumen ? VALOR_ESTADO_SOLICITUD_ACEPTADA : "—"}
-          />
-          <Fila rotulo={ROTULO_REFERENCIA_BANCARD_P9} valor={resumen?.referenciaBancard ?? "—"} />
-          <Fila rotulo={ROTULO_ASEGURADO_P9} valor={resumen?.nombreAsegurado ?? "—"} />
-          <Fila rotulo={ROTULO_DOCUMENTO_P9} valor={resumen?.documentoEnmascarado ?? "—"} />
-          <Fila rotulo={ROTULO_MEDIO_DE_PAGO_P9} valor={textoMedio?.titulo ?? "—"} />
-          <Fila
-            rotulo={ROTULO_ESTADO_POLIZA_P9}
-            valor={estadoPoliza ? (ROTULO_ESTADO_POLIZA[estadoPoliza] ?? estadoPoliza) : "—"}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2 rounded-lg border border-azul-200 bg-azul-50 px-4 py-3 dark:border-azul-700 dark:bg-azul-950">
-          <h3 className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-            {TITULO_IMPORTANTE_P9}
-          </h3>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-azul-900 dark:text-azul-100">
-            {AVISOS_IMPORTANTE_P9.map((aviso) => (
-              <li key={aviso}>{aviso}</li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Documentos (columna derecha)                                        */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-4">
-      <section
-        aria-labelledby="p9-por-recibir"
-        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
-      >
-        <h2
-          id="p9-por-recibir"
-          className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
-        >
-          {TITULO_DOCUMENTOS_QUE_RECIBIRAS}
-        </h2>
-        <ul className="flex flex-col gap-2">
-          {DOCUMENTOS_POR_RECIBIR.map((documento, indice) => (
-            <li
-              key={documento.nombre}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-borde-tenue bg-superficie-suave p-3"
+        <div className="flex flex-col gap-4">
+          {/* ---------------------------------------------------------------- */}
+          {/* RESUMEN DE LA CONTRATACIÓN                                        */}
+          {/* ---------------------------------------------------------------- */}
+          <section
+            aria-labelledby="p9-resumen"
+            className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
+          >
+            <h2
+              id="p9-resumen"
+              className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
             >
-              <span className="text-sm font-semibold text-titulo">{documento.nombre}</span>
-              <Badge emitido={indice === 0 ? polizaEmitida : facturaEmitida} />
-              <span className="w-full text-xs text-cuerpo">{documento.detalle}</span>
-              {indice === 1 && referenciaFactura ? (
-                <span className="w-full font-mono text-[11px] text-etiqueta">
-                  Referencia {referenciaFactura}
-                </span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </section>
+              {TITULO_RESUMEN_CONTRATACION}
+            </h2>
 
+            <div className="flex flex-col divide-y divide-borde-tenue">
+              <Fila rotulo={ROTULO_NUMERO_PROPUESTA_P9} valor={resumen?.numeroPropuesta ?? "—"} />
+              <Fila
+                rotulo={ROTULO_ESTADO_SOLICITUD_P9}
+                valor={resumen ? VALOR_ESTADO_SOLICITUD_ACEPTADA : "—"}
+              />
+              <Fila
+                rotulo={ROTULO_REFERENCIA_BANCARD_P9}
+                valor={resumen?.referenciaBancard ?? "—"}
+              />
+              <Fila rotulo={ROTULO_ASEGURADO_P9} valor={resumen?.nombreAsegurado ?? "—"} />
+              <Fila rotulo={ROTULO_DOCUMENTO_P9} valor={resumen?.documentoEnmascarado ?? "—"} />
+              <Fila rotulo={ROTULO_MEDIO_DE_PAGO_P9} valor={textoMedio?.titulo ?? "—"} />
+              <Fila
+                rotulo={ROTULO_ESTADO_POLIZA_P9}
+                valor={estadoPoliza ? (ROTULO_ESTADO_POLIZA[estadoPoliza] ?? estadoPoliza) : "—"}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2 rounded-lg border border-azul-200 bg-azul-50 px-4 py-3 dark:border-azul-700 dark:bg-azul-950">
+              <h3 className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+                {TITULO_IMPORTANTE_P9}
+              </h3>
+              <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-azul-900 dark:text-azul-100">
+                {AVISOS_IMPORTANTE_P9.map((aviso) => (
+                  <li key={aviso}>{aviso}</li>
+                ))}
+              </ul>
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="p9-comunicaciones"
+            className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
+          >
+            <h2
+              id="p9-comunicaciones"
+              className="text-xs font-bold tracking-wide text-etiqueta uppercase"
+            >
+              {TITULO_COMUNICACIONES_COMERCIALES}
+            </h2>
+            {/*
+            Desmarcado por defecto y sin ningún efecto sobre el contrato: es un
+            consentimiento de marketing, separado y revocable.
+          */}
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={comunicaciones}
+                disabled={resumen === null}
+                onChange={(evento) => void cambiarComunicaciones(evento.target.checked)}
+                className="mt-0.5 size-4 accent-naranja-500"
+              />
+              <span className="text-sm text-cuerpo">{TEXTO_COMUNICACIONES_COMERCIALES}</span>
+            </label>
+          </section>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* ¿QUÉ OCURRIRÁ AHORA?                                              */}
+          {/* ---------------------------------------------------------------- */}
+          <section
+            aria-labelledby="p9-que-ocurrira"
+            className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
+          >
+            <h2
+              id="p9-que-ocurrira"
+              className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
+            >
+              {TITULO_QUE_OCURRIRA_P9}
+            </h2>
+            <ol className="flex flex-col gap-1">
+              {PASOS_QUE_OCURRIRA_P9.map((paso, indice) => (
+                <li key={paso} className="text-xs text-cuerpo">
+                  <span className="font-bold text-etiqueta">{indice + 1} · </span>
+                  {paso}
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Documentos (columna derecha)                                      */}
+        {/* ---------------------------------------------------------------- */}
+        <div className="flex flex-col gap-4">
+          <section
+            aria-labelledby="p9-descargar"
+            className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
+          >
+            <h2
+              id="p9-descargar"
+              className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
+            >
+              {TITULO_DOCUMENTOS_PARA_DESCARGAR}
+            </h2>
+
+            {resumen ? (
+              <>
+                {/* D-12 · el certificado va primero: es el que la persona
+                    necesita tener a mano hasta que llegue la póliza. */}
+                {certificado ? (
+                  <TarjetaDescarga
+                    nombre={NOMBRE_CERTIFICADO_P9}
+                    detalle={DETALLE_CERTIFICADO_P9}
+                    codigo={certificado.codigo}
+                    firmado={false}
+                    huella={certificado.hashSha256}
+                    disponible
+                  />
+                ) : null}
+
+                <TarjetaDescarga
+                  nombre={NOMBRE_DOCUMENTO_P9}
+                  detalle={DETALLE_FIRMANTES_P9}
+                  codigo={resumen.documento.codigo}
+                  firmado
+                  huella={resumen.documento.hashFirmado}
+                  disponible={documentosDisponibles}
+                  pendiente="Preparando el archivo firmado…"
+                />
+
+                <TarjetaDescarga
+                  nombre={NOMBRE_COMPROBANTE_P9}
+                  detalle={DETALLE_COMPROBANTE_P9}
+                  codigo={resumen.codigoComprobante}
+                  firmado={false}
+                  // Sin huella: el comprobante se genera al pedirlo y no es un
+                  // instrumento con hash registrado (D-05).
+                  huella={null}
+                  disponible={certificado !== null}
+                  pendiente="Disponible con el certificado de cobertura."
+                />
+              </>
+            ) : (
+              <p className="text-sm text-cuerpo">Preparando los documentos…</p>
+            )}
+
+            <p className="rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2 text-sm font-bold text-titulo">
+              {LEYENDA_SIN_NOTA_DE_COBERTURA}
+            </p>
+          </section>
+
+          <section
+            aria-labelledby="p9-por-recibir"
+            className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
+          >
+            <h2
+              id="p9-por-recibir"
+              className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
+            >
+              {TITULO_DOCUMENTOS_QUE_RECIBIRAS}
+            </h2>
+            <ul className="flex flex-col gap-2">
+              {DOCUMENTOS_POR_RECIBIR.map((documento, indice) => (
+                <li
+                  key={documento.nombre}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-borde-tenue bg-superficie-suave p-3"
+                >
+                  <span className="text-sm font-semibold text-titulo">{documento.nombre}</span>
+                  <Badge emitido={indice === 0 ? polizaEmitida : facturaEmitida} />
+                  <span className="w-full text-xs text-cuerpo">{documento.detalle}</span>
+                  {indice === 1 && referenciaFactura ? (
+                    <span className="w-full font-mono text-[11px] text-etiqueta">
+                      Referencia {referenciaFactura}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+
+            {/* -------------------------------------------------------------- */}
+            {/* A qué canales llegan (wireframe p.8)                            */}
+            {/* -------------------------------------------------------------- */}
+            <div className="flex flex-col gap-1 rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 dark:border-azul-700 dark:bg-azul-950">
+              <h3 className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+                {TITULO_ENTREGA_P9}
+              </h3>
+              <p className="text-xs text-azul-900 dark:text-azul-100">{BAJADA_ENTREGA_P9}</p>
+              {/* Enmascarados, como en toda la UI del flujo. */}
+              <p className="text-xs font-semibold text-azul-900 dark:text-azul-100">
+                {ROTULO_CANAL_CORREO_P9}: {resumen?.correoEnmascarado ?? "—"} ·{" "}
+                {ROTULO_CANAL_WHATSAPP_P9}: {resumen?.whatsappEnmascarado ?? "—"}
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* ¿NECESITÁS AYUDA? — CHG-45, con el botón de WhatsApp de D-17         */}
+      {/* ------------------------------------------------------------------ */}
       <section
-        aria-labelledby="p9-descargar"
+        aria-labelledby="p9-ayuda"
         className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
       >
         <h2
-          id="p9-descargar"
+          id="p9-ayuda"
           className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
         >
-          {TITULO_DOCUMENTOS_PARA_DESCARGAR}
+          {TITULO_AYUDA_P9}
         </h2>
+        <p className="text-sm text-cuerpo">{BAJADA_AYUDA_P9}</p>
 
-        {resumen ? (
-          <TarjetaDescarga
-            nombre={NOMBRE_DOCUMENTO_P9}
-            documento={resumen.documento}
-            disponible={documentosDisponibles}
-          />
-        ) : (
-          <p className="text-sm text-cuerpo">Preparando el documento firmado…</p>
-        )}
-
-        <p className="rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2 text-sm font-bold text-titulo">
-          {LEYENDA_SIN_NOTA_DE_COBERTURA}
-        </p>
-      </section>
-      </div>
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Comunicaciones (izquierda) y qué ocurrirá ahora (derecha)            */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <section
-        aria-labelledby="p9-comunicaciones"
-        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
-      >
-        <h2
-          id="p9-comunicaciones"
-          className="text-xs font-bold tracking-wide text-etiqueta uppercase"
-        >
-          {TITULO_COMUNICACIONES_COMERCIALES}
-        </h2>
         {/*
-          Desmarcado por defecto y sin ningún efecto sobre el contrato: es un
-          consentimiento de marketing, separado y revocable.
+          D-17 · el botón directo a WhatsApp, solo en esta pantalla. Sin número
+          configurado (D-19) no se dibuja: no se enlaza un WhatsApp inventado.
         */}
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={comunicaciones}
-            disabled={resumen === null}
-            onChange={(evento) => void cambiarComunicaciones(evento.target.checked)}
-            className="mt-0.5 size-4 accent-naranja-500"
-          />
-          <span className="text-sm text-cuerpo">{TEXTO_COMUNICACIONES_COMERCIALES}</span>
-        </label>
-      </section>
+        {mostrarWhatsapp ? (
+          <a
+            href={enlaceWhatsapp(numeroWhatsapp, mensajeWhatsappP9(resumen?.numeroPropuesta ?? ""))}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-verde-600 px-5 text-xs font-bold tracking-wide text-white uppercase transition-colors hover:bg-verde-500 sm:self-start"
+          >
+            {BOTON_WHATSAPP_P9}
+          </a>
+        ) : null}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* ¿QUÉ OCURRIRÁ AHORA?                                                */}
-      {/* ------------------------------------------------------------------ */}
-      <section
-        aria-labelledby="p9-que-ocurrira"
-        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
-      >
-        <h2
-          id="p9-que-ocurrira"
-          className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
-        >
-          {TITULO_QUE_OCURRIRA_P9}
-        </h2>
-        <ol className="flex flex-col gap-1">
-          {PASOS_QUE_OCURRIRA_P9.map((paso, indice) => (
-            <li key={paso} className="text-xs text-cuerpo">
-              <span className="font-bold text-etiqueta">{indice + 1} · </span>
-              {paso}
-            </li>
+        <dl className="grid gap-2 lg:grid-cols-2">
+          {contactosInstitucionales().map((contacto) => (
+            <div
+              key={contacto.entidad.razonSocial}
+              className="flex flex-col gap-0.5 rounded-lg border border-borde-tenue bg-superficie-suave p-3"
+            >
+              <dt className="text-sm font-bold text-titulo">{contacto.entidad.razonSocial}</dt>
+              <dd className="flex flex-col gap-0.5 text-xs text-cuerpo">
+                <span className="font-semibold text-etiqueta">{contacto.rol}</span>
+                <span>{contacto.entidad.domicilio}</span>
+                {/*
+                  Lo que D-19 todavía no cerró simplemente no aparece: un
+                  `[dato pendiente]` a la vista de un cliente es peor que la
+                  ausencia de la línea.
+                */}
+                {contacto.telefono ? <span>{contacto.telefono}</span> : null}
+                {contacto.correo ? <span>{contacto.correo}</span> : null}
+                <a
+                  href={contacto.entidad.sitioWeb}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-fit font-semibold text-azul-700 underline underline-offset-2 dark:text-azul-300"
+                >
+                  {contacto.entidad.sitioWeb.replace(/^https?:\/\//, "")}
+                </a>
+              </dd>
+            </div>
           ))}
-        </ol>
+        </dl>
       </section>
-      </div>
     </div>
   );
 }

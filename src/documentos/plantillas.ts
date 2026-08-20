@@ -54,6 +54,7 @@ import type {
   PlanDocumento,
 } from "../domain/documentos";
 import type { ContenidoCertificado, CoberturaCertificado } from "../domain/certificado-cobertura";
+import type { ContenidoComprobante } from "../domain/comprobante-pago";
 
 const AUTOR_PDF = "Interseguros S.A. · SeguroLoTengo.com";
 
@@ -574,5 +575,102 @@ function dibujarCertificado(
 export function renderizarCertificado(contenido: ContenidoCertificado): Uint8Array {
   return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
     dibujarCertificado(documento, contenido, total),
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Comprobante de pago del premio (D-05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista de hechos, con viñeta.
+ *
+ * No usa `listaDeCasillas` a propósito: una casilla marcada, en este producto,
+ * significa *"la persona aceptó esto"* —así se imprimen las declaraciones de
+ * la Solicitud—. Lo que este bloque enumera son consecuencias del pago, cosas
+ * que ocurrieron. Marcarlas con un tilde de aceptación las convertiría en algo
+ * que nadie aceptó.
+ */
+function listaDeHechos(lienzo: Lienzo, textos: readonly string[]): void {
+  const anchoTexto = ANCHO_UTIL - 16;
+
+  for (const texto of textos) {
+    const lineas = partirEnLineas(texto, "regular", 7.8, anchoTexto);
+    const alto = lineas.length * 10 + 4;
+    lienzo.asegurarEspacio(alto);
+    const y = lienzo.y;
+
+    lienzo.pagina.texto(MARGEN + 2, y, "·", { fuente: "negrita", tamano: 9, color: NARANJA });
+    lienzo.pagina.parrafo(MARGEN + 16, y, anchoTexto, texto, {
+      tamano: 7.8,
+      color: TINTA,
+      interlineado: 10,
+    });
+
+    lienzo.y = y + alto;
+  }
+}
+
+/**
+ * Dibuja el comprobante del pago.
+ *
+ * Es el más simple de los tres documentos y a propósito: constata un hecho que
+ * ya ocurrió. Sin bloque de firmas —nadie lo firma—, sin QR —no se verifica
+ * por sí solo, ver `comprobante-pago.ts`— y con las dos advertencias que
+ * evitan que se lo confunda con lo que no es: no es la factura, y no puede
+ * contener datos de tarjeta.
+ */
+function dibujarComprobante(
+  documento: DocumentoPdf,
+  contenido: ContenidoComprobante,
+  totalPaginas: number,
+): number {
+  const lienzo = crearLienzo(documento, (pagina, numeroPagina) =>
+    dibujarEncabezado(pagina, contenido.encabezado, numeroPagina, totalPaginas),
+  );
+
+  lienzo.pagina.texto(MARGEN, lienzo.y - 4, `Cobro acreditado el ${contenido.encabezado.selloDeTiempo}`, {
+    fuente: "negrita",
+    tamano: 7,
+    color: ETIQUETA,
+    alineacion: "centro",
+    ancho: ANCHO_UTIL,
+  });
+  lienzo.y += 8;
+
+  seccion(lienzo, 1, "Asegurado y facturación");
+  grillaDeCampos(lienzo, contenido.pagador, 2);
+
+  seccion(lienzo, 2, "Operación");
+  grillaDeCampos(lienzo, contenido.operacion, 2);
+
+  seccion(lienzo, 3, "Importe");
+  grillaDeCampos(lienzo, contenido.desglose, 3);
+  franja(lienzo, contenido.leyendaDesgloseProvisional, "neutro");
+
+  seccion(lienzo, 4, "Qué habilitó este pago");
+  listaDeHechos(lienzo, contenido.consecuencias);
+
+  // Las dos aclaraciones que este documento existe para no provocar. La de la
+  // factura va en rojo porque es la confusión cara: alguien podría presentar
+  // esto como comprobante fiscal.
+  franja(lienzo, contenido.leyendaNoEsFactura, "rojo");
+  franja(lienzo, contenido.leyendaSinDatosDeTarjeta, "verde");
+
+  pie(lienzo, contenido.encabezado);
+  return lienzo.numeroPagina;
+}
+
+/**
+ * El comprobante de pago, listo para servir.
+ *
+ * Determinista como los otros dos, aunque acá no haya hash que preservar:
+ * descargarlo dos veces tiene que dar el mismo archivo, porque si no la
+ * persona tendría dos comprobantes distintos del mismo pago.
+ */
+export function renderizarComprobante(contenido: ContenidoComprobante): Uint8Array {
+  return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
+    dibujarComprobante(documento, contenido, total),
   );
 }

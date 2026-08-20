@@ -45,11 +45,14 @@ decididos: el OTP de correo se retiró (queda un solo OTP de canal, el de
 WhatsApp, Lote 2); la firma pasó a ocurrir **antes** del pago (Lote 4b); la
 Solicitud y el FIPF se unificaron en un solo PDF (Lote 4c); y el **Certificado
 de Cobertura Provisional** existe desde el Lote 5a, emitido en la misma
-escritura que confirma el cobro. **Falta** el resto del Lote 5: ponerlo a
-descargar en la confirmación, entregarlo por WhatsApp y correo con acuse, y la
-ruta `/verificar/<código>` a la que apunta su QR. Cada regla se corrige acá
-cuando el lote que la cambia se implementa, no antes: hasta entonces, **la
-regla escrita abajo es la que rige el código que existe hoy**.
+escritura que confirma el cobro. El Lote 5b puso los **tres** descargables en
+la pantalla de confirmación —paquete firmado, certificado y comprobante de
+pago (D-05)— con el inicio de cobertura a la vista. **Falta** el resto del
+Lote 5: entregar los documentos por WhatsApp y correo con acuse (CHG-44), la
+ruta `/verificar/<código>` a la que apuntan los QR (CMP-06), y la Pantalla B
+con el seguimiento de devoluciones. Cada regla se corrige acá cuando el lote
+que la cambia se implementa, no antes: hasta entonces, **la regla escrita
+abajo es la que rige el código que existe hoy**.
 
 ### Documentos fuente adicionales
 
@@ -261,6 +264,16 @@ El correlativo nace acá y no en el pago desde la inversión de D-08: los docume
 
 **No es un proveedor externo, así que no tiene puerto.** Los 7 puertos modelan integraciones con terceros; generar un PDF propio no lo es. Lo único que pasa por infraestructura es guardar el archivo, y eso ya entra por `src/repositories/archivo-repository.ts`.
 
+### El comprobante de pago (D-05, Lote 5b)
+
+Tercer documento del motor y el único que **no se cierra, no se hashea y no se guarda**: `REC-<correlativo>`, generado al vuelo cada vez que se lo pide y determinista, así que dos descargas dan el mismo archivo. Contenido en `src/domain/comprobante-pago.ts`, generación en `generarComprobantePago`.
+
+Es una proyección de datos que ya están persistidos —el cobro, el plan, el certificado que ese cobro emitió—, así que guardarlo sería guardar dos veces lo mismo y hashearlo sugeriría una inmutabilidad que no le hace falta. **Tampoco lleva QR**: lo que afirma ya está probado por el certificado y por la Solicitud firmada, y un QR sugeriría una verificación propia que no existe. `EncabezadoDocumento.urlVerificacion` es `string | null` justamente por esto.
+
+**No es la factura**, y el documento lo dice en rojo y en el cuerpo: la factura electrónica la emite Alianza por SIFEN (fila 40 de la matriz). Un comprobante del corredor que no lo aclarara sería leído como documento fiscal.
+
+Exige el certificado además del cobro: los dos nacen en la misma escritura (D-12), así que un expediente cobrado sin certificado sería un estado imposible, y el comprobante lo cita como lo que ese pago habilitó.
+
 ### El Certificado de Cobertura Provisional (D-12, Lote 5a)
 
 El motor produce **dos documentos**, no uno. El segundo es el CPC: `CPC-<correlativo>`, mismo correlativo que el paquete y con `PROP-<correlativo>` impreso como documento vinculado. Dice quién está cubierto, **desde cuándo**, por cuánto, qué lo pagó y qué lo respalda; lo firma solo Alianza y **prefirmado** (D-13), así que el cliente no firma nada nuevo. Contenido en `src/domain/certificado-cobertura.ts`, dibujo en `plantillas.ts`, emisión en `servicio.ts` (`emitirCertificadoCobertura`).
@@ -273,6 +286,8 @@ El motor produce **dos documentos**, no uno. El segundo es el CPC: `CPC-<correla
 
 Quien emite vive en `src/documentos/` y quien lo llama es el dominio, así que la función **entra inyectada** (`DependenciasP7.emitirCertificado`) y no importada: al revés sería un ciclo de módulos. Es obligatoria en el tipo, para que el compilador impida un `DependenciasP7` capaz de cobrar sin certificar.
 
+**La clave en S3 lleva la huella** (`CPC-…-v1-<sha256>.pdf`). No es un adorno: la pantalla de pago sondea en bucle, dos sondeos pueden solaparse y los dos emiten un certificado con instantes distintos —bytes distintos— antes de que el bloqueo optimista deje que solo uno se asiente. Con una clave que dependiera solo del código y la versión, el perdedor podía escribir último y dejar en el bucket un archivo cuya huella no era la registrada; la descarga fallaba con `HUELLA_NO_COINCIDE` sobre un expediente sano. Con la huella en la clave cada emisión escribe en su propio lugar, el archivo huérfano no lo referencia nadie y el del ganador es por construcción el que su huella dice.
+
 Reparto: `src/domain/documentos.ts` y `src/domain/certificado-cobertura.ts` deciden **qué dice** cada documento (proyección del Expediente, sin `node:*`); `plantillas.ts` + `layout.ts` cómo se distribuye en la hoja; `pdf.ts` + `tipografia.ts` escriben los bytes; `qr.ts` genera el QR de verificación; `servicio.ts` cierra, hashea, guarda, transiciona y deja evidencia.
 
 Tres cosas no negociables de este servicio:
@@ -283,7 +298,7 @@ Tres cosas no negociables de este servicio:
 
 **El QR es decisión de producto, no obligación legal**: no hay fila en la matriz de cumplimiento que lo exija (la 77 exige el hash individual y la 47 vincular por correlativo o hash, cosas que el paquete cumple sin él). Codifica **solo** `<URL_BASE>/<código>` — nunca el hash (el QR va dentro del PDF que se hashea) ni ningún dato de la persona.
 
-**Pendiente:** la ruta `/verificar/<código>` a la que apunta el QR de los dos documentos todavía no existe (CMP-06, resto del Lote 5), y el CPC todavía no se ofrece para descargar en la confirmación ni se entrega por WhatsApp y correo (CHG-42/43/44).
+**Pendiente:** la ruta `/verificar/<código>` a la que apunta el QR del paquete y del certificado todavía no existe (CMP-06), y los tres documentos todavía no se entregan por WhatsApp y correo con acuse (CHG-44, CMP-05). Los tres **sí** se descargan desde la pantalla de confirmación (CHG-42/43), por `GET /api/p8/documento?codigo=…`.
 
 ---
 
@@ -395,6 +410,7 @@ Resumen condensado de `docs/SeguroLoTengo-integraciones-externas-alta-resolucion
 - Callbacks de proveedores firmados, verificables, idempotentes y vinculados a la misma propuesta (ver "Idempotencia de webhooks" arriba).
 - Solicitud y FIPF: **un solo PDF**, un correlativo, dos códigos internos visibles, un acto de firma (D-11, regla inviolable #3).
 - Certificado de Cobertura Provisional: solo con el cobro acreditado, en la misma escritura que lo confirma, firmado por Alianza y sin número oficial de póliza (D-12, CMP-04/06/07/18).
+- Del portal se descargan **tres** documentos y ninguno más: paquete firmado, certificado y comprobante de pago (D-05). La póliza y la factura las emite y envía Alianza.
 - Póliza y factura las emite y envía Alianza (SEBAOT); descarga inmediata desde SeguroLoTengo solo de Solicitud y FIPF firmados.
 - No usar automatizaciones administrativas (n8n o similar) para controlar la secuencia crítica pago → firma → emisión.
 - No introducir un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`.

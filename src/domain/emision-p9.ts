@@ -47,6 +47,7 @@ import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurren
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { PolicyIssuer } from "../ports/policy-issuer";
 import { actualizarEstadoPolizaP9, registrarEmisionP9 } from "./expediente";
+import { codigoComprobante } from "./comprobante-pago";
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import {
@@ -483,6 +484,24 @@ export interface DocumentoDescargableP9 {
   readonly hashFirmado: string;
 }
 
+/**
+ * El Certificado de Cobertura Provisional, tal como lo muestra la pantalla
+ * (D-12, CHG-42).
+ *
+ * Las fechas salen del expediente **calculadas al cobrar**, no del reloj de
+ * quien abre la pantalla: es la fecha desde la que responde la aseguradora, y
+ * recalcularla acá abriría la puerta a que la pantalla y el PDF dijeran cosas
+ * distintas.
+ */
+export interface CertificadoDescargableP9 {
+  readonly codigo: string;
+  readonly version: number;
+  readonly hashSha256: string;
+  readonly inicioCobertura: string;
+  readonly finCobertura: string;
+  readonly emitidoEn: string;
+}
+
 export interface ResumenP9 {
   readonly estado: EstadoExpediente;
   readonly numeroPropuesta: string;
@@ -493,6 +512,8 @@ export interface ResumenP9 {
   readonly polizaEmitidaEn: string | null;
   readonly referenciaBancard: string | null;
   readonly medio: MedioDePago | null;
+  /** Premio efectivamente cobrado, para la banda de pago confirmado (CHG-40). */
+  readonly montoGs: number | null;
   readonly nombreAsegurado: string | null;
   readonly documentoEnmascarado: string | null;
   readonly whatsappEnmascarado: string | null;
@@ -502,6 +523,15 @@ export interface ResumenP9 {
   readonly solicitudAceptadaEn: string;
   /** El documento único firmado: Solicitud + FIPF (D-11). */
   readonly documento: DocumentoDescargableP9;
+  /**
+   * El certificado emitido con el cobro (D-12), o `null` en los expedientes
+   * que cobraron antes de que este documento existiera y **no se reescriben**
+   * (regla inviolable #10). La pantalla contempla la ausencia en vez de
+   * inventarla.
+   */
+  readonly certificado: CertificadoDescargableP9 | null;
+  /** Código del comprobante de pago (D-05); se genera al pedirlo. */
+  readonly codigoComprobante: string;
 }
 
 /** `9323336` → `93•••••`: alcanza para reconocer el documento sin exponerlo. */
@@ -527,6 +557,7 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
 
   const identidad = expediente.identidad;
   const pago = expediente.pago;
+  const certificado = expediente.certificadoCobertura;
 
   return {
     estado: expediente.estado,
@@ -538,6 +569,7 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
     polizaEmitidaEn: poliza.emitidaEn,
     referenciaBancard: pago?.referenciaBancard ?? null,
     medio: pago?.medio ?? null,
+    montoGs: pago?.montoGs ?? null,
     nombreAsegurado: identidad ? `${identidad.nombres} ${identidad.apellidos}`.trim() : null,
     documentoEnmascarado: identidad ? enmascararCedula(identidad.numeroCedula) : null,
     whatsappEnmascarado: expediente.canalWhatsapp
@@ -553,5 +585,16 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
       version: paquete.version,
       hashFirmado: firma.hashDocumentoFirmado,
     },
+    certificado: certificado
+      ? {
+          codigo: certificado.codigo,
+          version: certificado.version,
+          hashSha256: certificado.hashSha256,
+          inicioCobertura: certificado.inicioCobertura,
+          finCobertura: certificado.finCobertura,
+          emitidoEn: certificado.emitidoEn,
+        }
+      : null,
+    codigoComprobante: codigoComprobante(expediente.numeroPropuesta ?? poliza.numeroPoliza),
   };
 }

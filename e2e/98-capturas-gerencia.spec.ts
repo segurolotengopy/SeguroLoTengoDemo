@@ -108,6 +108,9 @@ test.describe("capturas para gerencia", () => {
     await continuarAConfirmacion(page);
     await expect(page).toHaveURL(/\/confirmacion$/);
     await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
+    // El encabezado se renderiza en el servidor y aparece antes que los datos:
+    // sin esperar al resumen, la captura sale con todos los campos en "—".
+    await expect(page.getByText(/PROP-\d{8}/).first()).toBeVisible();
     await capturar(page, "08-confirmacion");
   });
 

@@ -239,7 +239,10 @@ export function dibujarEncabezado(
   numeroPagina: number,
   totalPaginas: number,
 ): number {
-  const derechaCaja = MARGEN + ANCHO_UTIL - LADO_QR - 6;
+  // Sin QR, la caja de código se corre hasta el borde: el hueco reservado para
+  // el QR sería un vacío inexplicable en un documento que no se verifica.
+  const conQr = encabezado.urlVerificacion !== null;
+  const derechaCaja = MARGEN + ANCHO_UTIL - (conQr ? LADO_QR + 6 : 0);
   const izquierdaCaja = derechaCaja - ANCHO_CAJA_CODIGO;
 
   // Isologos institucionales a la izquierda de cada entidad (ver
@@ -268,14 +271,16 @@ export function dibujarEncabezado(
   });
 
   // QR de verificación: solo la URL con el código del documento.
-  pagina.rectangulo(derechaCaja + 6, 30, LADO_QR, LADO_QR, { borde: BORDE });
-  pagina.qr(derechaCaja + 6, 30, LADO_QR, generarMatrizQr(encabezado.urlVerificacion));
-  pagina.texto(derechaCaja + 6, 95, "VERIFICACIÓN", {
-    tamano: 5.5,
-    color: ETIQUETA,
-    alineacion: "centro",
-    ancho: LADO_QR,
-  });
+  if (encabezado.urlVerificacion !== null) {
+    pagina.rectangulo(derechaCaja + 6, 30, LADO_QR, LADO_QR, { borde: BORDE });
+    pagina.qr(derechaCaja + 6, 30, LADO_QR, generarMatrizQr(encabezado.urlVerificacion));
+    pagina.texto(derechaCaja + 6, 95, "VERIFICACIÓN", {
+      tamano: 5.5,
+      color: ETIQUETA,
+      alineacion: "centro",
+      ancho: LADO_QR,
+    });
+  }
 
   pagina.texto(MARGEN, 116, encabezado.titulo.toUpperCase(), {
     fuente: "negrita",
@@ -497,7 +502,9 @@ export function pie(lienzo: Lienzo, encabezado: EncabezadoDocumento): void {
   lienzo.pagina.texto(
     MARGEN,
     y + 14,
-    `Documento generado por SeguroLoTengo.com · PDF cerrado, huella digital SHA-256 registrada · Verificación: ${encabezado.urlVerificacion}`,
+    encabezado.urlVerificacion === null
+      ? "Documento generado por SeguroLoTengo.com · Constancia de la operación; su respaldo probatorio son el certificado y la Solicitud firmada."
+      : `Documento generado por SeguroLoTengo.com · PDF cerrado, huella digital SHA-256 registrada · Verificación: ${encabezado.urlVerificacion}`,
     { tamano: 6, color: ETIQUETA },
   );
   lienzo.y = y + 24;

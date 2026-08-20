@@ -54,7 +54,9 @@ import type { DocumentoCerrado, Expediente, PaqueteDocumental, RegistroEvidencia
 import type { ContextoPeticion, RepositorioExpediente } from "../domain/verificacion-canal";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { SignatureProvider } from "../ports/signature-provider";
-import { renderizarCertificado, renderizarPaquete } from "./plantillas";
+import { renderizarCertificado, renderizarComprobante, renderizarPaquete } from "./plantillas";
+import { armarContenidoComprobante } from "../domain/comprobante-pago";
+import type { CampoFaltanteComprobante } from "../domain/comprobante-pago";
 import {
   VERSION_INICIAL_CERTIFICADO,
   armarContenidoCertificado,
@@ -460,12 +462,31 @@ async function cerrarDocumento(
 // ---------------------------------------------------------------------------
 
 /**
- * Ruta del CPC en el bucket de evidencias. Va junto a los demás documentos del
- * expediente y con su versión en el nombre, por el mismo motivo que el
- * paquete: reemitir una versión nueva nunca puede pisar la que se hasheó.
+ * Ruta del CPC en el bucket de evidencias. **La huella forma parte de la
+ * clave**, y no es un adorno: es lo que hace imposible que dos emisiones
+ * simultáneas se pisen.
+ *
+ * El caso concreto: la pantalla de pago sondea en bucle y dos sondeos pueden
+ * solaparse. Los dos leen el expediente todavía en `FIRMADO`, los dos emiten
+ * un certificado —con instantes distintos, así que con bytes distintos— y los
+ * dos escriben en S3; después, el bloqueo optimista deja que solo uno asiente
+ * su certificado en el expediente. Con una clave que dependiera únicamente del
+ * código y la versión, el perdedor podía escribir último y dejar en S3 un
+ * archivo cuya huella no era la registrada: la descarga fallaba con
+ * `HUELLA_NO_COINCIDE` sobre un expediente perfectamente sano.
+ *
+ * Con la huella en la clave, cada emisión escribe en su propio lugar. El
+ * archivo del perdedor queda huérfano —no lo referencia ningún expediente, así
+ * que no afirma nada de nadie— y el del ganador es, por construcción,
+ * exactamente el que su huella dice.
  */
-export function claveCertificado(expedienteId: string, codigo: string, version: number): string {
-  return `expedientes/${expedienteId}/documentos/${codigo}-v${version}.pdf`;
+export function claveCertificado(
+  expedienteId: string,
+  codigo: string,
+  version: number,
+  hashSha256: string,
+): string {
+  return `expedientes/${expedienteId}/documentos/${codigo}-v${version}-${hashSha256}.pdf`;
 }
 
 export const PASO_EVIDENCIA_CERTIFICADO = "P7_CERTIFICADO_COBERTURA";
@@ -508,7 +529,9 @@ export interface DependenciasCertificado {
  * El archivo sí queda escrito en S3 antes que el expediente, y es la única
  * asimetría posible: un PDF huérfano en el bucket no afirma nada de nadie —no
  * está referenciado por ningún expediente— mientras que un expediente que
- * apuntara a un archivo inexistente sí sería una mentira.
+ * apuntara a un archivo inexistente sí sería una mentira. Por eso la clave
+ * lleva la huella: dos emisiones simultáneas escriben en lugares distintos y
+ * ninguna puede pisar a la otra (ver `claveCertificado`).
  *
  * Determinismo (regla del servicio): el instante de emisión entra por
  * parámetro y es el mismo con el que se confirma el pago. Reintentar la
@@ -533,7 +556,7 @@ export async function emitirCertificadoCobertura(
   const bytes = renderizarCertificado(contenido.contenido);
   const codigo = codigoCertificado(contenido.contenido.correlativo);
   const hashSha256 = sha256Hex(bytes);
-  const clave = claveCertificado(expediente.id, codigo, contenido.contenido.version);
+  const clave = claveCertificado(expediente.id, codigo, contenido.contenido.version, hashSha256);
 
   const guardado = await deps.archivos.guardarArchivo(clave, bytes, CONTENT_TYPE_PDF);
   // Mismo control que en el cierre del paquete: el repositorio hashea lo que
@@ -578,6 +601,35 @@ export async function emitirCertificadoCobertura(
       firmas,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Comprobante de pago (D-05)
+// ---------------------------------------------------------------------------
+
+export type ResultadoComprobantePago =
+  | { readonly ok: true; readonly bytes: Uint8Array }
+  | { readonly ok: false; readonly faltantes: readonly CampoFaltanteComprobante[] };
+
+/**
+ * Arma y renderiza el comprobante del pago **al vuelo**, sin guardarlo ni
+ * hashearlo.
+ *
+ * Es la diferencia deliberada con los otros dos documentos del motor. El
+ * paquete y el certificado se cierran, se hashean y se guardan porque son
+ * instrumentos: uno se firma y el otro constata una cobertura. El comprobante
+ * es una proyección de datos que ya están persistidos en el expediente, así
+ * que guardarlo sería guardar dos veces lo mismo, y hashearlo sugeriría una
+ * inmutabilidad que no le hace falta a nadie.
+ *
+ * Lo que sí conserva es el **determinismo**: mismo expediente ⇒ mismos bytes.
+ * Sin eso, dos descargas del mismo pago darían dos archivos distintos, que es
+ * exactamente lo que hace desconfiar de un comprobante.
+ */
+export function generarComprobantePago(expediente: Expediente): ResultadoComprobantePago {
+  const contenido = armarContenidoComprobante(expediente);
+  if (!contenido.ok) return { ok: false, faltantes: contenido.faltantes };
+  return { ok: true, bytes: renderizarComprobante(contenido.contenido) };
 }
 
 // ---------------------------------------------------------------------------
