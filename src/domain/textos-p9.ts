@@ -127,8 +127,8 @@ export const DOCUMENTOS_POR_RECIBIR: readonly DocumentoPorRecibir[] = [
 
 export const TITULO_DOCUMENTOS_PARA_DESCARGAR = "DOCUMENTOS DISPONIBLES PARA DESCARGAR";
 
-export const NOMBRE_SOLICITUD_P9 = "Solicitud de Seguro de Vida Oncológico";
-export const NOMBRE_FIPF_P9 = "Formulario de Identificación de Persona Física";
+/** D-11 · un solo documento firmado para descargar: Solicitud + FIPF. */
+export const NOMBRE_DOCUMENTO_P9 = "Solicitud de Seguro de Vida Oncológico y FIPF (firmado)";
 
 export const DETALLE_FIRMANTES_P9 =
   "Firmado por cliente, Interseguros y Alianza Garantía.";

@@ -43,6 +43,7 @@ export type FallaDemo =
   | "OTP_INTENTOS_AGOTADOS"
   | "BANCARD_TIMEOUT"
   | "CODE100_RECHAZO"
+  | "FIRMAS_INSTITUCIONALES_FALLAN"
   | "REGISTRO_CIVIL_CAIDO";
 
 export const FALLAS_DEMO: readonly FallaDemo[] = [
@@ -50,6 +51,7 @@ export const FALLAS_DEMO: readonly FallaDemo[] = [
   "OTP_INTENTOS_AGOTADOS",
   "BANCARD_TIMEOUT",
   "CODE100_RECHAZO",
+  "FIRMAS_INSTITUCIONALES_FALLAN",
   "REGISTRO_CIVIL_CAIDO",
 ];
 
@@ -83,6 +85,14 @@ export const DESCRIPCION_FALLA_DEMO: Readonly<
     rotulo: "Rechazo de Code100",
     donde: "Paso 6, al enviar el enlace de firma",
     efecto: "Code100 rechaza la apertura del acto. No queda ningún documento firmado.",
+  },
+  FIRMAS_INSTITUCIONALES_FALLAN: {
+    rotulo: "Firmas institucionales caídas",
+    donde: "Paso 6, justo después de que el cliente firma",
+    efecto:
+      "El cliente firma y las firmas cualificadas de Interseguros y Alianza no llegan. El " +
+      "expediente queda en FIRMADO_CLIENTE y el cobro sigue inhabilitado: un sellado a medio " +
+      "hacer es distinguible de un expediente sin firmar (D-13). El próximo sondeo lo retoma.",
   },
 };
 

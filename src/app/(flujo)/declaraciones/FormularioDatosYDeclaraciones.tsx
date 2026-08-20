@@ -20,12 +20,10 @@ import {
   AYUDA_PEP,
   LEYENDA_DOCUMENTOS_P6,
   NOTA_BENEFICIARIO_DESIGNADO_P6,
-  NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA,
   REGLA_ELEGIBILIDAD_P6,
   ROTULO_AYUDA_PEP,
   SUBTITULOS_DECLARACIONES_P6,
   TEXTOS_DECLARACIONES_P6,
-  TEXTO_DECLARACION_ORIGEN_LICITO,
   guiaHabilitacionVisible,
   rotuloRespuestaHabilitante,
 } from "@/domain/textos-p6";
@@ -67,8 +65,6 @@ const MENSAJES: Readonly<Record<string, string>> = {
   ESTADO_INVALIDO: "Este proceso ya no está en el paso de datos y declaraciones.",
   DATOS_INCOMPLETOS: "Revisá los campos marcados: faltan datos obligatorios.",
   DECLARACIONES_INCOMPLETAS: "Faltan declaraciones por responder. Las ocho son obligatorias.",
-  ORIGEN_FONDOS_NO_DECLARADO:
-    "Marcá la declaración de origen lícito de los fondos: integra el FIPF que vas a firmar.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",
 };
 
@@ -139,7 +135,6 @@ export function FormularioDatosYDeclaraciones() {
   const [respuestas, setRespuestas] = useState<Respuestas>({});
   const [mostrarAyudaPep, setMostrarAyudaPep] = useState(false);
 
-  const [origenLicito, setOrigenLicito] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [camposInvalidos, setCamposInvalidos] = useState<readonly CampoP6[]>([]);
@@ -181,7 +176,7 @@ export function FormularioDatosYDeclaraciones() {
   );
 
   const declaracionesCompletas = DECLARACIONES_P6.every(({ numero }) => respuestas[numero]);
-  const puedeContinuar = datosCompletos && declaracionesCompletas && origenLicito && !enviando;
+  const puedeContinuar = datosCompletos && declaracionesCompletas && !enviando;
 
   const ingresoNumerico = interpretarMontoGuaranies(ingreso);
 
@@ -197,11 +192,7 @@ export function FormularioDatosYDeclaraciones() {
       const peticion = await fetch("/api/p6/declaraciones", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          datos: bloqueDatos,
-          declaraciones: respuestas,
-          origenLicitoDeFondos: origenLicito,
-        }),
+        body: JSON.stringify({ datos: bloqueDatos, declaraciones: respuestas }),
       });
       const respuesta = (await peticion.json().catch(() => ({}))) as RespuestaApi;
 
@@ -536,37 +527,6 @@ export function FormularioDatosYDeclaraciones() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Declaración de origen lícito de fondos — bloqueante                  */}
-      {/*                                                                     */}
-      {/* D-08 · se acepta acá y no en la pantalla de pago: el literal integra */}
-      {/* el FIPF, y el FIPF se cierra y se hashea al salir de esta pantalla.  */}
-      {/* Aceptarla al pagar la dejaría fuera del documento firmado, que es    */}
-      {/* justamente donde prueba algo (fila 16 de la matriz).                 */}
-      {/* ------------------------------------------------------------------ */}
-      <label
-        className={`flex items-start gap-3 rounded-lg border-2 px-4 py-3 ${
-          origenLicito
-            ? "border-verde-400 bg-verde-50 dark:border-verde-600 dark:bg-verde-950"
-            : "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
-        }`}
-      >
-        <input
-          type="checkbox"
-          checked={origenLicito}
-          onChange={(e) => setOrigenLicito(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-naranja-500"
-        />
-        <span className="flex flex-col gap-1">
-          <span className="text-sm text-titulo">{TEXTO_DECLARACION_ORIGEN_LICITO}</span>
-          {!origenLicito ? (
-            <span className="text-[11px] font-bold tracking-wide text-rojo-700 uppercase dark:text-rojo-300">
-              {NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA}
-            </span>
-          ) : null}
-        </span>
-      </label>
-
-      {/* ------------------------------------------------------------------ */}
       {/* Guardar y continuar (derecha), con los textos debajo del botón       */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex flex-col gap-3">
@@ -581,8 +541,7 @@ export function FormularioDatosYDeclaraciones() {
           </button>
           {!puedeContinuar ? (
             <p className="text-xs text-etiqueta">
-              Se habilita al completar los datos obligatorios, responder las ocho declaraciones y
-              declarar el origen lícito de los fondos.
+              Se habilita al completar los datos obligatorios y responder las ocho declaraciones.
             </p>
           ) : null}
         </div>

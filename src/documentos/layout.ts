@@ -65,6 +65,13 @@ export interface Lienzo {
   readonly numeroPagina: number;
   /** Salta de página si `alto` no entra en lo que queda de la actual. */
   asegurarEspacio(alto: number): void;
+  /**
+   * Abre una carilla nueva sí o sí. Lo usa el documento único (D-11) para
+   * empezar la sección del FIPF en hoja propia: son dos formularios con
+   * códigos internos distintos dentro del mismo archivo, y arrancar uno a
+   * mitad de la carilla del otro los haría ver como un mismo bloque.
+   */
+  saltarPagina(): void;
 }
 
 export function crearLienzo(
@@ -99,6 +106,10 @@ export function crearLienzo(
         pagina = documento.nuevaPagina();
         abrirPagina();
       }
+    },
+    saltarPagina() {
+      pagina = documento.nuevaPagina();
+      abrirPagina();
     },
   };
 }

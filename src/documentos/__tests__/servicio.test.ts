@@ -107,7 +107,7 @@ function armarDependencias(expediente: Expediente) {
 // ---------------------------------------------------------------------------
 
 describe("generarPaqueteDocumental", () => {
-  it("cierra los dos PDF, los hashea y transiciona a PAQUETE_GENERADO", async () => {
+  it("cierra el PDF único, lo hashea y transiciona a PAQUETE_GENERADO", async () => {
     const { deps, expedientes, archivos } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
 
     const resultado = await generarPaqueteDocumental(deps, {
@@ -120,24 +120,23 @@ describe("generarPaqueteDocumental", () => {
 
     expect(resultado.generado).toBe(true);
     expect(resultado.correlativo).toBe(NUMERO_PROPUESTA_FIJO);
-    expect(resultado.solicitud.codigo).toBe(codigoSolicitud(NUMERO_PROPUESTA_FIJO));
-    expect(resultado.fipf.codigo).toBe(codigoFipf(NUMERO_PROPUESTA_FIJO));
+    expect(resultado.documento.codigo).toBe(codigoSolicitud(NUMERO_PROPUESTA_FIJO));
 
-    // Dos archivos, dos claves, cada una con su versión.
-    expect(archivos.archivos.size).toBe(2);
+    // D-11 · un archivo, una clave.
+    expect(archivos.archivos.size).toBe(1);
     expect([...archivos.archivos.keys()]).toEqual([
       claveDocumento("EXP-TEST-DOCS", "PROP-00018425", 1),
-      claveDocumento("EXP-TEST-DOCS", "FIPF-00018425", 1),
     ]);
 
     const expediente = expedientes.actual();
     expect(expediente.estado).toBe("PAQUETE_GENERADO");
     expect(expediente.paqueteDocumental).not.toBeNull();
-    expect(expediente.paqueteDocumental?.solicitud.codigo).toBe("PROP-00018425");
-    expect(expediente.paqueteDocumental?.fipf.codigo).toBe("FIPF-00018425");
+    expect(expediente.paqueteDocumental?.codigo).toBe("PROP-00018425");
+    // La sección FIPF conserva su código interno dentro del mismo documento.
+    expect(expediente.paqueteDocumental?.codigoSeccionFipf).toBe(codigoFipf(NUMERO_PROPUESTA_FIJO));
   });
 
-  it("registra el SHA-256 real de los bytes guardados, uno por documento", async () => {
+  it("registra el SHA-256 real de los bytes guardados", async () => {
     const { deps, expedientes, archivos } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     const resultado = await generarPaqueteDocumental(deps, {
       expedienteId: "EXP-TEST-DOCS",
@@ -148,21 +147,15 @@ describe("generarPaqueteDocumental", () => {
     const paquete = expedientes.actual().paqueteDocumental;
     if (!paquete) throw new Error("debería haber paquete");
 
-    for (const [codigo, documento] of [
-      ["PROP-00018425", paquete.solicitud],
-      ["FIPF-00018425", paquete.fipf],
-    ] as const) {
-      const bytes = archivos.archivos.get(claveDocumento("EXP-TEST-DOCS", codigo, 1));
-      if (!bytes) throw new Error(`falta el archivo de ${codigo}`);
-      expect(documento.hashSha256).toBe(createHash("sha256").update(bytes).digest("hex"));
-      expect(documento.hashSha256).toMatch(/^[a-f0-9]{64}$/);
-    }
+    const bytes = archivos.archivos.get(claveDocumento("EXP-TEST-DOCS", "PROP-00018425", 1));
+    if (!bytes) throw new Error("falta el archivo del paquete");
 
-    // Fila 77: hash individual, no uno compartido.
-    expect(paquete.solicitud.hashSha256).not.toBe(paquete.fipf.hashSha256);
+    // Fila 77: el hash del instrumento. Con D-11 el instrumento es uno.
+    expect(paquete.hashSha256).toBe(createHash("sha256").update(bytes).digest("hex"));
+    expect(paquete.hashSha256).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("guarda PDF de verdad, con el código de cada documento adentro", async () => {
+  it("guarda un PDF de verdad, con los códigos de las dos secciones adentro", async () => {
     const { deps, archivos } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     await generarPaqueteDocumental(deps, { expedienteId: "EXP-TEST-DOCS", contexto: CONTEXTO });
 
@@ -170,14 +163,14 @@ describe("generarPaqueteDocumental", () => {
       const texto = Buffer.from(bytes).toString("latin1");
       expect(texto.startsWith("%PDF-1.7")).toBe(true);
       expect(texto.trimEnd().endsWith("%%EOF")).toBe(true);
-      // El código propio y el del documento vinculado están impresos en los dos.
+      // Los códigos de las dos secciones están impresos en el mismo archivo.
       expect(texto).toContain("PROP-00018425");
       expect(texto).toContain("FIPF-00018425");
-      expect(clave).toMatch(/^expedientes\/EXP-TEST-DOCS\/documentos\/(PROP|FIPF)-00018425-v1\.pdf$/);
+      expect(clave).toMatch(/^expedientes\/EXP-TEST-DOCS\/documentos\/PROP-00018425-v1\.pdf$/);
     }
   });
 
-  it("deja evidencia del cierre con los dos códigos y las dos huellas", async () => {
+  it("deja evidencia del cierre con los dos códigos y la huella", async () => {
     const { deps, evidencias } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     const resultado = await generarPaqueteDocumental(deps, {
       expedienteId: "EXP-TEST-DOCS",
@@ -192,8 +185,7 @@ describe("generarPaqueteDocumental", () => {
     expect(registro.fecha).toBe(AHORA);
     expect(registro.ip).toBe(CONTEXTO.ip);
     expect(registro.sesionId).toBe(CONTEXTO.sesionId);
-    expect(registro.detalle).toContain(resultado.solicitud.hashSha256);
-    expect(registro.detalle).toContain(resultado.fipf.hashSha256);
+    expect(registro.detalle).toContain(resultado.documento.hashSha256);
     expect(registro.detalle).toContain("PROP-00018425");
     expect(registro.detalle).toContain("FIPF-00018425");
     // Este paso no pide aceptar nada: la aceptación ocurre al firmar.
@@ -234,9 +226,8 @@ describe("generarPaqueteDocumental — idempotencia y rechazos", () => {
     // Ni se reescribe el archivo, ni se genera evidencia nueva.
     expect(espia).not.toHaveBeenCalled();
     expect(evidencias.registros).toHaveLength(1);
-    // Y las huellas son exactamente las que ya estaban registradas.
-    expect(segunda.solicitud.hashSha256).toBe(primera.solicitud.hashSha256);
-    expect(segunda.fipf.hashSha256).toBe(primera.fipf.hashSha256);
+    // Y la huella es exactamente la que ya estaba registrada.
+    expect(segunda.documento.hashSha256).toBe(primera.documento.hashSha256);
   });
 
   it("rechaza un expediente que no llegó a DECLARACIONES_OK y deja evidencia del intento", async () => {

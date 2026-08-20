@@ -21,10 +21,6 @@ import {
   leerCasoDerivado,
 } from "../declaraciones-p6";
 import { esTransicionLegal } from "../expediente";
-import {
-  TEXTO_DECLARACION_ORIGEN_LICITO,
-  VERSION_DECLARACION_ORIGEN_LICITO,
-} from "../textos-p6";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
 import {
@@ -128,7 +124,6 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -161,7 +156,6 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
         beneficiarioDomicilio: "Calle Palma 812, Centro, Asunción",
       },
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -189,7 +183,6 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
         // Sin cédula, a propósito.
       },
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -211,7 +204,6 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
         beneficiarioCedula: "4123456",
       },
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -231,7 +223,6 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
         beneficiarioDomicilio: "Un domicilio cualquiera",
       },
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -258,7 +249,6 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
         expedienteId: "EXP-TEST-1",
         datos: DATOS_CRUDOS,
         declaraciones: { ...RESPUESTAS_COMPATIBLES, [clave]: respuesta },
-        origenLicitoDeFondos: true,
         contexto: CONTEXTO,
       });
 
@@ -287,7 +277,6 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "3": "SI", "8": "SI" },
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -303,7 +292,6 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
         expedienteId: "EXP-TEST-1",
         datos: DATOS_CRUDOS,
         declaraciones: { ...RESPUESTAS_COMPATIBLES, [clave]: "NO" },
-        origenLicitoDeFondos: true,
         contexto: CONTEXTO,
       });
 
@@ -328,7 +316,6 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "8": "SI" },
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -350,7 +337,6 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
     const entrada = {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     };
 
@@ -370,42 +356,23 @@ describe("guardarDatosYDeclaracionesP6 · derivación a Pantalla A (regla inviol
 });
 
 describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
-  it("sin la declaración de origen lícito no se guarda nada (D-08)", async () => {
-    // El literal integra el FIPF, y el FIPF se cierra al salir de esta
-    // pantalla: aceptarlo después lo dejaría fuera del documento firmado. Lo
-    // verifica el servidor, no el checkbox deshabilitado de la pantalla.
+  it("la declaración de licitud ya no es una casilla: viaja impresa en el documento", async () => {
+    // Matriz V4 §4: el efecto del bloque "Licitud y veracidad" es *"Integrada
+    // al PDF Solicitud + FIPF; no casilla adicional"*, y de esta pantalla dice
+    // *"No hay casillas innecesarias; declaraciones forman parte del PDF que
+    // se firma"*. En L4b fue una casilla bloqueante acá —un puente para que el
+    // FIPF no se cerrara sin ella— y con el PDF unificado volvió a su lugar.
     const { deps, expedientes } = armar(enIdentidadVerificada());
 
     const resultado = await guardarDatosYDeclaracionesP6(deps, {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: false,
       contexto: CONTEXTO,
     });
 
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("ORIGEN_FONDOS_NO_DECLARADO");
-    expect(expedientes.actual().estado).toBe("IDENTIDAD_VERIFICADA");
-  });
-
-  it("guarda el literal íntegro y su versión, no solo un `true`", async () => {
-    const { deps, expedientes } = armar(enIdentidadVerificada());
-
-    await guardarDatosYDeclaracionesP6(deps, {
-      expedienteId: "EXP-TEST-1",
-      datos: DATOS_CRUDOS,
-      declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
-      contexto: CONTEXTO,
-    });
-
-    const declarado = expedientes.actual().declaracionOrigenLicito;
-    expect(declarado?.versionTexto).toBe(VERSION_DECLARACION_ORIGEN_LICITO);
-    expect(declarado?.textoAceptado).toBe(TEXTO_DECLARACION_ORIGEN_LICITO);
-    expect(declarado?.ip).toBe(CONTEXTO.ip);
-    expect(declarado?.aceptadaEn).toBe(AHORA);
+    expect(resultado.ok).toBe(true);
+    expect(expedientes.actual().estado).toBe("DECLARACIONES_OK");
   });
 
   it("rechaza sin tocar el expediente si falta un dato obligatorio", async () => {
@@ -415,7 +382,6 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
       expedienteId: "EXP-TEST-1",
       datos: { ...DATOS_CRUDOS, domicilio: "   ", ciudad: "Montevideo", ingresoMensualDeclaradoGs: "0" },
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -440,7 +406,6 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: incompletas,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -458,7 +423,6 @@ describe("guardarDatosYDeclaracionesP6 · validaciones", () => {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: RESPUESTAS_COMPATIBLES,
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -493,7 +457,6 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "3": "SI" },
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -531,7 +494,6 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "1": "NO", "8": "SI" },
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -550,7 +512,6 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "8": "SI" },
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 
@@ -568,7 +529,6 @@ describe("leerCasoDerivado", () => {
       expedienteId: "EXP-TEST-1",
       datos: DATOS_CRUDOS,
       declaraciones: { ...RESPUESTAS_COMPATIBLES, "8": "SI" },
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     });
 

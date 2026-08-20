@@ -5,6 +5,8 @@
  * y las "Reglas de negocio inviolables" de CLAUDE.md. No se modela ningún
  * campo, paso o valor que no esté en esos documentos.
  */
+import type { ModalidadFirma, NivelFirma, RolFirmante } from "./firmantes-documento";
+
 
 // ---------------------------------------------------------------------------
 // Máquina de estados
@@ -398,26 +400,6 @@ export interface Pago {
   readonly confirmadoEn: string | null;
 }
 
-/**
- * Checkbox obligatorio del bloque 1 de P7: *"Declaro que los fondos utilizados
- * para pagar el premio son de mi propiedad y tienen origen lícito."*
- *
- * Se modela como consentimiento versionado —igual que `AutorizacionInicial`—
- * y no como un booleano: es un dato de origen de fondos que integra el FIPF
- * (fila 16 de la matriz — "R2 - CONSENTIMIENTO, IDENTIFICACIÓN Y REPUDIO",
- * *"Generar el FIPF con datos personales, laborales, económicos y origen de
- * fondos"*, Res. SEPRELAD 71/19, art. 26(1)(a-j)), así que tiene que quedar
- * probado qué texto exacto tuvo a la vista la persona y cuándo lo aceptó.
- */
-export interface DeclaracionOrigenLicito {
-  readonly aceptadaEn: string; // ISO 8601
-  readonly ip: string;
-  readonly dispositivo: string;
-  readonly sesionId: string;
-  readonly versionTexto: string;
-  /** Literal íntegro que la persona tuvo a la vista al marcar el checkbox. */
-  readonly textoAceptado: string;
-}
 
 /**
  * Bloque 1 de P7 — `Datos para la factura`. La factura es **siempre a nombre
@@ -440,12 +422,33 @@ export interface DocumentoCerrado {
   /** Regla #4: se calcula al cerrar el PDF, antes de habilitar la firma. */
   readonly hashSha256: string;
   readonly cerradoEn: string;
+  /**
+   * Código interno de la sección FIPF, impreso dentro del mismo PDF (D-11).
+   *
+   * El documento es uno solo y su identidad es `codigo` (`PROP-<correlativo>`),
+   * pero las dos secciones conservan su código propio porque son dos
+   * formularios con vida normativa distinta: la Solicitud responde a la Res.
+   * SS SG. 215/15 y el FIPF a la Res. SEPRELAD 71/19, y un auditor de
+   * cualquiera de los dos tiene que poder citar el suyo. Un solo correlativo,
+   * dos códigos internos visibles en sus secciones.
+   */
+  readonly codigoSeccionFipf: string;
 }
 
-export interface PaqueteDocumental {
-  readonly solicitud: DocumentoCerrado;
-  readonly fipf: DocumentoCerrado;
-}
+/**
+ * El paquete documental **es un solo documento** desde D-11.
+ *
+ * Era `{ solicitud, fipf }`: dos PDF, dos huellas, y una regla —la inviolable
+ * #3, *los dos o ninguno*— que había que hacer cumplir con validaciones en
+ * cada punto por el que pasaban. Ahora la Solicitud y el FIPF son dos
+ * secciones de un mismo archivo con un solo SHA-256, así que **no existe la
+ * forma de tener uno sin el otro**: la regla dejó de necesitar quien la
+ * vigile y pasó a ser una propiedad de la estructura.
+ *
+ * El alias se conserva porque el nombre "paquete documental" sigue siendo el
+ * que usan la especificación, la matriz y las evidencias ya guardadas.
+ */
+export type PaqueteDocumental = DocumentoCerrado;
 
 export type CanalFirma = "WHATSAPP" | "EMAIL";
 
@@ -472,16 +475,38 @@ export interface ActoDeFirmaEnCurso {
 }
 
 /**
- * Regla #3 (atómica de firma): este tipo solo puede existir si AMBOS
- * documentos quedaron firmados en el mismo acto. No hay forma de
- * representar "uno firmado, el otro no" — no hay campos opcionales.
+ * Firma del cliente sobre el paquete documental.
+ *
+ * **Un solo hash** (D-11): el documento es uno, así que la regla inviolable #3
+ * ya no se sostiene con dos campos obligatorios sino con la estructura — no
+ * hay dos cosas que puedan separarse. Los dos hashes anteriores
+ * (`hashSolicitudFirmada` y `hashFipfFirmado`) desaparecen con los dos
+ * archivos que describían.
  */
 export interface Firma {
   readonly canal: CanalFirma;
   readonly idCode100: string;
   readonly firmadoEn: string;
-  readonly hashSolicitudFirmada: string;
-  readonly hashFipfFirmado: string;
+  /** Huella del PDF único ya firmado por el cliente. */
+  readonly hashDocumentoFirmado: string;
+}
+
+/**
+ * Una firma institucional aplicada sobre el documento (D-13).
+ *
+ * Se guarda una por firmante, con su modalidad y su certificado, porque la
+ * consola administrativa tiene que poder mostrar **quién firmó qué y cómo** —
+ * no alcanza con saber que el expediente está `FIRMADO`. El certificado es
+ * simulado mientras Code100 sea un mock, y el campo lo dice para que la
+ * evidencia no afirme haber verificado algo que nadie verificó.
+ */
+export interface FirmaInstitucional {
+  readonly rol: RolFirmante;
+  readonly nivel: NivelFirma;
+  readonly modalidad: ModalidadFirma;
+  /** Referencia del certificado con el que se firmó. `DEMO-…` mientras sea simulado. */
+  readonly certificado: string;
+  readonly aplicadaEn: string; // ISO 8601
 }
 
 // ---------------------------------------------------------------------------
@@ -616,27 +641,12 @@ export interface Expediente {
    * dato que guardan sigue siendo el instante en que caducaron.
    */
   readonly plazoPagoVenceEn: string | null;
-  /**
-   * Declaración de origen lícito de los fondos, aceptada en el paso de
-   * declaraciones.
-   *
-   * **Se declara antes de firmar, no al pagar** (D-08). Se aceptaba en la
-   * pantalla de pago mientras el pago iba primero; invertido el orden, el
-   * literal tiene que estar en el FIPF que la persona firma —es un dato de
-   * origen de fondos, fila 16 de la matriz (Res. SEPRELAD 71/19, art.
-   * 26(1)(a-j))— y el documento se cierra antes de que exista ninguna
-   * operación de pago. Aceptarla en el paso de pago la dejaría fuera del
-   * documento firmado, que es justamente donde prueba algo.
-   *
-   * Vive en el expediente y no dentro de `DatosFacturacionP7` por lo mismo:
-   * dejó de ser un dato de la factura y pasó a ser una declaración del
-   * proponente.
-   */
-  readonly declaracionOrigenLicito: DeclaracionOrigenLicito | null;
   readonly paqueteDocumental: PaqueteDocumental | null;
   /** Enlace de firma enviado y esperando confirmación de Code100 (P8). */
   readonly actoDeFirma: ActoDeFirmaEnCurso | null;
   readonly firma: Firma | null;
+  /** Firmas institucionales aplicadas sobre el paquete, en orden (D-13). */
+  readonly firmasInstitucionales: readonly FirmaInstitucional[];
   /** Estado de la emisión en Alianza (P9). No contiene la póliza, solo su estado. */
   readonly poliza: PolizaDelExpediente | null;
 
@@ -671,10 +681,10 @@ export function crearExpedienteInicial(input: {
     facturacion: null,
     pago: null,
     plazoPagoVenceEn: null,
-    declaracionOrigenLicito: null,
     paqueteDocumental: null,
     actoDeFirma: null,
     firma: null,
+    firmasInstitucionales: [],
     poliza: null,
     expedienteAnteriorId: input.expedienteAnteriorId ?? null,
     creadoEn: input.ahora,

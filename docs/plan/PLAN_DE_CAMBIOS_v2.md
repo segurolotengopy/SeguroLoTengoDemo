@@ -217,7 +217,8 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 | **L3 · Pantallas 4–5** ✅ **hecho (20-ago-2026)** | CHG-15 (cotejo en edición: solo nombres y apellidos; los cuatro campos de los que cuelgan la edad y el bloqueo siguen cerrados), CHG-18 (config por producto, sin campos normativos), CHG-24 (cédula del beneficiario opcional). **Verificado sin cambio:** CHG-26 (los datos fiscales nunca estuvieron en declaraciones) | L2 + fixtures copiados (D-21) | Fixtures de Rodrigo pasan OCR con prellenado y cotejo; campo oculto nunca bloquea; beneficiario cédula-opcional no bloqueante |
 | **L4a · Medios de pago (D-02)** ✅ **hecho (20-ago-2026)** | Preautorización retirada; QR, débito y crédito con cobro directo; estados `PREAUTORIZADO`/`CAPTURADO` eliminados y reemplazados por `pagoAcreditado`; estado `DEVUELTO` para el seguimiento de devoluciones. 937 tests en verde; E2E 6/7 en la corrida completa y el séptimo verde aislado |
 | **L4b · Inversión firma ↔ pago (D-08, D-10)** ✅ **hecho (20-ago-2026)** | Grafo invertido: `DECLARACIONES_OK → PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO → PAGO_CONFIRMADO → EMITIDO`. Estado nuevo `FIRMADO_CLIENTE` y firmas institucionales (D-13, tramo de estado). Correlativo acuñado por el cierre del paquete, no por el pago. Declaración de origen lícito movida al paso de declaraciones, para que integre el FIPF firmado. Plazo de 24 h renombrado a `plazoPagoVenceEn` y mudado de la firma al pago (D-10), con `VENCIDO` sin devolución. CHG-38/39 (los copys que el orden viejo hacía mentir). Endpoint `/api/p7/vencimiento` en reemplazo de `/api/p8/vencimiento` | ✅ desbloqueado (D-08, D-10); requiere L4a | **Cumplidos (20-ago-2026):** 941 tests unitarios y de contrato en verde; typecheck, lint y build en verde; batería E2E reescrita para el orden nuevo |
-| **L4c/L4d · resto del lote 4** ⚠️ **ver Anexo D** | CHG-29 (visor), CHG-30 (PDF unificado, D-11), D-13 completo (lista de firmantes configurable con modalidad), CHG-33 (callback+polling), CHG-34, CMP-07/08/09 | ✅ desbloqueado (D-05, D-11, D-13); requiere L4b | Regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
+| **L4c · PDF unificado y firmas (D-11, D-13)** ✅ **hecho (20-ago-2026)** | Un solo PDF con Solicitud + FIPF como secciones, un correlativo, dos códigos internos visibles, **un** SHA-256 (CHG-30). `firmantes-documento.ts`: lista ordenada por documento con rol, nivel y modalidad `PREFIRMADO`/`CONJUNTO`, fuente única del bloque de firmas del PDF, del orden de aplicación y de lo que muestra la consola. `Expediente.firmasInstitucionales` con certificado simulado. Declaraciones de licitud+veracidad y cuenta propia integradas al PDF (Matriz §4, CMP-20), art. 1556 con sello de tiempo (CMP-09). CHG-29: visor sin descarga antes de firmar. La palanca de demo de "sellado a la mitad" se reemplaza por `FIRMAS_INSTITUCIONALES_FALLAN` | ✅ desbloqueado (D-11, D-13); requiere L4b | **Cumplidos (20-ago-2026):** 947 tests en verde; typecheck, lint y build en verde |
+| **L4d · Callback de firma y habilitación del cobro** ⚠️ **ver Anexo D** | CHG-33 (webhook + polling de respaldo, idempotentes por `session_id`), CHG-34 (datos de facturación prellenados), CMP-07 (operación atómica pago→CPC), CMP-08 (regeneración del medio de cobro con hash intacto) | ✅ desbloqueado (D-05); requiere L4c | Regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
 | **L5 · Confirmación, CPC, notificaciones y devoluciones** | CHG-40…46, D-12 (CPC), CHG-44 (job entrega + acuse), CHG-47/D-14 (Pv2-B), **flujo de seguimiento de devoluciones (D-02) + vista en consola**, CMP-05/06 | ✅ desbloqueado (D-05, D-12, D-17, D-18); D-19 con datos parametrizados; requiere L4 | CPC solo con pago confirmado; envío automático con reintentos y acuse; inicio = pago + 24 h exactas incluyendo bordes de mes; devolución seguible de punta a punta con evidencia |
 | **L6 · Trazabilidad y hardening** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final) | L2 | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
 
@@ -332,9 +333,8 @@ de avance mientras se acumulaba trabajo descartable.
 2. **L4b · Inversión firma ↔ pago (D-08).** ✅ hecho. La caducidad de 24 h
    (D-10) entró acá, porque depende de que el vencimiento ocurra antes del
    cobro.
-3. **L4c · PDF unificado y firmas (D-11, D-13, CHG-30).** Un solo documento, un
-   solo hash, tres firmantes configurables. Es autocontenido y no depende de
-   los dos anteriores.
+3. **L4c · PDF unificado y firmas (D-11, D-13, CHG-30).** ✅ hecho. Un solo
+   documento, un solo hash, tres firmantes configurables.
 4. **L4d · Callback de firma y habilitación del cobro (CHG-33, CMP-07/08).**
    Último, porque conecta lo que los tres anteriores dejaron en su lugar.
 
@@ -358,6 +358,24 @@ cerraba.
   Ninguno de esos datos existe cuando el paquete se cierra, así que salieron
   del contenido. Los datos de la factura se siguen capturando al pagar
   (CHG-34), pero fuera del documento firmado.
+
+**Lo que L4c encontró.** Dos cosas que el plan tampoco había anticipado:
+
+- **La casilla de licitud que L4b agregó no debía existir.** La Matriz V4 §4 es
+  explícita: el bloque "Licitud y veracidad" va *"Integrada al PDF Solicitud +
+  FIPF; **no casilla adicional**"*, y de la pantalla de datos dice *"No hay
+  casillas innecesarias; declaraciones forman parte del PDF que se firma"*. En
+  L4b fue una casilla porque el FIPF se habría cerrado sin la declaración; con
+  el PDF unificado volvió a su lugar. El literal además cambió al de la matriz
+  —suma la veracidad de la información— así que subió a `v2` y el `v1` queda
+  como legado legible (regla inviolable #10).
+- **La palanca de demo de "cortar el sellado a la mitad" dejó de ser
+  representable.** Existía para demostrar la regla inviolable #3 con dos
+  archivos; con uno solo no hay nada que cortar. Se reemplazó por
+  `FIRMAS_INSTITUCIONALES_FALLAN`, que es la falla que sí sigue siendo posible
+  y que sí tiene un estado que mostrar: `FIRMADO_CLIENTE` con el cobro
+  inhabilitado. Los tests que probaban la atomicidad se borraron en vez de
+  adaptarse — describían un problema que el diseño eliminó.
 
 **La lección para el resto del plan:** un lote cuyo riesgo se estimó en A y que
 toca máquina de estados, motor de documentos y dos integraciones no era un

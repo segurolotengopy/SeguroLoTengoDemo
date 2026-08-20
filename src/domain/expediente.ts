@@ -24,16 +24,17 @@ import type {
   PolizaDelExpediente,
   DatosComplementariosP6,
   DatosFacturacionP7,
-  DeclaracionOrigenLicito,
   Declaraciones,
   EstadoExpediente,
   Expediente,
   Firma,
+  FirmaInstitucional,
   PaqueteDocumental,
   Pago,
 } from "./tipos";
 import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, pagoAcreditado } from "./tipos";
 import { codigoFipf, codigoSolicitud } from "./documentos";
+import { firmantesConjuntos } from "./firmantes-documento";
 import { evaluarElegibilidad } from "./elegibilidad";
 
 /** Grafo de transiciones legales: única fuente de verdad de la máquina de estados. */
@@ -193,7 +194,6 @@ export function registrarDeclaracionesP6(
   expediente: Expediente,
   declaraciones: Declaraciones,
   datosComplementarios: DatosComplementariosP6,
-  declaracionOrigenLicito: DeclaracionOrigenLicito,
   numeroCasoDerivacion: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
@@ -206,7 +206,6 @@ export function registrarDeclaracionesP6(
       {
         declaraciones,
         datosComplementarios,
-        declaracionOrigenLicito,
         motivoDerivacionManual: null,
         numeroCasoDerivacion: null,
       },
@@ -224,7 +223,6 @@ export function registrarDeclaracionesP6(
     {
       declaraciones,
       datosComplementarios,
-      declaracionOrigenLicito,
       motivoDerivacionManual: resultado.declaracionesQueBloquean,
       numeroCasoDerivacion,
     },
@@ -332,14 +330,14 @@ export function registrarPagoConfirmadoP7(
  *
  * Las tres reglas que esta función hace imposibles de violar:
  *
- * **Los documentos entran juntos o no entra ninguno** (regla inviolable #3).
- * `PaqueteDocumental` no tiene campos opcionales y esta es la única escritura
- * de `expediente.paqueteDocumental`, así que no existe un estado en el que la
- * Solicitud esté cerrada y el FIPF no.
+ * **Los documentos entran juntos porque son uno** (regla inviolable #3, ahora
+ * estructural). Desde D-11 el paquete es un solo PDF con la Solicitud y el
+ * FIPF como secciones: no hay dos cosas que puedan separarse, así que la regla
+ * dejó de necesitar una validación que la vigile.
  *
- * **Un solo correlativo, dos prefijos.** Los códigos se validan contra
- * `expediente.numeroPropuesta`: un paquete cuyo FIPF no derive del mismo
- * número que la Solicitud se rechaza acá y nunca llega a persistirse
+ * **Un solo correlativo, dos códigos internos.** Los dos se validan contra
+ * `expediente.numeroPropuesta`: un paquete cuya sección FIPF no derive del
+ * mismo número que la Solicitud se rechaza acá y nunca llega a persistirse
  * (CLAUDE.md → "Reglas transversales de integraciones"; fila 47 de la matriz
  * de cumplimiento, Res. SS SG. 215/15, punto 14; Ley 6822/21, arts. 44-46).
  *
@@ -368,25 +366,18 @@ export function registrarPaqueteDocumental(
     solicitud: codigoSolicitud(expediente.numeroPropuesta),
     fipf: codigoFipf(expediente.numeroPropuesta),
   };
-  if (paquete.solicitud.codigo !== esperados.solicitud || paquete.fipf.codigo !== esperados.fipf) {
+  if (paquete.codigo !== esperados.solicitud || paquete.codigoSeccionFipf !== esperados.fipf) {
     return {
       ok: false,
       error:
         `Los códigos del paquete no derivan del correlativo ${expediente.numeroPropuesta}: ` +
         `se esperaba ${esperados.solicitud} y ${esperados.fipf}, ` +
-        `llegó ${paquete.solicitud.codigo} y ${paquete.fipf.codigo}.`,
+        `llegó ${paquete.codigo} y ${paquete.codigoSeccionFipf}.`,
     };
   }
 
-  if (paquete.solicitud.version !== paquete.fipf.version) {
-    return {
-      ok: false,
-      error: "La Solicitud y el FIPF deben cerrarse con la misma versión: se firman en un solo acto.",
-    };
-  }
-
-  if (paquete.solicitud.hashSha256 === "" || paquete.fipf.hashSha256 === "") {
-    return { ok: false, error: "Ningún documento puede quedar cerrado sin su huella digital SHA-256." };
+  if (paquete.hashSha256 === "") {
+    return { ok: false, error: "El documento no puede quedar cerrado sin su huella digital SHA-256." };
   }
 
   return transicionarExpediente(expediente, "PAQUETE_GENERADO", { paqueteDocumental: paquete }, ahora);
@@ -434,12 +425,11 @@ export function registrarEnvioEnlaceFirmaP8(
  *
  * Las cuatro cosas que hace imposibles de violar:
  *
- * **Los dos documentos o ninguno** (regla inviolable #3). `Firma` no tiene
- * campos opcionales —`hashSolicitudFirmada` y `hashFipfFirmado` son
- * obligatorios— y esta es una sola escritura, así que no existe un expediente
- * con la Solicitud firmada y el FIPF no. Además se rechaza acá cualquier firma
- * que llegue con una huella vacía: un `""` pasaría el chequeo del tipo pero no
- * probaría nada.
+ * **Un documento, una huella** (regla inviolable #3, ahora estructural). Con
+ * el PDF único (D-11) no existe un expediente con la Solicitud firmada y el
+ * FIPF no, porque no existen dos archivos. Lo que sí se sigue rechazando acá
+ * es una firma que llegue con la huella vacía: un `""` pasaría el chequeo del
+ * tipo pero no probaría nada.
  *
  * **La firma es del acto que este expediente abrió.** El `idCode100` tiene que
  * coincidir con el de `actoDeFirma`: una confirmación de otra sesión —o un
@@ -482,11 +472,8 @@ export function registrarFirmaP8(
     };
   }
 
-  if (firma.hashSolicitudFirmada.trim() === "" || firma.hashFipfFirmado.trim() === "") {
-    return {
-      ok: false,
-      error: "La firma tiene que traer la huella de los dos documentos firmados: se firman en un solo acto.",
-    };
+  if (firma.hashDocumentoFirmado.trim() === "") {
+    return { ok: false, error: "La firma tiene que traer la huella del documento firmado." };
   }
 
   return transicionarExpediente(expediente, "FIRMADO_CLIENTE", { firma }, ahora);
@@ -510,6 +497,7 @@ export function registrarFirmaP8(
  */
 export function registrarFirmasInstitucionales(
   expediente: Expediente,
+  firmas: readonly FirmaInstitucional[],
   plazoPagoVenceEn: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
@@ -517,7 +505,25 @@ export function registrarFirmasInstitucionales(
     return { ok: false, error: "No hay firma del cliente sobre la que aplicar las institucionales." };
   }
 
-  return transicionarExpediente(expediente, "FIRMADO", { plazoPagoVenceEn }, ahora);
+  // La lista tiene que traer exactamente los firmantes que la configuración
+  // declara como `CONJUNTO` para este documento (D-13). Si falta uno, el acto
+  // no está completo y el expediente no puede quedar habilitado para el cobro.
+  const esperados = firmantesConjuntos("PAQUETE").map((firmante) => firmante.rol);
+  const aplicados = firmas.map((firma) => firma.rol);
+  const faltantes = esperados.filter((rol) => !aplicados.includes(rol));
+  if (faltantes.length > 0) {
+    return {
+      ok: false,
+      error: `Faltan firmas institucionales previstas para este documento: ${faltantes.join(", ")}.`,
+    };
+  }
+
+  return transicionarExpediente(
+    expediente,
+    "FIRMADO",
+    { firmasInstitucionales: firmas, plazoPagoVenceEn },
+    ahora,
+  );
 }
 
 /**

@@ -19,26 +19,18 @@ const ENTRADA: EmitirPolizaInput = {
   expedienteId: "EXP-P9-1",
   propuestaId: "00018425",
   referenciaBancard: "MOCK-BANCARD-ABC",
-  paqueteDocumental: {
-    solicitud: {
-      codigo: "PROP-00018425",
-      version: 1,
-      hashSha256: "a".repeat(64),
-      cerradoEn: "2026-08-09T15:02:00.000Z",
-    },
-    fipf: {
-      codigo: "FIPF-00018425",
-      version: 1,
-      hashSha256: "b".repeat(64),
-      cerradoEn: "2026-08-09T15:02:00.000Z",
-    },
+  documento: {
+    codigo: "PROP-00018425",
+    codigoSeccionFipf: "FIPF-00018425",
+    version: 1,
+    hashSha256: "a".repeat(64),
+    cerradoEn: "2026-08-09T15:02:00.000Z",
   },
   firma: {
     canal: "WHATSAPP",
     idCode100: "MOCK-CODE100-XYZ",
     firmadoEn: "2026-08-09T15:10:00.000Z",
-    hashSolicitudFirmada: "c".repeat(64),
-    hashFipfFirmado: "d".repeat(64),
+    hashDocumentoFirmado: "c".repeat(64),
   },
 };
 
@@ -121,8 +113,7 @@ describe("MockPolicyIssuer · SEBAOT simulado", () => {
     await sebaot.emitirPoliza(ENTRADA);
 
     const poliza = listarPolizasMock()[0];
-    expect(poliza.hashSolicitudFirmada).toBe(ENTRADA.firma.hashSolicitudFirmada);
-    expect(poliza.hashFipfFirmado).toBe(ENTRADA.firma.hashFipfFirmado);
+    expect(poliza.hashDocumentoFirmado).toBe(ENTRADA.firma.hashDocumentoFirmado);
   });
 
   it("una póliza desconocida se reporta como no emitida, nunca como emitida sin fecha", async () => {

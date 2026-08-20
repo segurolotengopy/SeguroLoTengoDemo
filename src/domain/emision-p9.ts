@@ -279,7 +279,7 @@ async function intentarEmitirPolizaP9(
       // El correlativo de la propuesta: SEBAOT no acuña un número nuevo.
       propuestaId: expediente.numeroPropuesta,
       referenciaBancard: pago.referenciaBancard ?? "",
-      paqueteDocumental: paquete,
+      documento: paquete,
       // Completa por tipo: no hay forma de emitir sobre una firma parcial.
       firma,
     });
@@ -330,8 +330,7 @@ async function intentarEmitirPolizaP9(
       estadoPoliza: poliza.estado,
       referenciaBancard: pago.referenciaBancard ?? "",
       idCode100: firma.idCode100,
-      hashSolicitudFirmada: firma.hashSolicitudFirmada,
-      hashFipfFirmado: firma.hashFipfFirmado,
+      hashDocumentoFirmado: firma.hashDocumentoFirmado,
       emisorPoliza: "ALIANZA_GARANTIA_SEBAOT",
       // Constancia explícita de que no existe: el producto no la contempla.
       notaDeCobertura: "NO_SE_GENERA",
@@ -477,6 +476,8 @@ export async function registrarComunicacionesComercialesP9(
 
 export interface DocumentoDescargableP9 {
   readonly codigo: string;
+  /** Código interno de la sección FIPF, dentro del mismo PDF (D-11). */
+  readonly codigoSeccionFipf: string;
   readonly version: number;
   /** Huella del PDF **firmado**, que es el archivo que se descarga. */
   readonly hashFirmado: string;
@@ -499,8 +500,8 @@ export interface ResumenP9 {
   readonly firmadoEn: string | null;
   readonly pagoConfirmadoEn: string | null;
   readonly solicitudAceptadaEn: string;
-  readonly solicitud: DocumentoDescargableP9;
-  readonly fipf: DocumentoDescargableP9;
+  /** El documento único firmado: Solicitud + FIPF (D-11). */
+  readonly documento: DocumentoDescargableP9;
 }
 
 /** `9323336` → `93•••••`: alcanza para reconocer el documento sin exponerlo. */
@@ -546,15 +547,11 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
     firmadoEn: firma.firmadoEn,
     pagoConfirmadoEn: pago?.confirmadoEn ?? null,
     solicitudAceptadaEn: poliza.solicitadaEn,
-    solicitud: {
-      codigo: paquete.solicitud.codigo,
-      version: paquete.solicitud.version,
-      hashFirmado: firma.hashSolicitudFirmada,
-    },
-    fipf: {
-      codigo: paquete.fipf.codigo,
-      version: paquete.fipf.version,
-      hashFirmado: firma.hashFipfFirmado,
+    documento: {
+      codigo: paquete.codigo,
+      codigoSeccionFipf: paquete.codigoSeccionFipf,
+      version: paquete.version,
+      hashFirmado: firma.hashDocumentoFirmado,
     },
   };
 }

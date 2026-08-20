@@ -30,8 +30,7 @@ export interface SesionFirmaVisible {
   readonly estado: "ESPERANDO_APERTURA" | "ESPERANDO_CODIGO" | "FIRMADA" | "CERRADA";
   readonly detalleEstado: string;
   readonly codigo: string | null;
-  readonly hashSolicitudFirmada: string | null;
-  readonly hashFipfFirmado: string | null;
+  readonly hashDocumentoFirmado: string | null;
 }
 
 export interface ControlFirmaCode100Props {
@@ -181,12 +180,8 @@ function Tarjeta({ sesion }: { sesion: SesionFirmaVisible }) {
 
       <dl className="flex flex-col gap-0.5 border-t border-borde-tenue pt-2 font-mono text-[11px] break-all text-etiqueta">
         <div>
-          <dt className="inline font-sans font-semibold">Solicitud firmada: </dt>
-          <dd className="inline">{sesion.hashSolicitudFirmada ?? "— sin firmar —"}</dd>
-        </div>
-        <div>
-          <dt className="inline font-sans font-semibold">FIPF firmado: </dt>
-          <dd className="inline">{sesion.hashFipfFirmado ?? "— sin firmar —"}</dd>
+          <dt className="inline font-sans font-semibold">Documento firmado: </dt>
+          <dd className="inline">{sesion.hashDocumentoFirmado ?? "— sin firmar —"}</dd>
         </div>
       </dl>
 

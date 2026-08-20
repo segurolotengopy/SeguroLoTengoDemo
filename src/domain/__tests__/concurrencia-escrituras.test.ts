@@ -131,7 +131,7 @@ const firmasNoUsadas: SignatureProvider = {
   async iniciarFirma() {
     throw new Error("Code100 no debería usarse en este test");
   },
-  async descargarDocumentosFirmados() {
+  async descargarDocumentoFirmado() {
     throw new Error("Code100 no debería usarse en este test");
   },
   async confirmarResultado() {

@@ -12,8 +12,7 @@ import {
   DOCUMENTOS_POR_RECIBIR,
   HITOS_CONTRATACION,
   LEYENDA_SIN_NOTA_DE_COBERTURA,
-  NOMBRE_FIPF_P9,
-  NOMBRE_SOLICITUD_P9,
+  NOMBRE_DOCUMENTO_P9,
   ROTULO_ASEGURADO_P9,
   ROTULO_DOCUMENTO_P9,
   ROTULO_ESTADO_POLIZA,
@@ -69,8 +68,7 @@ interface Resumen {
   readonly firmadoEn: string | null;
   readonly pagoConfirmadoEn: string | null;
   readonly solicitudAceptadaEn: string;
-  readonly solicitud: DocumentoDescargable;
-  readonly fipf: DocumentoDescargable;
+  readonly documento: DocumentoDescargable;
 }
 
 const MENSAJES: Readonly<Record<string, string>> = {
@@ -406,20 +404,13 @@ export function ContratacionAceptada() {
         </h2>
 
         {resumen ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <TarjetaDescarga
-              nombre={NOMBRE_SOLICITUD_P9}
-              documento={resumen.solicitud}
-              disponible={documentosDisponibles}
-            />
-            <TarjetaDescarga
-              nombre={NOMBRE_FIPF_P9}
-              documento={resumen.fipf}
-              disponible={documentosDisponibles}
-            />
-          </div>
+          <TarjetaDescarga
+            nombre={NOMBRE_DOCUMENTO_P9}
+            documento={resumen.documento}
+            disponible={documentosDisponibles}
+          />
         ) : (
-          <p className="text-sm text-cuerpo">Preparando los documentos firmados…</p>
+          <p className="text-sm text-cuerpo">Preparando el documento firmado…</p>
         )}
 
         <p className="rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2 text-sm font-bold text-titulo">

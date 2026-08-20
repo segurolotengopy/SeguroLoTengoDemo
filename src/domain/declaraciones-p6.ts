@@ -67,17 +67,8 @@ import {
 } from "./elegibilidad";
 import type { MotivoDerivacion } from "./elegibilidad";
 import { registrarDeclaracionesP6 } from "./expediente";
-import {
-  TEXTO_DECLARACION_ORIGEN_LICITO,
-  VERSION_DECLARACION_ORIGEN_LICITO,
-  VERSION_TEXTOS_DECLARACIONES_P6,
-} from "./textos-p6";
-import type {
-  DeclaracionOrigenLicito,
-  EstadoExpediente,
-  Expediente,
-  RegistroEvidencia,
-} from "./tipos";
+import { VERSION_TEXTOS_DECLARACIONES_P6 } from "./textos-p6";
+import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
 
 // ---------------------------------------------------------------------------
@@ -148,12 +139,6 @@ export interface EntradaP6 {
   readonly datos: Readonly<Record<string, unknown>>;
   /** Respuestas del bloque 2, indexadas por número de declaración ("1".."8"). */
   readonly declaraciones: Readonly<Record<string, unknown>>;
-  /**
-   * Checkbox obligatorio de origen lícito de fondos. Se acepta acá desde la
-   * inversión de firma y pago (D-08): el literal integra el FIPF, y el FIPF se
-   * cierra y se hashea al salir de esta pantalla.
-   */
-  readonly origenLicitoDeFondos: unknown;
   readonly contexto: ContextoPeticion;
 }
 
@@ -161,8 +146,7 @@ export type MotivoRechazoP6 =
   | "EXPEDIENTE_NO_ENCONTRADO"
   | "ESTADO_INVALIDO"
   | "DATOS_INCOMPLETOS"
-  | "DECLARACIONES_INCOMPLETAS"
-  | "ORIGEN_FONDOS_NO_DECLARADO";
+  | "DECLARACIONES_INCOMPLETAS";
 
 /**
  * Lo que devuelve el caso de uso. Deliberadamente **no tiene** ningún campo de
@@ -317,13 +301,6 @@ export async function guardarDatosYDeclaracionesP6(
     };
   }
 
-  // Bloqueante y verificado en el servidor: sin la declaración no se cierra
-  // ningún documento. Que el checkbox esté deshabilitando el botón en la
-  // pantalla es cosmético — cualquiera arma la petición a mano.
-  if (entrada.origenLicitoDeFondos !== true) {
-    return { ok: false, motivo: "ORIGEN_FONDOS_NO_DECLARADO" };
-  }
-
   const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
   if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
   if (expediente.estado !== ESTADO_REQUERIDO_P6) {
@@ -342,24 +319,10 @@ export async function guardarDatosYDeclaracionesP6(
   const numeroCaso = elegible ? null : reloj.nuevoNumeroCaso(fecha);
   const motivoDerivacion = clasificarMotivoDerivacion(elegibilidad.declaracionesQueBloquean);
 
-  // El literal íntegro y su versión viajan al expediente, no solo un `true`:
-  // es lo que permite probar qué texto exacto tuvo a la vista la persona y
-  // cuándo lo aceptó (fila 16 de la matriz, Res. SEPRELAD 71/19, art.
-  // 26(1)(a-j)).
-  const declaracionOrigenLicito: DeclaracionOrigenLicito = {
-    aceptadaEn: fecha,
-    ip: entrada.contexto.ip,
-    dispositivo: entrada.contexto.dispositivo,
-    sesionId: entrada.contexto.sesionId,
-    versionTexto: VERSION_DECLARACION_ORIGEN_LICITO,
-    textoAceptado: TEXTO_DECLARACION_ORIGEN_LICITO,
-  };
-
   const transicion = registrarDeclaracionesP6(
     expediente,
     declaraciones.declaraciones,
     datos.datos,
-    declaracionOrigenLicito,
     numeroCaso ?? "",
     fecha,
   );

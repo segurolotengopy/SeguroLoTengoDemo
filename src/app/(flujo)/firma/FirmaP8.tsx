@@ -6,17 +6,15 @@ import {
   AVISO_ENLACE_ENVIADO_P8,
   AVISO_FIRMA_RECHAZADA_P8,
   BADGE_DATOS_VERIFICADOS_P8,
-  BOTON_DESCARGAR_P8,
   BOTON_ENVIAR_ENLACE_P8,
   BOTON_VER_PDF_P8,
   CANAL_FIRMA_POR_DEFECTO,
-  DESCRIPCION_FIPF_P8,
-  DESCRIPCION_SOLICITUD_P8,
+  NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8,
+  DESCRIPCION_DOCUMENTO_P8,
   ENLACES_ACCESO_PREVIO_P8,
   ESTADO_ESPERANDO_CODE100_P8,
   MARCA_PDF_CERRADO_P8,
-  NOMBRE_FIPF_P8,
-  NOMBRE_SOLICITUD_P8,
+  NOMBRE_DOCUMENTO_P8,
   NOTA_ACEPTACION_REGISTRADA_P8,
   NOTA_ENVIO_ENLACE_P8,
   NOTA_PAGO_DESPUES_DE_FIRMAR_P8,
@@ -54,6 +52,7 @@ import { PanelFirmadorSimulado } from "./PanelFirmadorSimulado";
 
 interface DocumentoVisible {
   readonly codigo: string;
+  readonly codigoSeccionFipf: string;
   readonly version: number;
   readonly hashSha256: string;
   readonly cerradoEn: string;
@@ -70,8 +69,7 @@ interface ActoVisible {
 interface Resumen {
   readonly estado: string;
   readonly numeroPropuesta: string | null;
-  readonly solicitud: DocumentoVisible;
-  readonly fipf: DocumentoVisible;
+  readonly documento: DocumentoVisible;
   readonly canalWhatsappEnmascarado: string | null;
   readonly canalEmailEnmascarado: string | null;
   readonly acto: ActoVisible | null;
@@ -104,27 +102,40 @@ const MENSAJES: Readonly<Record<string, string>> = {
 /** Cada cuánto se le pregunta a Code100 si la persona ya firmó. */
 const INTERVALO_SONDEO_MS = 2_000;
 
-function TarjetaDocumento({
-  nombre,
-  descripcion,
-  documento,
-}: {
-  nombre: string;
-  descripcion: string;
-  documento: DocumentoVisible;
-}) {
+/**
+ * El documento único del expediente, con acceso de **lectura** y sin descarga
+ * (CHG-29).
+ *
+ * El botón `DESCARGAR` que había acá desapareció a propósito: la reunión del
+ * 18-ago pidió que antes de firmar el documento se pueda revisar pero no
+ * llevarse, y la Matriz §2 lo describe como *"Borrador"* en la pantalla de
+ * datos. Un PDF descargado antes de la firma circula como si fuera el
+ * instrumento, y no lo es: todavía no lo firmó nadie. Después de pagar, la
+ * pantalla de confirmación sí lo ofrece —ahí ya está firmado y es el
+ * instrumento de verdad.
+ *
+ * Lo que **no** cambia es que el archivo se sirve por el mismo endpoint
+ * verificado contra su huella: esconder un botón no protege nada por sí solo,
+ * y quien arme la petición a mano va a recibir el mismo PDF cerrado que se ve
+ * en el visor. La diferencia es de presentación, no de secreto — y por eso el
+ * texto lo dice en vez de fingir que el documento es inaccesible.
+ */
+function TarjetaDocumento({ documento }: { documento: DocumentoVisible }) {
   const url = `/api/p8/documento?codigo=${encodeURIComponent(documento.codigo)}`;
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie-suave p-4">
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h3 className="text-sm font-bold text-titulo">{nombre}</h3>
+          <h3 className="text-sm font-bold text-titulo">{NOMBRE_DOCUMENTO_P8}</h3>
           <code className="font-mono text-xs font-semibold text-azul-700 dark:text-azul-200">
             {documento.codigo}
           </code>
         </div>
-        <p className="text-sm text-cuerpo">{descripcion}</p>
+        <p className="text-sm text-cuerpo">{DESCRIPCION_DOCUMENTO_P8}</p>
+        <p className="text-xs text-etiqueta">
+          Sección FIPF: <code className="font-mono">{documento.codigoSeccionFipf}</code>
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -136,13 +147,8 @@ function TarjetaDocumento({
         >
           {BOTON_VER_PDF_P8}
         </a>
-        <a
-          href={`${url}&descargar=1`}
-          className="inline-flex h-10 items-center justify-center rounded-lg border border-borde-sutil px-4 text-xs font-bold tracking-wide text-cuerpo uppercase transition-colors hover:bg-superficie"
-        >
-          {BOTON_DESCARGAR_P8}
-        </a>
       </div>
+      <p className="text-xs text-etiqueta">{NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8}</p>
 
       <div className="flex flex-col gap-1 border-t border-borde-tenue pt-2">
         <p className="text-xs font-semibold text-verde-700 dark:text-verde-300">
@@ -348,18 +354,7 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
         </div>
 
         {resumen ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <TarjetaDocumento
-              nombre={NOMBRE_SOLICITUD_P8}
-              descripcion={DESCRIPCION_SOLICITUD_P8}
-              documento={resumen.solicitud}
-            />
-            <TarjetaDocumento
-              nombre={NOMBRE_FIPF_P8}
-              descripcion={DESCRIPCION_FIPF_P8}
-              documento={resumen.fipf}
-            />
-          </div>
+          <TarjetaDocumento documento={resumen.documento} />
         ) : (
           <p className="text-sm text-cuerpo">Preparando la Solicitud y el FIPF…</p>
         )}

@@ -139,8 +139,7 @@ export default async function PanelDeDemo() {
             ? "ENLACE ABIERTO · ESPERANDO CÓDIGO"
             : "ENLACE ENVIADO",
       codigo: codigo?.codigo ?? null,
-      hashSolicitudFirmada: sesion.firma?.hashSolicitudFirmada ?? null,
-      hashFipfFirmado: sesion.firma?.hashFipfFirmado ?? null,
+      hashDocumentoFirmado: sesion.firma?.hashDocumentoFirmado ?? null,
     };
     }),
   );

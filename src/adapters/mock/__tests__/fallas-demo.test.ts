@@ -38,9 +38,16 @@ describe("fallas forzadas del panel de demo", () => {
     // medios.
     // `REGISTRO_CIVIL_CAIDO` la agregó el cruce contra el registro civil: sin
     // ella no se puede mostrar que una caída **deriva** en vez de rechazar.
+    // `FIRMAS_INSTITUCIONALES_FALLAN` reemplaza a la palanca de "cortar el
+    // sellado a la mitad", que con el documento único (D-11) dejó de ser
+    // representable: no hay dos archivos que puedan quedar a medias. La falla
+    // que sí sigue siendo posible es que las firmas cualificadas no lleguen
+    // después de la del cliente, y esa tiene un estado que mostrar
+    // —`FIRMADO_CLIENTE`— con el cobro inhabilitado (D-13).
     expect([...FALLAS_DEMO].sort()).toEqual([
       "BANCARD_TIMEOUT",
       "CODE100_RECHAZO",
+      "FIRMAS_INSTITUCIONALES_FALLAN",
       "OTP_EXPIRADO",
       "OTP_INTENTOS_AGOTADOS",
       "REGISTRO_CIVIL_CAIDO",

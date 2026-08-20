@@ -1,10 +1,10 @@
 import type {
   DatosComplementariosP6,
   DatosFacturacionP7,
-  DeclaracionOrigenLicito,
   Declaraciones,
   EstadoExpediente,
   Expediente,
+  FirmaInstitucional,
   Identidad,
   PaqueteDocumental,
   Pago,
@@ -17,8 +17,8 @@ import {
   transicionarExpediente,
 } from "../expediente";
 import { PASOS_FLUJO } from "../rutas-flujo";
+import { firmantesConjuntos } from "../firmantes-documento";
 import { codigoFipf, codigoSolicitud } from "../documentos";
-import { TEXTO_DECLARACION_ORIGEN_LICITO, VERSION_DECLARACION_ORIGEN_LICITO } from "../textos-p6";
 
 export const declaracionesCompatibles: Declaraciones = {
   estadoDeSalud: "SI",
@@ -120,14 +120,6 @@ export const facturacionFixture: DatosFacturacionP7 = {
   ruc: null,
 };
 
-export const declaracionOrigenLicitoFixture: DeclaracionOrigenLicito = {
-  aceptadaEn: "2026-08-09T14:45:00.000Z",
-  ip: "203.0.113.10",
-  dispositivo: "test",
-  sesionId: "sesion-test",
-  versionTexto: VERSION_DECLARACION_ORIGEN_LICITO,
-  textoAceptado: TEXTO_DECLARACION_ORIGEN_LICITO,
-};
 
 export const pagoConfirmadoFixture: Pago = {
   medio: "QR_BANCARD",
@@ -150,7 +142,6 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
   const conDatos = transicionarExpediente(base, "DECLARACIONES_OK", {
     declaraciones: declaracionesCompatibles,
     datosComplementarios: datosComplementariosFixture,
-    declaracionOrigenLicito: declaracionOrigenLicitoFixture,
     identidad: identidadFixture,
     canalWhatsapp: { valor: "+595981000456", verificadoEn: "2026-08-09T14:00:00.000Z" },
     canalEmail: { valor: "monica.gorena@example.com", verificadoEn: "2026-08-09T14:30:00.000Z" },
@@ -170,19 +161,13 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
 // Expediente con el paquete documental ya cerrado (entrada de la firma)
 // ---------------------------------------------------------------------------
 
+/** D-11 · un solo documento con las dos secciones adentro. */
 export const PAQUETE_FIXTURE: PaqueteDocumental = {
-  solicitud: {
-    codigo: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
-    version: 1,
-    hashSha256: "a".repeat(64),
-    cerradoEn: "2026-08-09T15:02:00.000Z",
-  },
-  fipf: {
-    codigo: codigoFipf(NUMERO_PROPUESTA_FIJO),
-    version: 1,
-    hashSha256: "b".repeat(64),
-    cerradoEn: "2026-08-09T15:02:00.000Z",
-  },
+  codigo: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
+  codigoSeccionFipf: codigoFipf(NUMERO_PROPUESTA_FIJO),
+  version: 1,
+  hashSha256: "a".repeat(64),
+  cerradoEn: "2026-08-09T15:02:00.000Z",
 };
 
 export const PLAZO_PAGO_FIJO = "2026-08-10T15:03:00.000Z";
@@ -212,9 +197,19 @@ export const firmaFixture = {
   idCode100: "C100-TEST-1",
   canal: "WHATSAPP" as const,
   firmadoEn: "2026-08-09T15:03:00.000Z",
-  hashSolicitudFirmada: "e".repeat(64),
-  hashFipfFirmado: "f".repeat(64),
+  hashDocumentoFirmado: "e".repeat(64),
 };
+
+/** Las firmas institucionales que la configuración de D-13 declara `CONJUNTO`. */
+export const firmasInstitucionalesFixture: readonly FirmaInstitucional[] = firmantesConjuntos(
+  "PAQUETE",
+).map((firmante) => ({
+  rol: firmante.rol,
+  nivel: firmante.nivel,
+  modalidad: firmante.modalidad,
+  certificado: `DEMO-CERT-${firmante.rol}-${NUMERO_PROPUESTA_FIJO}`,
+  aplicadaEn: "2026-08-09T15:03:00.000Z",
+}));
 
 /**
  * Expediente firmado por todos los intervinientes y esperando el pago: la
@@ -242,6 +237,7 @@ export function expedienteFirmado(id = "EXP-TEST-P7"): Expediente {
 
   const institucionales = registrarFirmasInstitucionales(
     firmado.expediente,
+    firmasInstitucionalesFixture,
     PLAZO_PAGO_FIJO,
     "2026-08-09T15:03:00.000Z",
   );

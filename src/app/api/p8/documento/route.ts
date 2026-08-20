@@ -50,28 +50,24 @@ export async function GET(request: Request): Promise<Response> {
   const paquete = expediente.paqueteDocumental;
   if (!paquete) return error("PAQUETE_NO_GENERADO", 409);
 
-  const esSolicitud = paquete.solicitud.codigo === codigo;
-  const documento: DocumentoCerrado | null = esSolicitud
-    ? paquete.solicitud
-    : paquete.fipf.codigo === codigo
-      ? paquete.fipf
-      : null;
+  // D-11 · hay un solo documento. Se acepta también el código de la sección
+  // FIPF porque hay enlaces vivos que lo usan y porque sigue siendo un código
+  // legítimo del expediente: apunta al mismo archivo, que es justamente el
+  // punto de haberlos unificado.
+  const documento: DocumentoCerrado | null =
+    paquete.codigo === codigo || paquete.codigoSeccionFipf === codigo ? paquete : null;
   if (!documento) return error("DOCUMENTO_NO_ENCONTRADO", 404);
 
   const firmado = url.searchParams.get("firmado") === "1";
   if (firmado && !expediente.firma) return error("DOCUMENTO_NO_FIRMADO", 409);
 
-  // La huella contra la que se verifica depende de cuál de los dos archivos se
-  // pidió: el cerrado tiene la del paquete, el firmado la de la `Firma`.
-  const huellaEsperada = firmado
-    ? esSolicitud
-      ? expediente.firma!.hashSolicitudFirmada
-      : expediente.firma!.hashFipfFirmado
-    : documento.hashSha256;
+  // La huella contra la que se verifica: el cerrado tiene la del paquete, el
+  // firmado la de la `Firma`.
+  const huellaEsperada = firmado ? expediente.firma!.hashDocumentoFirmado : documento.hashSha256;
 
   const clave = firmado
-    ? claveDocumentoFirmado(expediente.id, documento.codigo, documento.version)
-    : claveDocumento(expediente.id, documento.codigo, documento.version);
+    ? claveDocumentoFirmado(expediente.id, paquete.codigo, paquete.version)
+    : claveDocumento(expediente.id, paquete.codigo, paquete.version);
 
   const bytes = await crearArchivoRepository().obtenerArchivo(clave);
   if (!bytes) return error("DOCUMENTO_NO_ENCONTRADO", 404);

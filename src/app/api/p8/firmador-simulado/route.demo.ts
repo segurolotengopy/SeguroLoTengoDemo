@@ -122,7 +122,6 @@ export async function POST(request: Request): Promise<Response> {
     // la primera huella calculada y la segunda no. Lo que hay que mirar es lo
     // que pasa después — como nada se escribió todavía, la sesión queda **sin
     // firma y con los dos documentos sin firmar**, no con uno solo.
-    fallarAMitadDelSellado: cuerpo.fallarAMitad === true,
   });
 
   if (!resultado.ok) {
@@ -148,8 +147,7 @@ export async function POST(request: Request): Promise<Response> {
     {
       ok: true,
       firmadoEn: resultado.firma.firmadoEn,
-      hashSolicitudFirmada: resultado.firma.hashSolicitudFirmada,
-      hashFipfFirmado: resultado.firma.hashFipfFirmado,
+      hashDocumentoFirmado: resultado.firma.hashDocumentoFirmado,
     },
     { cookies },
   );

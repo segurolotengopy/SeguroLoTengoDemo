@@ -62,6 +62,7 @@ import {
   registrarFirmaP8,
   registrarFirmasInstitucionales,
 } from "./expediente";
+import { firmantesConjuntos } from "./firmantes-documento";
 import {
   TEXTO_DECLARACION_FIRMA_P8,
   VERSION_DECLARACION_FIRMA_P8,
@@ -72,6 +73,7 @@ import type {
   DocumentoCerrado,
   EstadoExpediente,
   Expediente,
+  FirmaInstitucional,
   RegistroEvidencia,
 } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
@@ -93,6 +95,18 @@ export interface DependenciasP8 {
    * demo").
    */
   readonly plazoPagoMs?: number;
+  /**
+   * `true` cuando las firmas institucionales **no** se pueden aplicar.
+   *
+   * No es una palanca de demo disfrazada: aplicar una firma cualificada es una
+   * operación contra un proveedor y puede fallar de verdad. Modelarla como algo
+   * que puede salir mal es lo que hace que exista un camino donde el expediente
+   * queda en `FIRMADO_CLIENTE` —el cliente firmó, las institucionales no— con
+   * el cobro inhabilitado, que es exactamente lo que D-13 pide poder
+   * distinguir. El panel de demo la fuerza; en producción la resolverá el
+   * adaptador oficial.
+   */
+  readonly firmasInstitucionalesCaidas?: () => boolean;
 }
 
 /** Único estado desde el que se puede pedir el enlace de firma. */
@@ -141,6 +155,12 @@ export type MotivoRechazoP8 =
   | "CODE100_RECHAZO"
   | "FIRMA_NO_INICIADA"
   | "FIRMA_NO_COMPLETADA"
+  /**
+   * El cliente firmó pero las institucionales no llegaron (D-13). El
+   * expediente queda en `FIRMADO_CLIENTE`: no se perdió la firma y el cobro
+   * sigue inhabilitado. El próximo sondeo retoma ese tramo.
+   */
+  | "FIRMAS_INSTITUCIONALES_PENDIENTES"
   /**
    * Otra petición escribió el expediente entre la lectura y el guardado y el
    * conflicto persistió tras los reintentos (`src/domain/concurrencia.ts`).
@@ -352,8 +372,9 @@ async function intentarIniciarFirmaP8(
       expedienteId: expediente.id,
       canal,
       destino: destino.valor,
-      // Los DOS documentos, en la MISMA llamada (regla inviolable #3).
-      paqueteDocumental: paquete,
+      // El documento único del expediente (D-11): la Solicitud y el FIPF son
+      // secciones del mismo PDF, así que no hay dos llamadas posibles.
+      documento: paquete,
     });
   } catch (error) {
     const esDeCode100 = error instanceof ErrorCode100;
@@ -370,8 +391,7 @@ async function intentarIniciarFirmaP8(
         canal,
         destino: destino.enmascarado,
         motivo,
-        solicitud: paquete.solicitud.codigo,
-        fipf: paquete.fipf.codigo,
+        documento: paquete.codigo,
       },
     });
     return { ok: false, motivo, detalle: esDeCode100 ? error.message : undefined };
@@ -403,13 +423,12 @@ async function intentarIniciarFirmaP8(
       destino: destino.enmascarado,
       idCode100: acto.idCode100,
       venceEn: acto.venceEn,
-      // Las dos huellas del paquete que se manda a firmar: es lo que después
+      // La huella del documento que se manda a firmar: es lo que después
       // permite probar que se firmó exactamente esto (filas 42 y 47).
-      solicitud: paquete.solicitud.codigo,
-      hashSolicitud: paquete.solicitud.hashSha256,
-      fipf: paquete.fipf.codigo,
-      hashFipf: paquete.fipf.hashSha256,
-      version: paquete.solicitud.version,
+      documento: paquete.codigo,
+      seccionFipf: paquete.codigoSeccionFipf,
+      hashDocumento: paquete.hashSha256,
+      version: paquete.version,
     },
     // La declaración de P8 se acepta en este acto: se guarda el literal
     // íntegro, no solo la versión, por el mismo motivo que en P3 y P7.
@@ -572,10 +591,9 @@ async function intentarConfirmarFirmaP8(
       canal: resultado.firma.canal,
       firmante: "CLIENTE",
       firmadoEn: resultado.firma.firmadoEn,
-      // Las dos huellas firmadas, juntas y en el mismo registro: es la prueba
-      // de que el acto fue uno solo (regla inviolable #3, filas 42 y 47).
-      hashSolicitudFirmada: resultado.firma.hashSolicitudFirmada,
-      hashFipfFirmado: resultado.firma.hashFipfFirmado,
+      // La huella del documento firmado: un acto, un archivo, una prueba
+      // (filas 42 y 47).
+      hashDocumentoFirmado: resultado.firma.hashDocumentoFirmado,
       propuesta: transicion.expediente.numeroPropuesta ?? "",
     },
   });
@@ -604,10 +622,41 @@ async function aplicarFirmasInstitucionales(
   contexto: ContextoPeticion,
 ): Promise<ResultadoConfirmarFirmaP8> {
   const fecha = reloj.ahora();
+
+  if (deps.firmasInstitucionalesCaidas?.() === true) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8,
+      fecha,
+      contexto,
+      resultado: "FALLIDO",
+      detalle: {
+        motivo: "PROVEEDOR_NO_APLICO_LAS_FIRMAS",
+        // El expediente se queda donde está: la firma del cliente no se
+        // pierde y el cobro no se habilita.
+        estado: expediente.estado,
+      },
+    });
+    return { ok: false, motivo: "FIRMAS_INSTITUCIONALES_PENDIENTES" };
+  }
+
   const plazoPagoMs = deps.plazoPagoMs ?? PLAZO_PAGO_MS;
   const plazoPagoVenceEn = new Date(new Date(fecha).getTime() + plazoPagoMs).toISOString();
 
-  const transicion = registrarFirmasInstitucionales(expediente, plazoPagoVenceEn, fecha);
+  // D-13 · quiénes firman y con qué modalidad sale de la configuración, no de
+  // una lista escrita acá: es la misma de la que salen el bloque de firmas del
+  // PDF y lo que la consola muestra.
+  const firmas: readonly FirmaInstitucional[] = firmantesConjuntos("PAQUETE").map((firmante) => ({
+    rol: firmante.rol,
+    nivel: firmante.nivel,
+    modalidad: firmante.modalidad,
+    // Simulado mientras Code100 sea un mock, y la referencia lo dice: una
+    // evidencia que afirmara un certificado cualificado real no probaría nada.
+    certificado: `DEMO-CERT-${firmante.rol}-${expediente.numeroPropuesta ?? "SIN-CORRELATIVO"}`,
+    aplicadaEn: fecha,
+  }));
+
+  const transicion = registrarFirmasInstitucionales(expediente, firmas, plazoPagoVenceEn, fecha);
   if (!transicion.ok) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: expediente.id,
@@ -629,10 +678,10 @@ async function aplicarFirmasInstitucionales(
     contexto,
     resultado: "EXITOSO",
     detalle: {
-      firmantes: "INTERSEGUROS,ALIANZA",
-      // Simuladas en el demo, y la evidencia lo dice: un registro que
-      // afirmara una firma cualificada que nadie aplicó no probaría nada.
-      modalidad: "SIMULADA",
+      firmantes: firmas.map((firma) => firma.rol).join(","),
+      niveles: firmas.map((firma) => `${firma.rol}:${firma.nivel}`).join(","),
+      modalidades: firmas.map((firma) => `${firma.rol}:${firma.modalidad}`).join(","),
+      certificados: firmas.map((firma) => firma.certificado).join(","),
       propuesta: transicion.expediente.numeroPropuesta ?? "",
       plazoPagoVenceEn,
     },
@@ -658,6 +707,8 @@ async function aplicarFirmasInstitucionales(
 
 export interface DocumentoVisibleP8 {
   readonly codigo: string;
+  /** Código interno de la sección FIPF, visible dentro del mismo PDF. */
+  readonly codigoSeccionFipf: string;
   readonly version: number;
   readonly hashSha256: string;
   readonly cerradoEn: string;
@@ -666,8 +717,8 @@ export interface DocumentoVisibleP8 {
 export interface ResumenFirmaP8 {
   readonly estado: EstadoExpediente;
   readonly numeroPropuesta: string | null;
-  readonly solicitud: DocumentoVisibleP8;
-  readonly fipf: DocumentoVisibleP8;
+  /** El documento único del expediente (D-11): Solicitud + FIPF en un PDF. */
+  readonly documento: DocumentoVisibleP8;
   /** Canales verificados, enmascarados: nunca el valor completo (regla de UI). */
   readonly canalWhatsappEnmascarado: string | null;
   readonly canalEmailEnmascarado: string | null;
@@ -678,6 +729,7 @@ export interface ResumenFirmaP8 {
 function documentoVisible(documento: DocumentoCerrado): DocumentoVisibleP8 {
   return {
     codigo: documento.codigo,
+    codigoSeccionFipf: documento.codigoSeccionFipf,
     version: documento.version,
     hashSha256: documento.hashSha256,
     cerradoEn: documento.cerradoEn,
@@ -710,8 +762,7 @@ export function leerResumenFirmaP8(expediente: Expediente): ResumenFirmaP8 | nul
   return {
     estado: expediente.estado,
     numeroPropuesta: expediente.numeroPropuesta,
-    solicitud: documentoVisible(paquete.solicitud),
-    fipf: documentoVisible(paquete.fipf),
+    documento: documentoVisible(paquete),
     canalWhatsappEnmascarado: expediente.canalWhatsapp
       ? enmascararCelular(expediente.canalWhatsapp.valor)
       : null,

@@ -285,8 +285,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
       (evidencia) => evidencia.paso === PASO_EVIDENCIA_EMISION_P9 && evidencia.resultado === "EXITOSO",
     );
     expect(registro?.detalle).toContain("numeroPoliza=00018425");
-    expect(registro?.detalle).toContain(FIRMA.hashSolicitudFirmada);
-    expect(registro?.detalle).toContain(FIRMA.hashFipfFirmado);
+    expect(registro?.detalle).toContain(FIRMA.hashDocumentoFirmado);
     expect(registro?.detalle).toContain("emisorPoliza=ALIANZA_GARANTIA_SEBAOT");
     // Constancia explícita de que no existe.
     expect(registro?.detalle).toContain("notaDeCobertura=NO_SE_GENERA");
@@ -371,14 +370,17 @@ describe("P9 · resumen para la pantalla", () => {
     return { entorno, resumen: leerResumenP9(entorno.repositorio.actual()) };
   }
 
-  it("trae los dos documentos con la huella del PDF firmado", async () => {
-    const { resumen } = await resumenDe();
+  it("trae el documento único con la huella del PDF firmado", async () => {
+    const { entorno, resumen } = await resumenDe();
 
-    expect(resumen?.solicitud.codigo).toBe("PROP-00018425");
-    expect(resumen?.fipf.codigo).toBe("FIPF-00018425");
     // La huella que se muestra es la del firmado, no la del cerrado.
-    expect(resumen?.solicitud.hashFirmado).toBe(FIRMA.hashSolicitudFirmada);
-    expect(resumen?.fipf.hashFirmado).toBe(FIRMA.hashFipfFirmado);
+    expect(resumen?.documento.hashFirmado).toBe(FIRMA.hashDocumentoFirmado);
+    expect(resumen?.documento.hashFirmado).not.toBe(
+      entorno.repositorio.actual().paqueteDocumental?.hashSha256,
+    );
+    // Los dos códigos internos siguen visibles (D-11).
+    expect(resumen?.documento.codigo).toContain("PROP-");
+    expect(resumen?.documento.codigoSeccionFipf).toContain("FIPF-");
   });
 
   it("no expone la cédula completa ni ningún canal sin enmascarar", async () => {

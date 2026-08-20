@@ -1,10 +1,13 @@
 /**
- * Plantillas de los dos documentos del paquete.
+ * Plantilla del documento único del expediente (D-11).
  *
- * Cada una toma el contenido ya armado por `src/domain/documentos.ts` y lo
- * dibuja. No deciden **qué** dice el documento —eso es dominio— sino cómo se
- * distribuye en la hoja. La estructura y el orden de los bloques son los de
- * `docs/Solicitud.pdf` y `docs/FIPF.pdf`.
+ * Toma el contenido ya armado por `src/domain/documentos.ts` y lo dibuja. No
+ * decide **qué** dice el documento —eso es dominio— sino cómo se distribuye en
+ * la hoja. La estructura y el orden de los bloques son los de
+ * `docs/Solicitud.pdf` y `docs/FIPF.pdf`, ahora como dos secciones seguidas de
+ * un mismo archivo: primero los seis bloques de la Solicitud, después los
+ * cinco del FIPF, y el bloque de firmas una sola vez al final porque **una
+ * sola firma cubre todo** (regla inviolable #3, ahora estructural).
  *
  * ## Dos pasadas
  *
@@ -43,6 +46,7 @@ import { anchoDeTexto, crearDocumentoPdf, partirEnLineas } from "./pdf";
 import type { DocumentoPdf, Pagina } from "./pdf";
 import type {
   ContenidoFipf,
+  ContenidoPaquete,
   ContenidoSolicitud,
   DeclaracionDocumento,
   EncabezadoDocumento,
@@ -178,11 +182,7 @@ function bloqueReferencias(lienzo: Lienzo, titulo: string, campos: readonly { et
 // Solicitud de Seguro
 // ---------------------------------------------------------------------------
 
-function dibujarSolicitud(documento: DocumentoPdf, contenido: ContenidoSolicitud, totalPaginas: number): number {
-  const lienzo = crearLienzo(documento, (pagina, numeroPagina) =>
-    dibujarEncabezado(pagina, contenido.encabezado, numeroPagina, totalPaginas),
-  );
-
+function dibujarSeccionSolicitud(lienzo: Lienzo, contenido: ContenidoSolicitud): void {
   lienzo.pagina.texto(MARGEN, lienzo.y - 4, "Producto CONFÍO · Contratación exclusivamente para el titular identificado.", {
     fuente: "negrita",
     tamano: 7.5,
@@ -236,38 +236,21 @@ function dibujarSolicitud(documento: DocumentoPdf, contenido: ContenidoSolicitud
   listaDeCasillas(lienzo, contenido.declaracionesFinales);
   bloqueReferencias(lienzo, "Referencias de la operación", contenido.referencias);
 
-  // Bloque 6 — Aceptación, firma y trazabilidad.
-  seccion(lienzo, 6, "Aceptación, firma y trazabilidad");
-  bloqueDeFirmas(lienzo, contenido.firmantes);
-  lienzo.pagina.texto(MARGEN, lienzo.y + 4, contenido.leyendaFirma, {
-    fuente: "negrita",
-    tamano: 6.8,
-    color: VERDE,
-    alineacion: "centro",
-    ancho: ANCHO_UTIL,
-  });
-  lienzo.pagina.texto(MARGEN, lienzo.y + 16, contenido.leyendaNoEsPoliza, {
+  lienzo.pagina.texto(MARGEN, lienzo.y + 4, contenido.leyendaNoEsPoliza, {
     fuente: "negrita",
     tamano: 6.8,
     color: ROJO,
     alineacion: "centro",
     ancho: ANCHO_UTIL,
   });
-  lienzo.y += 30;
-
-  pie(lienzo, contenido.encabezado);
-  return lienzo.numeroPagina;
+  lienzo.y += 18;
 }
 
 // ---------------------------------------------------------------------------
 // FIPF
 // ---------------------------------------------------------------------------
 
-function dibujarFipf(documento: DocumentoPdf, contenido: ContenidoFipf, totalPaginas: number): number {
-  const lienzo = crearLienzo(documento, (pagina, numeroPagina) =>
-    dibujarEncabezado(pagina, contenido.encabezado, numeroPagina, totalPaginas),
-  );
-
+function dibujarSeccionFipf(lienzo: Lienzo, contenido: ContenidoFipf): void {
   lienzo.pagina.texto(MARGEN, lienzo.y - 4, contenido.leyendaNorma, {
     fuente: "negrita",
     tamano: 7.5,
@@ -277,33 +260,90 @@ function dibujarFipf(documento: DocumentoPdf, contenido: ContenidoFipf, totalPag
   });
   lienzo.y += 12;
 
-  seccion(lienzo, 1, "Datos personales y canales verificados");
+  seccion(lienzo, 7, "Datos personales y canales verificados");
   grillaDeCampos(lienzo, contenido.personales, 4);
 
-  seccion(lienzo, 2, "Datos laborales, económicos y fiscales");
+  seccion(lienzo, 8, "Datos laborales, económicos y fiscales");
   grillaDeCampos(lienzo, contenido.laborales, 3);
 
-  seccion(lienzo, 3, "Condición PEP");
+  seccion(lienzo, 9, "Condición PEP");
   bloqueDeclaracion(lienzo, contenido.pep);
   franja(lienzo, contenido.advertenciaPep, "rojo");
 
-  seccion(lienzo, 4, "Declaraciones y autorizaciones");
+  seccion(lienzo, 10, "Declaraciones y autorizaciones");
   listaDeCasillas(lienzo, contenido.declaraciones);
 
-  seccion(lienzo, 5, "Evidencias digitales vinculadas");
+  seccion(lienzo, 11, "Evidencias digitales vinculadas");
   listaDeCasillas(lienzo, contenido.evidencias);
-
-  seccion(lienzo, 6, "Firma electrónica y trazabilidad");
-  bloqueDeFirmas(lienzo, contenido.firmantes);
-  franja(lienzo, contenido.leyendaFirma, "neutro");
-
-  pie(lienzo, contenido.encabezado);
-  return lienzo.numeroPagina;
 }
 
 // ---------------------------------------------------------------------------
 // Punto de entrada
 // ---------------------------------------------------------------------------
+
+/**
+ * Dibuja el documento completo: encabezado, sección de Solicitud, sección de
+ * FIPF, y el bloque de firmas una sola vez al final.
+ *
+ * Que las firmas vayan **al final y una sola vez** es lo que hace visible la
+ * decisión D-11: mientras eran dos archivos, cada uno cerraba con su propio
+ * bloque de firmantes y había que confiar en que se firmaran juntos. Acá no
+ * hay dos bloques que puedan divergir.
+ */
+function dibujarPaquete(
+  documento: DocumentoPdf,
+  contenido: ContenidoPaquete,
+  totalPaginas: number,
+): number {
+  const lienzo = crearLienzo(documento, (pagina, numeroPagina) =>
+    dibujarEncabezado(pagina, contenido.encabezado, numeroPagina, totalPaginas),
+  );
+
+  // Sello de tiempo de la solicitud (CMP-09): el instante del que cuelga el
+  // plazo del art. 1556, arriba de todo y no escondido en el pie.
+  lienzo.pagina.texto(MARGEN, lienzo.y - 14, `Fecha de la solicitud: ${contenido.encabezado.selloDeTiempo}`, {
+    fuente: "negrita",
+    tamano: 7,
+    color: ETIQUETA,
+    alineacion: "centro",
+    ancho: ANCHO_UTIL,
+  });
+
+  dibujarSeccionSolicitud(lienzo, contenido.solicitud);
+
+  // Advertencia del art. 1556 CC (CMP-09), destacada: la Matriz V4 §4 la marca
+  // como inclusión obligatoria en la Solicitud.
+  franja(lienzo, contenido.advertenciaArt1556, "neutro");
+
+  // Separador de sección: el FIPF empieza en carilla nueva para que su código
+  // interno y su leyenda normativa se lean como lo que son, un formulario
+  // propio dentro del mismo archivo.
+  lienzo.saltarPagina();
+  lienzo.pagina.texto(MARGEN, lienzo.y - 4, `Sección FIPF · ${contenido.fipf.codigoSeccion}`, {
+    fuente: "negrita",
+    tamano: 8,
+    color: AZUL,
+    alineacion: "centro",
+    ancho: ANCHO_UTIL,
+  });
+  lienzo.y += 12;
+
+  dibujarSeccionFipf(lienzo, contenido.fipf);
+
+  seccion(lienzo, 12, "Aceptación, firma y trazabilidad");
+  bloqueDeFirmas(lienzo, contenido.firmantes);
+  lienzo.pagina.texto(MARGEN, lienzo.y + 4, contenido.leyendaFirma, {
+    fuente: "negrita",
+    tamano: 6.8,
+    color: VERDE,
+    alineacion: "centro",
+    ancho: ANCHO_UTIL,
+  });
+  lienzo.y += 18;
+
+  pie(lienzo, contenido.encabezado);
+  return lienzo.numeroPagina;
+}
 
 function renderizarEnDosPasadas(
   encabezado: EncabezadoDocumento,
@@ -324,16 +364,12 @@ function renderizarEnDosPasadas(
   return documento.construir();
 }
 
-/** Solicitud de Seguro de Vida Oncológico, cerrada y lista para hashear. */
-export function renderizarSolicitud(contenido: ContenidoSolicitud): Uint8Array {
+/**
+ * El documento único del expediente —Solicitud + FIPF— cerrado y listo para
+ * hashear (D-11). Un solo archivo, un solo SHA-256, un solo acto de firma.
+ */
+export function renderizarPaquete(contenido: ContenidoPaquete): Uint8Array {
   return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
-    dibujarSolicitud(documento, contenido, total),
-  );
-}
-
-/** Formulario de Identificación de Persona Física, cerrado y listo para hashear. */
-export function renderizarFipf(contenido: ContenidoFipf): Uint8Array {
-  return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
-    dibujarFipf(documento, contenido, total),
+    dibujarPaquete(documento, contenido, total),
   );
 }

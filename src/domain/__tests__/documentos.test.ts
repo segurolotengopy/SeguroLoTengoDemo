@@ -31,6 +31,7 @@ import {
 } from "../documentos";
 import { registrarPaqueteDocumental, transicionarExpediente } from "../expediente";
 import type { Expediente, PaqueteDocumental } from "../tipos";
+import { firmantesDe } from "../firmantes-documento";
 import {
   NUMERO_PROPUESTA_FIJO,
   REFERENCIA_BANCARD_FIJA,
@@ -44,18 +45,11 @@ const CERRADO_EN = "2026-08-09T15:05:00.000Z";
 
 function paqueteValido(correlativo = NUMERO_PROPUESTA_FIJO): PaqueteDocumental {
   return {
-    solicitud: {
-      codigo: codigoSolicitud(correlativo),
-      version: VERSION_INICIAL_PAQUETE,
-      hashSha256: "a".repeat(64),
-      cerradoEn: CERRADO_EN,
-    },
-    fipf: {
-      codigo: codigoFipf(correlativo),
-      version: VERSION_INICIAL_PAQUETE,
-      hashSha256: "b".repeat(64),
-      cerradoEn: CERRADO_EN,
-    },
+    codigo: codigoSolicitud(correlativo),
+    codigoSeccionFipf: codigoFipf(correlativo),
+    version: VERSION_INICIAL_PAQUETE,
+    hashSha256: "a".repeat(64),
+    cerradoEn: CERRADO_EN,
   };
 }
 
@@ -99,13 +93,27 @@ describe("armarContenidoPaquete", () => {
   if (!resultado.ok) throw new Error(`El fixture debería alcanzar: ${resultado.faltantes.join(",")}`);
   const { contenido } = resultado;
 
-  it("arma los dos documentos con el mismo correlativo y se referencian entre sí", () => {
+  it("arma un documento con un correlativo y los dos códigos internos (D-11)", () => {
     expect(contenido.correlativo).toBe(NUMERO_PROPUESTA_FIJO);
-    expect(contenido.solicitud.encabezado.codigo).toBe("PROP-00018425");
-    expect(contenido.fipf.encabezado.codigo).toBe("FIPF-00018425");
-    expect(contenido.solicitud.encabezado.codigoVinculado).toBe(contenido.fipf.encabezado.codigo);
-    expect(contenido.fipf.encabezado.codigoVinculado).toBe(contenido.solicitud.encabezado.codigo);
-    expect(contenido.solicitud.encabezado.version).toBe(contenido.fipf.encabezado.version);
+    // La identidad del archivo es la de la Solicitud; la sección FIPF conserva
+    // su código interno porque son dos formularios con vida normativa propia.
+    expect(contenido.encabezado.codigo).toBe("PROP-00018425");
+    expect(contenido.encabezado.codigoVinculado).toBe("FIPF-00018425");
+    expect(contenido.fipf.codigoSeccion).toBe("FIPF-00018425");
+    // Una sola versión: no hay dos que puedan divergir.
+    expect(contenido.encabezado.version).toBe(contenido.version);
+  });
+
+  it("lleva la advertencia del art. 1556 y el sello de tiempo (CMP-09)", () => {
+    expect(contenido.advertenciaArt1556).toContain("Art. 1556 del Código Civil Paraguayo");
+    expect(contenido.encabezado.selloDeTiempo).toContain("UTC");
+  });
+
+  it("el bloque de firmas sale de la configuración de D-13, no de una lista suelta", () => {
+    const rotulos = contenido.firmantes.map((firmante) => firmante.etiqueta);
+    // El cliente primero: el contrato de Code100 no admite el orden inverso.
+    expect(rotulos[0]).toContain("Proponente");
+    expect(rotulos).toHaveLength(firmantesDe("PAQUETE").length);
   });
 
   it("la Solicitud lleva plan, coberturas, premio, beneficiario y declaraciones médicas", () => {
@@ -195,7 +203,6 @@ describe("armarContenidoPaquete", () => {
         "plan",
         "identidad",
         "declaraciones",
-        "declaracionOrigenLicito",
       ]),
     );
   });
@@ -241,7 +248,7 @@ describe("registrarPaqueteDocumental", () => {
   it("rechaza códigos que no derivan del correlativo del expediente", () => {
     const ajeno: PaqueteDocumental = {
       ...paqueteValido(),
-      fipf: { ...paqueteValido().fipf, codigo: codigoFipf("99999999") },
+      codigoSeccionFipf: codigoFipf("99999999"),
     };
     const resultado = registrarPaqueteDocumental(listoParaCerrar(), ajeno, CERRADO_EN);
 
@@ -250,19 +257,14 @@ describe("registrarPaqueteDocumental", () => {
     expect(resultado.error).toContain(NUMERO_PROPUESTA_FIJO);
   });
 
-  it("rechaza que la Solicitud y el FIPF queden en versiones distintas", () => {
-    const base = paqueteValido();
-    const desparejo: PaqueteDocumental = { ...base, fipf: { ...base.fipf, version: base.fipf.version + 1 } };
-    const resultado = registrarPaqueteDocumental(listoParaCerrar(), desparejo, CERRADO_EN);
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.error).toContain("un solo acto");
-  });
+  // El test que había acá —*"rechaza que la Solicitud y el FIPF queden en
+  // versiones distintas"*— desapareció con el problema que probaba: con el
+  // documento único (D-11) hay una versión, y no existe la forma de que dos
+  // diverjan.
 
   it("rechaza un documento sin huella digital (regla #4)", () => {
     const base = paqueteValido();
-    const sinHash: PaqueteDocumental = { ...base, solicitud: { ...base.solicitud, hashSha256: "" } };
+    const sinHash: PaqueteDocumental = { ...base, hashSha256: "" };
     const resultado = registrarPaqueteDocumental(listoParaCerrar(), sinHash, CERRADO_EN);
 
     expect(resultado.ok).toBe(false);

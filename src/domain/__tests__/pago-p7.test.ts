@@ -198,15 +198,14 @@ describe("pago · no hay cobro sin firma", () => {
     expect(expedientes.actual().pago).toBeNull();
   });
 
-  it("la declaración de origen lícito ya no se acepta acá: viaja firmada en el FIPF", async () => {
+  it("la declaración de licitud ya no se acepta acá: viaja impresa en el documento firmado", async () => {
     const { deps, expedientes } = armar(expedienteListoParaPagar());
 
     await iniciarPagoP7(deps, ENTRADA_QR);
 
-    // Se declaró en el paso de declaraciones y quedó dentro del documento que
-    // la persona firmó; la facturación ya no la lleva.
-    expect(expedientes.actual().declaracionOrigenLicito?.textoAceptado).toContain("origen lícito");
-    expect(JSON.stringify(expedientes.actual().facturacion)).not.toContain("origen lícito");
+    // Matriz V4 §4: "no casilla adicional". El literal se imprime en el PDF y
+    // lo cubre el acto de firma; la facturación no lo lleva ni lo repite.
+    expect(JSON.stringify(expedientes.actual().facturacion)).not.toContain("lícit");
   });
 });
 

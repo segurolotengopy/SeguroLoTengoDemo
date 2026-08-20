@@ -289,10 +289,29 @@ export function DetalleExpediente({
             <Dato rotulo="Medio de pago" valor={expediente.pago?.medio} />
             <Dato rotulo="Estado del pago" valor={expediente.pago?.estado} />
             <Dato rotulo="Referencia Bancard" valor={expediente.pago?.referenciaBancard} />
-            <Dato rotulo="Solicitud" valor={expediente.paqueteDocumental?.solicitud.codigo} />
-            <Dato rotulo="FIPF" valor={expediente.paqueteDocumental?.fipf.codigo} />
+            <Dato rotulo="Documento" valor={expediente.paqueteDocumental?.codigo} />
+            <Dato rotulo="Sección FIPF" valor={expediente.paqueteDocumental?.codigoSeccionFipf} />
             <Dato rotulo="Firma (Code100)" valor={expediente.firma?.idCode100} />
           </dl>
+
+          {/* D-13 · quién firmó, con qué nivel y en qué modalidad. La consola
+              es el único lugar donde esto se puede ver, y sin ello un
+              expediente FIRMADO no dice quién lo firmó. */}
+          {expediente.firmasInstitucionales.length > 0 ? (
+            <ul className="flex flex-col gap-1">
+              {expediente.firmasInstitucionales.map((firma) => (
+                <li key={firma.rol} className="text-xs text-cuerpo">
+                  <span className="font-semibold">{firma.rol}</span> · {firma.nivel} ·{" "}
+                  {firma.modalidad} · <code className="font-mono">{firma.certificado}</code> ·{" "}
+                  <span className="tabular-nums">
+                    {new Date(firma.aplicadaEn).toLocaleString("es-PY")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-etiqueta">Sin firmas institucionales aplicadas todavía.</p>
+          )}
           <p className="text-xs text-etiqueta">
             Nunca se almacena el número completo de tarjeta ni el CVV (regla inviolable #6), ni el
             código de un OTP en claro (regla #2).

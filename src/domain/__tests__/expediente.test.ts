@@ -12,7 +12,6 @@ import {
   avanzarHastaIdentidadVerificada,
   crearExpediente,
   datosComplementariosFixture,
-  declaracionOrigenLicitoFixture,
   declaracionesCompatibles,
   NUMERO_CASO_FIJO,
 } from "./fixtures";
@@ -77,8 +76,7 @@ describe("transicionarExpediente", () => {
       expediente,
       declaracionesCompatibles,
       datosComplementariosFixture,
-      declaracionOrigenLicitoFixture,
-      NUMERO_CASO_FIJO,
+          NUMERO_CASO_FIJO,
     );
     expect(declaraciones.ok).toBe(true);
     if (!declaraciones.ok) return;
@@ -110,8 +108,7 @@ describe("transicionarExpediente", () => {
       expediente,
       declaracionesCompatibles,
       datosComplementariosFixture,
-      declaracionOrigenLicitoFixture,
-      NUMERO_CASO_FIJO,
+          NUMERO_CASO_FIJO,
     );
     if (!declaraciones.ok) throw new Error(declaraciones.error);
     expediente = declaraciones.expediente;
@@ -149,8 +146,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       { ...declaracionesCompatibles, condicionPep: "SI" }, // #8 incompatible
       datosComplementariosFixture,
-      declaracionOrigenLicitoFixture,
-      NUMERO_CASO_FIJO,
+          NUMERO_CASO_FIJO,
     );
 
     expect(resultado.ok).toBe(true);
@@ -167,8 +163,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       declaracionesCompatibles,
       datosComplementariosFixture,
-      declaracionOrigenLicitoFixture,
-      NUMERO_CASO_FIJO,
+          NUMERO_CASO_FIJO,
     );
 
     expect(resultado.ok).toBe(true);
@@ -185,8 +180,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       { ...declaracionesCompatibles, condicionPep: "SI" },
       datosComplementariosFixture,
-      declaracionOrigenLicitoFixture,
-      "   ",
+          "   ",
     );
 
     expect(resultado.ok).toBe(false);
@@ -205,8 +199,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       { ...declaracionesCompatibles, estadoDeSalud: "NO" }, // #1 incompatible
       datosComplementariosFixture,
-      declaracionOrigenLicitoFixture,
-      NUMERO_CASO_FIJO,
+          NUMERO_CASO_FIJO,
     );
     if (!derivado.ok) throw new Error(derivado.error);
     expect(derivado.expediente.estado).toBe("DERIVADO_MANUAL");

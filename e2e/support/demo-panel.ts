@@ -75,6 +75,8 @@ export async function prepararEscenario(
     readonly personaId: IdPersonaDemo;
     readonly escenarioIdentidadForzado?: EscenarioIdentidadDemo | null;
     readonly plazoPagoMs?: number;
+    /** Fallas a armar para este escenario. Se consumen en un solo intento. */
+    readonly fallas?: readonly FallaDemo[];
   },
 ): Promise<void> {
   await iniciarSesionPanel(page);
@@ -84,6 +86,7 @@ export async function prepararEscenario(
   // escenario anterior puede haberlo dejado corto.
   await fijarPlazoPagoMs(page, opciones.plazoPagoMs ?? 24 * 60 * 60 * 1000);
   await fijarPersonaActiva(page, opciones.personaId, opciones.escenarioIdentidadForzado ?? null);
+  for (const falla of opciones.fallas ?? []) await armarFalla(page, falla);
 }
 
 /**
@@ -119,8 +122,7 @@ export async function leerCodigoOtpDelPanel(page: Page, contieneEnDestino: strin
 export interface SesionFirmaLeida {
   readonly idCode100: string;
   readonly codigo: string | null;
-  readonly hashSolicitudFirmada: string | null;
-  readonly hashFipfFirmado: string | null;
+  readonly hashDocumentoFirmado: string | null;
 }
 
 /**
@@ -143,8 +145,7 @@ export async function leerSesionFirmaDelPanel(page: Page, idCode100: string): Pr
   const bloque = html.slice(inicio, siguiente === -1 ? html.length : siguiente);
 
   const codigo = bloque.match(/font-mono text-2xl font-bold tracking-widest text-titulo">(\d{6})</);
-  const hashSolicitud = bloque.match(/Solicitud firmada: <\/dt>\s*<dd class="inline">([^<]*)<\/dd>/);
-  const hashFipf = bloque.match(/FIPF firmado: <\/dt>\s*<dd class="inline">([^<]*)<\/dd>/);
+  const hashDocumento = bloque.match(/Documento firmado: <\/dt>\s*<dd class="inline">([^<]*)<\/dd>/);
 
   const limpiar = (valor: string | undefined): string | null => {
     if (!valor) return null;
@@ -155,8 +156,7 @@ export async function leerSesionFirmaDelPanel(page: Page, idCode100: string): Pr
   return {
     idCode100,
     codigo: codigo ? codigo[1] : null,
-    hashSolicitudFirmada: limpiar(hashSolicitud?.[1]),
-    hashFipfFirmado: limpiar(hashFipf?.[1]),
+    hashDocumentoFirmado: limpiar(hashDocumento?.[1]),
   };
 }
 
@@ -166,7 +166,7 @@ export type AccionFirmaPanel = "ABRIR" | "FIRMAR" | "RECHAZAR";
 export async function accionarFirmaPanel(
   page: Page,
   idCode100: string,
-  cuerpo: { readonly accion: AccionFirmaPanel; readonly codigo?: string; readonly fallarAMitad?: boolean },
+  cuerpo: { readonly accion: AccionFirmaPanel; readonly codigo?: string },
 ): Promise<{ readonly ok: boolean; readonly status: number; readonly datos: Record<string, unknown> }> {
   const respuesta = await page.request.post("/api/demo-panel/firma", {
     data: { idCode100, ...cuerpo },

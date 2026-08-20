@@ -164,25 +164,94 @@ export function guiaHabilitacionVisible(): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * **Se acepta acá y no en la pantalla de pago** (D-08). Vivía en `textos-p7`
- * mientras se cobraba antes de firmar; invertido el orden, el literal tiene
- * que estar dentro del FIPF que la persona firma, y el documento se cierra al
- * salir de esta pantalla.
+ * Declaración de **licitud y veracidad**, con el literal de la Matriz Legal V4
+ * §4 (bloque "Licitud y veracidad").
  *
- * La versión conserva el prefijo `P7-` a propósito: hay evidencias guardadas
- * que apuntan a esta cadena exacta y **la versión de un texto aceptado no se
- * reescribe nunca** (regla inviolable #10). El literal no cambió; lo que
- * cambió es cuándo se lo muestra. Si algún día cambia el texto, ahí sí sube la
- * versión — y ahí conviene renombrar el prefijo.
+ * ## Por qué ya no es una casilla
+ *
+ * La matriz es explícita en dos puntos: el efecto de este bloque es
+ * *"Integrada al PDF Solicitud + FIPF; **no casilla adicional**"*, y de la
+ * pantalla de datos dice *"No hay casillas innecesarias; declaraciones forman
+ * parte del PDF que se firma"*. La declaración no se marca aparte: se imprime
+ * en el documento y queda cubierta por el acto de firma único.
+ *
+ * En L4b fue una casilla bloqueante acá, y era un puente deliberado: la
+ * inversión de firma y pago (D-08) sacó la declaración de la pantalla de pago
+ * y el FIPF se habría cerrado sin ella. Con el PDF unificado (D-11) el literal
+ * viaja adentro del documento, que es donde la matriz lo quiere.
+ *
+ * ## Por qué sube la versión
+ *
+ * El texto cambió: el anterior hablaba solo del origen de los fondos, el de la
+ * matriz suma la veracidad de la información. **Las evidencias ya guardadas
+ * apuntan a `v1` y no se reescriben** (regla inviolable #10), así que la
+ * cadena nueva es `v2` y la vieja se conserva para poder leer lo que ya se
+ * aceptó.
  */
-export const VERSION_DECLARACION_ORIGEN_LICITO = "P7-ORIGEN-LICITO-v1";
+export const VERSION_DECLARACION_LICITUD_Y_VERACIDAD = "LICITUD-VERACIDAD-v2";
 
-/** Literal exacto del checkbox obligatorio. */
-export const TEXTO_DECLARACION_ORIGEN_LICITO =
+/** Literal exacto de la Matriz V4 §4, bloque "Licitud y veracidad". */
+export const TEXTO_DECLARACION_LICITUD_Y_VERACIDAD =
+  "Declaro que los fondos utilizados provienen de actividades lícitas y que la información " +
+  "proporcionada es verdadera, completa y actual según mi leal saber y entender.";
+
+/**
+ * Versión y literal anteriores (L4b). **No se borran**: hay expedientes con
+ * evidencias que apuntan a esta cadena exacta y la consola tiene que poder
+ * leerlas (regla inviolable #10). Ningún expediente nuevo los usa.
+ */
+export const VERSION_DECLARACION_ORIGEN_LICITO_LEGADO = "P7-ORIGEN-LICITO-v1";
+
+export const TEXTO_DECLARACION_ORIGEN_LICITO_LEGADO =
   "Declaro que los fondos utilizados para pagar el premio son de mi propiedad y tienen origen lícito.";
 
-export const NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA =
-  "Obligatorio para continuar.";
+/**
+ * Declaración de **cuenta propia**, literal de la Matriz V4 §4 (CMP-20).
+ *
+ * Su efecto según la matriz: *"Integra al FIPF. Si existe tercero, el flujo
+ * automático se detiene y se identifica al mandante."* Ese corte no hace falta
+ * implementarlo como rama: la regla inviolable #9 ya hace que no exista un
+ * flujo de contratación para terceros — no hay dónde declarar un mandante
+ * porque no hay campo, que es la forma fuerte de la misma regla.
+ */
+export const VERSION_DECLARACION_CUENTA_PROPIA = "CUENTA-PROPIA-v1";
+
+export const TEXTO_DECLARACION_CUENTA_PROPIA =
+  "Declaro que actúo por cuenta propia en esta contratación y en el pago, y que el tomador y el " +
+  "asegurado son la misma persona.";
+
+/**
+ * Advertencia del art. 1556 del Código Civil paraguayo (CMP-09).
+ *
+ * La Matriz V4 §4 la marca como **inclusión obligatoria** y precisa dónde: *"En
+ * la Solicitud y, en forma destacada, en el anverso de la póliza."* Lo que le
+ * toca a este sistema es la primera mitad — la póliza la emite Alianza y su
+ * anverso no se dibuja acá (CMP-18).
+ *
+ * El literal es el de la matriz, transcrito sin reescribir: es una cláusula
+ * legal y parafrasearla cambiaría lo que la persona firmó.
+ */
+export const VERSION_ADVERTENCIA_ART_1556 = "ART-1556-v1";
+
+export const TEXTO_ADVERTENCIA_ART_1556 =
+  "Cuando el texto de la póliza difiera del contenido de la propuesta, la diferencia se considerará " +
+  "aprobada por el tomador si no reclama dentro de un mes de haber recibido la póliza " +
+  "(Art. 1556 del Código Civil Paraguayo).";
+
+/**
+ * Declaración de acceso y revisión que el cliente acepta al firmar (Matriz V4
+ * §4, bloque "Firma del cliente").
+ *
+ * La matriz la describe como *"Casilla vacía + firma simple"*: es lo único que
+ * la persona marca en la pantalla de firma, y su efecto es que *"una firma del
+ * cliente cubre el PDF completo; el OTP previo respalda identificación y
+ * trazabilidad"*.
+ */
+export const VERSION_DECLARACION_ACCESO_Y_REVISION = "ACCESO-REVISION-v1";
+
+export const TEXTO_DECLARACION_ACCESO_Y_REVISION =
+  "Confirmo que tuve acceso al PDF único de Solicitud + FIPF, pude revisarlo y corregir mis datos, " +
+  "acepto su contenido y deseo firmarlo mediante Code100.";
 
 // ---------------------------------------------------------------------------
 // Textos fijos del resto de la pantalla

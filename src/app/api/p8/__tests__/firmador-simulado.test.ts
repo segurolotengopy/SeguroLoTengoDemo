@@ -56,8 +56,7 @@ beforeEach(() => {
     ok: true,
     firma: {
       firmadoEn: "2026-08-16T12:01:00.000Z",
-      hashSolicitudFirmada: "a".repeat(64),
-      hashFipfFirmado: "b".repeat(64),
+      hashDocumentoFirmado: "a".repeat(64),
     },
   });
   cerrarSinFirmar.mockReset().mockReturnValue(true);
@@ -168,41 +167,28 @@ describe("acciones admitidas", () => {
     expect(firmar).not.toHaveBeenCalled();
   });
 
-  it("pasa el corte del sellado solo cuando se pide explícitamente", async () => {
+  /**
+   * Los dos tests que había acá cuidaban la palanca de "cortar el sellado a la
+   * mitad": que se pasara solo cuando se pedía y solo con el booleano exacto,
+   * para que una cadena colada en el JSON no pudiera inyectar una falla. La
+   * palanca desapareció con el documento único (D-11): no hay dos archivos que
+   * puedan quedar a medias, así que el modal ya no la ofrece.
+   */
+  it("firma sin ninguna palanca de falla: el modal ya no tiene qué cortar", async () => {
     await POST(peticion({ accion: "FIRMAR", codigo: "123456" }));
-    expect(firmar).toHaveBeenCalledWith(
-      ACTO.idCode100,
-      "123456",
-      expect.objectContaining({ fallarAMitadDelSellado: false }),
-    );
 
-    firmar.mockClear();
-    await POST(peticion({ accion: "FIRMAR", codigo: "123456", fallarAMitad: true }));
-    expect(firmar).toHaveBeenCalledWith(
-      ACTO.idCode100,
-      "123456",
-      expect.objectContaining({ fallarAMitadDelSellado: true }),
-    );
+    expect(firmar).toHaveBeenCalledWith(ACTO.idCode100, "123456", expect.any(Object));
+    const opciones = firmar.mock.calls[0][2] as Record<string, unknown>;
+    expect(opciones).not.toHaveProperty("fallarAMitadDelSellado");
   });
 
-  it("solo acepta el corte con el booleano exacto, no con cualquier valor", async () => {
-    // `cuerpo.fallarAMitad === true` y no un chequeo laxo: una cadena
-    // cualquiera colada en el JSON no puede inyectar una falla.
-    await POST(peticion({ accion: "FIRMAR", codigo: "123456", fallarAMitad: "sí" }));
-
-    expect(firmar).toHaveBeenCalledWith(
-      ACTO.idCode100,
-      "123456",
-      expect.objectContaining({ fallarAMitadDelSellado: false }),
-    );
-  });
-
-  it("devuelve las dos huellas juntas al firmar (regla inviolable #3)", async () => {
+  it("devuelve la huella del documento firmado (D-11)", async () => {
     const respuesta = await POST(peticion({ accion: "FIRMAR", codigo: "123456" }));
     const cuerpo = (await respuesta.json()) as Record<string, unknown>;
 
-    expect(cuerpo.hashSolicitudFirmada).toBeTruthy();
-    expect(cuerpo.hashFipfFirmado).toBeTruthy();
+    expect(cuerpo.hashDocumentoFirmado).toBeTruthy();
+    // Ya no hay una segunda huella que devolver: es un solo archivo.
+    expect(cuerpo.hashFipfFirmado).toBeUndefined();
   });
 
   it("propaga los intentos restantes de un código incorrecto", async () => {

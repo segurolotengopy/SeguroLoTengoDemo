@@ -161,7 +161,7 @@ function firmasQueFallanSiSeUsan(): SignatureProvider {
   };
   return {
     iniciarFirma: explotar("iniciarFirma"),
-    descargarDocumentosFirmados: explotar("descargarDocumentosFirmados"),
+    descargarDocumentoFirmado: explotar("descargarDocumentoFirmado"),
     confirmarResultado: explotar("confirmarResultado"),
   };
 }
@@ -219,7 +219,6 @@ async function expedienteDerivado(): Promise<Expediente> {
       },
       // Declaración 8 en "Sí": condición PEP.
       declaraciones: { "1": "SI", "2": "NO", "3": "NO", "4": "SI", "5": "SI", "6": "SI", "7": "SI", "8": "SI" },
-      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     },
   );
@@ -431,7 +430,6 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
               ingresoMensualDeclaradoGs: "8000000",
               beneficiarioTipo: "HEREDEROS_LEGALES",
             },
-            origenLicitoDeFondos: true,
             declaraciones: {
               "1": "SI", "2": "NO", "3": "NO", "4": "SI",
               "5": "SI", "6": "SI", "7": "SI", "8": "NO",

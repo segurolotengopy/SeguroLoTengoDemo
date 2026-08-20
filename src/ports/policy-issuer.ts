@@ -9,14 +9,15 @@
  * con ambos hashes firmados obligatorios) — regla de negocio inviolable #3:
  * no hay forma de invocar este puerto con documentos parcialmente firmados.
  */
-import type { Firma, PaqueteDocumental } from "../domain/tipos";
+import type { Firma, DocumentoCerrado } from "../domain/tipos";
 
 export interface EmitirPolizaInput {
   readonly expedienteId: string;
   /** Correlativo de la propuesta (p.ej. PROP-00018425); la póliza lo reutiliza como número de póliza. */
   readonly propuestaId: string;
   readonly referenciaBancard: string;
-  readonly paqueteDocumental: PaqueteDocumental;
+  /** El documento único, cerrado y firmado (D-11). */
+  readonly documento: DocumentoCerrado;
   readonly firma: Firma;
 }
 

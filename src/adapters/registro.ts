@@ -366,3 +366,14 @@ export function obtenerPolicyIssuer(): PolicyIssuer {
 export function obtenerPlazoPagoMs(): number {
   return plazoPagoMs();
 }
+
+/**
+ * `true` una sola vez si el panel armó la falla de firmas institucionales.
+ *
+ * Se expone desde el composition root por la misma razón que los proveedores:
+ * la pantalla de firma no tiene por qué saber que existe un modo demo, y en un
+ * despliegue normal `consumirFallaDemo` devuelve siempre `false`.
+ */
+export function firmasInstitucionalesCaidas(): boolean {
+  return consumirFallaDemo("FIRMAS_INSTITUCIONALES_FALLAN");
+}

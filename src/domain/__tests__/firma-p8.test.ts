@@ -176,7 +176,7 @@ function armar(expediente: Expediente = expedienteEnPaqueteGenerado()): Entorno 
  * se ve expirado. Todos los tests firman en AHORA; el que avanza el reloj lo
  * hace después de firmar.
  */
-async function firmarEnCode100(idCode100: string, opciones: { fallarAMitadDelSellado?: boolean } = {}) {
+async function firmarEnCode100(idCode100: string, opciones: { ahora?: () => Date } = {}) {
   const ahora = () => new Date(AHORA);
   await abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true, ahora });
   const codigo = ((await obtenerCodigoFirmaDemo(idCode100)))?.codigo ?? "";
@@ -308,8 +308,10 @@ describe("P8 · enviar el enlace de firma", () => {
       (evidencia) => evidencia.paso === PASO_EVIDENCIA_ENVIO_ENLACE_P8,
     );
     expect(registro?.resultado).toBe("EXITOSO");
-    expect(registro?.detalle).toContain(PAQUETE_FIXTURE.solicitud.hashSha256);
-    expect(registro?.detalle).toContain(PAQUETE_FIXTURE.fipf.hashSha256);
+    expect(registro?.detalle).toContain(PAQUETE_FIXTURE.hashSha256);
+    // Los dos códigos internos quedan en la evidencia (D-11, fila 47).
+    expect(registro?.detalle).toContain(PAQUETE_FIXTURE.codigo);
+    expect(registro?.detalle).toContain(PAQUETE_FIXTURE.codigoSeccionFipf);
     expect(registro?.versionTextoAceptado).toBe(VERSION_DECLARACION_FIRMA_P8);
     expect(registro?.ip).toBe(CONTEXTO.ip);
   });
@@ -328,7 +330,7 @@ describe("P8 · confirmar la firma", () => {
     expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
   });
 
-  it("firma confirmada: PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO con las dos huellas juntas", async () => {
+  it("firma confirmada: PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO, con una sola huella", async () => {
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
@@ -341,8 +343,7 @@ describe("P8 · confirmar la firma", () => {
 
     const expediente = entorno.repositorio.actual();
     expect(expediente.estado).toBe("FIRMADO");
-    expect(expediente.firma?.hashSolicitudFirmada).toHaveLength(64);
-    expect(expediente.firma?.hashFipfFirmado).toHaveLength(64);
+    expect(expediente.firma?.hashDocumentoFirmado).toHaveLength(64);
     expect(expediente.firma?.idCode100).toBe(enlace.acto.idCode100);
     // D-08 · firmado el expediente, lo que sigue es pagar.
     expect(resultado.siguientePantalla).toBe("/pago");
@@ -381,7 +382,7 @@ describe("P8 · confirmar la firma", () => {
     expect(expediente.firma).toBeNull();
   });
 
-  it("registra las dos huellas firmadas en un solo registro de evidencia", async () => {
+  it("registra la huella firmada en un solo registro de evidencia", async () => {
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
@@ -392,8 +393,7 @@ describe("P8 · confirmar la firma", () => {
     const registro = entorno.evidencias.registros.find(
       (evidencia) => evidencia.paso === PASO_EVIDENCIA_FIRMA_P8 && evidencia.resultado === "EXITOSO",
     );
-    expect(registro?.detalle).toContain("hashSolicitudFirmada=");
-    expect(registro?.detalle).toContain("hashFipfFirmado=");
+    expect(registro?.detalle).toContain("hashDocumentoFirmado=");
     expect(registro?.detalle).toContain("firmante=CLIENTE");
   });
 
@@ -417,67 +417,36 @@ describe("P8 · confirmar la firma", () => {
 // Regla inviolable #3 — la firma atómica
 // ---------------------------------------------------------------------------
 
-describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
+describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
   /**
-   * El test que pide la regla: se corta el proceso a mitad del sellado, con la
-   * huella de la Solicitud ya calculada y la del FIPF no. Lo que tiene que
-   * quedar es **nada firmado**, en las tres capas: el proveedor, el expediente
-   * y la evidencia.
+   * Los dos tests que había acá cortaban el sellado a mitad y verificaban que
+   * no quedara ningún documento firmado — en el proveedor, en el expediente y
+   * en la evidencia. **Desaparecieron con el problema que probaban.** Con el
+   * PDF unificado no hay dos archivos que puedan separarse, así que "medio
+   * firmado" dejó de ser un estado alcanzable.
+   *
+   * Lo que sí sigue habiendo, y ahora es donde vive el riesgo real, es el
+   * tramo entre la firma del cliente y las institucionales: ahí sí puede
+   * quedar algo a medias, y para eso está `FIRMADO_CLIENTE` (D-13). Se prueba
+   * en el bloque del plazo, más abajo.
    */
-  it("una falla a mitad del sellado no deja NINGUNO de los dos documentos firmado", async () => {
-    const entorno = armar();
-    const enlace = await pedirEnlace(entorno);
-    if (!enlace.ok) throw new Error("no se abrió el acto");
+  it("el paquete es un solo documento: no hay dos huellas que puedan divergir", () => {
+    const expediente = expedienteEnPaqueteGenerado();
+    const paquete = expediente.paqueteDocumental!;
 
-    const fallido = await firmarEnCode100(enlace.acto.idCode100, { fallarAMitadDelSellado: true });
-    expect(fallido.ok).toBe(false);
-
-    const resultado = await sondear(entorno);
-
-    // 1. El proveedor no reporta ninguna firma.
-    expect(resultado.ok).toBe(true);
-    if (!resultado.ok) return;
-    expect(resultado.firmado).toBe(false);
-    expect((await obtenerSesionFirmaMock(enlace.acto.idCode100))?.firma).toBeNull();
-
-    // 2. El expediente sigue sin firma y sin haber avanzado.
-    const expediente = entorno.repositorio.actual();
-    expect(expediente.estado).toBe("PAQUETE_GENERADO");
-    expect(expediente.firma).toBeNull();
-
-    // 3. No hay ninguna huella firmada en la evidencia — ni de la Solicitud ni
-    //    del FIPF. Lo único que hay del paquete son las huellas *sin* firmar.
-    const evidencia = JSON.stringify(entorno.evidencias.registros);
-    expect(evidencia).not.toContain("hashSolicitudFirmada");
-    expect(evidencia).not.toContain("hashFipfFirmado");
-
-    // 4. Y los documentos cerrados quedaron intactos: nada se modificó.
-    expect(expediente.paqueteDocumental?.solicitud.hashSha256).toBe(
-      PAQUETE_FIXTURE.solicitud.hashSha256,
-    );
-    expect(expediente.paqueteDocumental?.fipf.hashSha256).toBe(PAQUETE_FIXTURE.fipf.hashSha256);
-  });
-
-  it("después de la falla, completar el acto firma los dos y recién ahí avanza", async () => {
-    const entorno = armar();
-    const enlace = await pedirEnlace(entorno);
-    if (!enlace.ok) throw new Error("no se abrió el acto");
-
-    await firmarEnCode100(enlace.acto.idCode100, { fallarAMitadDelSellado: true });
-    await sondear(entorno);
-    expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
-
-    const codigo = ((await obtenerCodigoFirmaDemo(enlace.acto.idCode100)))?.codigo ?? "";
-    const reintento = await firmarEnCode100Mock(enlace.acto.idCode100, codigo, {
-      ahora: () => new Date(AHORA),
-    });
-    expect(reintento.ok).toBe(true);
-    await sondear(entorno);
-
-    const expediente = entorno.repositorio.actual();
-    expect(expediente.estado).toBe("FIRMADO");
-    expect(expediente.firma?.hashSolicitudFirmada).toHaveLength(64);
-    expect(expediente.firma?.hashFipfFirmado).toHaveLength(64);
+    // Una huella, una versión, y los dos códigos internos adentro del mismo
+    // documento: no existe el campo por el que la Solicitud y el FIPF podrían
+    // tener estados distintos.
+    expect(paquete.hashSha256).toHaveLength(64);
+    expect(paquete.codigo).toContain("PROP-");
+    expect(paquete.codigoSeccionFipf).toContain("FIPF-");
+    expect(Object.keys(paquete).sort()).toEqual([
+      "cerradoEn",
+      "codigo",
+      "codigoSeccionFipf",
+      "hashSha256",
+      "version",
+    ]);
   });
 
   it("la máquina de estados rechaza una firma con una huella vacía", () => {
@@ -497,13 +466,12 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
       canal: "WHATSAPP",
       idCode100: "MOCK-CODE100-X",
       firmadoEn: AHORA,
-      hashSolicitudFirmada: "c".repeat(64),
-      hashFipfFirmado: "",
+      hashDocumentoFirmado: "",
     });
 
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
-    expect(resultado.error).toContain("los dos documentos");
+    expect(resultado.error).toContain("huella del documento firmado");
   });
 
   it("la máquina de estados rechaza una firma de otro acto de Code100", () => {
@@ -523,8 +491,7 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
       canal: "WHATSAPP",
       idCode100: "MOCK-CODE100-AJENO",
       firmadoEn: AHORA,
-      hashSolicitudFirmada: "c".repeat(64),
-      hashFipfFirmado: "d".repeat(64),
+      hashDocumentoFirmado: "c".repeat(64),
     });
 
     expect(resultado.ok).toBe(false);
@@ -551,6 +518,55 @@ describe("firma · el plazo se abre acá y corre en el paso siguiente", () => {
     // vencimiento posible.
     expect(entorno.repositorio.actual().plazoPagoVenceEn).toBe(resultado.plazoPagoVenceEn);
     expect(resultado.plazoPagoVenceEn).not.toBe("");
+  });
+
+  it("registra quién firmó, con qué nivel y en qué modalidad (D-13)", async () => {
+    const entorno = armar();
+    const enlace = await pedirEnlace(entorno);
+    if (!enlace.ok) throw new Error("no se abrió el acto");
+    await firmarEnCode100(enlace.acto.idCode100);
+    await sondear(entorno);
+
+    const firmas = entorno.repositorio.actual().firmasInstitucionales;
+
+    // La consola tiene que poder mostrar esto: un expediente FIRMADO que no
+    // dijera quién lo firmó no probaría nada.
+    expect(firmas.map((firma) => firma.rol)).toEqual(["INTERSEGUROS", "ALIANZA"]);
+    expect(firmas.every((firma) => firma.nivel === "CUALIFICADA")).toBe(true);
+    expect(firmas.every((firma) => firma.modalidad === "CONJUNTO")).toBe(true);
+    // El certificado es simulado y la referencia lo dice: una evidencia que
+    // afirmara un certificado cualificado real no probaría nada.
+    expect(firmas.every((firma) => firma.certificado.startsWith("DEMO-CERT-"))).toBe(true);
+  });
+
+  it("si las institucionales no llegan, el expediente queda en FIRMADO_CLIENTE", async () => {
+    // Es la falla que reemplazó a la de "sellado a la mitad" (D-11 la volvió
+    // irrepresentable). Acá sí hay algo a medias: el cliente firmó y el cobro
+    // tiene que seguir inhabilitado.
+    const entorno = armar();
+    const caido = { ...entorno.deps, firmasInstitucionalesCaidas: () => true };
+    const enlace = await iniciarFirmaP8(caido, {
+      expedienteId: entorno.repositorio.actual().id,
+      canal: "WHATSAPP",
+      contexto: CONTEXTO,
+    });
+    if (!enlace.ok) throw new Error("no se abrió el acto");
+    await firmarEnCode100(enlace.acto.idCode100);
+
+    const resultado = await confirmarFirmaP8(caido, {
+      expedienteId: entorno.repositorio.actual().id,
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivo).toBe("FIRMAS_INSTITUCIONALES_PENDIENTES");
+
+    const expediente = entorno.repositorio.actual();
+    expect(expediente.estado).toBe("FIRMADO_CLIENTE");
+    // La firma del cliente no se perdió, y el cobro no se habilitó.
+    expect(expediente.firma).not.toBeNull();
+    expect(expediente.plazoPagoVenceEn).toBeNull();
   });
 
   it("el tramo institucional se retoma solo si quedó a medias (regla inviolable #3)", async () => {
@@ -592,14 +608,14 @@ describe("firma · el plazo se abre acá y corre en el paso siguiente", () => {
 // ---------------------------------------------------------------------------
 
 describe("P8 · resumen para la pantalla", () => {
-  it("trae los dos documentos con su huella y los canales enmascarados", () => {
+  it("trae el documento con su huella y los canales enmascarados", () => {
     const expediente = expedienteEnPaqueteGenerado();
 
     const resumen = leerResumenFirmaP8(expediente);
 
-    expect(resumen?.solicitud.codigo).toBe(PAQUETE_FIXTURE.solicitud.codigo);
-    expect(resumen?.fipf.codigo).toBe(PAQUETE_FIXTURE.fipf.codigo);
-    expect(resumen?.solicitud.hashSha256).toBe(PAQUETE_FIXTURE.solicitud.hashSha256);
+    expect(resumen?.documento.codigo).toBe(PAQUETE_FIXTURE.codigo);
+    expect(resumen?.documento.codigoSeccionFipf).toBe(PAQUETE_FIXTURE.codigoSeccionFipf);
+    expect(resumen?.documento.hashSha256).toBe(PAQUETE_FIXTURE.hashSha256);
     expect(resumen?.canalWhatsappEnmascarado).toContain("•");
     expect(resumen?.canalEmailEnmascarado).toContain("•");
   });

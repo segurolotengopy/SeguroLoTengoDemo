@@ -147,8 +147,8 @@ Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley
 
 1. **Un OTP de canal, más el del acto de firma**: celular (paso 2) y firma (paso 6). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. **El OTP de correo se retiró** (D-06 del Plan v2, Lote 2): el correo se declara con doble tipeo dentro de la pantalla de identidad y se respalda con la declaración de veracidad que se firma después. El estado `CANAL_EMAIL_VERIFICADO` sobrevive como legado, sin aristas de entrada, porque hay expedientes históricos ahí (regla #10).  
 2. **Solo el hash del OTP se persiste.** Nunca el código en claro, ni en base, ni en logs, ni en respuestas de API. En modo demo el código se expone únicamente a través del panel de demo, nunca por la API del flujo.  
-3. **Regla atómica de firma**: la Solicitud y el FIPF se firman en una sola operación o ninguna. No existe estado intermedio con uno firmado. `FIRMADO_CLIENTE` no es una excepción: nombra el momento en que el cliente ya firmó **los dos** y faltan las firmas institucionales (D-13).  
-4. **Los PDF se cierran y se hashean (SHA-256) antes de habilitar la firma.** Cualquier modificación posterior invalida el paquete: hay que regenerar versión y hashes.  
+3. **Regla atómica de firma, ahora estructural**: la Solicitud y el FIPF son **dos secciones de un mismo PDF** (D-11), con un solo SHA-256 y un solo acto de firma. No existe la operación que podría firmar una y no la otra — la regla dejó de necesitar validaciones que la vigilen y pasó a ser una propiedad del modelo. `FIRMADO_CLIENTE` no es una excepción: nombra el momento en que el cliente ya firmó el documento entero y faltan las firmas institucionales (D-13).  
+4. **El PDF se cierra y se hashea (SHA-256) antes de habilitar la firma.** Cualquier modificación posterior invalida el paquete: hay que regenerar versión y hash.  
 5. **Bloqueo automático de elegibilidad**: una respuesta incompatible en las declaraciones 1, 2, 3 u 8 de P6 detiene la emisión automática y deriva a Pantalla A. Ese estado es **terminal en el flujo digital**: no existe transición desde ahí hacia paquete documental, firma, pago ni emisión.  
 6. **Nunca se persiste PAN completo ni CVV**, en ninguna capa, incluidos logs y trazas de error.
    
@@ -203,6 +203,16 @@ Los 8 proveedores externos viven detrás de interfaces en `src/ports/`:
 
 La selección de adaptador es por variable de entorno (`INTEGRATION_MODE`, o flags granulares `INTEGRATION_OTP`, `INTEGRATION_PAYMENT`, etc.). Los mocks y las implementaciones oficiales comparten los mismos tests de contrato en `src/ports/__tests__/`.
 
+### Firmantes por documento (D-13)
+
+Quiénes firman cada documento, en qué orden, con qué nivel y en qué modalidad (`PREFIRMADO` / `CONJUNTO`) es **dato configurable**, en `src/domain/firmantes-documento.ts`. De ahí salen tres cosas a la vez: el bloque de firmas que se imprime en el PDF, el orden en que el adaptador aplica las firmas, y lo que la consola muestra de cada una — cuando eran tres listas separadas, el PDF podía anunciar un firmante que el proveedor no aplicaba.
+
+Dos invariantes que la configuración no puede romper, las dos con test: **el cliente firma primero y firma simple**, y **toda firma institucional es cualificada**. `PREFIRMADO` es la excepción ordenada a lo primero: la firma ya está sobre el documento antes de que el cliente lo reciba, como en una póliza modelo.
+
+Cada firma institucional aplicada queda en `Expediente.firmasInstitucionales` con su rol, nivel, modalidad y certificado, visible en la consola: un expediente `FIRMADO` que no dijera quién lo firmó no probaría nada. El certificado es simulado mientras Code100 sea un mock y la referencia lo dice (`DEMO-CERT-…`).
+
+**Divergencia declarada:** la Matriz V4 §2 dice que *"Alianza no firma la propuesta salvo exigencia del modelo"*; D-13 establece lo contrario y manda D-13. ALR-07 registra que Rodrigo y Legal actualicen la matriz.
+
 ### Contrato oficial de `SignatureProvider` (Code100)
 
 Cuando se implemente `src/adapters/live/signature-provider.ts`, debe usar exclusivamente el flujo documentado en `docs/Integraciones/Documentacion Firmador - API FLOW.pdf` — no inventar parámetros ni endpoints:
@@ -214,7 +224,7 @@ POST /signature/getSessionId    → code, state, cert_info (estado de firma)
 POST /signature/sign-pdf        → pdf_base64 firmado (documents_signeds)
 ```
 
-Reglas no negociables de esa integración (ya reflejadas a nivel de tipos en `src/ports/signature-provider.ts`, regla inviolable #3): la Solicitud y el FIPF viajan en el **mismo** `session_id`, nunca en llamadas separadas; los documentos se cierran (hash + versión) antes de enviarse a firmar; el orden de firmas es cliente (no cualificada) → Interseguros y Alianza (cualificada, en paralelo), nunca al revés; se registran PDFs, hashes, canal, `session_id`, firmantes, fecha, hora, IP y callbacks.
+Reglas no negociables de esa integración: el documento único viaja en **un** `session_id` —con D-11 ya no hay dos archivos que pudieran ir en llamadas separadas—; se cierra (hash + versión) antes de enviarse a firmar; el orden de firmas es cliente (no cualificada) → Interseguros y Alianza (cualificada), nunca al revés, y sale de `firmantes-documento.ts`; se registran PDF, hash, canal, `session_id`, firmantes, fecha, hora, IP y callbacks.
 
 ### Idempotencia de webhooks (Bancard y Code100)
 
@@ -224,7 +234,11 @@ Los adaptadores oficiales de `PaymentProvider` y `SignatureProvider` deben trata
 
 ## Servicio de generación de documentos
 
-`src/documentos/` **acuña el correlativo** (`generarNumeroPropuesta`, ocho dígitos de CSPRNG), cierra con él la Solicitud (`PROP-<correlativo>`) y el FIPF (`FIPF-<correlativo>`) — **un solo correlativo, dos prefijos** —, calcula el SHA-256 de cada PDF, los guarda por `ArchivoRepository` y transiciona DECLARACIONES_OK → PAQUETE_GENERADO. Es el paso que habilita la firma: sin paquete cerrado y hasheado no hay nada válido que mandarle a Code100 (regla inviolable #4).
+`src/documentos/` **acuña el correlativo** (`generarNumeroPropuesta`, ocho dígitos de CSPRNG), cierra con él **un solo PDF** que lleva la Solicitud y el FIPF como secciones (D-11) —identidad `PROP-<correlativo>`, con el código interno `FIPF-<correlativo>` impreso en su sección—, calcula un SHA-256, lo guarda por `ArchivoRepository` y transiciona DECLARACIONES_OK → PAQUETE_GENERADO. Es el paso que habilita la firma: sin documento cerrado y hasheado no hay nada válido que mandarle a Code100 (regla inviolable #4).
+
+**Un correlativo, dos códigos internos.** Las dos secciones conservan su código propio porque son dos formularios con vida normativa distinta —la Solicitud responde a la Res. SS SG. 215/15 y el FIPF a la Res. SEPRELAD 71/19— y un auditor de cualquiera de los dos tiene que poder citar el suyo. Lo que ya no tienen es archivo, huella ni acto de firma separados.
+
+El documento imprime además, por la Matriz Legal V4 §4: la advertencia del **art. 1556 del Código Civil** (CMP-09) con el **sello de tiempo** de la solicitud, y las declaraciones de **licitud y veracidad** y de **cuenta propia** (CMP-20). La matriz es explícita en que van integradas al PDF y **no** como casilla aparte: se aceptan al firmar, no antes.
 
 El correlativo nace acá y no en el pago desde la inversión de D-08: los documentos se cierran **antes** de que exista ninguna operación de Bancard, así que el número tiene que nacer con ellos y el pago pasa a ser uno más de los que lo citan. Se acuña en memoria y se persiste en la misma escritura que el paquete: si el cierre falla, no queda un número reservado sin documentos que lo lleven.
 
@@ -235,7 +249,7 @@ Reparto: `src/domain/documentos.ts` decide **qué dice** cada documento (proyecc
 Tres cosas no negociables de este servicio:
 
 - **Determinismo.** Mismo contenido y misma fecha de cierre ⇒ mismos bytes ⇒ mismo hash. Sin `/ID` aleatorio ni `/CreationDate` del reloj. Si el hash dependiera del momento de generación no sería una propiedad del documento, y una auditoría no podría reproducirlo.
-- **Los dos documentos entran juntos o no entra ninguno** (regla inviolable #3). `registrarPaqueteDocumental` es una sola escritura y valida que ambos códigos deriven del mismo correlativo y compartan versión.
+- **Un documento, una huella** (regla inviolable #3, estructural desde D-11). `registrarPaqueteDocumental` valida que los dos códigos internos deriven del mismo correlativo; ya no hay versiones que puedan divergir porque hay una sola.
 - **Sin librerías de PDF ni de QR.** Ambas se escribieron acá (menos de 400 líneas cada una) porque lo que hace falta es la matriz de módulos y los bytes del archivo, no renderers de canvas ni fuentes embebidas — y porque las librerías de PDF de uso corriente emiten metadatos no deterministas. Mismo criterio con el que P7 decidió no dibujar el QR de Bancard.
 
 **El QR es decisión de producto, no obligación legal**: no hay fila en la matriz de cumplimiento que lo exija (la 77 exige el hash individual y la 47 vincular por correlativo o hash, cosas que el paquete cumple sin él). Codifica **solo** `<URL_BASE>/<código>` — nunca el hash (el QR va dentro del PDF que se hashea) ni ningún dato de la persona.
@@ -308,13 +322,13 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
-Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100, registro civil caído), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100, **firmas institucionales caídas**, registro civil caído), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
 
 El plazo que el panel acorta es el de D-10 —24 horas para **pagar** un expediente ya firmado—, y se congela al aplicarse las firmas institucionales: para verlo caducar en segundos hay que fijarlo corto **antes** de firmar.
 
 **El acto de firma también se puede completar sin abrir el panel**, desde el modal de P8 (`ModalFirmadorSimulado.tsx` + `/api/p8/firmador-simulado`, extensión `route.demo.ts`). Es la misma simulación de Code100, presentada como lo que es —la ventana del proveedor, no una pantalla de SeguroLoTengo— y existe para no tener que mostrar la consola de trucos en una demostración por pantalla compartida. **Nunca muestra el código**: lo recibe tipeado (regla inviolable #2). A diferencia del endpoint del panel, no acepta `idCode100` del cliente: lo saca del expediente de la sesión, y esa es la propiedad que reemplaza a la clave del panel.
 
-El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. Lleva además la palanca de **cortar el sellado a la mitad** (regla inviolable #3), que va visualmente separada, rotulada `Solo demostración` y con borde punteado: un control que inyecta una falla no puede parecerse a uno que la persona usaría. Se consume en un solo intento, como las del panel.
+El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. La palanca de *cortar el sellado a la mitad* que llevaba antes **desapareció con D-11**: con un solo documento no hay dos archivos que puedan quedar a medias. La falla equivalente —y la que sí tiene un estado que mostrar— es `FIRMAS_INSTITUCIONALES_FALLAN`, que vive en el panel: el cliente firma, las cualificadas no llegan y el expediente queda en `FIRMADO_CLIENTE` con el cobro inhabilitado.
 
 Tres reglas de las palancas del panel, todas verificadas por tests: **se consumen en un solo intento** (se ve el error una vez y el reintento funciona); **ninguna inventa un camino** — cada fallo produce un estado real que rechaza la validación de siempre, no una rama especial del código; y **ninguna existe fuera de `DEMO_MODE`**, ni siquiera si quedó armada antes de apagar el flag. El plazo de firma, además, solo se puede acortar: alargarlo sería cambiarle a la persona una condición ya informada (fila 30 de la matriz).
 
@@ -350,7 +364,7 @@ Resumen condensado de `docs/SeguroLoTengo-integraciones-externas-alta-resolucion
 - Nunca se almacena PAN ni CVV; Bancard conserva el ámbito de pago (regla inviolable #6).
 - No enviar datos médicos, cédula, OTP ni pagos a CRM, analítica o registros técnicos tipo Sentry/PostHog/HubSpot (regla inviolable #7).
 - Callbacks de proveedores firmados, verificables, idempotentes y vinculados a la misma propuesta (ver "Idempotencia de webhooks" arriba).
-- Solicitud y FIPF: mismo correlativo, prefijos distintos, mismo acto de firma del cliente (regla inviolable #3).
+- Solicitud y FIPF: **un solo PDF**, un correlativo, dos códigos internos visibles, un acto de firma (D-11, regla inviolable #3).
 - Póliza y factura las emite y envía Alianza (SEBAOT); descarga inmediata desde SeguroLoTengo solo de Solicitud y FIPF firmados.
 - No usar automatizaciones administrativas (n8n o similar) para controlar la secuencia crítica pago → firma → emisión.
 - No introducir un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`.
@@ -381,7 +395,7 @@ Además de `npm run typecheck && npm run lint && npm test`:
 3. ¿Hay una fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` que respalde la regla implementada? Si no, ¿está marcado como decisión de producto y no de ley?
 4. Si usa una integración externa: ¿está descrita en `docs/Tabla de Integraciones externas - Tabla.csv`? ¿Respeta las "Reglas transversales de integraciones" de arriba?
 5. ¿Se generan y persisten las evidencias probatorias correspondientes (hash, timestamp, IP, canal, resultado) vía `EvidenceStore`?
-6. ¿La firma, si aplica, sigue la regla atómica de Code100 (Solicitud + FIPF en un solo acto)?
+6. ¿La firma, si aplica, va sobre el documento único y con los firmantes que declara `firmantes-documento.ts` (D-13)?
 7. ¿El pago, si aplica, ocurre **después** de la firma (D-08) y es idempotente? ¿El único estado de origen es `FIRMADO`? ¿La emisión exige el cobro confirmado (fila 44)?
 8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica, o (a futuro) al asistente IA?
 

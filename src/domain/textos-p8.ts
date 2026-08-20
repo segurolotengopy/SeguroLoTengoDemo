@@ -55,21 +55,31 @@ export const TITULO_BLOQUE_DOCUMENTOS_P8 = "Revisá los documentos";
 
 export const BADGE_DATOS_VERIFICADOS_P8 = "DATOS E IDENTIDAD VERIFICADOS";
 
-export const NOMBRE_SOLICITUD_P8 = "Solicitud de Seguro de Vida Oncológico";
+/** D-11 · un solo documento con las dos secciones adentro. */
+export const NOMBRE_DOCUMENTO_P8 = "Solicitud de Seguro de Vida Oncológico y FIPF";
 
-export const DESCRIPCION_SOLICITUD_P8 =
-  "Plan, coberturas, premio y beneficiario; declaraciones médicas y autorizaciones; versión definitiva preparada para firma.";
-
-export const NOMBRE_FIPF_P8 = "Formulario de Identificación de Persona Física";
-
-export const DESCRIPCION_FIPF_P8 =
-  "Datos personales, laborales y económicos; identificación, PEP, origen de fondos y evidencias; vinculado al mismo correlativo de la Solicitud.";
+export const DESCRIPCION_DOCUMENTO_P8 =
+  "Un solo PDF: plan, coberturas, premio y beneficiario; declaraciones médicas, de licitud y " +
+  "veracidad, y de cuenta propia; datos personales, laborales y económicos, condición PEP y " +
+  "evidencias. Versión definitiva preparada para firma.";
 
 /** Regla inviolable #4: el PDF se cierra y se hashea antes de habilitar la firma. */
 export const MARCA_PDF_CERRADO_P8 = "PDF cerrado · hash registrado";
 
 export const BOTON_VER_PDF_P8 = "VER PDF";
-export const BOTON_DESCARGAR_P8 = "DESCARGAR";
+
+/**
+ * CHG-29 · por qué acá no hay botón de descarga.
+ *
+ * Se puede leer el documento entero antes de firmarlo; lo que no se ofrece es
+ * llevárselo, porque todavía no lo firmó nadie y un PDF sin firma circulando
+ * como si fuera el instrumento confunde más de lo que ayuda. El texto lo dice
+ * en vez de dejar que la ausencia del botón parezca un olvido — y no promete
+ * que el archivo sea inaccesible, porque no lo es.
+ */
+export const NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8 =
+  "Podés revisarlo completo antes de firmar. La descarga se habilita después del pago, cuando el " +
+  "documento ya está firmado y es el instrumento definitivo.";
 
 export const TITULO_ACCESO_PREVIO_P8 = "ACCESO PREVIO A LA INFORMACIÓN";
 

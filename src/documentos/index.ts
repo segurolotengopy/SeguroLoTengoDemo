@@ -37,6 +37,6 @@ export type {
   ResultadoArchivadoFirmados,
   ResultadoGenerarPaquete,
 } from "./servicio";
-export { renderizarFipf, renderizarSolicitud } from "./plantillas";
+export { renderizarPaquete } from "./plantillas";
 export { generarMatrizQr } from "./qr";
 export type { MatrizQr } from "./qr";
