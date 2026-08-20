@@ -67,6 +67,7 @@ import {
 } from "./elegibilidad";
 import type { MotivoDerivacion } from "./elegibilidad";
 import { registrarDeclaracionesP6 } from "./expediente";
+import { registrarRemisionFallida, remitirCasoAAlianza } from "./remision-alianza";
 import { VERSION_TEXTOS_DECLARACIONES_P6 } from "./textos-p6";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
@@ -364,6 +365,34 @@ export async function guardarDatosYDeclaracionesP6(
       elegibleParaEmisionAutomatica: true,
       siguientePantalla: "/firma",
     };
+  }
+
+  // CHG-47 · el caso se remite a Alianza en el mismo acto en que se deriva.
+  // Antes dependía de que alguien lo empujara desde la consola, en un caso que
+  // por definición ya salió del flujo automático.
+  //
+  // **Best-effort a propósito**: la derivación ya ocurrió y es terminal (regla
+  // inviolable #5). Si la remisión falla, el expediente no vuelve atrás — lo
+  // que queda es evidencia del fallo, visible en la consola, y el reenvío
+  // manual que sigue estando ahí.
+  try {
+    await remitirCasoAAlianza(
+      { evidencias: deps.evidencias, ahora: reloj.ahora, nuevoId: reloj.nuevoId },
+      { expediente: transicion.expediente, contexto: entrada.contexto, origen: "AUTOMATICA" },
+    );
+  } catch (error) {
+    await registrarRemisionFallida(
+      { evidencias: deps.evidencias, ahora: reloj.ahora, nuevoId: reloj.nuevoId },
+      {
+        expediente: transicion.expediente,
+        contexto: entrada.contexto,
+        detalle: error instanceof Error ? error.message : "desconocido",
+      },
+    ).catch(() => {
+      // Si tampoco se puede escribir la evidencia del fallo, no queda nada por
+      // hacer acá: la derivación está guardada y la consola muestra el caso
+      // igual, sin remisión registrada.
+    });
   }
 
   return {

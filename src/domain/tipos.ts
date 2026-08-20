@@ -510,6 +510,55 @@ export interface FirmaInstitucional {
 }
 
 // ---------------------------------------------------------------------------
+// Devolución del premio (D-02)
+// ---------------------------------------------------------------------------
+
+/** Quién pidió la devolución. Es una categoría, no un nombre. */
+export type SolicitanteDevolucion = "TITULAR" | "INTERSEGUROS" | "ALIANZA";
+
+/**
+ * Por qué se devuelve. Categorías cerradas y no texto libre: el motivo va a la
+ * evidencia y a la consola, y un campo abierto ahí terminaría con datos de
+ * salud escritos a mano por alguien que quiso ser claro.
+ *
+ * `VENCIMIENTO_LEGADO` es el único que no nace de un pedido: son los
+ * expedientes que vencieron bajo el orden anterior **con el pago hecho**. Bajo
+ * el orden nuevo no puede volver a ocurrir —se firma antes de cobrar— pero
+ * esos expedientes existen y no se reescriben (regla inviolable #10).
+ */
+export type MotivoDevolucion =
+  | "PEDIDO_DEL_TITULAR"
+  | "ERROR_DE_COBRO"
+  | "COBRO_DUPLICADO"
+  | "VENCIMIENTO_LEGADO";
+
+/**
+ * El trámite de devolución, tal como el expediente lo asienta y lo sigue
+ * (D-02).
+ *
+ * **El expediente no ejecuta la devolución**: la hacen Bancard y Alianza fuera
+ * del flujo digital. Lo que vive acá es el seguimiento — quién la pidió, por
+ * qué, cuánto, sobre qué cobro, y con qué referencia se acreditó el reintegro.
+ *
+ * No hay ningún campo de cuenta de destino, y es deliberado: la devolución va
+ * al medio de origen y a ningún otro lado (fila 30 de la matriz). No existe
+ * dónde escribir un tercero.
+ */
+export interface DevolucionDelExpediente {
+  readonly estado: "EN_TRAMITE" | "ACREDITADA";
+  readonly solicitante: SolicitanteDevolucion;
+  readonly motivo: MotivoDevolucion;
+  readonly solicitadaEn: string; // ISO 8601
+  /** Importe y medio congelados al abrir el trámite: son los del cobro que se devuelve. */
+  readonly montoGs: number;
+  readonly medio: MedioDePago;
+  readonly referenciaBancard: string | null;
+  readonly acreditadaEn: string | null;
+  /** Referencia del reintegro. Es lo que hace auditable el cierre del trámite. */
+  readonly referenciaReintegro: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Certificado de Cobertura Provisional (D-12)
 // ---------------------------------------------------------------------------
 
@@ -715,6 +764,12 @@ export interface Expediente {
   readonly certificadoCobertura: CertificadoCobertura | null;
   /** Estado de la emisión en Alianza (P9). No contiene la póliza, solo su estado. */
   readonly poliza: PolizaDelExpediente | null;
+  /**
+   * Trámite de devolución del premio (D-02), o `null` mientras no haya ninguno
+   * —que es el caso normal—. Lo escriben `solicitarDevolucion` y
+   * `acreditarDevolucion`; el expediente lo asienta y lo sigue, no lo ejecuta.
+   */
+  readonly devolucion: DevolucionDelExpediente | null;
 
   /** Consola administrativa: reinicio que crea un expediente nuevo enlazado al anterior. */
   readonly expedienteAnteriorId: string | null;
@@ -753,6 +808,7 @@ export function crearExpedienteInicial(input: {
     firmasInstitucionales: [],
     certificadoCobertura: null,
     poliza: null,
+    devolucion: null,
     expedienteAnteriorId: input.expedienteAnteriorId ?? null,
     creadoEn: input.ahora,
     actualizadoEn: input.ahora,

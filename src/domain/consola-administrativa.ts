@@ -43,6 +43,17 @@ import { enmascararCelular } from "./telefono";
 import { crearExpedienteInicial } from "./tipos";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
+import { remitirCasoAAlianza } from "./remision-alianza";
+
+/**
+ * Reexportados desde `remision-alianza.ts`, que es donde vive ahora la
+ * remisión. Se conservan acá porque hay tests y pantallas que los importan de
+ * la consola desde antes de que la remisión se automatizara (CHG-47).
+ */
+export {
+  DESTINATARIO_CASOS_ALIANZA,
+  PASO_EVIDENCIA_REMISION_ALIANZA as PASO_EVIDENCIA_ENVIO_ALIANZA,
+} from "./remision-alianza";
 
 // ---------------------------------------------------------------------------
 // Bloqueo por cédula
@@ -281,18 +292,10 @@ export function rotuloJustificativo(id: IdJustificativoReinicio): string {
 
 export const PASO_EVIDENCIA_REINICIO_ADMIN = "ADMIN_REINICIO_EXPEDIENTE";
 export const PASO_EVIDENCIA_ORIGEN_REINICIO = "ADMIN_EXPEDIENTE_CREADO_POR_REINICIO";
-export const PASO_EVIDENCIA_ENVIO_ALIANZA = "ADMIN_ENVIO_CASO_ALIANZA";
 
 // ---------------------------------------------------------------------------
-// Envío del caso a Alianza (simulado en el demo)
+// Envío del caso a Alianza
 // ---------------------------------------------------------------------------
-
-/**
- * Buzón simulado del área de casos de Alianza. En el demo no sale ningún
- * correo real: el "envío" se materializa como evidencia append-only en el
- * expediente, que es lo que la consola puede auditar.
- */
-export const DESTINATARIO_CASOS_ALIANZA = "casos@alianzagarantia.com.py";
 
 export interface EntradaEnvioAlianza {
   readonly expedienteId: string;
@@ -311,48 +314,35 @@ export type ResultadoEnvioAlianza =
   | { readonly ok: false; readonly motivo: MotivoRechazoEnvioAlianza };
 
 /**
- * Simula la remisión del caso al equipo de Alianza — pensada sobre todo para
- * expedientes que terminaron en Pantalla A (derivación) o Pantalla B
- * (vencimiento), aunque se permite para cualquier estado: reenviar un caso no
- * altera el expediente.
+ * Reenvía el caso al equipo de Alianza desde la consola.
  *
- * **Qué NO viaja en el "correo": ninguna respuesta médica ni la condición PEP**
- * (regla inviolable #7 — la consola puede mostrarlas en pantalla, pero este
- * envío es una comunicación saliente y se limita a referencia del caso). El
- * asunto lleva el número de caso o de propuesta y el estado; nada más.
+ * **La remisión ya no nace acá.** Desde CHG-47 la derivación por elegibilidad
+ * remite el caso sola, en el mismo acto en que deriva; esta acción quedó como
+ * lo que siempre debió ser: la vía para **reenviar** cuando el envío automático
+ * falló, o cuando Alianza pide el caso de nuevo. La mecánica vive en
+ * `remision-alianza.ts` y es la misma para las dos; lo único que cambia es el
+ * `origen` que queda en la evidencia.
+ *
+ * Se permite sobre cualquier estado: reenviar un caso no altera el expediente.
  */
 export async function enviarCasoAAlianza(
   deps: Pick<DependenciasConsola, "expedientes" | "evidencias" | "ahora" | "nuevoId">,
   entrada: EntradaEnvioAlianza,
 ): Promise<ResultadoEnvioAlianza> {
-  const ahora = deps.ahora ?? (() => new Date().toISOString());
-  const nuevoId = deps.nuevoId ?? (() => randomUUID());
-  const fecha = ahora();
-
   const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
   if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
 
-  const referencia =
-    expediente.numeroCasoDerivacion ??
-    (expediente.numeroPropuesta ? `PROP-${expediente.numeroPropuesta}` : expediente.id);
-  const asunto = `Caso ${referencia} · ${expediente.estado}`;
+  const remision = await remitirCasoAAlianza(
+    { evidencias: deps.evidencias, ahora: deps.ahora, nuevoId: deps.nuevoId },
+    { expediente, contexto: entrada.contexto, origen: "CONSOLA" },
+  );
 
-  const evidencia: RegistroEvidencia = {
-    id: nuevoId(),
-    expedienteId: expediente.id,
-    paso: PASO_EVIDENCIA_ENVIO_ALIANZA,
-    fecha,
-    ip: entrada.contexto.ip,
-    dispositivo: entrada.contexto.dispositivo,
-    sesionId: entrada.contexto.sesionId,
-    versionTextoAceptado: null,
-    textoAceptado: null,
-    resultado: "EXITOSO",
-    detalle: `destinatario=${DESTINATARIO_CASOS_ALIANZA} · asunto=${asunto} · envío simulado (demo)`,
+  return {
+    ok: true,
+    destinatario: remision.destinatario,
+    asunto: remision.asunto,
+    enviadoEn: remision.enviadoEn,
   };
-  await deps.evidencias.guardar(evidencia);
-
-  return { ok: true, destinatario: DESTINATARIO_CASOS_ALIANZA, asunto, enviadoEn: fecha };
 }
 
 /**

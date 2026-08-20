@@ -53,6 +53,7 @@ import {
 } from "@/domain/emision-p9";
 import { confirmarFirmaP8, iniciarFirmaP8 } from "@/domain/firma-p8";
 import { confirmarPagoP7, iniciarPagoP7, vencerPlazoPagoP7 } from "@/domain/pago-p7";
+import { solicitarDevolucion } from "@/domain/devolucion";
 import type { EmisorCertificadoCobertura } from "@/domain/pago-p7";
 import type { PaymentProvider } from "@/ports/payment-provider";
 import type { PolicyIssuer } from "@/ports/policy-issuer";
@@ -474,6 +475,24 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
           },
         ),
     },
+    /**
+     * D-02 · la devolución exige un cobro acreditado, y un expediente derivado
+     * no llegó nunca a pagar: la `Regla del sistema` de la Pantalla A —*"no
+     * continuar a pago Bancard"*— hace imposible que tenga plata adentro.
+     */
+    {
+      ruta: "admin-consola/devolucion",
+      ejecutar: async (repo) =>
+        solicitarDevolucion(
+          { expedientes: repo, evidencias: evidenciasFalsas() },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            solicitante: "TITULAR",
+            motivo: "PEDIDO_DEL_TITULAR",
+            contexto: CONTEXTO,
+          },
+        ),
+    },
     {
       ruta: "p7/estado",
       ejecutar: async (repo) =>
@@ -748,6 +767,7 @@ describe("3. Inventario de rutas de la API", () => {
     const CREAN_SIN_TOCAR_EL_ORIGINAL: readonly string[] = ["admin-consola/reinicio"];
 
     const CUBIERTAS: readonly string[] = [
+      "admin-consola/devolucion",
       "p1/otp/enviar",
       "p1/otp/reenviar",
       "p1/otp/verificar",

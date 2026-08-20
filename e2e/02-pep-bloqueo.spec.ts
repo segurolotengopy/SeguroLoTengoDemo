@@ -75,4 +75,16 @@ test("declaración PEP = Sí deriva a Pantalla A, sin pago ni firma", async ({ p
     expect(cuerpo.ok).toBe(false);
     expect(cuerpo.motivo).toBe("ESTADO_INVALIDO");
   }
+
+  // CHG-47 · el caso se remitió a Alianza **solo**, al derivarse. Antes esto
+  // dependía de que alguien lo empujara desde la consola. Se comprueba en el
+  // visor de evidencia del panel, que es donde el registro se puede leer.
+  await page.goto("/demo-panel");
+  const remision = page.locator("li", { hasText: "ADMIN_ENVIO_CASO_ALIANZA" }).first();
+  await expect(remision, "la derivación no remitió el caso a Alianza").toBeVisible();
+  await expect(remision).toContainText("origen=AUTOMATICA");
+  await expect(remision).toContainText(numeroCaso?.trim() ?? "@@");
+  // Regla inviolable #7: la remisión es una comunicación saliente y no lleva
+  // el motivo de la derivación ni nada de la persona.
+  await expect(remision).not.toContainText("PEP");
 });

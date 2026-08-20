@@ -460,8 +460,10 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
       contexto: CONTEXTO,
     });
 
-    expect(evidencias.registros).toHaveLength(1);
-    const registro = evidencias.registros[0]!;
+    // Dos registros: el del paso y el de la remisión automática del caso a
+    // Alianza (CHG-47), que ocurre en el mismo acto en que se deriva.
+    expect(evidencias.registros).toHaveLength(2);
+    const registro = evidencias.registros.find((entrada) => entrada.paso === PASO_EVIDENCIA_P6)!;
     expect(registro.paso).toBe(PASO_EVIDENCIA_P6);
     expect(registro.resultado).toBe("EXITOSO");
     // Literal a propósito, no la constante: si alguien cambia un texto de las
@@ -483,6 +485,17 @@ describe("aislamiento de salud y PEP (regla inviolable #7)", () => {
     // Tampoco los datos económicos y de domicilio, que van al FIPF y no acá.
     expect(serializado).not.toContain(datosComplementariosFixture.domicilio);
     expect(serializado).not.toContain("8000000");
+
+    // La remisión a Alianza es una **comunicación saliente**, así que se le
+    // exige lo mismo o más: lleva la referencia del caso y el estado, y ni
+    // siquiera el motivo de la derivación (regla inviolable #7).
+    const remision = evidencias.registros.find((entrada) => entrada.paso !== PASO_EVIDENCIA_P6)!;
+    expect(remision.detalle).toContain(NUMERO_CASO_FIJO);
+    expect(remision.detalle).toContain("origen=AUTOMATICA");
+    const remisionSerializada = JSON.stringify(remision);
+    for (const clave of [...CLAVES_SENSIBLES, "SALUD", "PEP"]) {
+      expect(remisionSerializada, `la remisión menciona "${clave}"`).not.toContain(clave);
+    }
     // Y ninguna respuesta suelta: en `detalle` no hay ningún `=SI` / `=NO`.
     expect(registro.detalle).not.toMatch(/=(SI|NO)(\s|$|·)/);
   });

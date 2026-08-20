@@ -6,6 +6,12 @@ import type { IntegracionEvidencia } from "@/domain/evidencia";
 import { formatearGuaranies, PLANES } from "@/domain/catalogo";
 import { TEXTOS_DECLARACIONES_P6 } from "@/domain/textos-p6";
 import { DECLARACIONES_P6 } from "@/domain/elegibilidad";
+import {
+  ROTULO_MOTIVO_DEVOLUCION,
+  ROTULO_SOLICITANTE_DEVOLUCION,
+  leerSeguimientoDevolucion,
+} from "@/domain/textos-devolucion";
+import type { MotivoDevolucion, SolicitanteDevolucion } from "@/domain/tipos";
 import type { DetalleRespuesta, OpcionJustificativo } from "./Consola";
 
 /**
@@ -50,6 +56,23 @@ function Dato({ rotulo, valor }: { rotulo: string; valor: string | number | null
   );
 }
 
+/**
+ * Cada motivo dice qué hacer, no solo qué pasó: quien opera la consola tiene
+ * que poder resolverlo sin preguntarle a nadie.
+ */
+const MENSAJES_DEVOLUCION: Readonly<Record<string, string>> = {
+  SIN_COBRO_ACREDITADO:
+    "Este expediente no tiene un cobro acreditado: no hay nada que devolver.",
+  ESTADO_INVALIDO:
+    "Solo se abre una devolución sobre un expediente con el cobro confirmado o ya emitido, y solo se acredita sobre uno en trámite.",
+  SIN_TRAMITE_ABIERTO: "No hay ningún trámite de devolución abierto para acreditar.",
+  REFERENCIA_REQUERIDA:
+    "Para cerrar el trámite hace falta la referencia del reintegro: es lo que lo vuelve auditable.",
+  MOTIVO_INVALIDO: "Elegí un motivo de la lista.",
+  SOLICITANTE_INVALIDO: "Elegí quién pide la devolución.",
+  EXPEDIENTE_NO_ENCONTRADO: "No encontramos el expediente. Volvé a buscarlo.",
+};
+
 export function DetalleExpediente({
   detalle,
   justificativos,
@@ -68,6 +91,9 @@ export function DetalleExpediente({
   const [enProceso, setEnProceso] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [solicitante, setSolicitante] = useState<SolicitanteDevolucion>("TITULAR");
+  const [motivoDevolucion, setMotivoDevolucion] = useState<MotivoDevolucion>("PEDIDO_DEL_TITULAR");
+  const [referenciaReintegro, setReferenciaReintegro] = useState("");
 
   if (!expediente) return null;
 
@@ -119,6 +145,55 @@ export function DetalleExpediente({
       setEnProceso(false);
     }
   }
+
+  /**
+   * Abre o cierra el trámite de devolución (D-02). La consola **asienta** el
+   * trámite: la devolución la hacen Bancard y Alianza fuera del flujo digital.
+   */
+  async function moverDevolucion(accion: "SOLICITAR" | "ACREDITAR") {
+    if (!expediente) return;
+    setEnProceso(true);
+    setError(null);
+    setMensaje(null);
+    try {
+      const respuesta = await fetch("/api/admin-consola/devolucion", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          expedienteId: expediente.id,
+          accion,
+          solicitante,
+          motivo: motivoDevolucion,
+          referenciaReintegro: referenciaReintegro.trim(),
+        }),
+      });
+      const cuerpo = (await respuesta.json().catch(() => ({}))) as {
+        ok?: boolean;
+        motivo?: string;
+      };
+
+      if (!cuerpo.ok) {
+        setError(MENSAJES_DEVOLUCION[cuerpo.motivo ?? ""] ?? "No pudimos mover el trámite.");
+        return;
+      }
+
+      setMensaje(
+        accion === "SOLICITAR"
+          ? "Trámite de devolución abierto. El expediente quedó en DEVOLUCION_EN_TRAMITE."
+          : "Devolución acreditada. El expediente quedó en DEVUELTO.",
+      );
+      setReferenciaReintegro("");
+      onReiniciado();
+    } catch {
+      setError("No pudimos conectarnos.");
+    } finally {
+      setEnProceso(false);
+    }
+  }
+
+  const seguimiento = leerSeguimientoDevolucion(expediente);
+  const puedeSolicitarDevolucion =
+    seguimiento === null && ["PAGO_CONFIRMADO", "EMITIDO"].includes(expediente.estado);
 
   return (
     <div className="flex flex-col gap-4">
@@ -375,6 +450,134 @@ export function DetalleExpediente({
           paqueteDocumental={expediente.paqueteDocumental}
           firma={expediente.firma}
         />
+      </Bloque>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Devolución del premio (D-02): seguimiento y acciones                 */}
+      {/* ------------------------------------------------------------------ */}
+      <Bloque titulo="Devolución del premio">
+        <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-xs text-azul-900 dark:border-azul-700 dark:bg-azul-950 dark:text-azul-100">
+          La consola <strong>asienta y sigue</strong> el trámite; la devolución la ejecutan Bancard
+          y Alianza fuera del flujo digital. Siempre va al{" "}
+          <strong>medio de origen</strong>: no hay dónde escribir otra cuenta.
+        </p>
+
+        {seguimiento ? (
+          <div className="flex flex-col gap-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Dato
+                rotulo="Estado del trámite"
+                valor={seguimiento.estado === "ACREDITADA" ? "Acreditada" : "En trámite"}
+              />
+              <Dato rotulo="Lo pidió" valor={seguimiento.solicitante} />
+              <Dato rotulo="Motivo" valor={seguimiento.motivo} />
+              <Dato
+                rotulo="Solicitada"
+                valor={new Date(seguimiento.solicitadaEn).toLocaleString("es-PY")}
+              />
+              <Dato
+                rotulo="Importe"
+                valor={`${formatearGuaranies(seguimiento.montoGs)} · ${seguimiento.medio}`}
+              />
+              <Dato rotulo="Referencia Bancard" valor={seguimiento.referenciaBancard} />
+              <Dato
+                rotulo="Acreditada"
+                valor={
+                  seguimiento.acreditadaEn
+                    ? new Date(seguimiento.acreditadaEn).toLocaleString("es-PY")
+                    : null
+                }
+              />
+              <Dato rotulo="Referencia del reintegro" valor={seguimiento.referenciaReintegro} />
+              {/* Cuánto lleva abierto: es lo que hace visible un trámite
+                  olvidado, que es el riesgo de un proceso que ocurre afuera. */}
+              <Dato
+                rotulo={seguimiento.acreditadaEn ? "Duración" : "Abierta hace"}
+                valor={seguimiento.horasAbierta !== null ? `${seguimiento.horasAbierta} h` : null}
+              />
+            </div>
+
+            {seguimiento.estado === "EN_TRAMITE" ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="flex flex-1 flex-col gap-1">
+                  <label htmlFor="ac-reintegro" className="text-xs font-semibold text-etiqueta">
+                    Referencia del reintegro *
+                  </label>
+                  <input
+                    id="ac-reintegro"
+                    type="text"
+                    value={referenciaReintegro}
+                    onChange={(e) => setReferenciaReintegro(e.target.value)}
+                    className={CLASE_CAMPO}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void moverDevolucion("ACREDITAR")}
+                  disabled={enProceso || referenciaReintegro.trim() === ""}
+                  className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:opacity-40"
+                >
+                  {enProceso ? "Registrando…" : "Registrar devolución acreditada"}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : !puedeSolicitarDevolucion ? (
+          <p className="text-sm text-cuerpo">
+            Solo se abre una devolución sobre un expediente con el cobro confirmado o ya emitido.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="ac-solicitante" className="text-xs font-semibold text-etiqueta">
+                  Quién la pide *
+                </label>
+                <select
+                  id="ac-solicitante"
+                  value={solicitante}
+                  onChange={(e) => setSolicitante(e.target.value as SolicitanteDevolucion)}
+                  className={CLASE_CAMPO}
+                >
+                  {Object.entries(ROTULO_SOLICITANTE_DEVOLUCION).map(([id, rotulo]) => (
+                    <option key={id} value={id}>
+                      {rotulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="ac-motivo-dev" className="text-xs font-semibold text-etiqueta">
+                  Motivo *
+                </label>
+                <select
+                  id="ac-motivo-dev"
+                  value={motivoDevolucion}
+                  onChange={(e) => setMotivoDevolucion(e.target.value as MotivoDevolucion)}
+                  className={CLASE_CAMPO}
+                >
+                  {/* Categorías cerradas: un campo libre acá terminaría con
+                      datos de salud escritos a mano por alguien bienintencionado. */}
+                  {Object.entries(ROTULO_MOTIVO_DEVOLUCION)
+                    .filter(([id]) => id !== "VENCIMIENTO_LEGADO")
+                    .map(([id, rotulo]) => (
+                      <option key={id} value={id}>
+                        {rotulo}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void moverDevolucion("SOLICITAR")}
+              disabled={enProceso}
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-naranja-400 px-6 text-sm font-bold tracking-wide text-naranja-800 uppercase transition-colors hover:bg-naranja-50 disabled:opacity-40 sm:self-start dark:text-naranja-200 dark:hover:bg-naranja-950"
+            >
+              {enProceso ? "Abriendo…" : "Abrir trámite de devolución"}
+            </button>
+          </div>
+        )}
       </Bloque>
 
       {/* Reinicio con justificativo */}

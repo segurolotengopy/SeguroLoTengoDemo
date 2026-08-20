@@ -56,7 +56,13 @@ import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import { HITOS_SEGUIMIENTO } from "./textos-pantalla-b";
 import { pagoAcreditado } from "./tipos";
-import type { EstadoExpediente, Expediente, MedioDePago, RegistroEvidencia } from "./tipos";
+import type {
+  DevolucionDelExpediente,
+  EstadoExpediente,
+  Expediente,
+  MedioDePago,
+  RegistroEvidencia,
+} from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
 
 // ---------------------------------------------------------------------------
@@ -193,7 +199,27 @@ export async function iniciarDevolucionPantallaB(
   }
 
   const fecha = reloj.ahora();
-  const transicion = transicionarExpediente(expediente, "DEVOLUCION_EN_TRAMITE", {}, fecha);
+  // Se escribe el mismo `Expediente.devolucion` que la vía nueva (D-02) para
+  // que la consola muestre los dos linajes con una sola forma. La evidencia sí
+  // sigue siendo la propia de este camino: son hechos distintos y la historia
+  // de un expediente viejo tiene que seguir contándose como ocurrió.
+  const devolucion: DevolucionDelExpediente = {
+    estado: "EN_TRAMITE",
+    solicitante: "INTERSEGUROS",
+    motivo: "VENCIMIENTO_LEGADO",
+    solicitadaEn: fecha,
+    montoGs: pago.montoGs,
+    medio: pago.medio,
+    referenciaBancard: pago.referenciaBancard,
+    acreditadaEn: null,
+    referenciaReintegro: null,
+  };
+  const transicion = transicionarExpediente(
+    expediente,
+    "DEVOLUCION_EN_TRAMITE",
+    { devolucion },
+    fecha,
+  );
   if (!transicion.ok) return { ok: false, motivo: "ESTADO_INVALIDO" };
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
@@ -261,7 +287,15 @@ export async function registrarDevolucionEjecutadaPantallaB(
   if (!pago) return { ok: false, motivo: "SIN_PAGO_QUE_DEVOLVER" };
 
   const fecha = reloj.ahora();
-  const transicion = transicionarExpediente(expediente, "DEVUELTO", {}, fecha);
+  const devolucion: DevolucionDelExpediente | null = expediente.devolucion
+    ? { ...expediente.devolucion, estado: "ACREDITADA", acreditadaEn: fecha }
+    : null;
+  const transicion = transicionarExpediente(
+    expediente,
+    "DEVUELTO",
+    devolucion ? { devolucion } : {},
+    fecha,
+  );
   if (!transicion.ok) return { ok: false, motivo: "ESTADO_INVALIDO" };
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);

@@ -50,10 +50,12 @@ la pantalla de confirmación —paquete firmado, certificado y comprobante de
 pago (D-05)— con el inicio de cobertura a la vista, y el Lote 5c abrió
 `/verificar/<código>`, la página pública a la que apuntan los QR (CMP-06).
 El Lote 5d entrega el certificado y el paquete firmado a los canales
-verificados, con acuse y reintentos (CHG-44, CMP-05). **Falta** el cierre del
-Lote 5: la Pantalla B con el seguimiento de devoluciones. Cada regla se corrige
-acá cuando el lote que la cambia se implementa, no antes: hasta entonces, **la
-regla escrita abajo es la que rige el código que existe hoy**.
+verificados, con acuse y reintentos (CHG-44, CMP-05), y el Lote 5e cierra el
+plan con la remisión automática del caso a Alianza (CHG-47) y el seguimiento de
+devoluciones (D-02). **Queda pendiente el Lote 6** (trazabilidad completa, rate
+limiting y el resto de los CMP nuevos). Cada regla se corrige acá cuando el
+lote que la cambia se implementa, no antes: hasta entonces, **la regla escrita
+abajo es la que rige el código que existe hoy**.
 
 ### Documentos fuente adicionales
 
