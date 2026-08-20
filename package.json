@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "verify": "npm run typecheck && npm run lint && npm test",
-    "piloto:cedulas": "tsx scripts/piloto-cedulas.ts"
+    "piloto:cedulas": "tsx scripts/piloto-cedulas.ts",
+    "otp:requerimiento": "tsx scripts/otp-requerimiento.ts"
   },
   "dependencies": {
     "@aws-amplify/core": "^6.18.0",

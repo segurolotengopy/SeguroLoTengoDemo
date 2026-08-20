@@ -60,3 +60,6 @@ infra/crash.log
 
 # Datos reales cedidos para pruebas — nunca al repo
 /tests/fixtures/identidad/
+
+# Bytecode de los scripts de Python que arman los PDF de entrega.
+__pycache__/

@@ -1,5 +1,16 @@
 # Mensajería real para la demo a gerencia — qué falta y quién lo hace
 
+> **Actualización 2026-08-19 — LEER ANTES DE MANDAR UN OTP DE WHATSAPP.**
+> El modo de envío del `otp-service` **cambió**: lo que dicen las
+> actualizaciones de más abajo sobre `template_header` / `requerimiento` ya no
+> describe lo que corre hoy en la VM.
+>
+> En una línea: hoy el OTP sale como **texto de sesión**, y eso **exige que el
+> destinatario le haya escrito primero** al número de prueba. Si no lo hizo, el
+> envío se acepta con 202 y **nunca llega** (`codigoMeta=131047`).
+>
+> Guía de uso al final: [Enviar OTPs de WhatsApp a mano](#enviar-otps-de-whatsapp-a-mano).
+
 > **Para todo lo de SES, la guía operativa detallada es
 > [`CONFIGURACION_SES.md`](./CONFIGURACION_SES.md)**: sandbox, verificación de
 > destinatarios, salida a producción, deliverability y permisos. Este documento
@@ -23,19 +34,21 @@ verificó: `docs/ENSAYO_GENERAL_CANALES_REALES.md`.
 línea `SLTDemoQaSesEnvioOtp` (`ses:SendEmail`) adjunta al usuario
 `aab1-demo-qa`. Verificado de punta a punta con el adaptador de producción:
 el código se generó en `OtpRepository` (solo el hash en DynamoDB) y se
-entregó por SES (`referenciaEnvio: SES-…`). Con `INTEGRATION_OTP_EMAIL=live`
-+ `OTP_EMAIL_FROM`, P4 manda el OTP a casillas reales. Límite vigente: la
-cuenta está en **sandbox de SES**, así que cada destinatario debe estar
-verificado como identidad; para el piloto, pedir "production access" (caso
-de soporte, ~24 h) y migrar a un dominio propio con DKIM — un remitente
-gmail sin firma propia puede caer en spam.
+entregó por SES (`referenciaEnvio: SES-…`). Con `INTEGRATION_OTP_EMAIL=live` y
+`OTP_EMAIL_FROM`, P4 manda el OTP a casillas reales. Límite vigente: la cuenta
+está en **sandbox de SES**, así que cada destinatario debe estar verificado
+como identidad; para el piloto, pedir "production access" (caso de soporte,
+~24 h) y migrar a un dominio propio con DKIM — un remitente gmail sin firma
+propia puede caer en spam.
 
 **Actualización 2026-08-16 — WhatsApp real FUNCIONANDO.** Fase 0 de Meta
 completada (app, número de prueba, token permanente de System User) y el
 `otp-service` desplegado 24/7 en la VM de OCI con TLS:
 `WHATSAPP_MODULAR_URL=https://wamodular.duckdns.org` (ya apuntado en
 `segurolotengo-dev-mensajeria-real`; el bearer va en `.env.local`, nunca en
-el repo). El OTP viaja con el modo interino `template_header` (plantilla
+el repo). ⚠️ **Lo que sigue de este párrafo quedó obsoleto el 2026-08-19: el
+servicio pasó a `session_text`. Ver el aviso del encabezado.** El OTP viajaba
+con el modo interino `template_header` (plantilla
 aprobada `requerimiento` — desajuste de categoría aceptado y documentado por
 el dueño en `ESTADO.md` de WhatsApp-Modular: solo número de prueba,
 bloqueado con `NODE_ENV=production`, se elimina al aprobarse la plantilla
@@ -57,10 +70,10 @@ producción.
 
 ## Flags del demo
 
-| Variable | Efecto |
-| :--- | :--- |
-| `INTEGRATION_OTP=live` | OTP de P1 y OTP de la firma simulada salen por el otp-service de WhatsApp-Modular (`WHATSAPP_MODULAR_URL` + `WHATSAPP_MODULAR_TOKEN`). |
-| `INTEGRATION_OTP_EMAIL=live` | OTP de P4 sale por Amazon SES (`OTP_EMAIL_FROM` = remitente verificado). Independiente del flag de WhatsApp. |
+| Variable                     | Efecto                                                                                                                                 |
+| :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+| `INTEGRATION_OTP=live`       | OTP de P1 y OTP de la firma simulada salen por el otp-service de WhatsApp-Modular (`WHATSAPP_MODULAR_URL` + `WHATSAPP_MODULAR_TOKEN`). |
+| `INTEGRATION_OTP_EMAIL=live` | OTP de P4 sale por Amazon SES (`OTP_EMAIL_FROM` = remitente verificado). Independiente del flag de WhatsApp.                           |
 
 Config lista en `.claude/launch.json` → `segurolotengo-dev-mensajeria-real`
 (ambos flags activos). En los canales en vivo el panel de demo **no muestra el
@@ -98,7 +111,7 @@ por consola/CloudShell con `Andres_Alberdi_1`:
    clic en el enlace del correo de verificación que llega a esa casilla.
    (Equivalente IaC: `infra/ses-correo-otp.tf`, ver notas del archivo.)
 2. **Verificar también a los destinatarios de la demo**: la cuenta está en
-   *sandbox* de SES y solo entrega a direcciones verificadas. Una identidad
+   _sandbox_ de SES y solo entrega a direcciones verificadas. Una identidad
    por cada casilla de gerencia que vaya a recibir el OTP (o pedir salida del
    sandbox para producción, caso de soporte de 24 h).
 3. **Permitir `ses:SendEmail` al usuario local `aab1-demo-qa`**: aplicar el
@@ -119,3 +132,114 @@ propio puede caer en spam; para el piloto conviene un dominio propio.
   envío real 202 con referencia `WM-OTP-…` y la validación de código con
   intentos, cooldown y expiración aplicados por el servicio.
 - Todo el flujo P0→P9 en modo mock, como siempre.
+
+---
+
+## Enviar OTPs de WhatsApp a mano
+
+`npm run otp:requerimiento` dispara un OTP real por WhatsApp sin levantar la
+app ni recorrer P1. Sirve para probar el canal, para preparar una demo y para
+diagnosticar cuando "no llega el código".
+
+Reutiliza el **cliente oficial** del adaptador
+(`crearClienteWhatsAppModularDesdeEntorno`), así que recorre exactamente el
+mismo camino que la app con `INTEGRATION_OTP=live`. Si el script anda, la app
+anda; si el script falla, la app iba a fallar igual.
+
+### Antes de usarlo
+
+En `.env.local` (nunca en el repo):
+
+```
+WHATSAPP_MODULAR_URL=https://wamodular.duckdns.org
+WHATSAPP_MODULAR_TOKEN=<bearer del otp-service>
+```
+
+Y el destinatario tiene que estar registrado como número de prueba en la app
+de Meta (máximo 5). A cualquier otro número, Meta responde `131030`.
+
+### Uso
+
+```bash
+npm run otp:requerimiento -- +59172047339
+npm run otp:requerimiento -- +59172047339 --proposito SIGNATURE_P7A
+```
+
+El script envía, muestra el `otpId` y el destino enmascarado, y espera a que
+teclees el código que te llegó al celular para verificarlo. El código **nunca
+pasa por el script**: lo lees del teléfono, igual que un usuario real.
+
+### ⚠️ La regla que hace que llegue o no llegue
+
+**El destinatario tiene que haberle escrito al número de prueba.** No es un
+detalle operativo, es la condición de entrega.
+
+El `otp-service` está hoy en `WA_OTP_SEND_MODE=session_text`: manda el código
+como texto libre, y Meta solo permite texto libre dentro de la **ventana de
+servicio de 24 h**, que **abre únicamente un mensaje del usuario hacia el
+negocio**. Un mensaje iniciado por nosotros NO la abre.
+
+Forma cómoda de pedirlo: pasarle a cada persona un enlace que abre WhatsApp
+con el mensaje ya escrito, para que solo tenga que tocar "enviar".
+
+```
+https://wa.me/<NUMERO_DE_PRUEBA_DE_META>?text=hola
+```
+
+Un toque y queda habilitada 24 h desde su último mensaje.
+
+Si en algún momento el servicio vuelve a `template_header` +
+`WA_TEMPLATE_OTP=requerimiento`, la ventana deja de importar (una plantilla
+inicia conversación) pero aparece **otro** límite: `requerimiento` es de
+categoría MARKETING y Meta suprime los envíos repetidos al mismo número. Por
+eso el script, después de cada envío, pide que la persona **responda "hola"**
+antes de permitir el siguiente: la interacción real es lo que evita esa
+supresión. Conviene hacerlo en cualquiera de los dos modos.
+
+### Aceptado no es entregado
+
+El 202 y el `wamid` solo dicen que Meta aceptó el envío. La entrega se
+confirma en los webhooks del servicio, en la VM:
+
+```bash
+ssh -i ~/.ssh/id_ed25519_oci_lab ubuntu@150.136.67.75 \
+  'docker logs --since 10m otp-service 2>&1 | grep -E "estado="'
+```
+
+El `2>&1` no es opcional: `docker logs` escribe en stderr.
+
+| Lo que ves                    | Qué significa                      | Qué hacer                            |
+| :---------------------------- | :--------------------------------- | :----------------------------------- |
+| `sent` → `delivered` → `read` | Llegó                              | Nada                                 |
+| `failed … codigoMeta=131047`  | Ventana de 24 h cerrada            | Que la persona escriba "hola"        |
+| `failed … codigoMeta=131049`  | Supresión de plantilla MARKETING   | Que responda entre envíos            |
+| `failed … codigoMeta=131030`  | No está en los 5 números de prueba | Registrarlo en el panel de Meta      |
+| Ningún evento                 | El webhook no llegó                | Revisar el servicio y la suscripción |
+
+### Errores del propio servicio (no de Meta)
+
+Son política funcionando, no fallas:
+
+| Código    | Significa                                                |
+| :-------- | :------------------------------------------------------- |
+| `WM-1020` | Reenvío antes del cooldown de 60 s                       |
+| `WM-1050` | Código incorrecto, con intentos restantes                |
+| `WM-1060` | Venció, se agotaron los intentos, o el `otpId` no existe |
+
+### Qué no hacer
+
+- **No cambiar el modo de envío del servicio desde acá.** Vive en el `.env` de
+  la VM, en el repo `~/WhatsApp-Modular`. Este repo solo consume la API.
+- **No usar el laboratorio Evolution** para OTPs: sus reglas de contención lo
+  prohíben.
+- **No versionar números reales** ni el bearer. El número de prueba vive en el
+  panel de Meta y el bearer en `.env.local` o Secrets Manager.
+
+### Estado de fondo
+
+Todo esto es interino. La plantilla AUTHENTICATION —la categoría correcta
+para OTPs, sin ventana ni supresión— exige la **Business Verification** del
+portafolio AAB1, que sigue pendiente. Se intentó esquivarla con una plantilla
+UTILITY y Meta la rechazó automáticamente (`INCORRECT_CATEGORY`): reconoce el
+contenido como autenticación. La bitácora completa está en
+`~/WhatsApp-Modular/docs/ESTADO.md`.
