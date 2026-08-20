@@ -24,6 +24,32 @@ const nextConfig: NextConfig = {
   pageExtensions: esModoDemo ? ["demo.tsx", "demo.ts", "tsx", "ts"] : ["tsx", "ts"],
 
   /**
+   * Optimizador de imágenes apagado (CVE-2026-27980, Snyk
+   * SNYK-JS-NEXT-15674556, MEDIA 6.9).
+   *
+   * El optimizador de Next cachea en disco una variante por cada
+   * combinación de ancho y calidad que le pidan, **sin tope**: quien golpee
+   * `/_next/image?url=…&w=…&q=…` variando `q` entre 1 y 100 llena el disco
+   * del cómputo y voltea el servicio. El arreglo del proveedor está solo en
+   * la línea 16.x, y este proyecto está fijo en Next 15 por el límite de
+   * Amplify Hosting (ver "Stack" en CLAUDE.md), así que no hay upgrade
+   * disponible: hay que cerrar la superficie.
+   *
+   * Apagarlo no cuesta nada acá porque **ninguna pantalla usa `next/image`**
+   * (la única mención en `src/` es el comentario de `CapturaConCamara.tsx`
+   * explicando por qué no lo usa: las capturas son data URLs, que el
+   * optimizador no sabe servir). Los logos de `public/marca/` son SVG, que
+   * el optimizador pasa de largo de todos modos.
+   *
+   * Si algún día se agrega un `<Image>` de verdad, esto no lo rompe —
+   * sirve el archivo tal cual, sin redimensionar— pero conviene revisitar
+   * la decisión junto con la versión de Next.
+   */
+  images: {
+    unoptimized: true,
+  },
+
+  /**
    * Rutas viejas del wizard (`/p1-whatsapp`, `/p7-pago`, …) hacia las nuevas.
    *
    * Permanentes (308) y no 404: hay enlaces con el formato viejo en mensajes
