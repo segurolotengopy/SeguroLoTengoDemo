@@ -1,7 +1,12 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
+import {
+  BarraPlanDelExpediente,
+  HeaderInstitucional,
+  PieLegal,
+  StepperPasos,
+} from "@/components/shared";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
 import {
   ADVERTENCIA_ACEPTACION_P8,
@@ -101,6 +106,8 @@ export default function PantallaP8Firma() {
           </Link>
         </footer>
       </main>
+
+      <PieLegal />
     </div>
   );
 }

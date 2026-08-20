@@ -4,7 +4,12 @@ import Link from "next/link";
 import { obtenerIdentityProvider, paisesDeCedulaAceptados } from "@/adapters/registro";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
 import { NOMBRE_PAIS } from "@/domain/documento-regional";
-import { BarraPlanDelExpediente, HeaderInstitucional, StepperPasos } from "@/components/shared";
+import {
+  BarraPlanDelExpediente,
+  HeaderInstitucional,
+  PieLegal,
+  StepperPasos,
+} from "@/components/shared";
 import { soportaSesionPruebaDeVida } from "@/ports/identity-provider";
 import { VerificacionIdentidad } from "./VerificacionIdentidad";
 
@@ -93,6 +98,8 @@ export default function PantallaP5Identidad() {
           </Link>
         </footer>
       </main>
+
+      <PieLegal />
     </div>
   );
 }

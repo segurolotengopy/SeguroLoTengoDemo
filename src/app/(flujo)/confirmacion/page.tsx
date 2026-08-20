@@ -1,7 +1,11 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HeaderInstitucional, StepperPasos } from "@/components/shared";
+import {
+  HeaderInstitucional,
+  PieLegal,
+  StepperPasos,
+} from "@/components/shared";
 import {
   BAJADA_P9,
   LEYENDA_CIERRE_P9,
@@ -85,6 +89,8 @@ export default function PantallaP9Confirmacion() {
           </Link>
         </footer>
       </main>
+
+      <PieLegal />
     </div>
   );
 }

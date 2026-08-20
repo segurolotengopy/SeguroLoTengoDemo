@@ -87,6 +87,23 @@ export async function prepararEscenario(
   await fijarPlazoPagoMs(page, opciones.plazoPagoMs ?? 24 * 60 * 60 * 1000);
   await fijarPersonaActiva(page, opciones.personaId, opciones.escenarioIdentidadForzado ?? null);
   for (const falla of opciones.fallas ?? []) await armarFalla(page, falla);
+  await cerrarAvisoCookies(page);
+}
+
+/**
+ * Cierra el aviso de cookies, como haría una persona apenas entra.
+ *
+ * No es maquillaje para que pasen los tests: es lo que hace cualquiera que
+ * llega al portal, y dejarlo abierto durante todo el recorrido no representa a
+ * nadie. La marca queda en `localStorage`, así que no vuelve a aparecer en lo
+ * que dura el contexto del navegador.
+ *
+ * Se llama desde `prepararEscenario` porque ahí ya hay una página cargada y
+ * todavía no empezó el flujo.
+ */
+export async function cerrarAvisoCookies(page: Page): Promise<void> {
+  const boton = page.getByRole("button", { name: "Entendido", exact: true });
+  if (await boton.isVisible().catch(() => false)) await boton.click();
 }
 
 /**

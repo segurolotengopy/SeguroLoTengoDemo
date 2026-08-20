@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import {
   BarraPlanDelExpediente,
   HeaderInstitucional,
+  PieLegal,
   StepperPasos,
   TituloDePantalla,
 } from "@/components/shared";
@@ -200,6 +201,8 @@ export default function PantallaPreparacion() {
           </div>
         </div>
       </main>
+
+      <PieLegal />
     </div>
   );
 }

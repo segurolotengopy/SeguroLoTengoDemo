@@ -2,6 +2,7 @@ import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import {
   HeaderInstitucional,
+  PieLegal,
   StepperPasos,
   TituloDePantalla,
 } from "@/components/shared";
@@ -198,6 +199,8 @@ export default function PantallaSeleccionDePlan() {
         />
 
       </main>
+
+      <PieLegal />
     </div>
   );
 }

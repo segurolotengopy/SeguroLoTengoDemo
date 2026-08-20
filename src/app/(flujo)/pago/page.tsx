@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   BarraPlanDelExpediente,
   HeaderInstitucional,
+  PieLegal,
   StepperPasos,
   TituloDePantalla,
 } from "@/components/shared";
@@ -62,6 +63,8 @@ export default function PantallaP7Pago() {
           </Link>
         </footer>
       </main>
+
+      <PieLegal />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { resolverModoIntegracion } from "@/adapters/index";
 import {
   BarraPlanDelExpediente,
   HeaderInstitucional,
+  PieLegal,
   StepperPasos,
   TituloDePantalla,
 } from "@/components/shared";
@@ -55,6 +56,8 @@ export default function PantallaVerificacionWhatsapp() {
           {AVISO_ALCANCE_VERIFICACION_P1}
         </p>
       </main>
+
+      <PieLegal />
     </div>
   );
 }
