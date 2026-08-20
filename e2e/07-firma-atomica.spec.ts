@@ -10,7 +10,6 @@ import {
   completarP6,
   enviarEnlaceYAbrir,
   enviarP6,
-  firmarNormalmente,
 } from "./support/flujo";
 
 /**
@@ -72,10 +71,14 @@ test("si las firmas institucionales no llegan, el cobro sigue inhabilitado", asy
   const resumenPago = await page.request.get("/api/p7/resumen");
   expect(resumenPago.status(), "el paso de pago no puede estar disponible").toBe(409);
 
-  // La falla se consume en un solo intento (regla de las palancas del panel):
-  // el próximo sondeo retoma el tramo institucional y ahí sí avanza.
-  await firmarNormalmente(page, idCode100);
+  // La falla se consume en un solo intento (regla de las palancas del panel).
+  // No se vuelve a firmar —el OTP es de uso único y ya se gastó, que es
+  // justamente la razón de que el tramo institucional se retome solo—: alcanza
+  // con que el sondeo corra de nuevo. Ahí sí avanza al pago.
+  await page.reload();
+  await expect(page).toHaveURL(/\/pago$/, { timeout: 30_000 });
 
+  // Y la firma del cliente siguió siendo la misma de siempre: no se repitió.
   const sesionFinal = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(sesionFinal.hashDocumentoFirmado).not.toBeNull();
+  expect(sesionFinal.hashDocumentoFirmado).toBe(despues.hashDocumentoFirmado);
 });

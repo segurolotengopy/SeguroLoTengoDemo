@@ -311,8 +311,10 @@ const CAMPO_DECLARACION: readonly (keyof PersonaDemo["declaraciones"])[] = [
  * están en su fixture (`personas.ts`), sin decidir acá qué habilita o bloquea:
  * esa regla la aplica siempre el servidor.
  *
- * Marca además la declaración de origen lícito de fondos, que desde D-08 se
- * acepta acá: integra el FIPF, y el FIPF se cierra al salir de esta pantalla.
+ * **No marca ninguna declaración de origen lícito**: con el PDF unificado
+ * (D-11) el literal se imprime en el documento y lo cubre el acto de firma
+ * único. La Matriz V4 §4 es explícita —"no casilla adicional"— y L4c retiró la
+ * casilla que L4b había puesto acá como puente.
  */
 export async function completarP6(page: Page, persona: PersonaDemo): Promise<void> {
   await expect(page).toHaveURL(/\/declaraciones$/);
@@ -358,9 +360,6 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
     await expect(radio).toBeChecked();
   }
 
-  const origenLicito = page.getByLabel(/Declaro que los fondos utilizados/);
-  await origenLicito.check();
-  await expect(origenLicito).toBeChecked();
 }
 
 /** Envía el formulario de P6 y espera terminar en el destino esperado. */
