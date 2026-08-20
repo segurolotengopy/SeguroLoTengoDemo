@@ -446,24 +446,36 @@ demo ni enumerar las demás.
 dejar uno o dos rojos cambiantes y de crecer hasta 14,1 minutos. Verificado
 además que la tabla efímera se borró sola y que la del demo no creció.
 
-**Recaída al cerrar el Lote 4 (20-ago-2026).** La batería volvió a 13,5 minutos
-y a dejar dos rojos, siempre los mismos: los escenarios 06 y 07, que son los
-dos últimos. **Corridos solos pasan** —2,2 minutos cada uno, 5,0 en total—, así
-que es posición en la batería y no regresión.
+**Recaída al cerrar el Lote 4 (20-ago-2026), y qué se aprendió.**
 
-La causa de que se volviera más pesada es el propio lote: con la inversión de
-firma y pago, el escenario del vencimiento **firma de verdad**. Antes esperaba
-el plazo parado en la pantalla de firma sin firmar nunca; ahora tiene que
-completar el acto entero de Code100 —cierre del PDF, sesión, OTP, sellado—
-antes de llegar a la pantalla donde espera. Un escenario que no firmaba pasó a
-firmar, y la batería ya venía al límite.
+La batería subió a 13,5 minutos y dejó dos rojos —06 y 07, los dos últimos—.
+Corridos solos pasaban, así que parecía posición en la batería. Buscando el
+motivo apareció **un defecto real, no un problema del arnés**: la vigencia del
+enlace de firma de Code100 colgaba del plazo de pago (`vigenciaEnlaceMs:
+plazoPagoMs()`). La atadura era correcta mientras ese plazo fuera el de
+*firmar*; con la inversión de D-08 pasó a ser el de *pagar*, y acortarlo
+recortaba la ventana para firmar, que es un paso anterior. El escenario del
+vencimiento quedaba con **30 segundos** para completar el acto entero de
+Code100.
 
-Queda como deuda conocida: la batería completa **no tiene una corrida verde**
-desde el cierre del Lote 4, aunque los siete escenarios pasan de a uno o de a
-dos. Lo que se descartó por medición, no por hipótesis: no es agotamiento de
+Desacopladas las dos caducidades —el enlace vive 24 h por la fila 41, el pago
+lo fija D-10—, la batería bajó a **10,4 minutos y 6 de 7**, con el 06 en verde.
+
+La batería igual se volvió más pesada por el propio lote: con la inversión, el
+escenario del vencimiento **firma de verdad**. Antes esperaba el plazo parado
+en la pantalla de firma sin firmar nunca; ahora completa el acto entero antes
+de llegar a donde espera.
+
+**Deuda conocida.** No hay una corrida completa en verde desde el cierre del
+Lote 4, aunque los siete escenarios pasan de a uno y de a dos. El rojo que
+queda es el 07, y falla **en el paso 3** —el clic de `Tengo todo listo →` no
+navega—, que es la carrera de hidratación del Anexo B en una pantalla que el
+lote no tocó.
+
+Lo que se descartó **por medición y no por hipótesis**: no es agotamiento de
 inotify (72 de 65536), no es falta de memoria (20 GB libres), y no lo causan
 ediciones concurrentes —se reprodujo idéntico con el árbol limpio y
-commiteado—.
+commiteado, después de haberlo atribuido erróneamente a eso—.
 
 De regalo desapareció el saneo de cédulas bloqueadas: ya no hay nada que
 heredar entre corridas.
