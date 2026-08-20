@@ -55,7 +55,7 @@ import { transicionarExpediente } from "./expediente";
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import { HITOS_SEGUIMIENTO } from "./textos-pantalla-b";
-import { esPagoDefinitivoAntesDeFirma } from "./tipos";
+import { pagoAcreditado } from "./tipos";
 import type { EstadoExpediente, Expediente, MedioDePago, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
 
@@ -185,8 +185,10 @@ export async function iniciarDevolucionPantallaB(
   }
 
   const pago = expediente.pago;
-  // Sin cobro no hay devolución: con crédito la reserva ya se liberó en P8.
-  if (!pago || !esPagoDefinitivoAntesDeFirma(pago.medio)) {
+  // Sin cobro acreditado no hay nada que devolver. Con los tres medios
+  // cobrando directo (D-02), el criterio dejó de depender del medio: depende
+  // de si el dinero entró.
+  if (!pago || !pagoAcreditado(pago.estado)) {
     return { ok: true, iniciado: false, estado: expediente.estado };
   }
 
@@ -374,7 +376,7 @@ export function leerCasoVencido(
     referenciaBancard: pago?.referenciaBancard ?? null,
     premioGs: pago?.montoGs ?? expediente.plan?.premioAnualGs ?? 0,
     medio: pago?.medio ?? null,
-    hayPremioQueDevolver: pago ? esPagoDefinitivoAntesDeFirma(pago.medio) : false,
+    hayPremioQueDevolver: pago ? pagoAcreditado(pago.estado) : false,
     nombreAsegurado: identidad ? `${identidad.nombres} ${identidad.apellidos}`.trim() : null,
     documentoEnmascarado: identidad ? enmascararCedula(identidad.numeroCedula) : null,
     whatsappEnmascarado: expediente.canalWhatsapp

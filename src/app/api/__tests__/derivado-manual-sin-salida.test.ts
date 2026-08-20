@@ -130,9 +130,8 @@ function pagosQueFallanSiSeUsan(): PaymentProvider {
   return {
     iniciarPagoQr: explotar("iniciarPagoQr"),
     iniciarPagoTarjetaDebito: explotar("iniciarPagoTarjetaDebito"),
-    iniciarPreautorizacionTarjeta: explotar("iniciarPreautorizacionTarjeta"),
+    iniciarPagoTarjetaCredito: explotar("iniciarPagoTarjetaCredito"),
     consultarEstadoPago: explotar("consultarEstadoPago"),
-    capturarPreautorizacion: explotar("capturarPreautorizacion"),
     cancelarOLiberarReserva: explotar("cancelarOLiberarReserva"),
   };
 }

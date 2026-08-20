@@ -56,7 +56,6 @@ import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import {
   registrarEnvioEnlaceFirmaP8,
-  registrarEstadoDePagoP8,
   registrarFirmaP8,
   vencerPlazoFirmaSiCorresponde,
 } from "./expediente";
@@ -65,7 +64,6 @@ import {
   TEXTO_DECLARACION_FIRMA_P8,
   VERSION_DECLARACION_FIRMA_P8,
 } from "./textos-p8";
-import { esPagoDefinitivoAntesDeFirma, garantiaDePagoLista } from "./tipos";
 import type {
   ActoDeFirmaEnCurso,
   CanalFirma,
@@ -173,7 +171,6 @@ export type ResultadoConfirmarFirmaP8 =
        * preautorización de crédito todavía no: la firma es un hecho de Code100
        * y no se pierde porque Bancard no conteste. El próximo sondeo reintenta.
        */
-      readonly capturaPendiente: boolean;
       readonly siguientePantalla: typeof RUTA_P9;
     }
   | {
@@ -293,9 +290,6 @@ async function aplicarVencimiento(
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
 
-  const pago = transicion.expediente.pago;
-  const definitivo = pago ? esPagoDefinitivoAntesDeFirma(pago.medio) : false;
-
   await registrarEvidencia(deps, reloj, {
     expedienteId: expediente.id,
     paso: PASO_EVIDENCIA_VENCIMIENTO_P8,
@@ -306,74 +300,15 @@ async function aplicarVencimiento(
       motivo: "PLAZO_FIRMA_VENCIDO",
       estadoAnterior: expediente.estado,
       plazoFirmaVenceEn: expediente.plazoFirmaVenceEn ?? "",
-      ...(pago ? { medio: pago.medio, estadoPago: pago.estado } : {}),
-      // Con QR o débito el dinero ya se movió y hay que devolverlo; con crédito
-      // alcanza con liberar la reserva (fila 30 de la matriz).
-      consecuencia: definitivo ? "DEVOLUCION_AL_ORIGEN" : "LIBERACION_DE_RESERVA",
+      // D-08 · el expediente vence **antes** de cobrar, así que no hay premio
+      // que devolver ni reserva que liberar: simplemente caduca.
+      consecuencia: "CADUCIDAD_SIN_COBRO",
     },
   });
 
-  const conReservaLiberada = await liberarReservaSiEsCredito(deps, reloj, transicion.expediente, contexto);
-  return { expediente: conReservaLiberada, vencio: true };
+  return { expediente: transicion.expediente, vencio: true };
 }
 
-/**
- * Crédito vencido sin firma: se libera la reserva. Con QR o débito no hay nada
- * que liberar —el dinero ya se movió— y la devolución es el procedimiento
- * presencial de Pantalla B, no una llamada a Bancard.
- */
-async function liberarReservaSiEsCredito(
-  deps: DependenciasP8,
-  reloj: Reloj,
-  expediente: Expediente,
-  contexto: ContextoPeticion,
-): Promise<Expediente> {
-  const pago = expediente.pago;
-  if (!pago || pago.medio !== "TARJETA_CREDITO" || pago.estado !== "PREAUTORIZADO") return expediente;
-  if (!pago.referenciaBancard) return expediente;
-
-  const fecha = reloj.ahora();
-  try {
-    const liberada = await deps.pagos.cancelarOLiberarReserva(pago.referenciaBancard);
-    const transicion = registrarEstadoDePagoP8(
-      expediente,
-      { ...pago, estado: liberada.estado },
-      fecha,
-    );
-    if (!transicion.ok) return expediente;
-
-    await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
-    await registrarEvidencia(deps, reloj, {
-      expedienteId: expediente.id,
-      paso: PASO_EVIDENCIA_CAPTURA_P8,
-      fecha,
-      contexto,
-      resultado: "EXITOSO",
-      detalle: {
-        operacion: "LIBERACION_DE_RESERVA",
-        medio: pago.medio,
-        referenciaBancard: pago.referenciaBancard,
-        estadoPago: liberada.estado,
-      },
-    });
-    return transicion.expediente;
-  } catch (error) {
-    await registrarEvidencia(deps, reloj, {
-      expedienteId: expediente.id,
-      paso: PASO_EVIDENCIA_CAPTURA_P8,
-      fecha,
-      contexto,
-      resultado: "FALLIDO",
-      detalle: {
-        operacion: "LIBERACION_DE_RESERVA",
-        medio: pago.medio,
-        referenciaBancard: pago.referenciaBancard,
-        detalle: error instanceof Error ? error.message : "desconocido",
-      },
-    });
-    return expediente;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Operación 1 — enviar el enlace de firma
@@ -448,10 +383,6 @@ async function intentarIniciarFirmaP8(
 
   const paquete = expediente.paqueteDocumental;
   if (!paquete) return { ok: false, motivo: "PAQUETE_NO_GENERADO" };
-
-  if (!garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
-    return { ok: false, motivo: "GARANTIA_PAGO_NO_LISTA" };
-  }
 
   const destino = destinoDelCanal(expediente, canal);
   if (!destino) {
@@ -607,15 +538,13 @@ async function intentarConfirmarFirmaP8(
   // Ya firmado: se responde con lo persistido. Es la rama que hace inofensivo
   // un callback duplicado. Se sigue intentando la captura, que es idempotente.
   if (guardado.firma && (guardado.estado === "FIRMADO" || guardado.estado === "EMITIDO")) {
-    const capturado = await capturarSiEsCredito(deps, reloj, guardado, entrada.contexto);
     return {
       ok: true,
       firmado: true,
-      estado: capturado.expediente.estado,
-      numeroPropuesta: capturado.expediente.numeroPropuesta ?? "",
+      estado: guardado.estado,
+      numeroPropuesta: guardado.numeroPropuesta ?? "",
       idCode100: guardado.firma.idCode100,
       firmadoEn: guardado.firma.firmadoEn,
-      capturaPendiente: capturado.pendiente,
       siguientePantalla: RUTA_P9,
     };
   }
@@ -695,87 +624,17 @@ async function intentarConfirmarFirmaP8(
     },
   });
 
-  const capturado = await capturarSiEsCredito(deps, reloj, transicion.expediente, entrada.contexto);
-
   return {
     ok: true,
     firmado: true,
-    estado: capturado.expediente.estado,
-    numeroPropuesta: capturado.expediente.numeroPropuesta ?? "",
+    estado: transicion.expediente.estado,
+    numeroPropuesta: transicion.expediente.numeroPropuesta ?? "",
     idCode100: resultado.firma.idCode100,
     firmadoEn: resultado.firma.firmadoEn,
-    capturaPendiente: capturado.pendiente,
     siguientePantalla: RUTA_P9,
   };
 }
 
-/**
- * La firma del cliente ordena la captura de la preautorización (fila 27 de la
- * matriz — Código Civil, arts. 1348, 1373 y 1374). Solo aplica a crédito: con
- * QR y débito el cobro ya ocurrió en P7.
- *
- * Corre **después** de asentar la firma, no antes, y a propósito: la firma es
- * un hecho registrado por Code100 y no puede depender de que Bancard conteste.
- * Si la captura falla, el expediente queda FIRMADO con la captura pendiente y
- * el próximo sondeo la reintenta — `capturarPreautorizacion` es idempotente por
- * `referenciaBancard`.
- */
-async function capturarSiEsCredito(
-  deps: DependenciasP8,
-  reloj: Reloj,
-  expediente: Expediente,
-  contexto: ContextoPeticion,
-): Promise<{ readonly expediente: Expediente; readonly pendiente: boolean }> {
-  const pago = expediente.pago;
-  if (!pago || pago.medio !== "TARJETA_CREDITO") return { expediente, pendiente: false };
-  if (pago.estado === "CAPTURADO") return { expediente, pendiente: false };
-  if (pago.estado !== "PREAUTORIZADO" || !pago.referenciaBancard) {
-    return { expediente, pendiente: true };
-  }
-
-  const fecha = reloj.ahora();
-  try {
-    const capturada = await deps.pagos.capturarPreautorizacion(pago.referenciaBancard);
-    const transicion = registrarEstadoDePagoP8(
-      expediente,
-      { ...pago, estado: capturada.estado, confirmadoEn: pago.confirmadoEn ?? fecha },
-      fecha,
-    );
-    if (!transicion.ok) return { expediente, pendiente: true };
-
-    await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
-    await registrarEvidencia(deps, reloj, {
-      expedienteId: expediente.id,
-      paso: PASO_EVIDENCIA_CAPTURA_P8,
-      fecha,
-      contexto,
-      resultado: "EXITOSO",
-      detalle: {
-        operacion: "CAPTURA_POR_FIRMA",
-        medio: pago.medio,
-        montoGs: pago.montoGs,
-        referenciaBancard: pago.referenciaBancard,
-        estadoPago: capturada.estado,
-      },
-    });
-    return { expediente: transicion.expediente, pendiente: capturada.estado !== "CAPTURADO" };
-  } catch (error) {
-    await registrarEvidencia(deps, reloj, {
-      expedienteId: expediente.id,
-      paso: PASO_EVIDENCIA_CAPTURA_P8,
-      fecha,
-      contexto,
-      resultado: "FALLIDO",
-      detalle: {
-        operacion: "CAPTURA_POR_FIRMA",
-        medio: pago.medio,
-        referenciaBancard: pago.referenciaBancard,
-        detalle: error instanceof Error ? error.message : "desconocido",
-      },
-    });
-    return { expediente, pendiente: true };
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Operación 3 — vencimiento del plazo
@@ -874,8 +733,6 @@ export function leerResumenFirmaP8(expediente: Expediente): ResumenFirmaP8 | nul
   const estadosVisibles: readonly EstadoExpediente[] = ["PAQUETE_GENERADO", "FIRMADO", "EMITIDO"];
   if (!estadosVisibles.includes(expediente.estado)) return null;
 
-  const pago = expediente.pago;
-
   return {
     estado: expediente.estado,
     numeroPropuesta: expediente.numeroPropuesta,
@@ -885,14 +742,9 @@ export function leerResumenFirmaP8(expediente: Expediente): ResumenFirmaP8 | nul
       ? enmascararCelular(expediente.canalWhatsapp.valor)
       : null,
     canalEmailEnmascarado: expediente.canalEmail ? enmascararCorreo(expediente.canalEmail.valor) : null,
-    garantia: pago
-      ? {
-          medio: pago.medio,
-          lista: garantiaDePagoLista(pago.estado),
-          pagoDefinitivo: esPagoDefinitivoAntesDeFirma(pago.medio),
-          referenciaBancard: pago.referenciaBancard,
-        }
-      : null,
+    // Ya no se muestra ninguna garantía de pago: al firmar todavía no se pagó
+    // (D-08). El resumen de la firma habla de documentos, no de dinero.
+    garantia: null,
     plazoFirmaVenceEn: expediente.plazoFirmaVenceEn,
     acto: expediente.actoDeFirma
       ? {

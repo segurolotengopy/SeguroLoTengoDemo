@@ -83,7 +83,6 @@ export async function GET(request: Request): Promise<Response> {
       numeroPropuesta: resultado.numeroPropuesta,
       idCode100: resultado.idCode100,
       firmadoEn: resultado.firmadoEn,
-      capturaPendiente: resultado.capturaPendiente,
       siguientePantalla: resultado.siguientePantalla,
     },
     { cookies },

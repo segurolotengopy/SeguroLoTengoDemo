@@ -115,7 +115,7 @@ function bancardFalso(opciones: { estadoTrasAcreditar?: EstadoPago | null } = {}
       const referenciaBancard = abrir("debito", "TARJETA_DEBITO", input);
       return { referenciaBancard, urlFormularioSeguro: `https://vpos/${referenciaBancard}` };
     },
-    async iniciarPreautorizacionTarjeta(input) {
+    async iniciarPagoTarjetaCredito(input) {
       const referenciaBancard = abrir("credito", "TARJETA_CREDITO", input);
       return { referenciaBancard, urlFormularioSeguro: `https://vpos/${referenciaBancard}` };
     },
@@ -125,7 +125,7 @@ function bancardFalso(opciones: { estadoTrasAcreditar?: EstadoPago | null } = {}
       const estado =
         opciones.estadoTrasAcreditar === undefined
           ? medio === "TARJETA_CREDITO"
-            ? "PREAUTORIZADO"
+            ? "CONFIRMADO"
             : "CONFIRMADO"
           : opciones.estadoTrasAcreditar;
       return {
@@ -138,7 +138,6 @@ function bancardFalso(opciones: { estadoTrasAcreditar?: EstadoPago | null } = {}
         actualizadoEn: AHORA,
       };
     },
-    capturarPreautorizacion: vi.fn(),
     cancelarOLiberarReserva: vi.fn(),
   };
 
@@ -421,7 +420,6 @@ describe("P7 · confirmación de la garantía de pago", () => {
       ok: true,
       confirmado: true,
       estado: "PAGO_CONFIRMADO",
-      pagoDefinitivo: true,
       siguientePantalla: "/firma",
     });
 
@@ -439,21 +437,19 @@ describe("P7 · confirmación de la garantía de pago", () => {
     await iniciarPagoP7(deps, { ...ENTRADA_QR, medio: "TARJETA_DEBITO" });
     const resultado = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
 
-    expect(resultado).toMatchObject({ ok: true, confirmado: true, pagoDefinitivo: true });
+    expect(resultado).toMatchObject({ ok: true, confirmado: true });
     expect(expedientes.actual().pago?.estado).toBe("CONFIRMADO");
   });
 
-  it("el crédito queda PREAUTORIZADO: reservado, sin cobro", async () => {
-    const { deps, expedientes, bancard } = armar(expedienteListoParaPagar());
+  it("el crédito cobra directo, igual que el QR y el débito (D-02)", async () => {
+    const { deps, expedientes } = armar(expedienteListoParaPagar());
 
     await iniciarPagoP7(deps, { ...ENTRADA_QR, medio: "TARJETA_CREDITO" });
     const resultado = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
 
-    expect(resultado).toMatchObject({ ok: true, confirmado: true, pagoDefinitivo: false });
+    expect(resultado).toMatchObject({ ok: true, confirmado: true });
     expect(expedientes.actual().estado).toBe("PAGO_CONFIRMADO");
-    expect(expedientes.actual().pago?.estado).toBe("PREAUTORIZADO");
-    // La captura la ordena la firma en P8, nunca P7.
-    expect(bancard.provider.capturarPreautorizacion).not.toHaveBeenCalled();
+    expect(expedientes.actual().pago?.estado).toBe("CONFIRMADO");
   });
 
   /**
@@ -511,9 +507,8 @@ describe("P7 · fallas de Bancard", () => {
     return {
       iniciarPagoQr: explotar,
       iniciarPagoTarjetaDebito: explotar,
-      iniciarPreautorizacionTarjeta: explotar,
+      iniciarPagoTarjetaCredito: explotar,
       consultarEstadoPago: async () => null,
-      capturarPreautorizacion: vi.fn(),
       cancelarOLiberarReserva: vi.fn(),
     };
   }

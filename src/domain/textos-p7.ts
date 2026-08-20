@@ -15,12 +15,10 @@
  * ## Divergencia declarada de la especificación
  *
  * El documento presenta dos medios de pago (`QR BANCARD` y `TARJETA DE
- * CRÉDITO O DÉBITO`); acá hay tres, porque el débito cobra al confirmarse y
- * no reserva. La justificación completa —con la cita de
- * `docs/Integraciones/Preaut y promociones 14.pdf`— está en `MedioDePago`
- * (`src/domain/tipos.ts`). Los textos del QR y del crédito son los del
- * documento palabra por palabra; los del débito se escribieron para esta
- * pantalla siguiendo el mismo registro.
+ * CRÉDITO O DÉBITO`); acá hay tres, separando débito de crédito porque son dos
+ * productos distintos de Bancard aunque hoy se comporten igual. Desde D-02 los
+ * tres cobran directo: la preautorización se retiró y con ella la distinción
+ * entre dinero reservado y dinero acreditado.
  *
  * ## Respaldo normativo de los bloques
  *
@@ -33,8 +31,9 @@
  *   tarjeta (Res. BCP 25/21, art. 8; PCI-DSS por contrato).
  * - 25 — El importe enviado a Bancard coincide con el premio informado
  *   (Ley 4868/13, art. 7(l); Ley 1334/98, art. 15(a); Res. BCP 25/21, arts. 5-6).
- * - 26 y 27 — Preautorizar antes de firmar y capturar inmediatamente después
- *   (Código Civil, arts. 1348, 1373 y 1374).
+ * - 26 y 27 — Preautorizar antes de firmar y capturar después. **Ya no
+ *   aplican:** D-02 retiró la preautorización. La protección que buscaban —no
+ *   cobrar por un contrato sin firmar— la da ahora el orden del flujo.
  * - 28 — En QR, permitir el pago anterior a la firma e informar la condición y
  *   la devolución (Ley 4868/13, arts. 7(m, p, q) y 30(c)).
  * - 30 — Devolver el premio si no se firma dentro del plazo comunicado
@@ -183,14 +182,17 @@ export const TEXTOS_MEDIOS_DE_PAGO_P7: readonly TextoMedioDePago[] = [
   {
     medio: "TARJETA_CREDITO",
     titulo: "Tarjeta de crédito",
-    momento: "Preautorización antes de la firma",
+    // D-02 · cobro directo, igual que el débito. La reserva desapareció con la
+    // preautorización, así que las tres modalidades se describen igual: cambia
+    // por dónde entra el dinero, no cuándo.
+    momento: "Cobro al confirmarse la operación",
     vinetas: [
       "Bancard abre su formulario seguro.",
-      "Se reserva el importe; todavía no se cobra.",
-      "La firma del cliente ordena la captura.",
+      "El importe se cobra y se acredita a Alianza en el momento.",
+      "Los datos de la tarjeta no pasan por el portal.",
     ],
-    botón: "PREAUTORIZAR TARJETA",
-    secuencia: "Tarjeta preautorizada → Firma → Captura → Emisión",
+    botón: "PAGAR CON TARJETA DE CRÉDITO",
+    secuencia: "Tarjeta cobrada → Firma → Emisión",
   },
 ];
 
@@ -208,18 +210,11 @@ export const AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7 =
   "Si no se completa la firma dentro de 24 horas, la solicitud vence; se avisa por WhatsApp y correo " +
   "y habrá que firmar la solicitud de devolución en las oficinas de Alianza Garantía.";
 
-/** Aviso del plazo para crédito: no hubo cobro, así que se libera la reserva. */
-export const AVISO_PLAZO_FIRMA_CON_LIBERACION_P7 =
-  "Si no se completa la firma dentro de 24 horas, la solicitud vence; se avisa por WhatsApp y correo " +
-  "y se cancelará o liberará la reserva según Bancard. Como el importe no se cobró, no hay devolución " +
-  "que tramitar.";
-
 export const TITULO_DEPENDENCIA_BANCARD_P7 = "Dependencia de Bancard";
 
 /** Literal de la especificación, bajo la opción de tarjeta. */
 export const DEPENDENCIA_BANCARD_P7 =
-  "Se habilitará cuando Bancard confirme la modalidad de preautorización y captura para el vPOS de " +
-  "Alianza. Si no se firma, se cancelará o liberará la reserva según Bancard.";
+  "Se habilitará cuando Bancard confirme la modalidad de compra simple para el vPOS de Alianza.";
 
 export const TITULO_DESPUES_DE_ESTA_PANTALLA_P7 = "Después de esta pantalla";
 

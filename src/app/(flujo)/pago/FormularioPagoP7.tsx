@@ -8,7 +8,6 @@ import { formatearGuaranies } from "@/domain/catalogo";
 import {
   ADVERTENCIA_PAGO_NO_ES_FIRMA_P7,
   AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7,
-  AVISO_PLAZO_FIRMA_CON_LIBERACION_P7,
   BOTON_CONTINUAR_P7,
   DEPENDENCIA_BANCARD_P7,
   IDENTIFICADOR_BANCARD_PENDIENTE_P7,
@@ -40,7 +39,6 @@ import {
   TITULO_SEGURIDAD_P7,
   NOTA_DESGLOSE_PROVISIONAL_P7,
 } from "@/domain/textos-p7";
-import { esPagoDefinitivoAntesDeFirma } from "@/domain/tipos";
 import type { MedioDePago } from "@/domain/tipos";
 
 /**
@@ -255,7 +253,6 @@ export function FormularioPagoP7() {
   }
 
   const textoMedio = TEXTOS_MEDIOS_DE_PAGO_P7.find((opcion) => opcion.medio === medio);
-  const definitivo = esPagoDefinitivoAntesDeFirma(medio);
   const importe = resumen ? formatearGuaranies(resumen.montoGs) : "—";
 
   return (
@@ -529,12 +526,12 @@ export function FormularioPagoP7() {
           className="flex flex-col gap-3 rounded-lg border border-verde-400 bg-verde-50 p-4 dark:border-verde-600 dark:bg-verde-950"
         >
           <h2 className="text-sm font-bold tracking-wide text-verde-800 uppercase dark:text-verde-200">
-            {definitivo ? "Pago acreditado" : "Tarjeta preautorizada"}
+            Pago acreditado
           </h2>
+          {/* D-02 · los tres medios cobran directo, así que ya no hay dos
+              mensajes según si el dinero se movió o quedó reservado. */}
           <p className="text-sm text-verde-900 dark:text-verde-100">
-            {definitivo
-              ? "Bancard acreditó el premio a Alianza Garantía. Ya podés firmar."
-              : "Bancard reservó el importe; todavía no se cobró. La captura la ordena tu firma."}
+            Bancard acreditó el premio a Alianza Garantía. Ya podés firmar.
           </p>
           {plazoFirmaVenceEn ? (
             <p className="text-sm font-semibold text-verde-900 dark:text-verde-100">
@@ -568,7 +565,7 @@ export function FormularioPagoP7() {
             {TITULO_PLAZO_FIRMA_P7}
           </p>
           <p className="text-xs text-naranja-900 dark:text-naranja-100">
-            {definitivo ? AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7 : AVISO_PLAZO_FIRMA_CON_LIBERACION_P7}
+            {AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7}
           </p>
         </div>
 

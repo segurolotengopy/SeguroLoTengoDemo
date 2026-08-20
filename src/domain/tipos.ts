@@ -311,34 +311,39 @@ export function esMedioDePago(valor: unknown): valor is MedioDePago {
 }
 
 /**
- * `true` si el dinero sale de la cuenta de la persona **antes** de la firma
- * (QR y débito) y por lo tanto una firma que no llega obliga a devolver el
- * premio; `false` para crédito, donde el importe queda reservado y lo único
- * que hay que hacer es liberar la reserva.
+ * Estados de un pago.
  *
- * Es la distinción que separa las dos secuencias del bloque `DESPUÉS DE ESTA
- * PANTALLA` de P7 y las dos consecuencias del vencimiento (fila 30 de la
- * matriz: *"Devolver el premio si el cliente no firma dentro del plazo
- * comunicado"*, Ley 4868/13, arts. 7(f), 17 y 30(b)).
+ * **Sin preautorización** (D-02). Los tres medios cobran directo: el importe
+ * sale de la cuenta cuando la operación se confirma, y no hay reserva que
+ * capturar después. Los estados `PREAUTORIZADO` y `CAPTURADO` desaparecieron
+ * con ella.
+ *
+ * La preautorización tenía sentido cuando se cobraba antes de firmar: reservar
+ * en lugar de cobrar evitaba tener que devolver si la firma no llegaba. Con la
+ * firma primero (D-08) el problema no existe — cuando se cobra, el contrato ya
+ * está firmado— y la reserva solo agregaba un estado intermedio y una
+ * operación de captura que podían fallar por su cuenta.
+ *
+ * `DEVUELTO` es el final del flujo de seguimiento de devoluciones que pidió
+ * D-02: la devolución la ejecuta Bancard o Alianza fuera del portal, y el
+ * expediente la asienta.
  */
-export function esPagoDefinitivoAntesDeFirma(medio: MedioDePago): boolean {
-  return medio === "QR_BANCARD" || medio === "TARJETA_DEBITO";
-}
-
 export type EstadoPago =
   | "PENDIENTE"
-  | "CONFIRMADO" // QR pagado o débito cobrado: definitivo, antes de la firma
-  | "PREAUTORIZADO" // crédito: importe reservado, no cobrado
-  | "CAPTURADO" // crédito: cobro ordenado por la firma del cliente
-  | "CANCELADO";
+  | "CONFIRMADO" // el importe entró
+  | "CANCELADO"
+  | "DEVUELTO";
 
 /**
- * Estados en los que la garantía de pago de P7 ya está lista y se puede
- * habilitar la firma: el QR o el débito acreditados, o el crédito reservado.
- * Es lo que P8 muestra como `GARANTÍA DE PAGO LISTA`.
+ * `true` cuando el pago está confirmado y por lo tanto el expediente puede
+ * avanzar a la emisión.
+ *
+ * Reemplaza a `garantiaDePagoLista`, que distinguía entre dinero acreditado y
+ * dinero reservado. Sin preautorización esa distinción no existe: o entró o no
+ * entró.
  */
-export function garantiaDePagoLista(estado: EstadoPago): boolean {
-  return estado === "CONFIRMADO" || estado === "PREAUTORIZADO" || estado === "CAPTURADO";
+export function pagoAcreditado(estado: EstadoPago): boolean {
+  return estado === "CONFIRMADO";
 }
 
 /**
@@ -358,9 +363,7 @@ export function garantiaDePagoLista(estado: EstadoPago): boolean {
  * operación.
  */
 export function cobroConfirmadoParaEmision(pago: Pago): boolean {
-  return esPagoDefinitivoAntesDeFirma(pago.medio)
-    ? pago.estado === "CONFIRMADO"
-    : pago.estado === "CAPTURADO";
+  return pagoAcreditado(pago.estado);
 }
 
 export interface Pago {

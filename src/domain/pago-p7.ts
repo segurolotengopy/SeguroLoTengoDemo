@@ -58,7 +58,7 @@ import {
   TEXTO_DECLARACION_ORIGEN_LICITO,
   VERSION_DECLARACION_ORIGEN_LICITO,
 } from "./textos-p7";
-import { esMedioDePago, esPagoDefinitivoAntesDeFirma, garantiaDePagoLista } from "./tipos";
+import { esMedioDePago, pagoAcreditado } from "./tipos";
 import type {
   DatosFacturacionP7,
   EstadoExpediente,
@@ -251,8 +251,7 @@ export type ResultadoConfirmarPagoP7 =
       readonly numeroPropuesta: string;
       readonly plazoFirmaVenceEn: string;
       /** `true` con QR y débito: el dinero ya se movió y una firma que no llega obliga a devolver. */
-      readonly pagoDefinitivo: boolean;
-      readonly siguientePantalla: "/firma";
+          readonly siguientePantalla: "/firma";
     }
   | { readonly ok: false; readonly motivo: MotivoRechazoP7; readonly detalle?: string };
 
@@ -449,7 +448,7 @@ async function intentarIniciarPagoP7(
       referenciaBancard = debito.referenciaBancard;
       instruccion = { tipo: "FORMULARIO_SEGURO", urlFormularioSeguro: debito.urlFormularioSeguro };
     } else {
-      const preautorizacion = await deps.pagos.iniciarPreautorizacionTarjeta({
+      const preautorizacion = await deps.pagos.iniciarPagoTarjetaCredito({
         expedienteId: expediente.id,
         propuestaId: numeroPropuesta,
         montoGs,
@@ -604,7 +603,7 @@ async function intentarConfirmarPagoP7(
 
   // Ya confirmado: se responde con lo persistido, sin tocar Bancard ni el
   // expediente. Es la rama que hace inofensivo un callback duplicado.
-  if (expediente.estado === "PAGO_CONFIRMADO" && garantiaDePagoLista(pago.estado)) {
+  if (expediente.estado === "PAGO_CONFIRMADO" && pagoAcreditado(pago.estado)) {
     return {
       ok: true,
       confirmado: true,
@@ -614,7 +613,6 @@ async function intentarConfirmarPagoP7(
       referenciaBancard: pago.referenciaBancard,
       numeroPropuesta: expediente.numeroPropuesta ?? "",
       plazoFirmaVenceEn: expediente.plazoFirmaVenceEn ?? "",
-      pagoDefinitivo: esPagoDefinitivoAntesDeFirma(pago.medio),
       siguientePantalla: "/firma",
     };
   }
@@ -651,7 +649,7 @@ async function intentarConfirmarPagoP7(
     return { ok: false, motivo: "PAGO_CANCELADO" };
   }
 
-  if (!garantiaDePagoLista(consulta.estado)) {
+  if (!pagoAcreditado(consulta.estado)) {
     // Sigue pendiente. No se escribe nada: un sondeo cada dos segundos no
     // tiene por qué generar una escritura ni un registro de evidencia.
     return { ok: true, confirmado: false, medio: pago.medio, referenciaBancard: pago.referenciaBancard };
@@ -707,7 +705,6 @@ async function intentarConfirmarPagoP7(
     referenciaBancard: pago.referenciaBancard,
     numeroPropuesta: transicion.expediente.numeroPropuesta ?? "",
     plazoFirmaVenceEn,
-    pagoDefinitivo: esPagoDefinitivoAntesDeFirma(pago.medio),
     siguientePantalla: "/firma",
   };
 }
@@ -753,6 +750,6 @@ export function leerResumenPagoP7(expediente: Expediente): ResumenPagoP7 | null 
     nombreAFacturar: `${expediente.identidad.nombres} ${expediente.identidad.apellidos}`.trim(),
     medio: expediente.pago?.medio ?? null,
     referenciaBancard: expediente.pago?.referenciaBancard ?? null,
-    garantiaLista: garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE"),
+    garantiaLista: pagoAcreditado(expediente.pago?.estado ?? "PENDIENTE"),
   };
 }

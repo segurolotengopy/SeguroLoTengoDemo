@@ -70,7 +70,6 @@ export async function GET(request: Request): Promise<Response> {
       referenciaBancard: resultado.referenciaBancard,
       numeroPropuesta: resultado.numeroPropuesta,
       plazoFirmaVenceEn: resultado.plazoFirmaVenceEn,
-      pagoDefinitivo: resultado.pagoDefinitivo,
       siguientePantalla: resultado.siguientePantalla,
     },
     { cookies },

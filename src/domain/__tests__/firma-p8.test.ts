@@ -33,7 +33,6 @@ import type { EvidenceStore } from "../../ports/evidence-store";
 import type { EstadoConsultaPago, PaymentProvider } from "../../ports/payment-provider";
 import type { SignatureProvider } from "../../ports/signature-provider";
 import {
-  PASO_EVIDENCIA_CAPTURA_P8,
   PASO_EVIDENCIA_ENVIO_ENLACE_P8,
   PASO_EVIDENCIA_FIRMA_P8,
   PASO_EVIDENCIA_VENCIMIENTO_P8,
@@ -114,15 +113,10 @@ function bancardFalso(pago: Pago | null) {
     async iniciarPagoTarjetaDebito() {
       throw new Error("no usado en P8");
     },
-    async iniciarPreautorizacionTarjeta() {
+    async iniciarPagoTarjetaCredito() {
       throw new Error("no usado en P8");
     },
     async consultarEstadoPago() {
-      return proyectar();
-    },
-    async capturarPreautorizacion() {
-      llamadas.push("capturar");
-      estado = "CAPTURADO";
       return proyectar();
     },
     async cancelarOLiberarReserva() {
@@ -635,7 +629,7 @@ describe("P8 · plazo para firmar", () => {
     expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
   });
 
-  it("deja evidencia del vencimiento con la consecuencia según el medio", async () => {
+  it("deja evidencia del vencimiento y de que no hubo cobro que deshacer", async () => {
     const entorno = armar();
     entorno.avanzarReloj("2026-08-10T15:01:00.001Z");
 
@@ -648,8 +642,11 @@ describe("P8 · plazo para firmar", () => {
       (evidencia) => evidencia.paso === PASO_EVIDENCIA_VENCIMIENTO_P8,
     );
     expect(registro?.resultado).toBe("FALLIDO");
-    // El fixture paga por QR: el dinero ya se movió, hay que devolverlo.
-    expect(registro?.detalle).toContain("consecuencia=DEVOLUCION_AL_ORIGEN");
+    // Antes la consecuencia dependía del medio: con QR o débito había que
+    // devolver, con crédito alcanzaba con liberar la reserva. Sin
+    // preautorización (D-02) y con el pago después de la firma (D-08) el
+    // expediente vence sin haber cobrado nunca, así que simplemente caduca.
+    expect(registro?.detalle).toContain("consecuencia=CADUCIDAD_SIN_COBRO");
   });
 });
 
@@ -657,65 +654,8 @@ describe("P8 · plazo para firmar", () => {
 // Crédito: captura tras la firma, liberación al vencer (filas 26 y 27)
 // ---------------------------------------------------------------------------
 
-function expedienteConCredito(): Expediente {
-  const base = expedienteEnPaqueteGenerado("EXP-TEST-P8-CREDITO");
-  const pago = base.pago;
-  if (!pago) throw new Error("el fixture debería tener pago");
-  return { ...base, pago: { ...pago, medio: "TARJETA_CREDITO", estado: "PREAUTORIZADO" } };
-}
 
 describe("P8 · garantía de pago con tarjeta de crédito", () => {
-  it("la firma del cliente ordena la captura de la preautorización (fila 27)", async () => {
-    const entorno = armar(expedienteConCredito());
-    const enlace = await pedirEnlace(entorno);
-    if (!enlace.ok) throw new Error("no se abrió el acto");
-    await firmarEnCode100(enlace.acto.idCode100);
-
-    const resultado = await sondear(entorno);
-
-    expect(resultado.ok).toBe(true);
-    if (!resultado.ok || !resultado.firmado) return;
-    expect(resultado.capturaPendiente).toBe(false);
-    expect(entorno.bancard.llamadas).toContain("capturar");
-    expect(entorno.repositorio.actual().pago?.estado).toBe("CAPTURADO");
-
-    const registro = entorno.evidencias.registros.find(
-      (evidencia) => evidencia.paso === PASO_EVIDENCIA_CAPTURA_P8,
-    );
-    expect(registro?.detalle).toContain("operacion=CAPTURA_POR_FIRMA");
-  });
-
-  it("la captura corre después de asentar la firma, no antes", async () => {
-    const entorno = armar(expedienteConCredito());
-    const enlace = await pedirEnlace(entorno);
-    if (!enlace.ok) throw new Error("no se abrió el acto");
-    await firmarEnCode100(enlace.acto.idCode100);
-
-    await sondear(entorno);
-
-    const pasos = entorno.evidencias.registros.map((evidencia) => evidencia.paso);
-    expect(pasos.indexOf(PASO_EVIDENCIA_FIRMA_P8)).toBeLessThan(
-      pasos.indexOf(PASO_EVIDENCIA_CAPTURA_P8),
-    );
-  });
-
-  it("el vencimiento sin firma libera la reserva en vez de devolver", async () => {
-    const entorno = armar(expedienteConCredito());
-    entorno.avanzarReloj("2026-08-10T15:01:00.001Z");
-
-    await vencerPlazoFirmaP8(entorno.deps, {
-      expedienteId: entorno.repositorio.actual().id,
-      contexto: CONTEXTO,
-    });
-
-    expect(entorno.bancard.llamadas).toContain("liberar");
-    expect(entorno.repositorio.actual().pago?.estado).toBe("CANCELADO");
-
-    const registro = entorno.evidencias.registros.find(
-      (evidencia) => evidencia.paso === PASO_EVIDENCIA_VENCIMIENTO_P8,
-    );
-    expect(registro?.detalle).toContain("consecuencia=LIBERACION_DE_RESERVA");
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -733,7 +673,9 @@ describe("P8 · resumen para la pantalla", () => {
     expect(resumen?.solicitud.hashSha256).toBe(PAQUETE_FIXTURE.solicitud.hashSha256);
     expect(resumen?.canalWhatsappEnmascarado).toContain("•");
     expect(resumen?.canalEmailEnmascarado).toContain("•");
-    expect(resumen?.garantia?.lista).toBe(true);
+    // Ya no se informa ninguna garantía de pago: al firmar todavía no se pagó
+    // (D-08), y el resumen de la firma habla de documentos, no de dinero.
+    expect(resumen?.garantia).toBeNull();
   });
 
   it("no expone el valor completo de ningún canal verificado", () => {

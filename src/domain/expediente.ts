@@ -27,7 +27,7 @@ import type {
   PaqueteDocumental,
   Pago,
 } from "./tipos";
-import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, garantiaDePagoLista } from "./tipos";
+import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, pagoAcreditado } from "./tipos";
 import { codigoFipf, codigoSolicitud } from "./documentos";
 import { evaluarElegibilidad } from "./elegibilidad";
 
@@ -229,7 +229,7 @@ export function registrarIntentoPagoP7(
     };
   }
 
-  if (garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
+  if (pagoAcreditado(expediente.pago?.estado ?? "PENDIENTE")) {
     return {
       ok: false,
       error: "El expediente ya tiene una garantía de pago vigente; no se puede abrir otro intento.",
@@ -268,7 +268,7 @@ export function confirmarGarantiaDePagoP7(
   confirmacion: { readonly pago: Pago; readonly plazoFirmaVenceEn: string },
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
-  if (!garantiaDePagoLista(confirmacion.pago.estado)) {
+  if (!pagoAcreditado(confirmacion.pago.estado)) {
     return {
       ok: false,
       error: `No se puede confirmar la garantía de pago con el pago en estado ${confirmacion.pago.estado}.`,
@@ -322,7 +322,7 @@ export function registrarPaqueteDocumental(
     return { ok: false, error: "No se puede cerrar el paquete documental sin correlativo de propuesta." };
   }
 
-  if (!garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
+  if (!pagoAcreditado(expediente.pago?.estado ?? "PENDIENTE")) {
     return {
       ok: false,
       error: "No se puede cerrar el paquete documental sin una garantía de pago lista.",
@@ -427,7 +427,7 @@ export function registrarFirmaP8(
     return { ok: false, error: "No se puede registrar una firma sin paquete documental cerrado." };
   }
 
-  if (!garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
+  if (!pagoAcreditado(expediente.pago?.estado ?? "PENDIENTE")) {
     return { ok: false, error: "No se puede registrar una firma sin una garantía de pago lista." };
   }
 

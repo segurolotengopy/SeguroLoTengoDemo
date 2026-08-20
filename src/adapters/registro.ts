@@ -274,8 +274,6 @@ export function obtenerPaymentProvider(): PaymentProvider {
     mock: () =>
       crearPaymentProviderMock({
         fallaForzada: () => (consumirFallaDemo("BANCARD_TIMEOUT") ? "TIMEOUT" : null),
-        fallaCapturaForzada: () =>
-          consumirFallaDemo("BANCARD_CAPTURA_FALLIDA") ? "CAPTURA_FALLIDA" : null,
       }),
     live: () => {
       throw new Error(

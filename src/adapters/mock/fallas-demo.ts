@@ -3,7 +3,12 @@
  * demo": *"forzar fallos puntuales (OTP expirado, intentos agotados, timeout
  * de Bancard, rechazo de Code100)"*).
  *
- * Son los cuatro de CLAUDE.md más uno —`BANCARD_CAPTURA_FALLIDA`— que agregó la
+ * Son los cuatro de CLAUDE.md. La palanca `BANCARD_CAPTURA_FALLIDA` se retiró
+ * al desaparecer la preautorización (D-02): sin captura no hay captura que
+ * hacer fallar. Lo que la reemplaza como escenario de cobro fallido es el
+ * timeout, que sigue vigente y ahora cubre a los tres medios.
+ *
+ * Nota histórica de la que venía —la agregó la
  * auditoría de cumplimiento de P8/P9: es la única forma de ejercitar en vivo la
  * fila 44 de la matriz (*"Si falla el cobro, no solicitar la emisión
  * automática"*), que sin palanca quedaba probada solo por tests. No es una
@@ -37,7 +42,6 @@ export type FallaDemo =
   | "OTP_EXPIRADO"
   | "OTP_INTENTOS_AGOTADOS"
   | "BANCARD_TIMEOUT"
-  | "BANCARD_CAPTURA_FALLIDA"
   | "CODE100_RECHAZO"
   | "REGISTRO_CIVIL_CAIDO";
 
@@ -45,7 +49,6 @@ export const FALLAS_DEMO: readonly FallaDemo[] = [
   "OTP_EXPIRADO",
   "OTP_INTENTOS_AGOTADOS",
   "BANCARD_TIMEOUT",
-  "BANCARD_CAPTURA_FALLIDA",
   "CODE100_RECHAZO",
   "REGISTRO_CIVIL_CAIDO",
 ];
@@ -75,12 +78,6 @@ export const DESCRIPCION_FALLA_DEMO: Readonly<
     donde: "P7, al generar el QR o abrir el formulario",
     efecto:
       "Bancard no responde. El reintento reutiliza la misma clave de idempotencia, así que no cobra dos veces.",
-  },
-  BANCARD_CAPTURA_FALLIDA: {
-    rotulo: "Falla la captura de Bancard",
-    donde: "P8, al confirmarse la firma con tarjeta de crédito",
-    efecto:
-      "La firma queda registrada pero el cobro no. P8 no deja pasar a P9 y reintenta: sin cobro no se pide la emisión (fila 44).",
   },
   CODE100_RECHAZO: {
     rotulo: "Rechazo de Code100",

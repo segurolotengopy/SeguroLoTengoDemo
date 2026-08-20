@@ -52,7 +52,7 @@ import {
   TEXTO_COMUNICACIONES_COMERCIALES,
   VERSION_COMUNICACIONES_COMERCIALES,
 } from "./textos-p9";
-import { cobroConfirmadoParaEmision, esPagoDefinitivoAntesDeFirma } from "./tipos";
+import { cobroConfirmadoParaEmision } from "./tipos";
 import type {
   EstadoExpediente,
   Expediente,
@@ -485,7 +485,6 @@ export interface ResumenP9 {
   readonly polizaEmitidaEn: string | null;
   readonly referenciaBancard: string | null;
   readonly medio: MedioDePago | null;
-  readonly pagoDefinitivo: boolean;
   readonly nombreAsegurado: string | null;
   readonly documentoEnmascarado: string | null;
   readonly whatsappEnmascarado: string | null;
@@ -531,7 +530,6 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
     polizaEmitidaEn: poliza.emitidaEn,
     referenciaBancard: pago?.referenciaBancard ?? null,
     medio: pago?.medio ?? null,
-    pagoDefinitivo: pago ? esPagoDefinitivoAntesDeFirma(pago.medio) : false,
     nombreAsegurado: identidad ? `${identidad.nombres} ${identidad.apellidos}`.trim() : null,
     documentoEnmascarado: identidad ? enmascararCedula(identidad.numeroCedula) : null,
     whatsappEnmascarado: expediente.canalWhatsapp

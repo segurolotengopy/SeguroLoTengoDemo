@@ -16,7 +16,7 @@
  *     `PREAUTORIZADO`, sin cobro; la captura la ordena la firma en P8.
  *
  * La preautorización es exclusiva del crédito, confirmado por Bancard: acá se
- * hace cumplir por construcción — `iniciarPreautorizacionTarjeta` es lo único
+ * hace cumplir por construcción — `iniciarPagoTarjetaCredito` es lo único
  * que crea operaciones `TARJETA_CREDITO`, y `capturarPreautorizacion` lanza
  * sobre cualquier otro medio, porque el QR y el débito ya cobraron en P7.
  *
@@ -54,11 +54,11 @@ import type {
   EstadoConsultaPago,
   IniciarPagoQrInput,
   IniciarPagoTarjetaDebitoInput,
-  IniciarPreautorizacionTarjetaInput,
+  IniciarPagoTarjetaCreditoInput,
   PagoQrIniciado,
   PagoTarjetaDebitoIniciado,
   PaymentProvider,
-  PreautorizacionTarjetaIniciada,
+  PagoTarjetaCreditoIniciado,
 } from "../../ports/payment-provider";
 import { ErrorBancard } from "../../ports/payment-provider";
 import type { EstadoPago, MedioDePago } from "../../domain/tipos";
@@ -136,7 +136,6 @@ export interface OpcionesPaymentProviderMock {
   /** Falla a forzar en la próxima operación (palanca del panel de demo). */
   readonly fallaForzada?: () => FallaBancardDemo | null;
   /** Falla a forzar en la próxima captura de preautorización. */
-  readonly fallaCapturaForzada?: () => FallaCapturaDemo | null;
 }
 
 function referenciaDeBancard(): string {
@@ -152,9 +151,14 @@ function esperar(ms: number): Promise<void> {
   });
 }
 
-/** Estado al que llega la operación una vez acreditada, según el medio. */
-function estadoAcreditado(medio: MedioDePago): EstadoPago {
-  return medio === "TARJETA_CREDITO" ? "PREAUTORIZADO" : "CONFIRMADO";
+/**
+ * Estado al que llega la operación una vez acreditada.
+ *
+ * Los tres medios terminan igual desde que no hay preautorización (D-02): o el
+ * dinero entró, o no entró.
+ */
+function estadoAcreditado(): EstadoPago {
+  return "CONFIRMADO";
 }
 
 function proyectar(operacion: OperacionMock): EstadoConsultaPago {
@@ -175,7 +179,6 @@ export function crearPaymentProviderMock(
   const demoraGeneracionMs = opciones.demoraGeneracionMs ?? DEMORA_GENERACION_MS;
   const demoraAcreditacionMs = opciones.demoraAcreditacionMs ?? DEMORA_ACREDITACION_MS;
   const fallaForzada = opciones.fallaForzada ?? (() => null);
-  const fallaCapturaForzada = opciones.fallaCapturaForzada ?? (() => null);
 
   /**
    * Avanza una operación pendiente cuando el reloj alcanzó su acreditación (la
@@ -191,7 +194,7 @@ export function crearPaymentProviderMock(
 
     const instante = ahora().toISOString();
     if (instante >= operacion.acreditableDesde) {
-      operacion.estado = estadoAcreditado(operacion.medio);
+      operacion.estado = estadoAcreditado();
       operacion.actualizadoEn = instante;
     } else if (operacion.expiraEn && instante >= operacion.expiraEn) {
       operacion.estado = "CANCELADO";
@@ -289,9 +292,9 @@ export function crearPaymentProviderMock(
       };
     },
 
-    async iniciarPreautorizacionTarjeta(
-      input: IniciarPreautorizacionTarjetaInput,
-    ): Promise<PreautorizacionTarjetaIniciada> {
+    async iniciarPagoTarjetaCredito(
+      input: IniciarPagoTarjetaCreditoInput,
+    ): Promise<PagoTarjetaCreditoIniciado> {
       const operacion = await abrirOperacion({ ...input, medio: "TARJETA_CREDITO" });
       return {
         referenciaBancard: operacion.referenciaBancard,
@@ -305,41 +308,6 @@ export function crearPaymentProviderMock(
       return proyectar(avanzarSiCorresponde(operacion));
     },
 
-    async capturarPreautorizacion(referenciaBancard: string): Promise<EstadoConsultaPago> {
-      const guardada = operaciones.get(referenciaBancard);
-      const operacion = guardada ? avanzarSiCorresponde(guardada) : undefined;
-      if (!operacion) {
-        throw new Error(
-          `No existe la operación ${referenciaBancard}. El servidor solo captura referencias que él mismo persistió.`,
-        );
-      }
-      if (operacion.medio !== "TARJETA_CREDITO") {
-        throw new Error(
-          `La operación ${referenciaBancard} es ${operacion.medio} y ya cobró en P7: no hay nada que capturar.`,
-        );
-      }
-
-      // Idempotencia: una segunda captura no vuelve a cobrar.
-      if (operacion.estado === "CAPTURADO") return proyectar(operacion);
-
-      if (fallaCapturaForzada() === "CAPTURA_FALLIDA") {
-        throw new ErrorBancard(
-          "RECHAZADA",
-          "Bancard rechazó la captura de la preautorización (simulado).",
-        );
-      }
-
-      if (operacion.estado !== "PREAUTORIZADO") {
-        throw new Error(
-          `No se puede capturar la operación ${referenciaBancard}: está en estado ${operacion.estado}.`,
-        );
-      }
-
-      operacion.estado = "CAPTURADO";
-      operacion.actualizadoEn = ahora().toISOString();
-      return proyectar(operacion);
-    },
-
     async cancelarOLiberarReserva(referenciaBancard: string): Promise<EstadoConsultaPago> {
       const guardada = operaciones.get(referenciaBancard);
       const operacion = guardada ? avanzarSiCorresponde(guardada) : undefined;
@@ -348,16 +316,17 @@ export function crearPaymentProviderMock(
           `No existe la operación ${referenciaBancard}. El servidor solo cancela referencias que él mismo persistió.`,
         );
       }
-      if (operacion.estado === "CAPTURADO") {
-        throw new Error(
-          `La operación ${referenciaBancard} ya fue capturada por la firma del cliente; revertirla no es parte de este flujo.`,
-        );
+      // Idempotencia: repetir la operación no tiene efecto adicional. Vale
+      // para los dos finales posibles, porque el llamador no siempre sabe si
+      // la operación ya había cobrado cuando se pidió deshacerla.
+      if (operacion.estado === "CANCELADO" || operacion.estado === "DEVUELTO") {
+        return proyectar(operacion);
       }
 
-      // Idempotencia: una segunda cancelación no tiene efecto adicional.
-      if (operacion.estado === "CANCELADO") return proyectar(operacion);
-
-      operacion.estado = "CANCELADO";
+      // Una operación acreditada no se cancela: se devuelve. Son dos hechos
+      // distintos y el expediente tiene que poder distinguirlos —cancelar un
+      // QR que nunca se pagó no deja rastro contable; devolver un cobro sí.
+      operacion.estado = operacion.estado === "CONFIRMADO" ? "DEVUELTO" : "CANCELADO";
       operacion.actualizadoEn = ahora().toISOString();
       return proyectar(operacion);
     },

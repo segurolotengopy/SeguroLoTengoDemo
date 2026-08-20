@@ -211,45 +211,13 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(resultado.motivo).toBe("COBRO_NO_CONFIRMADO");
   });
 
-  /**
-   * Lo que encontró la auditoría de cumplimiento: una preautorización de
-   * crédito **habilita la firma** (P8) pero **no la emisión** (P9). Si la
-   * captura no se completó, el dinero no entró y la fila 44 es explícita:
-   * *"Si falla el cobro, no solicitar la emisión automática"*.
-   */
-  it("crédito PREAUTORIZADO sin capturar NO emite: la reserva no es un cobro", async () => {
-    const base = expedienteFirmado();
-    const pago = base.pago;
-    if (!pago) throw new Error("el fixture debería tener pago");
-    const entorno = armar({
-      ...base,
-      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "PREAUTORIZADO" },
-    });
-
-    const resultado = await emitirPolizaP9(entorno.deps, {
-      expedienteId: "EXP-TEST-P9",
-      contexto: CONTEXTO,
-    });
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("COBRO_NO_CONFIRMADO");
-    // No se le pidió nada a Alianza y el expediente no se movió.
-    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
-    expect(
-      entorno.evidencias.registros.some((evidencia) =>
-        evidencia.detalle?.includes("motivo=COBRO_NO_CONFIRMADO"),
-      ),
-    ).toBe(true);
-  });
-
   it("crédito CAPTURADO sí emite: ahí el dinero entró", async () => {
     const base = expedienteFirmado();
     const pago = base.pago;
     if (!pago) throw new Error("el fixture debería tener pago");
     const entorno = armar({
       ...base,
-      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "CAPTURADO" },
+      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "CONFIRMADO" },
     });
 
     const resultado = await emitirPolizaP9(entorno.deps, {
@@ -259,33 +227,6 @@ describe("P9 · remitir el expediente a Alianza", () => {
 
     expect(resultado.ok).toBe(true);
     expect(entorno.repositorio.actual().estado).toBe("EMITIDO");
-  });
-
-  it("la máquina de estados rechaza la emisión con crédito sin capturar", () => {
-    const base = expedienteFirmado();
-    const pago = base.pago;
-    if (!pago) throw new Error("el fixture debería tener pago");
-    const conReserva: Expediente = {
-      ...base,
-      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "PREAUTORIZADO" },
-    };
-
-    const resultado = registrarEmisionP9(
-      conReserva,
-      {
-        numeroPoliza: "00018425",
-        estado: "EN_PROCESO_DE_EMISION",
-        emitidaEn: null,
-        estadoFactura: "PENDIENTE",
-        referenciaFactura: null,
-        solicitadaEn: AHORA,
-      },
-      AHORA,
-    );
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.error).toContain("cobro confirmado");
   });
 
   it("es idempotente: entrar de nuevo no emite una segunda póliza", async () => {

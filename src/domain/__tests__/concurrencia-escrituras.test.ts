@@ -145,13 +145,10 @@ const bancardNoUsado: PaymentProvider = {
   async iniciarPagoTarjetaDebito() {
     throw new Error("Bancard no debería usarse en este test");
   },
-  async iniciarPreautorizacionTarjeta() {
+  async iniciarPagoTarjetaCredito() {
     throw new Error("Bancard no debería usarse en este test");
   },
   async consultarEstadoPago() {
-    throw new Error("Bancard no debería usarse en este test");
-  },
-  async capturarPreautorizacion() {
     throw new Error("Bancard no debería usarse en este test");
   },
   async cancelarOLiberarReserva() {
