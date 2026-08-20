@@ -31,10 +31,14 @@ Contexto adicional en `docs/antecedentes/` (transcripción de la reunión y
 wireframes `PantallasDemo2.pdf`), `docs/normativa/` (resoluciones de la SIS) y
 `docs/auditoria/ESTADO_ACTUAL.md` (mapa del sistema antes del plan).
 
-**`ESPECIFICACION_PANTALLAS.md` describe el flujo de 9 pasos, que el plan
-reemplaza por uno de 8.** Hasta que el plan termine y ese documento se
-reescriba, sigue siendo la referencia de detalle de cada pantalla, pero **no**
-del orden ni del contador de pasos.
+**`ESPECIFICACION_PANTALLAS.md` se reescribió el 20-ago-2026**, al cerrarse el
+Lote 4: ya describe el flujo de 8 pasos, con la firma antes del pago, el PDF
+unificado y el correo dentro de identidad. Vuelve a ser la referencia de
+detalle de cada pantalla.
+
+El **orden**, en cambio, sigue sin vivir ahí: vive en `PASOS_FLUJO`
+(`src/domain/rutas-flujo.ts`), que es de donde la aplicación deriva el número
+de paso y el stepper. Si el documento y esa lista discrepan, gana la lista.
 
 Cambios de este plan que tocan las reglas inviolables de más abajo, ya
 decididos: el OTP de correo se retiró (queda un solo OTP de canal, el de
