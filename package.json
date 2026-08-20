@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "verify": "npm run typecheck && npm run lint && npm test",
     "piloto:cedulas": "tsx scripts/piloto-cedulas.ts",
-    "otp:requerimiento": "tsx scripts/otp-requerimiento.ts"
+    "otp:requerimiento": "tsx scripts/otp-requerimiento.ts",
+    "seguridad": "snyk test --severity-threshold=low && snyk iac test infra/ --severity-threshold=high"
   },
   "dependencies": {
     "@aws-amplify/core": "^6.18.0",
