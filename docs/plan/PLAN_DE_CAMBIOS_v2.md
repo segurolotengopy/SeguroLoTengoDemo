@@ -213,7 +213,7 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 | Lote | Contenido | Depende de | Criterios de aceptación |
 |---|---|---|---|
 | **L1 · Transversales de bajo riesgo** ✅ **hecho (19-ago-2026)** | TRV-04/05 + CMP-01, CHG-03/05/09/10/11/12/13/16/19/20/21/22/31/35/36/46, gitignore de fixtures (D-21), lint de copys, chequeo previo de inotify. **Reasignados a L4** (dependen del reordenamiento): CHG-37, CHG-38, CHG-39. **Reasignado a L2**: TRV-03 (la marca aparece en 69 lugares, incluidos todos los títulos de página; el barrido va junto con el de renumeración). **Verificados sin cambio**: CHG-27 (ya resuelto por el rediseño compacto), CHG-28, CHG-32, D-01 (el consentimiento comercial ya vive separado en la última pantalla) | ✅ desbloqueado (D-15, D-16) | **Cumplidos (19-ago-2026):** lint de copys en verde; ningún cambio de flujo; 941 tests unitarios y de contrato en verde; batería E2E 7/7 en verde |
-| **L2 · Reordenamiento del wizard** ⏳ **en curso (19-ago-2026)** | CHG-01/02, D-22 (rutas semánticas + redirects), retiro del OTP de correo (D-06), correo en identidad (CHG-14/17), TRV-02 compacta, identificadores `Pv2-N` (D-14), **TRV-03 + D-03** (barrido de la marca en las 69 apariciones, detrás del flag) | ✅ desbloqueado (D-06, D-08, D-14, D-22) | Wizard de 8 pasos navegable ida/vuelta; redirects 308 viejos→nuevos; expedientes legados legibles; E2E reescrita para el orden nuevo en verde |
+| **L2 · Reordenamiento del wizard** ✅ **hecho (20-ago-2026)** | CHG-01/02, D-22 (rutas semánticas + redirects), retiro del OTP de correo (D-06), correo en identidad (CHG-14/17), TRV-02 compacta, identificadores `Pv2-N` (D-14), **TRV-03 + D-03** (barrido de la marca en las 69 apariciones, detrás del flag) | ✅ desbloqueado (D-06, D-08, D-14, D-22) | Wizard de 8 pasos navegable ida/vuelta; redirects 308 viejos→nuevos; expedientes legados legibles; E2E reescrita para el orden nuevo en verde |
 | **L3 · Pantallas 4–5** | CHG-15 (cotejo en edición), CHG-18 (config por producto), CHG-24 (beneficiario), CHG-26 (quitar fiscales), CHG-25 refinado | L2 + fixtures copiados (D-21) | Fixtures de Rodrigo pasan OCR con prellenado y cotejo; campo oculto nunca bloquea; beneficiario cédula-opcional no bloqueante |
 | **L4 · Firma y pago invertidos** | CHG-29 (visor), CHG-30 (PDF unificado), CHG-33 (callback+polling), D-13 (firmas corredor + Alianza configurables), **D-02 (QR + TC + TD sin preautorización, tarjeta por flujo alojado)**, CHG-34, D-10 (caducidad 24 h), CMP-07/08/09 | ✅ desbloqueado (D-02, D-05, D-10, D-11, D-13); requiere L3 | Secuencia §7 completa en mock; cobro inhabilitado antes del callback de firma; regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
 | **L5 · Confirmación, CPC, notificaciones y devoluciones** | CHG-40…46, D-12 (CPC), CHG-44 (job entrega + acuse), CHG-47/D-14 (Pv2-B), **flujo de seguimiento de devoluciones (D-02) + vista en consola**, CMP-05/06 | ✅ desbloqueado (D-05, D-12, D-17, D-18); D-19 con datos parametrizados; requiere L4 | CPC solo con pago confirmado; envío automático con reintentos y acuse; inicio = pago + 24 h exactas incluyendo bordes de mes; devolución seguible de punta a punta con evidencia |
@@ -324,21 +324,22 @@ carreras reales del arnés (hidratación, radios controlados, clic sin handler).
 Eso llevó la batería de siete rojos a uno o dos, pero no la vuelve estable: se
 está compensando latencia con espera, y la latencia sigue creciendo.
 
-**Decisión pendiente, de Andres.** Hay tres caminos y ninguno es de código:
+**Resuelto (20-ago-2026): tabla por corrida.** Andres eligió la primera de las
+tres opciones que se plantearon —las otras dos eran dobles locales, que habrían
+costado la fidelidad que hace valiosa a esta batería, y purga periódica, que
+solo posterga el problema—.
 
-1. **Tabla por corrida** (nombre con sufijo, borrada al terminar). Conserva la
-   fidelidad contra AWS real y elimina el crecimiento. Cuesta aprovisionamiento
-   en cada corrida.
-2. **Dobles locales** para DynamoDB y S3 en la batería. La vuelve rápida y
-   determinista, y la aleja de lo que corre en producción — justamente lo que
-   hoy le da valor.
-3. **Purga periódica** de los expedientes de prueba. Es lo más barato, y hay
-   que decidirlo explícitamente porque toca datos de expedientes, aunque sean
-   de cédulas de demostración.
+Cada corrida crea su tabla con el mismo esquema que la del demo y la borra al
+terminar (`e2e/support/tabla-efimera.ts`). El permiso del usuario de QA queda
+acotado al prefijo `slt-e2e-*`, así que la batería no puede tocar la tabla del
+demo ni enumerar las demás.
 
-Mientras tanto, el criterio honesto para aceptar un lote es: **suite unitaria
-en verde, y cada escenario E2E verde de a uno**. La corrida completa sirve como
-señal, no como semáforo.
+**Resultado: 7 de 7 en verde, 9,2 minutos**, contra una batería que venía de
+dejar uno o dos rojos cambiantes y de crecer hasta 14,1 minutos. Verificado
+además que la tabla efímera se borró sola y que la del demo no creció.
+
+De regalo desapareció el saneo de cédulas bloqueadas: ya no hay nada que
+heredar entre corridas.
 
 ---
 
