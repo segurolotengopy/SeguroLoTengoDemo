@@ -23,6 +23,7 @@
  *    los timeouts de cada aserción.
  */
 import { liberarCedulasDePrueba } from "./support/liberar-cedulas";
+import { verificarCupoInotify } from "./support/preflight-inotify";
 import { descargarClaveDelPanel } from "./support/secreto-panel";
 
 const BASE_URL = "http://127.0.0.1:3100";
@@ -65,6 +66,10 @@ async function esperarServidorListo(timeoutMs: number): Promise<void> {
 }
 
 export default async function globalSetup(): Promise<void> {
+  // Primero de todo: sin cupo de inotify, `next dev` compila mal y los rojos
+  // que siguen apuntan al código sin ser del código. Ver `preflight-inotify`.
+  verificarCupoInotify();
+
   await descargarClaveDelPanel();
 
   await esperarServidorListo(90_000);

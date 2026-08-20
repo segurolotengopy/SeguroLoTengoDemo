@@ -301,6 +301,47 @@ Cierre de Fase 3: `docs/plan/INFORME_VERIFICACION_v2.md` con resultados, desviac
 
 ---
 
+## Anexo B — Rojos de la batería E2E que no eran del código
+
+Diagnóstico hecho durante el Lote 1. Se documenta con el camino equivocado
+incluido, porque el error de razonamiento es la parte reutilizable.
+
+**Síntoma.** Cuatro escenarios en rojo y tres en verde, todos frenados en el
+mismo punto: un clic que no navega y una aserción de URL que agota sus quince
+segundos. Los mismos escenarios, corridos de a uno, pasaban.
+
+**Causa.** `next dev` vigila el árbol de archivos con inotify. En una máquina de
+trabajo con editores y servidores de lenguaje abiertos se llega al techo de
+`fs.inotify.max_user_instances` (128, con más de noventa ya tomadas). Con el
+cupo agotado el servidor **arranca igual** pero compila mal: las pantallas
+llegan sin hidratar y el clic no dispara nada. Llevado al extremo ni arranca:
+`Watchpack Error … ENOSPC` y `Timed out waiting from config.webServer`. El
+`global-setup` ya conocía a un pariente de este problema —por eso calienta las
+rutas antes de empezar—, pero nada avisaba cuando la causa era el entorno.
+
+**Primer arreglo, descartado.** Se probó correr la batería contra
+`next build && next start`, que no usa watchers. **Falló entero, y por una
+buena razón:** con `NODE_ENV=production` las cookies se emiten con `Secure`
+(`contexto-peticion.ts`), y el navegador las descarta sobre `http://127.0.0.1`.
+Sin cookie no hay sesión del panel ni expediente: los siete escenarios en rojo
+con `401`. Adaptar el atributo `Secure` para que los tests pasaran habría sido
+debilitar un control de seguridad real para comodidad de la batería, así que se
+revirtió. **El build local por HTTP y esa protección son incompatibles, y la
+protección gana.**
+
+**Arreglo adoptado.** `e2e/support/preflight-inotify.ts`: el `globalSetup`
+mide el cupo libre antes de empezar y aborta con un mensaje que dice el número
+concreto y qué hacer. Se mide cupo **libre** y no porcentaje, porque lo que
+decide si el servidor compila bien es cuántas instancias quedan para él. No
+sube el límite por su cuenta: `sysctl` es configuración del sistema y esa
+decisión es del dueño de la máquina.
+
+**Lo que queda como deuda.** Correr la batería en CI, donde el entorno es
+limpio y reproducible, exige resolver antes el par HTTPS/`Secure`. Hoy la
+suite es local y manual.
+
+---
+
 ## Anexo A — Receta de ejecución del Lote 2 (reordenamiento)
 
 Detalle operativo del §3.1, escrito antes de tocar código para que el orden de
