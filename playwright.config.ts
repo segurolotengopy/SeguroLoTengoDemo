@@ -1,4 +1,21 @@
 import { defineConfig, devices } from "@playwright/test";
+import { nombreTablaDeLaCorrida } from "./e2e/support/tabla-efimera";
+
+/**
+ * Tabla de DynamoDB propia de esta corrida.
+ *
+ * Se decide **acá** y no en el `globalSetup` porque Playwright levanta el
+ * `webServer` antes de correr el setup: el nombre tiene que estar resuelto
+ * cuando se arma el entorno del servidor. El setup la crea y el teardown la
+ * borra; ambos la leen de `DYNAMODB_TABLE`, que es la misma variable que usa
+ * la app.
+ *
+ * Respetar `DYNAMODB_TABLE` si ya viene definida permite apuntar la batería a
+ * una tabla concreta a mano —para depurar contra datos existentes— sin tocar
+ * este archivo.
+ */
+const TABLA_DE_LA_CORRIDA = process.env.DYNAMODB_TABLE ?? nombreTablaDeLaCorrida();
+process.env.DYNAMODB_TABLE = TABLA_DE_LA_CORRIDA;
 
 /**
  * Configuración de Playwright para los escenarios E2E de SeguroLoTengo.
@@ -105,7 +122,7 @@ export default defineConfig({
       ADMIN_CONSOLE_ENABLED: "true",
       AWS_PROFILE: process.env.AWS_PROFILE ?? "aab1-demo-qa",
       AWS_REGION: process.env.AWS_REGION ?? "us-east-1",
-      DYNAMODB_TABLE: process.env.DYNAMODB_TABLE ?? "slt-demo-expedientes",
+      DYNAMODB_TABLE: TABLA_DE_LA_CORRIDA,
       S3_BUCKET: process.env.S3_BUCKET ?? "slt-demo-evidencias-9e0e93f3",
       APP_SECRETS_ARN:
         process.env.APP_SECRETS_ARN ??

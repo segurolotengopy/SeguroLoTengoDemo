@@ -22,7 +22,7 @@
  *    antes de que el primer test toque un botón evita la carrera sin inflar
  *    los timeouts de cada aserción.
  */
-import { liberarCedulasDePrueba } from "./support/liberar-cedulas";
+import { crearTablaDeLaCorrida } from "./support/tabla-efimera";
 import { verificarCupoInotify } from "./support/preflight-inotify";
 import { descargarClaveDelPanel } from "./support/secreto-panel";
 
@@ -69,15 +69,23 @@ export default async function globalSetup(): Promise<void> {
   // que siguen apuntan al código sin ser del código. Ver `preflight-inotify`.
   verificarCupoInotify();
 
+  // La tabla de esta corrida, antes que nada: el servidor ya está levantado
+  // apuntando a ella, así que tiene que existir antes de la primera petición.
+  // Ver `support/tabla-efimera.ts` para por qué es propia y no compartida.
+  const tabla = process.env.DYNAMODB_TABLE;
+  if (!tabla) throw new Error("Falta DYNAMODB_TABLE: la resuelve playwright.config.ts.");
+  await crearTablaDeLaCorrida(tabla);
+
   await descargarClaveDelPanel();
 
   await esperarServidorListo(90_000);
 
-  // Los escenarios 2, 3 y 6 dejan —por diseño— cédulas de prueba en estados
-  // bloqueantes (regla #11) en la tabla real compartida. Antes de correr se
-  // liberan por el único camino legítimo: el reinicio de la consola
-  // administrativa. Ver `support/liberar-cedulas.ts`.
-  await liberarCedulasDePrueba();
+  // Ya no hace falta sanear cédulas bloqueadas. Los escenarios 2, 3 y 6 dejan
+  // —por diseño— cédulas en estados que bloquean un registro nuevo (regla
+  // #11), y hasta ahora había que levantarlos por la consola administrativa
+  // antes de empezar. Con una tabla por corrida no hay nada que heredar: cada
+  // batería arranca sin expedientes. `support/liberar-cedulas.ts` se conserva
+  // porque sigue sirviendo para correr contra la tabla compartida a mano.
 
   for (const ruta of RUTAS_A_CALENTAR) {
     // Best-effort: si una ruta individual falla al calentar, que se note en
