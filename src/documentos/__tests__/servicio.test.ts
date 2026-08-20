@@ -23,7 +23,7 @@ import type { ContextoPeticion, RepositorioExpediente } from "../../domain/verif
 import {
   NUMERO_PROPUESTA_FIJO,
   crearExpediente,
-  expedienteEnPagoConfirmado,
+  expedienteEnDeclaracionesOk,
   identidadFixture,
 } from "../../domain/__tests__/fixtures";
 import {
@@ -95,6 +95,9 @@ function armarDependencias(expediente: Expediente) {
     evidencias,
     ahora: () => AHORA,
     nuevoId: () => "evidencia-1",
+    // D-08 · el correlativo lo acuña este servicio, no el pago. Se fija acá
+    // para que las aserciones no dependan del CSPRNG.
+    nuevoNumeroPropuesta: () => NUMERO_PROPUESTA_FIJO,
   };
   return { deps, expedientes, archivos, evidencias };
 }
@@ -105,7 +108,7 @@ function armarDependencias(expediente: Expediente) {
 
 describe("generarPaqueteDocumental", () => {
   it("cierra los dos PDF, los hashea y transiciona a PAQUETE_GENERADO", async () => {
-    const { deps, expedientes, archivos } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, expedientes, archivos } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
 
     const resultado = await generarPaqueteDocumental(deps, {
       expedienteId: "EXP-TEST-DOCS",
@@ -135,7 +138,7 @@ describe("generarPaqueteDocumental", () => {
   });
 
   it("registra el SHA-256 real de los bytes guardados, uno por documento", async () => {
-    const { deps, expedientes, archivos } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, expedientes, archivos } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     const resultado = await generarPaqueteDocumental(deps, {
       expedienteId: "EXP-TEST-DOCS",
       contexto: CONTEXTO,
@@ -160,7 +163,7 @@ describe("generarPaqueteDocumental", () => {
   });
 
   it("guarda PDF de verdad, con el código de cada documento adentro", async () => {
-    const { deps, archivos } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, archivos } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     await generarPaqueteDocumental(deps, { expedienteId: "EXP-TEST-DOCS", contexto: CONTEXTO });
 
     for (const [clave, bytes] of archivos.archivos) {
@@ -175,7 +178,7 @@ describe("generarPaqueteDocumental", () => {
   });
 
   it("deja evidencia del cierre con los dos códigos y las dos huellas", async () => {
-    const { deps, evidencias } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, evidencias } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     const resultado = await generarPaqueteDocumental(deps, {
       expedienteId: "EXP-TEST-DOCS",
       contexto: CONTEXTO,
@@ -198,7 +201,7 @@ describe("generarPaqueteDocumental", () => {
   });
 
   it("no filtra datos de salud, PEP, cédula ni tarjeta a la evidencia (regla #7)", async () => {
-    const { deps, evidencias } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, evidencias } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     await generarPaqueteDocumental(deps, { expedienteId: "EXP-TEST-DOCS", contexto: CONTEXTO });
 
     const volcado = JSON.stringify(evidencias.registros).toLowerCase();
@@ -216,7 +219,7 @@ describe("generarPaqueteDocumental", () => {
 
 describe("generarPaqueteDocumental — idempotencia y rechazos", () => {
   it("es idempotente: no vuelve a renderizar un paquete ya cerrado", async () => {
-    const { deps, archivos, evidencias } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, archivos, evidencias } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     const entrada = { expedienteId: "EXP-TEST-DOCS", contexto: CONTEXTO };
 
     const primera = await generarPaqueteDocumental(deps, entrada);
@@ -236,7 +239,7 @@ describe("generarPaqueteDocumental — idempotencia y rechazos", () => {
     expect(segunda.fipf.hashSha256).toBe(primera.fipf.hashSha256);
   });
 
-  it("rechaza un expediente que no llegó a PAGO_CONFIRMADO y deja evidencia del intento", async () => {
+  it("rechaza un expediente que no llegó a DECLARACIONES_OK y deja evidencia del intento", async () => {
     const { deps, evidencias, archivos } = armarDependencias(crearExpediente("EXP-TEST-DOCS"));
 
     const resultado = await generarPaqueteDocumental(deps, {
@@ -254,7 +257,7 @@ describe("generarPaqueteDocumental — idempotencia y rechazos", () => {
   it("rechaza un expediente incompleto y nombra los campos que faltan", async () => {
     // Estado correcto pero sin identidad ni plan: no puede armarse el contenido.
     const mutilado: Expediente = {
-      ...expedienteEnPagoConfirmado(),
+      ...expedienteEnDeclaracionesOk("EXP-TEST-DOCS"),
       identidad: null,
       datosComplementarios: null,
     };
@@ -273,7 +276,7 @@ describe("generarPaqueteDocumental — idempotencia y rechazos", () => {
   });
 
   it("no cierra el paquete si el archivo guardado no coincide con el renderizado", async () => {
-    const { deps, expedientes } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, expedientes } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
     // Un repositorio que informa una huella que no es la del contenido: es la
     // señal de que lo almacenado no es lo que se está por registrar.
     vi.spyOn(deps.archivos, "guardarArchivo").mockResolvedValue({
@@ -290,12 +293,12 @@ describe("generarPaqueteDocumental — idempotencia y rechazos", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("ALMACENAMIENTO_INCONSISTENTE");
     // El expediente se queda donde estaba: no hay paquete a medio cerrar.
-    expect(expedientes.actual().estado).toBe("PAGO_CONFIRMADO");
+    expect(expedientes.actual().estado).toBe("DECLARACIONES_OK");
     expect(expedientes.actual().paqueteDocumental).toBeNull();
   });
 
   it("responde EXPEDIENTE_NO_ENCONTRADO sin tocar nada", async () => {
-    const { deps, archivos, evidencias } = armarDependencias(expedienteEnPagoConfirmado());
+    const { deps, archivos, evidencias } = armarDependencias(expedienteEnDeclaracionesOk("EXP-TEST-DOCS"));
 
     const resultado = await generarPaqueteDocumental(deps, {
       expedienteId: "EXP-QUE-NO-EXISTE",

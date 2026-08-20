@@ -15,7 +15,7 @@ import {
   FALLAS_DEMO,
   fallasArmadasDemo,
 } from "@/adapters/mock/fallas-demo";
-import { PLAZOS_FIRMA_DEMO, plazoFirmaMs } from "@/adapters/mock/plazo-firma-demo";
+import { PLAZOS_PAGO_DEMO, plazoPagoMs } from "@/adapters/mock/plazo-pago-demo";
 import {
   listarSesionesFirmaMock,
   obtenerCodigoFirmaDemo,
@@ -34,7 +34,7 @@ import type { SesionFirmaVisible } from "./ControlFirmaCode100";
 import { FormularioClave } from "./FormularioClave";
 import { SelectorFallas } from "./SelectorFallas";
 import { SelectorPersona } from "./SelectorPersona";
-import { SelectorPlazoFirma } from "./SelectorPlazoFirma";
+import { SelectorPlazoPago } from "./SelectorPlazoPago";
 
 /**
  * Panel de control del demo (CLAUDE.md → "Panel de demo"). NO es una de las
@@ -248,7 +248,7 @@ export default async function PanelDeDemo() {
           </div>
         </div>
 
-        {/* Debajo: persona, fallos forzados y plazo de firma. */}
+        {/* Debajo: persona, fallos forzados y plazo de pago. */}
         <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
           <Tarjeta titulo="Persona de prueba activa">
             <SelectorPersona
@@ -263,8 +263,8 @@ export default async function PanelDeDemo() {
             <SelectorFallas fallas={fallas} />
           </Tarjeta>
 
-          <Tarjeta titulo="Plazo para firmar (P7 → P8)">
-            <SelectorPlazoFirma opciones={PLAZOS_FIRMA_DEMO} plazoActualMs={plazoFirmaMs()} />
+          <Tarjeta titulo="Plazo para pagar (firma → pago)">
+            <SelectorPlazoPago opciones={PLAZOS_PAGO_DEMO} plazoActualMs={plazoPagoMs()} />
           </Tarjeta>
         </div>
 

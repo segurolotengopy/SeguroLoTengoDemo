@@ -35,14 +35,11 @@ import type { SignatureProvider } from "../../ports/signature-provider";
 import {
   PASO_EVIDENCIA_ENVIO_ENLACE_P8,
   PASO_EVIDENCIA_FIRMA_P8,
-  PASO_EVIDENCIA_VENCIMIENTO_P8,
-  RUTA_PANTALLA_B,
   confirmarFirmaP8,
   iniciarFirmaP8,
   leerResumenFirmaP8,
-  vencerPlazoFirmaP8,
 } from "../firma-p8";
-import { registrarFirmaP8 } from "../expediente";
+import { esTransicionLegal, registrarFirmaP8 } from "../expediente";
 import { VERSION_DECLARACION_FIRMA_P8 } from "../textos-p8";
 import type { Expediente, Pago, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
@@ -331,7 +328,7 @@ describe("P8 · confirmar la firma", () => {
     expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
   });
 
-  it("firma confirmada: PAQUETE_GENERADO → FIRMADO con las dos huellas juntas", async () => {
+  it("firma confirmada: PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO con las dos huellas juntas", async () => {
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
@@ -347,7 +344,8 @@ describe("P8 · confirmar la firma", () => {
     expect(expediente.firma?.hashSolicitudFirmada).toHaveLength(64);
     expect(expediente.firma?.hashFipfFirmado).toHaveLength(64);
     expect(expediente.firma?.idCode100).toBe(enlace.acto.idCode100);
-    expect(resultado.siguientePantalla).toBe("/confirmacion");
+    // D-08 · firmado el expediente, lo que sigue es pagar.
+    expect(resultado.siguientePantalla).toBe("/pago");
   });
 
   it("es idempotente: sondear de nuevo devuelve lo mismo sin volver a transicionar", async () => {
@@ -534,128 +532,59 @@ describe("P8 · regla atómica de firma (regla inviolable #3)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// El plazo de 24 horas
+// El plazo de 24 horas ya no vive acá (D-08/D-10)
 // ---------------------------------------------------------------------------
 
-describe("P8 · plazo para firmar", () => {
-  it("cumplido el plazo, el expediente vence y manda a Pantalla B", async () => {
+describe("firma · el plazo se abre acá y corre en el paso siguiente", () => {
+  it("las firmas institucionales dejan el expediente FIRMADO y abren el plazo de pago", async () => {
     const entorno = armar();
-    entorno.avanzarReloj("2026-08-10T15:01:00.001Z");
-
-    const resultado = await vencerPlazoFirmaP8(entorno.deps, {
-      expedienteId: entorno.repositorio.actual().id,
-      contexto: CONTEXTO,
-    });
-
-    expect(resultado.ok).toBe(true);
-    if (!resultado.ok) return;
-    expect(resultado.vencio).toBe(true);
-    expect(entorno.repositorio.actual().estado).toBe("VENCIDO");
-  });
-
-  it("antes del plazo no vence nada", async () => {
-    const entorno = armar();
-
-    const resultado = await vencerPlazoFirmaP8(entorno.deps, {
-      expedienteId: entorno.repositorio.actual().id,
-      contexto: CONTEXTO,
-    });
-
-    expect(resultado.ok).toBe(true);
-    if (!resultado.ok) return;
-    expect(resultado.vencio).toBe(false);
-    expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
-  });
-
-  it("un expediente pagado que nunca llegó a P8 también vence", async () => {
-    // PAGO_CONFIRMADO, sin paquete documental: el plazo corre desde el pago.
-    const enPago = expedienteEnPaqueteGenerado();
-    const sinPaquete: Expediente = {
-      ...enPago,
-      estado: "PAGO_CONFIRMADO",
-      paqueteDocumental: null,
-    };
-    const entorno = armar(sinPaquete);
-    entorno.avanzarReloj("2026-08-10T15:01:00.001Z");
-
-    const resultado = await vencerPlazoFirmaP8(entorno.deps, {
-      expedienteId: sinPaquete.id,
-      contexto: CONTEXTO,
-    });
-
-    expect(resultado.ok).toBe(true);
-    if (!resultado.ok) return;
-    expect(resultado.vencio).toBe(true);
-    expect(entorno.repositorio.actual().estado).toBe("VENCIDO");
-  });
-
-  it("vencido no se puede pedir un enlace de firma", async () => {
-    const entorno = armar();
-    entorno.avanzarReloj("2026-08-10T15:01:00.001Z");
-
-    const resultado = await pedirEnlace(entorno);
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("PLAZO_VENCIDO");
-    expect(resultado.siguientePantalla).toBe(RUTA_PANTALLA_B);
-  });
-
-  it("vencido no se puede confirmar una firma pendiente", async () => {
-    const entorno = armar();
-    await pedirEnlace(entorno);
-    entorno.avanzarReloj("2026-08-10T15:01:00.001Z");
+    const enlace = await pedirEnlace(entorno);
+    if (!enlace.ok) throw new Error("no se abrió el acto");
+    await firmarEnCode100(enlace.acto.idCode100);
 
     const resultado = await sondear(entorno);
 
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("PLAZO_VENCIDO");
-    expect(entorno.repositorio.actual().firma).toBeNull();
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok || !resultado.firmado) return;
+    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
+    // El reloj de D-10 arranca acá: sin esto habría un expediente firmado sin
+    // vencimiento posible.
+    expect(entorno.repositorio.actual().plazoPagoVenceEn).toBe(resultado.plazoPagoVenceEn);
+    expect(resultado.plazoPagoVenceEn).not.toBe("");
   });
 
-  it("una firma ya registrada no se pierde porque después venza el reloj", async () => {
+  it("el tramo institucional se retoma solo si quedó a medias (regla inviolable #3)", async () => {
+    // Un expediente detenido en FIRMADO_CLIENTE tiene la firma del cliente
+    // registrada y el acto sin cerrar. El sondeo siguiente lo completa sin
+    // volver a pedirle nada a Code100: la firma del cliente es un hecho.
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
     await firmarEnCode100(enlace.acto.idCode100);
     await sondear(entorno);
 
-    entorno.avanzarReloj("2026-08-11T00:00:00.000Z");
-    const resultado = await sondear(entorno);
+    const aMedias: Expediente = {
+      ...entorno.repositorio.actual(),
+      estado: "FIRMADO_CLIENTE",
+      plazoPagoVenceEn: null,
+    };
+    const reintento = armar(aMedias);
+    const resultado = await sondear(reintento);
 
     expect(resultado.ok).toBe(true);
     if (!resultado.ok || !resultado.firmado) return;
-    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
+    expect(reintento.repositorio.actual().estado).toBe("FIRMADO");
+    expect(reintento.repositorio.actual().plazoPagoVenceEn).not.toBeNull();
   });
 
-  it("deja evidencia del vencimiento y de que no hubo cobro que deshacer", async () => {
-    const entorno = armar();
-    entorno.avanzarReloj("2026-08-10T15:01:00.001Z");
-
-    await vencerPlazoFirmaP8(entorno.deps, {
-      expedienteId: entorno.repositorio.actual().id,
-      contexto: CONTEXTO,
-    });
-
-    const registro = entorno.evidencias.registros.find(
-      (evidencia) => evidencia.paso === PASO_EVIDENCIA_VENCIMIENTO_P8,
-    );
-    expect(registro?.resultado).toBe("FALLIDO");
-    // Antes la consecuencia dependía del medio: con QR o débito había que
-    // devolver, con crédito alcanzaba con liberar la reserva. Sin
-    // preautorización (D-02) y con el pago después de la firma (D-08) el
-    // expediente vence sin haber cobrado nunca, así que simplemente caduca.
-    expect(registro?.detalle).toContain("consecuencia=CADUCIDAD_SIN_COBRO");
+  it("un expediente sin firmar no puede pagar: el cobro sale de FIRMADO", () => {
+    // Es la garantía de la Matriz V4 §7 y la razón de la inversión: el medio
+    // de cobro solo se habilita con firma válida.
+    expect(esTransicionLegal("DECLARACIONES_OK", "PAGO_CONFIRMADO")).toBe(false);
+    expect(esTransicionLegal("PAQUETE_GENERADO", "PAGO_CONFIRMADO")).toBe(false);
+    expect(esTransicionLegal("FIRMADO_CLIENTE", "PAGO_CONFIRMADO")).toBe(false);
+    expect(esTransicionLegal("FIRMADO", "PAGO_CONFIRMADO")).toBe(true);
   });
-});
-
-// ---------------------------------------------------------------------------
-// Crédito: captura tras la firma, liberación al vencer (filas 26 y 27)
-// ---------------------------------------------------------------------------
-
-
-describe("P8 · garantía de pago con tarjeta de crédito", () => {
 });
 
 // ---------------------------------------------------------------------------
@@ -673,9 +602,6 @@ describe("P8 · resumen para la pantalla", () => {
     expect(resumen?.solicitud.hashSha256).toBe(PAQUETE_FIXTURE.solicitud.hashSha256);
     expect(resumen?.canalWhatsappEnmascarado).toContain("•");
     expect(resumen?.canalEmailEnmascarado).toContain("•");
-    // El pago sigue precediendo a la firma; lo que cambió es que ya no hay dos
-    // formas de estar listo (acreditado o reservado): o el dinero entró o no.
-    expect(resumen?.garantia?.lista).toBe(true);
   });
 
   it("no expone el valor completo de ningún canal verificado", () => {

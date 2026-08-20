@@ -51,8 +51,8 @@ import {
   emitirPolizaP9,
   registrarComunicacionesComercialesP9,
 } from "@/domain/emision-p9";
-import { confirmarFirmaP8, iniciarFirmaP8, vencerPlazoFirmaP8 } from "@/domain/firma-p8";
-import { confirmarPagoP7, iniciarPagoP7 } from "@/domain/pago-p7";
+import { confirmarFirmaP8, iniciarFirmaP8 } from "@/domain/firma-p8";
+import { confirmarPagoP7, iniciarPagoP7, vencerPlazoPagoP7 } from "@/domain/pago-p7";
 import type { PaymentProvider } from "@/ports/payment-provider";
 import type { PolicyIssuer } from "@/ports/policy-issuer";
 import type { SignatureProvider } from "@/ports/signature-provider";
@@ -219,6 +219,7 @@ async function expedienteDerivado(): Promise<Expediente> {
       },
       // Declaración 8 en "Sí": condición PEP.
       declaraciones: { "1": "SI", "2": "NO", "3": "NO", "4": "SI", "5": "SI", "6": "SI", "7": "SI", "8": "SI" },
+      origenLicitoDeFondos: true,
       contexto: CONTEXTO,
     },
   );
@@ -430,6 +431,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
               ingresoMensualDeclaradoGs: "8000000",
               beneficiarioTipo: "HEREDEROS_LEGALES",
             },
+            origenLicitoDeFondos: true,
             declaraciones: {
               "1": "SI", "2": "NO", "3": "NO", "4": "SI",
               "5": "SI", "6": "SI", "7": "SI", "8": "NO",
@@ -458,7 +460,6 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             expedienteId: EXPEDIENTE_ID,
             medio: "QR_BANCARD",
             ruc: "",
-            origenLicitoDeFondos: true,
             contexto: CONTEXTO,
           },
         ),
@@ -488,7 +489,6 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         iniciarFirmaP8(
           {
             firmas: firmasQueFallanSiSeUsan(),
-            pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
           },
@@ -501,7 +501,6 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         confirmarFirmaP8(
           {
             firmas: firmasQueFallanSiSeUsan(),
-            pagos: pagosQueFallanSiSeUsan(),
             expedientes: repo,
             evidencias: evidenciasFalsas(),
           },
@@ -746,11 +745,11 @@ describe("3. Inventario de rutas de la API", () => {
 
     /**
      * Puede escribir, pero no sobre un expediente derivado: el vencimiento del
-     * plazo de firma solo alcanza a PAGO_CONFIRMADO y PAQUETE_GENERADO, y
-     * devuelve `ok: true` sin tocar nada en cualquier otro estado — por eso no
-     * entra en `CASOS`, que exige un rechazo. Su prueba es la de abajo.
+     * plazo de pago solo alcanza a FIRMADO (D-10), y devuelve `ok: true` sin
+     * tocar nada en cualquier otro estado — por eso no entra en `CASOS`, que
+     * exige un rechazo. Su prueba es la de abajo.
      */
-    const INMUTABLES_SOBRE_UN_DERIVADO: readonly string[] = ["p8/vencimiento"];
+    const INMUTABLES_SOBRE_UN_DERIVADO: readonly string[] = ["p7/vencimiento"];
 
     const conocidas = new Set([
       ...SOLO_LECTURA,
@@ -767,13 +766,12 @@ describe("3. Inventario de rutas de la API", () => {
     ).toEqual([]);
   });
 
-  it("POST /api/p8/vencimiento deja intacto un expediente derivado", async () => {
+  it("POST /api/p7/vencimiento deja intacto un expediente derivado", async () => {
     const derivado = await expedienteDerivado();
     const { repo, actual } = repositorioFalso(derivado);
 
-    const resultado = await vencerPlazoFirmaP8(
+    const resultado = await vencerPlazoPagoP7(
       {
-        firmas: firmasQueFallanSiSeUsan(),
         pagos: pagosQueFallanSiSeUsan(),
         expedientes: repo,
         evidencias: evidenciasFalsas(),

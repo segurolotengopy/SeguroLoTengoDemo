@@ -160,6 +160,31 @@ export function guiaHabilitacionVisible(): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Declaración de origen lícito de fondos (checkbox obligatorio)
+// ---------------------------------------------------------------------------
+
+/**
+ * **Se acepta acá y no en la pantalla de pago** (D-08). Vivía en `textos-p7`
+ * mientras se cobraba antes de firmar; invertido el orden, el literal tiene
+ * que estar dentro del FIPF que la persona firma, y el documento se cierra al
+ * salir de esta pantalla.
+ *
+ * La versión conserva el prefijo `P7-` a propósito: hay evidencias guardadas
+ * que apuntan a esta cadena exacta y **la versión de un texto aceptado no se
+ * reescribe nunca** (regla inviolable #10). El literal no cambió; lo que
+ * cambió es cuándo se lo muestra. Si algún día cambia el texto, ahí sí sube la
+ * versión — y ahí conviene renombrar el prefijo.
+ */
+export const VERSION_DECLARACION_ORIGEN_LICITO = "P7-ORIGEN-LICITO-v1";
+
+/** Literal exacto del checkbox obligatorio. */
+export const TEXTO_DECLARACION_ORIGEN_LICITO =
+  "Declaro que los fondos utilizados para pagar el premio son de mi propiedad y tienen origen lícito.";
+
+export const NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA =
+  "Obligatorio para continuar.";
+
+// ---------------------------------------------------------------------------
 // Textos fijos del resto de la pantalla
 // ---------------------------------------------------------------------------
 
@@ -182,4 +207,4 @@ export const REGLA_ELEGIBILIDAD_P6 =
 /** Leyenda inferior de la pantalla. */
 export const LEYENDA_DOCUMENTOS_P6 =
   "Las declaraciones médicas integrarán la Solicitud y la condición PEP integrará el FIPF; ambos se " +
-  "firmarán en la Pantalla 8 mediante Code100.";
+  "cierran al salir de esta pantalla y se firman en el paso siguiente mediante Code100.";

@@ -41,7 +41,7 @@
  * versión y huellas nuevas (regla #4) — que es justamente lo que no se quiere
  * que pase por recargar una pantalla.
  */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import {
   VERSION_INICIAL_PAQUETE,
   armarContenidoPaquete,
@@ -80,12 +80,48 @@ export interface DependenciasDocumentos {
   readonly evidencias: EvidenceStore;
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
+  /** Inyectable solo para que los tests puedan fijar el correlativo. */
+  readonly nuevoNumeroPropuesta?: () => string;
   /** Base del enlace que codifica el QR de verificación impreso en cada PDF. */
   readonly urlBaseVerificacion?: string;
 }
 
-/** Único estado desde el que se puede cerrar el paquete. */
-export const ESTADO_REQUERIDO_DOCUMENTOS = "PAGO_CONFIRMADO";
+/**
+ * Único estado desde el que se puede cerrar el paquete.
+ *
+ * Era `PAGO_CONFIRMADO` mientras se cobraba antes de firmar. Con el orden
+ * invertido (D-08) los documentos se cierran para poder firmarlos, así que se
+ * cierran apenas las declaraciones resultan compatibles y **antes** de que
+ * exista ninguna operación de pago.
+ */
+export const ESTADO_REQUERIDO_DOCUMENTOS = "DECLARACIONES_OK";
+
+export const LARGO_NUMERO_PROPUESTA = 8;
+
+/**
+ * Acuña el correlativo de la propuesta / futura póliza: `00018425` en la
+ * especificación. `codigoSolicitud` y `codigoFipf` le ponen los prefijos —
+ * **un solo correlativo, dos prefijos**.
+ *
+ * **Lo acuña el cierre del paquete, no el pago** (D-08). Mientras se cobraba
+ * primero, el número nacía al abrir la operación en Bancard y los documentos
+ * lo heredaban; invertido el orden, los documentos se cierran antes de que
+ * exista ninguna operación de pago, así que el número tiene que nacer con
+ * ellos y el pago pasa a ser uno más de los que lo citan.
+ *
+ * Vive acá y no en `src/domain/documentos.ts` porque necesita `node:crypto` y
+ * ese módulo es deliberadamente libre de `node:*` para poder viajar al
+ * navegador.
+ *
+ * Mismo criterio que `generarNumeroCaso` en `declaraciones-p6.ts`: ocho
+ * dígitos de `randomInt` (CSPRNG) y no un contador, porque en el demo no hay
+ * secuencia central y un correlativo adivinable expondría cuántas propuestas
+ * existen. El formato es decisión de producto: no tiene fila en la matriz de
+ * cumplimiento.
+ */
+export function generarNumeroPropuesta(): string {
+  return String(randomInt(0, 10 ** LARGO_NUMERO_PROPUESTA)).padStart(LARGO_NUMERO_PROPUESTA, "0");
+}
 
 export const PASO_EVIDENCIA_DOCUMENTOS = "P8_PAQUETE_DOCUMENTAL";
 
@@ -240,7 +276,15 @@ export async function generarPaqueteDocumental(
     return { ok: false, motivo: "ESTADO_INVALIDO" };
   }
 
-  const contenido = armarContenidoPaquete(expediente, {
+  // El correlativo se acuña acá, una sola vez y en memoria: recién se persiste
+  // junto con el paquete, en la misma escritura. Si el cierre falla más abajo
+  // no queda un número reservado sin documentos que lo lleven.
+  const conCorrelativo: Expediente =
+    expediente.numeroPropuesta
+      ? expediente
+      : { ...expediente, numeroPropuesta: (deps.nuevoNumeroPropuesta ?? generarNumeroPropuesta)() };
+
+  const contenido = armarContenidoPaquete(conCorrelativo, {
     cerradoEn: fecha,
     version: VERSION_INICIAL_PAQUETE,
     urlBaseVerificacion: deps.urlBaseVerificacion,
@@ -256,7 +300,7 @@ export async function generarPaqueteDocumental(
     return { ok: false, motivo: "EXPEDIENTE_INCOMPLETO", faltantes: contenido.faltantes };
   }
 
-  const cerrados = await cerrarDocumentos(deps, expediente.id, contenido.contenido);
+  const cerrados = await cerrarDocumentos(deps, conCorrelativo.id, contenido.contenido);
   if (!cerrados.ok) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: entrada.expedienteId,
@@ -273,7 +317,7 @@ export async function generarPaqueteDocumental(
     fipf: documentoCerrado(cerrados.fipf, fecha),
   };
 
-  const transicion = registrarPaqueteDocumental(expediente, paquete, fecha);
+  const transicion = registrarPaqueteDocumental(conCorrelativo, paquete, fecha);
   if (!transicion.ok) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: entrada.expedienteId,

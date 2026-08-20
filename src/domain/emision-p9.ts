@@ -7,7 +7,7 @@
  *
  * 1. `emitirPolizaP9` — al entrar a la pantalla: SeguroLoTengo remite el
  *    expediente a Alianza, que lo valida automáticamente por SEBAOT.
- *    FIRMADO → EMITIDO, con la póliza `EN PROCESO DE EMISIÓN`.
+ *    PAGO_CONFIRMADO → EMITIDO, con la póliza `EN PROCESO DE EMISIÓN`.
  * 2. `consultarEmisionP9` — el sondeo posterior, mientras la pantalla muestra
  *    el badge `EN EMISIÓN`. Actualiza el estado de la póliza y de la factura
  *    **sin mover el estado del expediente**, que ya llegó a EMITIDO.
@@ -15,17 +15,18 @@
  *
  * ## Las cuatro reglas que este módulo hace imposibles de violar
  *
- * **No hay emisión sin firma completa** (regla inviolable #3). El único estado
- * de origen es FIRMADO, y `PolicyIssuer.emitirPoliza` exige `firma: Firma` con
- * los dos hashes obligatorios: no hay forma de pedirle a SEBAOT que emita sobre
- * un paquete a medio firmar.
+ * **No hay emisión sin firma completa** (regla inviolable #3).
+ * `PolicyIssuer.emitirPoliza` exige `firma: Firma` con los dos hashes
+ * obligatorios, y llegar al estado de origen ya exigió pasar por la firma: no
+ * hay forma de pedirle a SEBAOT que emita sobre un paquete a medio firmar.
  *
  * **El orden es firma → cobro → emisión** (filas 43 y 44 de la matriz de
- * cumplimiento). No alcanza con que la garantía de pago esté lista: hace falta
- * que el dinero haya **entrado**. Con crédito eso significa CAPTURADO, no
- * PREAUTORIZADO — la captura la ordena la firma en P8, y si no se completó, la
- * fila 44 es explícita: *"Si falla el cobro, no solicitar la emisión
- * automática"* (Código Civil, art. 1373; Ley 4868/13, arts. 7(e) y 7(p)).
+ * cumplimiento), que desde D-08 es también el orden de las pantallas. El único
+ * estado de origen es PAGO_CONFIRMADO, que ya significa *"el dinero entró"*;
+ * la comprobación explícita del `Pago` se conserva igual porque una condición
+ * de la que depende una obligación legal no se sostiene sola en el grafo —
+ * fila 44: *"Si falla el cobro, no solicitar la emisión automática"* (Código
+ * Civil, art. 1373; Ley 4868/13, arts. 7(e) y 7(p)).
  *
  * **La póliza conserva el correlativo de la propuesta** (fila 47). El número no
  * lo inventa nadie acá: se le pasa `numeroPropuesta` a SEBAOT y
@@ -74,8 +75,14 @@ export interface DependenciasP9 {
   readonly nuevoId?: () => string;
 }
 
-/** Único estado desde el que se puede remitir el expediente a Alianza. */
-export const ESTADO_REQUERIDO_P9: EstadoExpediente = "FIRMADO";
+/**
+ * Único estado desde el que se puede remitir el expediente a Alianza.
+ *
+ * Era `FIRMADO` mientras se cobraba antes de firmar. Con el orden invertido
+ * (D-08) firmar es el paso anterior y lo último que falta es la plata, así que
+ * la emisión arranca del cobro acreditado.
+ */
+export const ESTADO_REQUERIDO_P9: EstadoExpediente = "PAGO_CONFIRMADO";
 
 export const PASO_EVIDENCIA_EMISION_P9 = "P9_EMISION_POLIZA";
 export const PASO_EVIDENCIA_ESTADO_POLIZA_P9 = "P9_ESTADO_POLIZA";
@@ -191,7 +198,7 @@ function polizaDesde(
 // ---------------------------------------------------------------------------
 
 /**
- * FIRMADO → EMITIDO, al entrar a P9.
+ * PAGO_CONFIRMADO → EMITIDO, al entrar a P9.
  *
  * Idempotente de punta a punta: con el expediente ya EMITIDO devuelve la póliza
  * persistida sin volver a llamar a SEBAOT ni a transicionar. Importa porque la

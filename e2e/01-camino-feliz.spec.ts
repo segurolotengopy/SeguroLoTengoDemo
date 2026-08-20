@@ -9,7 +9,7 @@ import {
   completarP5Aprobado,
   completarP6,
   completarP7Qr,
-  continuarAFirma,
+  continuarAConfirmacion,
   enviarEnlaceYAbrir,
   enviarP6,
   firmarNormalmente,
@@ -46,12 +46,14 @@ test("camino feliz P0→P9 con Mónica Gorena Tapia", async ({ page }) => {
   await declararCorreo(page, persona);
   await completarP5Aprobado(page);
   await completarP6(page, persona);
-  await enviarP6(page, /\/pago$/);
-  await completarP7Qr(page);
-  await continuarAFirma(page);
+  // D-08 · se firma en el paso 6 y se paga en el 7.
+  await enviarP6(page, /\/firma$/);
 
   const idCode100 = await enviarEnlaceYAbrir(page);
   await firmarNormalmente(page, idCode100);
+
+  await completarP7Qr(page);
+  await continuarAConfirmacion(page);
 
   // P9 · Paso 9 de 9 — Contratación aceptada.
   await expect(page).toHaveURL(/\/confirmacion$/);

@@ -32,7 +32,7 @@
  * - `BANCARD_TIMEOUT` y `CODE100_RECHAZO` entran por el `fallaForzada` que los
  *   adaptadores mock de pago y firma ya exponían.
  *
- * Igual que la persona activa y el plazo de firma, esto es memoria del proceso
+ * Igual que la persona activa y el plazo de pago, esto es memoria del proceso
  * y solo funciona con `DEMO_MODE=true`.
  */
 
@@ -59,29 +59,29 @@ export const DESCRIPCION_FALLA_DEMO: Readonly<
 > = {
   REGISTRO_CIVIL_CAIDO: {
     rotulo: "Registro civil caído",
-    donde: "P5, con una cédula del formato anterior (sin MRZ)",
+    donde: "Paso 4, con una cédula del formato anterior (sin MRZ)",
     efecto:
       "La consulta al registro civil no responde y la persona no puede continuar. Queda distinguido en la evidencia de un 'no existe': una caída del registro no dice nada sobre ella. La derivación automática a revisión manual todavía no está implementada.",
   },
   OTP_EXPIRADO: {
     rotulo: "OTP expirado",
-    donde: "P1 o P4, al pedir el código",
+    donde: "Paso 2, al pedir el código de WhatsApp",
     efecto: "El próximo código nace vencido: al verificarlo, la pantalla informa que expiró.",
   },
   OTP_INTENTOS_AGOTADOS: {
     rotulo: "3 intentos agotados",
-    donde: "P1 o P4, al pedir el código",
+    donde: "Paso 2, al pedir el código de WhatsApp",
     efecto: "El próximo código llega con los tres intentos ya quemados: hay que reenviar.",
   },
   BANCARD_TIMEOUT: {
     rotulo: "Timeout de Bancard",
-    donde: "P7, al generar el QR o abrir el formulario",
+    donde: "Paso 7, al generar el QR o abrir el formulario",
     efecto:
       "Bancard no responde. El reintento reutiliza la misma clave de idempotencia, así que no cobra dos veces.",
   },
   CODE100_RECHAZO: {
     rotulo: "Rechazo de Code100",
-    donde: "P8, al enviar el enlace de firma",
+    donde: "Paso 6, al enviar el enlace de firma",
     efecto: "Code100 rechaza la apertura del acto. No queda ningún documento firmado.",
   },
 };

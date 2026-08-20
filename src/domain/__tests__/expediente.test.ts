@@ -12,6 +12,7 @@ import {
   avanzarHastaIdentidadVerificada,
   crearExpediente,
   datosComplementariosFixture,
+  declaracionOrigenLicitoFixture,
   declaracionesCompatibles,
   NUMERO_CASO_FIJO,
 } from "./fixtures";
@@ -72,13 +73,27 @@ describe("transicionarExpediente", () => {
   it("recorre el camino feliz completo hasta EMITIDO", () => {
     let expediente = avanzarHastaIdentidadVerificada(crearExpediente());
 
-    const declaraciones = registrarDeclaracionesP6(expediente, declaracionesCompatibles, datosComplementariosFixture, NUMERO_CASO_FIJO);
+    const declaraciones = registrarDeclaracionesP6(
+      expediente,
+      declaracionesCompatibles,
+      datosComplementariosFixture,
+      declaracionOrigenLicitoFixture,
+      NUMERO_CASO_FIJO,
+    );
     expect(declaraciones.ok).toBe(true);
     if (!declaraciones.ok) return;
     expediente = declaraciones.expediente;
     expect(expediente.estado).toBe("DECLARACIONES_OK");
 
-    for (const siguiente of ["PAGO_CONFIRMADO", "PAQUETE_GENERADO", "FIRMADO", "EMITIDO"] as const) {
+    // D-08 · se cierra el paquete, se firma y recién ahí se cobra.
+    const feliz = [
+      "PAQUETE_GENERADO",
+      "FIRMADO_CLIENTE",
+      "FIRMADO",
+      "PAGO_CONFIRMADO",
+      "EMITIDO",
+    ] as const;
+    for (const siguiente of feliz) {
       const paso = transicionarExpediente(expediente, siguiente);
       expect(paso.ok).toBe(true);
       if (!paso.ok) return;
@@ -89,25 +104,40 @@ describe("transicionarExpediente", () => {
     expect(esEstadoTerminal(expediente.estado)).toBe(true);
   });
 
-  it("recorre la rama de vencimiento hasta DEVUELTO", () => {
+  it("recorre la rama de vencimiento: se firma, no se paga y caduca sin devolución", () => {
     let expediente = avanzarHastaIdentidadVerificada(crearExpediente());
-    const declaraciones = registrarDeclaracionesP6(expediente, declaracionesCompatibles, datosComplementariosFixture, NUMERO_CASO_FIJO);
+    const declaraciones = registrarDeclaracionesP6(
+      expediente,
+      declaracionesCompatibles,
+      datosComplementariosFixture,
+      declaracionOrigenLicitoFixture,
+      NUMERO_CASO_FIJO,
+    );
     if (!declaraciones.ok) throw new Error(declaraciones.error);
     expediente = declaraciones.expediente;
 
-    const rama = ["PAGO_CONFIRMADO", "PAQUETE_GENERADO", "VENCIDO", "DEVOLUCION_EN_TRAMITE", "DEVUELTO"] as const;
+    const rama = ["PAQUETE_GENERADO", "FIRMADO_CLIENTE", "FIRMADO", "VENCIDO"] as const;
     for (const siguiente of rama) {
       const paso = transicionarExpediente(expediente, siguiente);
       if (!paso.ok) throw new Error(paso.error);
       expediente = paso.expediente;
     }
 
-    // El trámite de devolución tiene una etapa más que el resto de las ramas:
+    // D-08 · bajo el orden nuevo el expediente caduca **antes** de cobrar, así
+    // que no hay premio que devolver y VENCIDO es el final del camino.
+    expect(expediente.estado).toBe("VENCIDO");
+  });
+
+  it("la rama de devolución sigue existiendo para los expedientes que sí cobraron", () => {
     // DEVOLUCION_EN_TRAMITE es un trámite en curso, no un final, y el estado
-    // terminal es DEVUELTO (pie de la Pantalla B).
-    expect(expediente.estado).toBe("DEVUELTO");
+    // terminal es DEVUELTO (pie de la Pantalla B). Se llega desde el cobro —a
+    // pedido (D-02)— y desde un VENCIDO del orden viejo, que no se reescribe
+    // (regla inviolable #10).
+    expect(esTransicionLegal("PAGO_CONFIRMADO", "DEVOLUCION_EN_TRAMITE")).toBe(true);
+    expect(esTransicionLegal("EMITIDO", "DEVOLUCION_EN_TRAMITE")).toBe(true);
+    expect(esTransicionLegal("VENCIDO", "DEVOLUCION_EN_TRAMITE")).toBe(true);
     expect(esEstadoTerminal("DEVOLUCION_EN_TRAMITE")).toBe(false);
-    expect(esEstadoTerminal(expediente.estado)).toBe(true);
+    expect(esEstadoTerminal("DEVUELTO")).toBe(true);
   });
 });
 
@@ -119,6 +149,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       { ...declaracionesCompatibles, condicionPep: "SI" }, // #8 incompatible
       datosComplementariosFixture,
+      declaracionOrigenLicitoFixture,
       NUMERO_CASO_FIJO,
     );
 
@@ -136,6 +167,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       declaracionesCompatibles,
       datosComplementariosFixture,
+      declaracionOrigenLicitoFixture,
       NUMERO_CASO_FIJO,
     );
 
@@ -153,6 +185,7 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       { ...declaracionesCompatibles, condicionPep: "SI" },
       datosComplementariosFixture,
+      declaracionOrigenLicitoFixture,
       "   ",
     );
 
@@ -172,12 +205,21 @@ describe("DERIVADO_MANUAL es terminal en el flujo digital (regla de negocio #5)"
       expediente,
       { ...declaracionesCompatibles, estadoDeSalud: "NO" }, // #1 incompatible
       datosComplementariosFixture,
+      declaracionOrigenLicitoFixture,
       NUMERO_CASO_FIJO,
     );
     if (!derivado.ok) throw new Error(derivado.error);
     expect(derivado.expediente.estado).toBe("DERIVADO_MANUAL");
 
-    for (const destino of ["DECLARACIONES_OK", "PAGO_CONFIRMADO", "PAQUETE_GENERADO", "FIRMADO", "EMITIDO"] as const) {
+    const prohibidos = [
+      "DECLARACIONES_OK",
+      "PAQUETE_GENERADO",
+      "FIRMADO_CLIENTE",
+      "FIRMADO",
+      "PAGO_CONFIRMADO",
+      "EMITIDO",
+    ] as const;
+    for (const destino of prohibidos) {
       const intento = transicionarExpediente(derivado.expediente, destino);
       expect(intento.ok).toBe(false);
     }

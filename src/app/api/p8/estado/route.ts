@@ -26,7 +26,6 @@ function estadoHttp(motivo: MotivoRechazoP8): number {
     case "EXPEDIENTE_NO_ENCONTRADO":
       return 404;
     case "ESTADO_INVALIDO":
-    case "PLAZO_VENCIDO":
     case "FIRMA_NO_INICIADA":
     case "FIRMA_NO_COMPLETADA":
     // Perdió la carrera de escritura contra otra petición y el conflicto
@@ -57,7 +56,6 @@ export async function GET(request: Request): Promise<Response> {
         ok: false,
         motivo: resultado.motivo,
         ...(resultado.detalle ? { detalle: resultado.detalle } : {}),
-        ...(resultado.siguientePantalla ? { siguientePantalla: resultado.siguientePantalla } : {}),
       },
       { status: estadoHttp(resultado.motivo), cookies },
     );
@@ -83,6 +81,7 @@ export async function GET(request: Request): Promise<Response> {
       numeroPropuesta: resultado.numeroPropuesta,
       idCode100: resultado.idCode100,
       firmadoEn: resultado.firmadoEn,
+      plazoPagoVenceEn: resultado.plazoPagoVenceEn,
       siguientePantalla: resultado.siguientePantalla,
     },
     { cookies },

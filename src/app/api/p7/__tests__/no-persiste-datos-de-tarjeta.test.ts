@@ -34,18 +34,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { crearPaymentProviderMock, limpiarOperacionesMock } from "@/adapters/mock/payment-provider";
-import { transicionarExpediente } from "@/domain/expediente";
 import { confirmarPagoP7, iniciarPagoP7 } from "@/domain/pago-p7";
-import { PLANES } from "@/domain/catalogo";
 import type { Expediente, MedioDePago, RegistroEvidencia } from "@/domain/tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "@/domain/verificacion-canal";
 import type { EvidenceStore } from "@/ports/evidence-store";
-import {
-  avanzarHastaIdentidadVerificada,
-  crearExpediente,
-  datosComplementariosFixture,
-  declaracionesCompatibles,
-} from "@/domain/__tests__/fixtures";
+import { expedienteFirmado } from "@/domain/__tests__/fixtures";
 
 // ---------------------------------------------------------------------------
 // Lo que se considera "dato de tarjeta"
@@ -156,41 +149,12 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
   };
 }
 
+/**
+ * D-08 · la entrada de este paso es un expediente **firmado**: paquete cerrado,
+ * correlativo acuñado y plazo de pago corriendo.
+ */
 function expedienteListoParaPagar(): Expediente {
-  const base = avanzarHastaIdentidadVerificada(crearExpediente(EXPEDIENTE_ID));
-  const transicion = transicionarExpediente(
-    {
-      ...base,
-      plan: {
-        planId: "CONFIO_PLUS",
-        premioAnualGs: PLANES.CONFIO_PLUS.premioAnualGs,
-        idVersionOferta: "OFERTA-CONFIO-v1",
-        hashOfertaSha256: "hash-de-prueba",
-        seleccionadoEn: AHORA,
-      },
-      identidad: {
-        numeroCedula: "9323336",
-        nombres: "Mónica Mariana",
-        apellidos: "Gorena Tapia",
-        fechaNacimiento: "1990-04-17",
-        sexo: "F",
-        nacionalidad: "Paraguaya",
-        paisNacimiento: "Paraguay",
-        estadoCivil: "Soltera",
-        captura: {
-          hashFrenteCedula: "a",
-          hashDorsoCedula: "b",
-          hashSelfie: "c",
-          pruebaDeVidaAprobada: true,
-          coincidenciaFacialAprobada: true,
-        },
-      },
-    },
-    "DECLARACIONES_OK",
-    { declaraciones: declaracionesCompatibles, datosComplementarios: datosComplementariosFixture },
-  );
-  if (!transicion.ok) throw new Error(transicion.error);
-  return transicion.expediente;
+  return expedienteFirmado(EXPEDIENTE_ID);
 }
 
 /**
@@ -214,7 +178,6 @@ async function recorrerP7(medio: MedioDePago) {
     // Un RUC legítimo de 8 dígitos: es el único número largo que P7 acepta y
     // sirve para comprobar que el detector de PAN no lo confunde.
     ruc: "80012345-6",
-    origenLicitoDeFondos: true,
     contexto: CONTEXTO,
     // Datos de tarjeta inyectados en el cuerpo, como los mandaría un cliente
     // manipulado o un formulario que alguien agregue mañana sin pensarlo. El

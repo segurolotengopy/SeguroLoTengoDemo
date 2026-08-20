@@ -15,15 +15,18 @@ import {
 import { CasoVencido } from "./CasoVencido";
 
 /**
- * Pantalla B · QR pagado, firma no completada.
+ * Pantalla B · Solicitud vencida.
  *
  * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "Pantalla B · QR pagado,
- * firma no completada". Se llega solo desde el vencimiento del plazo de firma
- * de P8, con el expediente en VENCIDO / DEVOLUCION_EN_TRAMITE / DEVUELTO.
+ * firma no completada". **El caso que el documento describe ya no ocurre**
+ * (D-08): invertido el orden, lo que caduca es un expediente firmado que no
+ * pagó, y los literales del cobro quedaron como variante legada para los
+ * expedientes que sí vencieron pagados. Se llega solo desde el vencimiento del
+ * plazo de pago, con el expediente en VENCIDO / DEVOLUCION_EN_TRAMITE /
+ * DEVUELTO.
  *
- * **Fuera del contador de 9 pasos**: usa la variante `pantalla-b` del stepper y
- * no lleva barra de plan seleccionado — la barra va de P3 a P8, y acá no hay
- * contratación en curso.
+ * **Fuera del contador de pasos**: usa la variante `pantalla-b` del stepper y
+ * no lleva barra de plan seleccionado — acá no hay contratación en curso.
  *
  * Todo lo estático se renderiza en el servidor. Lo que baja como componente de
  * cliente es `CasoVencido`, que abre el trámite de devolución en

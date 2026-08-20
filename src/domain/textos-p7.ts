@@ -1,18 +1,26 @@
 /**
- * Literales de P7 · Facturación y garantía de pago, transcritos de
+ * Literales del paso de pago, transcritos de
  * docs/ESPECIFICACION_PANTALLAS.md → "P7 · Paso 7 de 9 — Facturación y
- * garantía de pago".
+ * garantía de pago" y reescritos donde la inversión de firma y pago (D-08)
+ * dejó al documento describiendo otro flujo.
  *
  * Mismo criterio que `textos-p1.ts`, `textos-p3.ts` y `textos-p6.ts`: módulo
  * sin ninguna dependencia (ni siquiera `node:*`) porque lo consumen las dos
  * orillas —la pantalla, que muestra los literales, y el caso de uso del
  * servidor, que registra la versión del que se aceptó—.
  *
- * **Al cambiar una sola palabra de la declaración de origen lícito hay que
- * subir `VERSION_DECLARACION_ORIGEN_LICITO`.** Las evidencias ya guardadas
- * apuntan a la versión vieja y no se reescriben nunca (regla inviolable #10).
+ * ## Divergencias declaradas de la especificación
  *
- * ## Divergencia declarada de la especificación
+ * **El pago va después de la firma** (D-08, Matriz Legal V4 §7). El documento
+ * describe una pantalla que prepara el cobro para poder firmar; acá el
+ * expediente ya está firmado y lo que falta es la plata. Por eso el título ya
+ * no habla de "garantía", el botón dice que se contrata el seguro (CHG-38) y
+ * el aviso del plazo dejó de prometer una devolución que no puede ocurrir:
+ * cuando el plazo vence, no hubo cobro.
+ *
+ * **La declaración de origen lícito se mudó al paso de declaraciones** (D-08),
+ * junto con su versión y su literal: integra el FIPF, y el FIPF se cierra y se
+ * firma antes de llegar acá. Vive en `textos-p6.ts`.
  *
  * El documento presenta dos medios de pago (`QR BANCARD` y `TARJETA DE
  * CRÉDITO O DÉBITO`); acá hay tres, separando débito de crédito porque son dos
@@ -34,11 +42,13 @@
  * - 26 y 27 — Preautorizar antes de firmar y capturar después. **Ya no
  *   aplican:** D-02 retiró la preautorización. La protección que buscaban —no
  *   cobrar por un contrato sin firmar— la da ahora el orden del flujo.
- * - 28 — En QR, permitir el pago anterior a la firma e informar la condición y
- *   la devolución (Ley 4868/13, arts. 7(m, p, q) y 30(c)).
+ * - 28 — En QR, informar la condición del pago anterior a la firma. **Ya no
+ *   aplica:** con D-08 no hay pago anterior a la firma.
  * - 30 — Devolver el premio si no se firma dentro del plazo comunicado
  *   (Ley 4868/13, arts. 7(f), 17 y 30(b); Res. SS SG. 215/15, Anexo 1,
- *   numerales 8.4, 8.5 y 8.9).
+ *   numerales 8.4, 8.5 y 8.9). Se cumple por construcción: el expediente
+ *   caduca **antes** de cobrar, así que nunca hay premio que devolver por esta
+ *   causa.
  * - 31 — Conservar ID, estado, fecha, hora, importe y referencia de la
  *   operación (Res. BCP 25/21, art. 6(a-e); Ley 6822/21, arts. 42(5) y 66).
  * - 32 — Idempotencia para impedir cobros o eventos duplicados
@@ -48,11 +58,12 @@
  */
 import type { MedioDePago } from "./tipos";
 
-export const TITULO_P7 = "Facturación y garantía de pago";
+/** CHG-39 · D-16 adoptó "Realizá el pago" como título del paso. */
+export const TITULO_P7 = "Realizá el pago";
 
-export const SUBTITULO_P7 = "Prepará el pago antes de firmar.";
+export const SUBTITULO_P7 = "Ya firmaste la Solicitud: falta el pago para contratar el seguro.";
 
-export const ADVERTENCIA_P7 = "La póliza todavía no se emite en esta pantalla.";
+export const ADVERTENCIA_P7 = "La póliza la emite Alianza Garantía después del pago.";
 
 export const LEYENDA_PROCESADOR_P7 =
   "Bancard procesa la operación directamente a favor de Alianza Garantía.";
@@ -108,18 +119,6 @@ export const NOTA_DESTINO_DE_FONDOS_P7 =
   "El pago del premio irá directamente a las cuentas de Alianza Garantía Seguros y Reaseguros S.A.";
 
 // ---------------------------------------------------------------------------
-// Declaración de origen lícito de fondos (checkbox obligatorio)
-// ---------------------------------------------------------------------------
-
-export const VERSION_DECLARACION_ORIGEN_LICITO = "P7-ORIGEN-LICITO-v1";
-
-/** Literal exacto del checkbox obligatorio del bloque 1. */
-export const TEXTO_DECLARACION_ORIGEN_LICITO =
-  "Declaro que los fondos utilizados para pagar el premio son de mi propiedad y tienen origen lícito.";
-
-export const NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA_P7 = "Obligatorio para continuar.";
-
-// ---------------------------------------------------------------------------
 // Referencias de la operación
 // ---------------------------------------------------------------------------
 
@@ -140,7 +139,7 @@ export const NOTA_IDENTIFICADOR_BANCARD_P7 = "Se incorporará a la póliza.";
 export const TITULO_BLOQUE_MEDIOS_P7 = "Elegí el medio de pago";
 
 export const NOTA_MOMENTOS_DISTINTOS_P7 =
-  "Las modalidades tienen momentos de confirmación diferentes.";
+  "Los tres medios cobran el premio total en el momento; cambia por dónde entra el dinero.";
 
 export interface TextoMedioDePago {
   readonly medio: MedioDePago;
@@ -158,33 +157,30 @@ export const TEXTOS_MEDIOS_DE_PAGO_P7: readonly TextoMedioDePago[] = [
   {
     medio: "QR_BANCARD",
     titulo: "QR Bancard",
-    momento: "Pago definitivo antes de la firma",
+    momento: "Cobro al escanear el QR",
     vinetas: [
       "Bancard genera un QR por el premio total anual.",
       "El pago se acredita directamente a Alianza.",
-      "Solo después del pago se habilita la firma.",
+      "El QR se habilitó porque tu Solicitud ya está firmada.",
     ],
     botón: "GENERAR QR BANCARD",
-    secuencia: "QR pagado → Firma Code100 → Solicitud de emisión",
+    secuencia: "Solicitud firmada → QR pagado → Solicitud de emisión",
   },
   {
     medio: "TARJETA_DEBITO",
     titulo: "Tarjeta de débito",
-    momento: "Pago definitivo antes de la firma",
+    momento: "Cobro al confirmarse la operación",
     vinetas: [
       "Bancard abre su formulario seguro.",
       "El importe se debita y se acredita a Alianza en el momento; no queda reservado.",
-      "Solo después del pago se habilita la firma.",
+      "El medio se habilitó porque tu Solicitud ya está firmada.",
     ],
     botón: "PAGAR CON DÉBITO",
-    secuencia: "Débito pagado → Firma Code100 → Solicitud de emisión",
+    secuencia: "Solicitud firmada → Débito pagado → Solicitud de emisión",
   },
   {
     medio: "TARJETA_CREDITO",
     titulo: "Tarjeta de crédito",
-    // D-02 · cobro directo, igual que el débito. La reserva desapareció con la
-    // preautorización, así que las tres modalidades se describen igual: cambia
-    // por dónde entra el dinero, no cuándo.
     momento: "Cobro al confirmarse la operación",
     vinetas: [
       "Bancard abre su formulario seguro.",
@@ -192,23 +188,29 @@ export const TEXTOS_MEDIOS_DE_PAGO_P7: readonly TextoMedioDePago[] = [
       "Los datos de la tarjeta no pasan por el portal.",
     ],
     botón: "PAGAR CON TARJETA DE CRÉDITO",
-    secuencia: "Tarjeta cobrada → Firma → Emisión",
+    secuencia: "Solicitud firmada → Tarjeta cobrada → Emisión",
   },
 ];
 
 /** Opción por defecto de la especificación. */
 export const MEDIO_POR_DEFECTO_P7: MedioDePago = "QR_BANCARD";
 
-export const TITULO_PLAZO_FIRMA_P7 = "Plazo para firmar: 24 horas";
+export const TITULO_PLAZO_PAGO_P7 = "Plazo para pagar: 24 horas";
 
 /**
- * Aviso del plazo para las modalidades que ya cobraron (QR y débito): si la
- * firma no llega, hay devolución. Transcrito de la viñeta del QR de la
- * especificación, con "el pago" en lugar de "el QR" para que sirva a las dos.
+ * Aviso del plazo (D-10). **No promete ninguna devolución**, y esa es la
+ * diferencia con el aviso que había mientras se cobraba primero: bajo este
+ * orden el expediente caduca antes de que exista un cobro, así que no hay
+ * premio que devolver ni trámite presencial que hacer.
  */
-export const AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7 =
-  "Si no se completa la firma dentro de 24 horas, la solicitud vence; se avisa por WhatsApp y correo " +
-  "y habrá que firmar la solicitud de devolución en las oficinas de Alianza Garantía.";
+export const AVISO_PLAZO_PAGO_P7 =
+  "Si el pago no se completa dentro de 24 horas, la solicitud vence y se avisa por WhatsApp y " +
+  "correo. No hubo cobro, así que no hay nada que devolver: podés iniciar una solicitud nueva.";
+
+export const AVISO_PLAZO_RESTANTE_P7 = "Tiempo restante para pagar";
+
+export const AVISO_PLAZO_VENCIDO_P7 =
+  "Se cumplió el plazo de 24 horas para pagar. Tu solicitud venció; no se cobró nada.";
 
 export const TITULO_DEPENDENCIA_BANCARD_P7 = "Dependencia de Bancard";
 
@@ -230,10 +232,19 @@ export const SEGURIDAD_P7: readonly string[] = [
   "Se registrarán referencia, importe, estado, fecha, hora, respuesta e identificador Bancard.",
 ];
 
-export const ADVERTENCIA_PAGO_NO_ES_FIRMA_P7 = "El pago no equivale a firma ni emisión.";
+export const ADVERTENCIA_PAGO_NO_ES_EMISION_P7 = "El pago no equivale a la emisión de la póliza.";
 
 // ---------------------------------------------------------------------------
 // Botón final
 // ---------------------------------------------------------------------------
 
-export const BOTON_CONTINUAR_P7 = "CONTINUAR A FIRMA →";
+/**
+ * CHG-38 · el botón dice lo que el pago hace ahora.
+ *
+ * Mientras el pago iba antes de la firma este texto habría mentido —el pago
+ * garantizaba, no contrataba— y por eso el Lote 1 lo dejó pendiente. Invertido
+ * el orden, es exactamente lo que pasa al confirmarse el cobro.
+ */
+export const BOTON_PAGAR_Y_CONTRATAR_P7 = "REALIZAR EL PAGO Y CONTRATAR EL SEGURO";
+
+export const BOTON_CONTINUAR_P7 = "VER LA CONFIRMACIÓN →";

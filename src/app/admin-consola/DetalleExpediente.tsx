@@ -142,9 +142,9 @@ export function DetalleExpediente({
             // La rama del vencimiento (§4 pide motivo y fecha para las dos
             // ramas por igual, no solo para DERIVADO_MANUAL).
             <p className="text-sm text-rojo-900 dark:text-rojo-100">
-              Motivo: no se firmó dentro del plazo
-              {expediente.plazoFirmaVenceEn
-                ? ` · venció el ${new Date(expediente.plazoFirmaVenceEn).toLocaleString("es-PY")}`
+              Motivo: no se pagó dentro del plazo
+              {expediente.plazoPagoVenceEn
+                ? ` · venció el ${new Date(expediente.plazoPagoVenceEn).toLocaleString("es-PY")}`
                 : ""}
             </p>
           ) : null}

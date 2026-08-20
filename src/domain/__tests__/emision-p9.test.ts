@@ -35,7 +35,13 @@ import {
 import { registrarEmisionP9, transicionarExpediente } from "../expediente";
 import type { Expediente, PolizaDelExpediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
-import { expedienteEnPaqueteGenerado } from "./fixtures";
+import {
+  expedienteEnPaqueteGenerado,
+  expedienteFirmado,
+  facturacionFixture,
+  firmaFixture,
+  pagoConfirmadoFixture,
+} from "./fixtures";
 
 const AHORA = "2026-08-09T15:20:00.000Z";
 
@@ -45,13 +51,8 @@ const CONTEXTO: ContextoPeticion = {
   sesionId: "sesion-p9",
 };
 
-const FIRMA = {
-  canal: "WHATSAPP" as const,
-  idCode100: "MOCK-CODE100-P9",
-  firmadoEn: "2026-08-09T15:15:00.000Z",
-  hashSolicitudFirmada: "c".repeat(64),
-  hashFipfFirmado: "d".repeat(64),
-};
+/** La firma que trae el fixture compartido: acá solo se la cita. */
+const FIRMA = firmaFixture;
 
 function repositorioFalso(inicial: Expediente): RepositorioExpediente & { actual: () => Expediente } {
   let guardado = inicial;
@@ -82,25 +83,25 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
   };
 }
 
-/** Expediente firmado, listo para que P9 lo remita a Alianza. */
-function expedienteFirmado(id = "EXP-TEST-P9"): Expediente {
-  const base = expedienteEnPaqueteGenerado(id);
-  const conActo: Expediente = {
-    ...base,
-    actoDeFirma: {
-      idCode100: FIRMA.idCode100,
-      canal: "WHATSAPP",
-      destinoEnmascarado: "+595 ••• ••• 456",
-      enlaceEnviadoEn: "2026-08-09T15:10:00.000Z",
-      venceEn: "2026-08-10T15:01:00.000Z",
-    },
-  };
-  const firmado = transicionarExpediente(conActo, "FIRMADO", { firma: FIRMA }, FIRMA.firmadoEn);
-  if (!firmado.ok) throw new Error(firmado.error);
-  return firmado.expediente;
+/**
+ * Expediente firmado y cobrado, listo para que P9 lo remita a Alianza.
+ *
+ * D-08 · con el orden invertido la entrada de la emisión es PAGO_CONFIRMADO,
+ * no FIRMADO: primero se firma y después entra la plata.
+ */
+function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
+  const firmado = expedienteFirmado(id);
+  const cobrado = transicionarExpediente(
+    firmado,
+    "PAGO_CONFIRMADO",
+    { facturacion: facturacionFixture, pago: pagoConfirmadoFixture },
+    "2026-08-09T15:04:00.000Z",
+  );
+  if (!cobrado.ok) throw new Error(cobrado.error);
+  return cobrado.expediente;
 }
 
-function armar(expediente: Expediente = expedienteFirmado(), sebaot?: PolicyIssuer) {
+function armar(expediente: Expediente = expedienteListoParaEmitir(), sebaot?: PolicyIssuer) {
   const repositorio = repositorioFalso(expediente);
   const evidencias = evidenciasFalsas();
   let reloj = AHORA;
@@ -163,7 +164,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
   });
 
   it("la máquina de estados rechaza una póliza con numeración propia", () => {
-    const expediente = expedienteFirmado();
+    const expediente = expedienteListoParaEmitir();
     const ajena: PolizaDelExpediente = {
       numeroPoliza: "99999999",
       estado: "EN_PROCESO_DE_EMISION",
@@ -196,7 +197,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
   });
 
   it("no se emite sin cobro (fila 44)", async () => {
-    const base = expedienteFirmado();
+    const base = expedienteListoParaEmitir();
     const pago = base.pago;
     if (!pago) throw new Error("el fixture debería tener pago");
     const entorno = armar({ ...base, pago: { ...pago, estado: "CANCELADO" } });
@@ -212,7 +213,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
   });
 
   it("crédito CAPTURADO sí emite: ahí el dinero entró", async () => {
-    const base = expedienteFirmado();
+    const base = expedienteListoParaEmitir();
     const pago = base.pago;
     if (!pago) throw new Error("el fixture debería tener pago");
     const entorno = armar({
@@ -245,7 +246,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(entorno.repositorio.actual().historial.length).toBe(historial);
   });
 
-  it("si SEBAOT falla, el expediente se queda en FIRMADO y queda la evidencia", async () => {
+  it("si SEBAOT falla, el expediente se queda en PAGO_CONFIRMADO y queda la evidencia", async () => {
     const roto: PolicyIssuer = {
       async emitirPoliza() {
         throw new Error("SEBAOT no responde (simulado).");
@@ -257,7 +258,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
         throw new Error("no usado");
       },
     };
-    const entorno = armar(expedienteFirmado(), roto);
+    const entorno = armar(expedienteListoParaEmitir(), roto);
 
     const resultado = await emitirPolizaP9(entorno.deps, {
       expedienteId: "EXP-TEST-P9",
@@ -267,7 +268,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("SEBAOT_NO_DISPONIBLE");
-    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
+    expect(entorno.repositorio.actual().estado).toBe("PAGO_CONFIRMADO");
     expect(
       entorno.evidencias.registros.some(
         (evidencia) => evidencia.paso === PASO_EVIDENCIA_EMISION_P9 && evidencia.resultado === "FALLIDO",
@@ -402,6 +403,6 @@ describe("P9 · resumen para la pantalla", () => {
   });
 
   it("no hay resumen antes de llegar a EMITIDO", () => {
-    expect(leerResumenP9(expedienteFirmado())).toBeNull();
+    expect(leerResumenP9(expedienteListoParaEmitir())).toBeNull();
   });
 });

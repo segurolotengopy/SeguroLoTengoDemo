@@ -1,6 +1,7 @@
 import type {
   DatosComplementariosP6,
   DatosFacturacionP7,
+  DeclaracionOrigenLicito,
   Declaraciones,
   EstadoExpediente,
   Expediente,
@@ -10,10 +11,14 @@ import type {
 } from "../tipos";
 import { crearExpedienteInicial } from "../tipos";
 import { PLANES } from "../catalogo";
-import { registrarPaqueteDocumental, transicionarExpediente } from "../expediente";
+import {
+  registrarFirmasInstitucionales,
+  registrarPaqueteDocumental,
+  transicionarExpediente,
+} from "../expediente";
 import { PASOS_FLUJO } from "../rutas-flujo";
 import { codigoFipf, codigoSolicitud } from "../documentos";
-import { TEXTO_DECLARACION_ORIGEN_LICITO, VERSION_DECLARACION_ORIGEN_LICITO } from "../textos-p7";
+import { TEXTO_DECLARACION_ORIGEN_LICITO, VERSION_DECLARACION_ORIGEN_LICITO } from "../textos-p6";
 
 export const declaracionesCompatibles: Declaraciones = {
   estadoDeSalud: "SI",
@@ -113,14 +118,15 @@ export const REFERENCIA_BANCARD_FIJA = "BCD-DEMO-000018425";
 export const facturacionFixture: DatosFacturacionP7 = {
   nombreAFacturar: "Mónica Mariana Gorena Tapia",
   ruc: null,
-  declaracionOrigenLicito: {
-    aceptadaEn: "2026-08-09T15:00:00.000Z",
-    ip: "203.0.113.10",
-    dispositivo: "test",
-    sesionId: "sesion-test",
-    versionTexto: VERSION_DECLARACION_ORIGEN_LICITO,
-    textoAceptado: TEXTO_DECLARACION_ORIGEN_LICITO,
-  },
+};
+
+export const declaracionOrigenLicitoFixture: DeclaracionOrigenLicito = {
+  aceptadaEn: "2026-08-09T14:45:00.000Z",
+  ip: "203.0.113.10",
+  dispositivo: "test",
+  sesionId: "sesion-test",
+  versionTexto: VERSION_DECLARACION_ORIGEN_LICITO,
+  textoAceptado: TEXTO_DECLARACION_ORIGEN_LICITO,
 };
 
 export const pagoConfirmadoFixture: Pago = {
@@ -144,6 +150,7 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
   const conDatos = transicionarExpediente(base, "DECLARACIONES_OK", {
     declaraciones: declaracionesCompatibles,
     datosComplementarios: datosComplementariosFixture,
+    declaracionOrigenLicito: declaracionOrigenLicitoFixture,
     identidad: identidadFixture,
     canalWhatsapp: { valor: "+595981000456", verificadoEn: "2026-08-09T14:00:00.000Z" },
     canalEmail: { valor: "monica.gorena@example.com", verificadoEn: "2026-08-09T14:30:00.000Z" },
@@ -159,31 +166,8 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
   return conDatos.expediente;
 }
 
-/**
- * Expediente del camino feliz, listo para que el servicio de generación de
- * documentos lo cierre: en PAGO_CONFIRMADO, con plan, identidad, datos
- * complementarios, declaraciones compatibles, canales verificados,
- * correlativo, facturación y pago acreditado.
- */
-export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
-  const confirmado = transicionarExpediente(
-    expedienteEnDeclaracionesOk(id),
-    "PAGO_CONFIRMADO",
-    {
-      numeroPropuesta: NUMERO_PROPUESTA_FIJO,
-      facturacion: facturacionFixture,
-      pago: pagoConfirmadoFixture,
-      plazoFirmaVenceEn: "2026-08-10T15:01:00.000Z",
-    },
-    "2026-08-09T15:01:00.000Z",
-  );
-  if (!confirmado.ok) throw new Error(confirmado.error);
-
-  return confirmado.expediente;
-}
-
 // ---------------------------------------------------------------------------
-// Expediente con el paquete documental ya cerrado (entrada de P8)
+// Expediente con el paquete documental ya cerrado (entrada de la firma)
 // ---------------------------------------------------------------------------
 
 export const PAQUETE_FIXTURE: PaqueteDocumental = {
@@ -201,16 +185,81 @@ export const PAQUETE_FIXTURE: PaqueteDocumental = {
   },
 };
 
+export const PLAZO_PAGO_FIJO = "2026-08-10T15:03:00.000Z";
+
 /**
- * Expediente listo para P8: la Solicitud y el FIPF cerrados y hasheados, el
- * pago acreditado y el plazo de 24 horas corriendo.
+ * Expediente listo para firmar: la Solicitud y el FIPF cerrados y hasheados.
+ *
+ * **Sin pago** (D-08): con el orden invertido el paquete se cierra antes de
+ * que exista ninguna operación de cobro, y exigir uno acá haría imposible
+ * llegar a la firma.
  */
 export function expedienteEnPaqueteGenerado(id = "EXP-TEST-P8"): Expediente {
+  const conCorrelativo = {
+    ...expedienteEnDeclaracionesOk(id),
+    numeroPropuesta: NUMERO_PROPUESTA_FIJO,
+  };
   const conPaquete = registrarPaqueteDocumental(
-    expedienteEnPagoConfirmado(id),
+    conCorrelativo,
     PAQUETE_FIXTURE,
     "2026-08-09T15:02:00.000Z",
   );
   if (!conPaquete.ok) throw new Error(conPaquete.error);
   return conPaquete.expediente;
+}
+
+export const firmaFixture = {
+  idCode100: "C100-TEST-1",
+  canal: "WHATSAPP" as const,
+  firmadoEn: "2026-08-09T15:03:00.000Z",
+  hashSolicitudFirmada: "e".repeat(64),
+  hashFipfFirmado: "f".repeat(64),
+};
+
+/**
+ * Expediente firmado por todos los intervinientes y esperando el pago: la
+ * entrada del paso de pago bajo el orden nuevo (D-08), con el plazo de 24
+ * horas ya corriendo (D-10).
+ */
+export function expedienteFirmado(id = "EXP-TEST-P7"): Expediente {
+  const conActo = {
+    ...expedienteEnPaqueteGenerado(id),
+    actoDeFirma: {
+      idCode100: firmaFixture.idCode100,
+      canal: firmaFixture.canal,
+      destinoEnmascarado: "+5959•••••456",
+      enlaceEnviadoEn: "2026-08-09T15:02:30.000Z",
+      venceEn: PLAZO_PAGO_FIJO,
+    },
+  };
+  const firmado = transicionarExpediente(
+    conActo,
+    "FIRMADO_CLIENTE",
+    { firma: firmaFixture },
+    "2026-08-09T15:03:00.000Z",
+  );
+  if (!firmado.ok) throw new Error(firmado.error);
+
+  const institucionales = registrarFirmasInstitucionales(
+    firmado.expediente,
+    PLAZO_PAGO_FIJO,
+    "2026-08-09T15:03:00.000Z",
+  );
+  if (!institucionales.ok) throw new Error(institucionales.error);
+  return institucionales.expediente;
+}
+
+/**
+ * Expediente con el cobro acreditado: la entrada de la emisión. Con el orden
+ * nuevo llega firmado y con facturación, que se captura al pagar.
+ */
+export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
+  const confirmado = transicionarExpediente(
+    expedienteFirmado(id),
+    "PAGO_CONFIRMADO",
+    { facturacion: facturacionFixture, pago: pagoConfirmadoFixture },
+    "2026-08-09T15:04:00.000Z",
+  );
+  if (!confirmado.ok) throw new Error(confirmado.error);
+  return confirmado.expediente;
 }

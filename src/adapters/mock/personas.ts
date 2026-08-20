@@ -319,12 +319,16 @@ const BIOMETRIA_RECHAZADA: PersonaDemo = {
 };
 
 // ---------------------------------------------------------------------------
-// 5. No firma — paga el QR y deja vencer las 24 horas → Pantalla B
+// 5. No paga — firma y deja vencer las 24 horas → Pantalla B
+//
+// D-08 invirtió este recorrido: antes pagaba y no firmaba, y había premio que
+// devolver. Ahora firma y no paga, así que el expediente caduca sin que se
+// haya movido un guaraní — que era exactamente el punto de invertir el orden.
 // ---------------------------------------------------------------------------
 
 const NO_FIRMA: PersonaDemo = {
   id: "no-firma",
-  rotulo: "Paga y no firma",
+  rotulo: "Firma y no paga",
   celular: "+595985000567",
   correo: "lucia.ortiz@example.com",
   identidad: {
@@ -359,10 +363,11 @@ const NO_FIRMA: PersonaDemo = {
   medioDePago: "QR_BANCARD",
   desenlace: {
     pantallaFinal: "Pantalla B",
-    estadoFinal: "DEVOLUCION_EN_TRAMITE",
+    estadoFinal: "VENCIDO",
     queDemuestra:
-      "El vencimiento del plazo de firma con el QR ya pagado: recordatorios a 1, 5 y 12 horas, vencimiento " +
-      "a las 24, y el procedimiento de devolución al medio de origen. No hay póliza ni cobertura.",
+      "La caducidad del plazo de 24 horas para pagar un expediente ya firmado: recordatorios a 1, 5 y 12 " +
+      "horas y vencimiento a las 24. No hubo cobro, así que no hay premio que devolver — no hay póliza " +
+      "ni cobertura, y la persona puede volver a empezar.",
   },
 };
 

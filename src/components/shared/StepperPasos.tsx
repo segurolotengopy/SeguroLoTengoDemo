@@ -57,8 +57,9 @@ export function StepperPasos(props: StepperPasosProps) {
     return (
       <div className={`text-right leading-tight ${className}`}>
         <p className="text-sm font-bold text-rojo-700 dark:text-rojo-300">PANTALLA B</p>
+        {/* D-08 · lo que caduca ahora es un expediente firmado que no pagó. */}
         <p className="text-[11px] font-semibold tracking-wide text-rojo-600 uppercase dark:text-rojo-300">
-          QR pagado · Firma no completada
+          Firmada · Pago no completado
         </p>
       </div>
     );

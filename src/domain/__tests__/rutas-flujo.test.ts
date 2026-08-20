@@ -56,11 +56,23 @@ describe("PANTALLA_POR_ESTADO", () => {
     }
   });
 
-  it("los dos estados con el pago hecho apuntan a P8", () => {
-    // El paquete se cierra al entrar a P8, así que PAGO_CONFIRMADO y
-    // PAQUETE_GENERADO son la misma pantalla desde el lado de la persona.
-    expect(PANTALLA_POR_ESTADO.PAGO_CONFIRMADO).toBe("/firma");
+  it("D-08 · se firma en el paso 6 y se paga en el 7", () => {
+    // La inversión se hizo moviendo dos elementos de `PASOS_FLUJO`, y todo lo
+    // demás se deriva. Este test es lo que impide que alguien los devuelva de
+    // lugar sin darse cuenta de que cambia la secuencia entera.
+    expect(numeroDePaso("/firma")).toBe(6);
+    expect(numeroDePaso("/pago")).toBe(7);
+    expect(PANTALLA_POR_ESTADO.DECLARACIONES_OK).toBe("/firma");
+    expect(PANTALLA_POR_ESTADO.FIRMADO).toBe("/pago");
+    expect(PANTALLA_POR_ESTADO.PAGO_CONFIRMADO).toBe("/confirmacion");
+  });
+
+  it("los dos estados intermedios de la firma comparten su pantalla", () => {
+    // El paquete se cierra al entrar a firmar y la firma del cliente deja el
+    // expediente esperando las institucionales: desde el lado de la persona
+    // los tres momentos son la misma pantalla.
     expect(PANTALLA_POR_ESTADO.PAQUETE_GENERADO).toBe("/firma");
+    expect(PANTALLA_POR_ESTADO.FIRMADO_CLIENTE).toBe("/firma");
   });
 });
 

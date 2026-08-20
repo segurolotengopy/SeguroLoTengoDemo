@@ -209,7 +209,7 @@ export async function iniciarDevolucionPantallaB(
       montoGs: pago.montoGs,
       referenciaBancard: pago.referenciaBancard ?? "",
       propuesta: expediente.numeroPropuesta ?? "",
-      plazoFirmaVenceEn: expediente.plazoFirmaVenceEn ?? "",
+      plazoPagoVenceEn: expediente.plazoPagoVenceEn ?? "",
       // `ACTORES Y REGISTRO`: SeguroLoTengo genera las comunicaciones. Queda el
       // registro del aviso a los dos canales verificados; la entrega necesita
       // un proveedor de notificaciones que todavía no está en el catálogo.
@@ -306,14 +306,17 @@ export interface CasoVencido {
   readonly referenciaBancard: string | null;
   readonly premioGs: number;
   readonly medio: MedioDePago | null;
-  /** `true` con QR y débito: hay premio que devolver. `false` con crédito. */
+  /**
+   * `true` solo si el dinero efectivamente entró — lo que bajo el orden nuevo
+   * no puede pasar en un expediente vencido, y bajo el viejo sí pasaba.
+   */
   readonly hayPremioQueDevolver: boolean;
   readonly nombreAsegurado: string | null;
   readonly documentoEnmascarado: string | null;
   readonly whatsappEnmascarado: string | null;
   readonly correoEnmascarado: string | null;
   readonly pagoConfirmadoEn: string | null;
-  readonly plazoFirmaVenceEn: string | null;
+  readonly plazoPagoVenceEn: string | null;
   readonly hitos: readonly HitoSeguimientoCalculado[];
 }
 
@@ -384,7 +387,14 @@ export function leerCasoVencido(
       : null,
     correoEnmascarado: expediente.canalEmail ? enmascararCorreo(expediente.canalEmail.valor) : null,
     pagoConfirmadoEn: pago?.confirmadoEn ?? null,
-    plazoFirmaVenceEn: expediente.plazoFirmaVenceEn,
-    hitos: calcularHitos(pago?.confirmadoEn ?? null, expediente.plazoFirmaVenceEn, ahora),
+    plazoPagoVenceEn: expediente.plazoPagoVenceEn,
+    // D-08 · el reloj arranca con la firma, no con el pago. Para los
+    // expedientes vencidos bajo el orden viejo —que sí pagaron y no firmaron—
+    // se usa el pago, que es el hito que tenían.
+    hitos: calcularHitos(
+      expediente.firma?.firmadoEn ?? pago?.confirmadoEn ?? null,
+      expediente.plazoPagoVenceEn,
+      ahora,
+    ),
   };
 }

@@ -3,19 +3,28 @@
  * (docs/ESPECIFICACION_PANTALLAS.md → "P8 · Paso 8 de 9 — Revisión y firma
  * final").
  *
- * Tres operaciones, y ninguna más:
+ * Dos operaciones, y ninguna más:
  *
  * 1. `iniciarFirmaP8` — el botón `ENVIAR ENLACE SEGURO DE FIRMA`. Abre **un**
  *    acto de firma en Code100 con los dos documentos adentro y manda el enlace
  *    al canal verificado elegido. **No mueve el estado del expediente.**
  * 2. `confirmarFirmaP8` — el sondeo que hace la pantalla mientras muestra
- *    `Esperando confirmación verificable de Code100`. Es lo único que puede
- *    llevar el expediente de PAQUETE_GENERADO a FIRMADO, y de paso ordena la
- *    captura de la preautorización de crédito.
- * 3. `vencerPlazoFirmaP8` — el plazo de 24 horas cumplido: PAQUETE_GENERADO (o
- *    PAGO_CONFIRMADO) → VENCIDO, y de ahí a Pantalla B.
+ *    `Esperando confirmación verificable de Code100`. Lleva el expediente de
+ *    PAQUETE_GENERADO a FIRMADO_CLIENTE y, aplicadas las firmas
+ *    institucionales (D-13), a FIRMADO — que es lo único que habilita el
+ *    cobro del paso siguiente.
  *
- * ## Las cuatro reglas que este módulo hace imposibles de violar
+ * ## D-08 · esta pantalla ahora va antes del pago
+ *
+ * Hasta el Lote 4 se firmaba lo que ya estaba pagado, y este módulo tenía dos
+ * responsabilidades más: exigir la garantía de pago para dejar firmar y hacer
+ * vencer el expediente pagado que no firmaba. Las dos desaparecieron. No hay
+ * pago que exigir —todavía no ocurrió— y el vencimiento se mudó al paso de
+ * pago, que es donde ahora corre el reloj de 24 horas (D-10). Lo que este
+ * módulo hace en cambio es **abrirlo**: al aplicar las firmas institucionales
+ * fija `plazoPagoVenceEn`.
+ *
+ * ## Las tres reglas que este módulo hace imposibles de violar
  *
  * **Un solo acto de firma para los dos documentos** (regla inviolable #3, fila
  * 36 de `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`). Nunca se llama
@@ -34,23 +43,16 @@
  * pueda viajar una dirección escrita por el cliente, así que un enlace de firma
  * no puede terminar en un canal que nadie verificó (reglas inviolables #1 y #9).
  *
- * **El plazo se evalúa antes que nada.** Toda operación de P8 empieza
- * chequeando `plazoFirmaVenceEn`: no se puede pedir un enlace, ni confirmar una
- * firma, sobre un expediente cuyo plazo ya se cumplió (fila 30: *"Devolver el
- * premio si el cliente no firma dentro del plazo comunicado"*).
- *
  * ## Lo que este módulo NO hace
  *
  * No genera los documentos: eso es `src/documentos/servicio.ts`, que corre
- * antes y deja el expediente en PAQUETE_GENERADO. No emite la póliza: la emite
- * Alianza por SEBAOT y eso es P9. Y no dibuja nada: los literales están en
- * `textos-p8.ts`.
+ * antes y deja el expediente en PAQUETE_GENERADO. No cobra: eso es
+ * `pago-p7.ts`, que corre después. No emite la póliza: la emite Alianza por
+ * SEBAOT y eso es P9. Y no dibuja nada: los literales están en `textos-p8.ts`.
  */
 import { randomUUID } from "node:crypto";
-import { pagoAcreditado } from "./tipos";
 import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
 import type { EvidenceStore } from "../ports/evidence-store";
-import type { PaymentProvider } from "../ports/payment-provider";
 import type { SignatureProvider } from "../ports/signature-provider";
 import { ErrorCode100 } from "../ports/signature-provider";
 import { enmascararCorreo } from "./correo";
@@ -58,9 +60,8 @@ import { enmascararCelular } from "./telefono";
 import {
   registrarEnvioEnlaceFirmaP8,
   registrarFirmaP8,
-  vencerPlazoFirmaSiCorresponde,
+  registrarFirmasInstitucionales,
 } from "./expediente";
-import { PLAZO_FIRMA_MS } from "./pago-p7";
 import {
   TEXTO_DECLARACION_FIRMA_P8,
   VERSION_DECLARACION_FIRMA_P8,
@@ -71,7 +72,6 @@ import type {
   DocumentoCerrado,
   EstadoExpediente,
   Expediente,
-  MedioDePago,
   RegistroEvidencia,
 } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
@@ -82,12 +82,17 @@ import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-can
 
 export interface DependenciasP8 {
   readonly firmas: SignatureProvider;
-  /** Para capturar la preautorización de crédito y para liberarla al vencer. */
-  readonly pagos: PaymentProvider;
   readonly expedientes: RepositorioExpediente;
   readonly evidencias: EvidenceStore;
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
+  /**
+   * Duración del plazo para pagar, que se abre al quedar firmado el
+   * expediente. 24 horas por D-10; el panel de demo lo comprime a segundos
+   * para poder mostrar la caducidad sin esperar un día (CLAUDE.md → "Panel de
+   * demo").
+   */
+  readonly plazoPagoMs?: number;
 }
 
 /** Único estado desde el que se puede pedir el enlace de firma. */
@@ -95,14 +100,26 @@ export const ESTADO_REQUERIDO_P8: EstadoExpediente = "PAQUETE_GENERADO";
 
 export const PASO_EVIDENCIA_ENVIO_ENLACE_P8 = "P8_ENVIO_ENLACE_FIRMA";
 export const PASO_EVIDENCIA_FIRMA_P8 = "P8_FIRMA";
-export const PASO_EVIDENCIA_CAPTURA_P8 = "P8_CAPTURA_PAGO";
-export const PASO_EVIDENCIA_VENCIMIENTO_P8 = "P8_VENCIMIENTO_PLAZO_FIRMA";
+export const PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 = "P8_FIRMAS_INSTITUCIONALES";
 
-export const RUTA_PANTALLA_B = "/solicitud-vencida";
-export const RUTA_P9 = "/confirmacion";
+/** D-08 · firmado el expediente, el paso siguiente es el pago. */
+export const RUTA_PAGO = "/pago";
 
-/** Re-exportado para que la pantalla no tenga que importar de P7 el mismo dato. */
-export { PLAZO_FIRMA_MS };
+/**
+ * Plazo para pagar un expediente ya firmado (D-10: 24 horas).
+ *
+ * Se abre acá, al aplicarse las firmas institucionales, y lo consume el paso
+ * de pago. Antes de la inversión se llamaba `PLAZO_FIRMA_MS`, vivía en
+ * `pago-p7.ts` y medía lo contrario: el tiempo para firmar algo ya pagado.
+ *
+ * **La caducidad de la sesión de firma es otra cosa.** Code100 expone la suya
+ * (`fecha_expiracion` / `expirado`) y no documenta una duración fija, así que
+ * no se la hardcodea: este plazo es nuestro y es el del expediente (D-10).
+ */
+export const PLAZO_PAGO_MS = 24 * 60 * 60 * 1000;
+
+/** Estados en los que el expediente ya está firmado por todos los intervinientes. */
+const ESTADOS_YA_FIRMADOS: readonly EstadoExpediente[] = ["FIRMADO", "PAGO_CONFIRMADO", "EMITIDO"];
 
 export const CANALES_FIRMA: readonly CanalFirma[] = ["WHATSAPP", "EMAIL"];
 
@@ -117,11 +134,9 @@ export function esCanalFirma(valor: unknown): valor is CanalFirma {
 export type MotivoRechazoP8 =
   | "EXPEDIENTE_NO_ENCONTRADO"
   | "ESTADO_INVALIDO"
-  | "PLAZO_VENCIDO"
   | "CANAL_INVALIDO"
   | "CANAL_NO_VERIFICADO"
   | "PAQUETE_NO_GENERADO"
-  | "GARANTIA_PAGO_NO_LISTA"
   | "CODE100_NO_DISPONIBLE"
   | "CODE100_RECHAZO"
   | "FIRMA_NO_INICIADA"
@@ -144,13 +159,7 @@ export interface ActoDeFirmaVisible {
 
 export type ResultadoIniciarFirmaP8 =
   | { readonly ok: true; readonly acto: ActoDeFirmaVisible }
-  | {
-      readonly ok: false;
-      readonly motivo: MotivoRechazoP8;
-      readonly detalle?: string;
-      /** A dónde mandar a la persona cuando el rechazo la saca del flujo. */
-      readonly siguientePantalla?: typeof RUTA_PANTALLA_B;
-    };
+  | { readonly ok: false; readonly motivo: MotivoRechazoP8; readonly detalle?: string };
 
 export type ResultadoConfirmarFirmaP8 =
   | {
@@ -167,19 +176,11 @@ export type ResultadoConfirmarFirmaP8 =
       readonly numeroPropuesta: string;
       readonly idCode100: string;
       readonly firmadoEn: string;
-      /**
-       * `true` si la firma quedó registrada pero la captura de la
-       * preautorización de crédito todavía no: la firma es un hecho de Code100
-       * y no se pierde porque Bancard no conteste. El próximo sondeo reintenta.
-       */
-      readonly siguientePantalla: typeof RUTA_P9;
+      /** Hasta cuándo hay tiempo de pagar (D-10). */
+      readonly plazoPagoVenceEn: string;
+      readonly siguientePantalla: typeof RUTA_PAGO;
     }
-  | {
-      readonly ok: false;
-      readonly motivo: MotivoRechazoP8;
-      readonly detalle?: string;
-      readonly siguientePantalla?: typeof RUTA_PANTALLA_B;
-    };
+  | { readonly ok: false; readonly motivo: MotivoRechazoP8; readonly detalle?: string };
 
 // ---------------------------------------------------------------------------
 // Helpers internos
@@ -259,58 +260,6 @@ function destinoDelCanal(
   return { valor: correo, enmascarado: enmascararCorreo(correo) };
 }
 
-/**
- * Aplica el vencimiento del plazo si corresponde, persiste y deja evidencia.
- *
- * Devuelve el expediente que hay que seguir usando: el mismo si el plazo no se
- * cumplió, o el ya vencido si se cumplió. Toda operación de P8 arranca por acá.
- */
-async function aplicarVencimiento(
-  deps: DependenciasP8,
-  reloj: Reloj,
-  expediente: Expediente,
-  contexto: ContextoPeticion,
-): Promise<{ readonly expediente: Expediente; readonly vencio: boolean }> {
-  // Ya vencido —por una llamada anterior a este mismo camino o por la petición
-  // concurrente que ganó la carrera de escritura—: no hay nada que escribir ni
-  // evidencia nueva que dejar. Es lo que hace convergente el reintento ante
-  // conflicto y cierta la promesa de idempotencia de `POST /api/p8/vencimiento`.
-  if (expediente.estado === "VENCIDO") return { expediente, vencio: true };
-
-  const fecha = reloj.ahora();
-  const transicion = vencerPlazoFirmaSiCorresponde(expediente, fecha);
-
-  if (!transicion.ok) {
-    // La única forma de llegar acá es una transición ilegal, que sería un error
-    // de programación. Se deja el expediente como estaba antes que romper.
-    return { expediente, vencio: false };
-  }
-  if (transicion.expediente.estado !== "VENCIDO") {
-    return { expediente: transicion.expediente, vencio: false };
-  }
-
-  await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
-
-  await registrarEvidencia(deps, reloj, {
-    expedienteId: expediente.id,
-    paso: PASO_EVIDENCIA_VENCIMIENTO_P8,
-    fecha,
-    contexto,
-    resultado: "FALLIDO",
-    detalle: {
-      motivo: "PLAZO_FIRMA_VENCIDO",
-      estadoAnterior: expediente.estado,
-      plazoFirmaVenceEn: expediente.plazoFirmaVenceEn ?? "",
-      // D-08 · el expediente vence **antes** de cobrar, así que no hay premio
-      // que devolver ni reserva que liberar: simplemente caduca.
-      consecuencia: "CADUCIDAD_SIN_COBRO",
-    },
-  });
-
-  return { expediente: transicion.expediente, vencio: true };
-}
-
-
 // ---------------------------------------------------------------------------
 // Operación 1 — enviar el enlace de firma
 // ---------------------------------------------------------------------------
@@ -360,13 +309,8 @@ async function intentarIniciarFirmaP8(
   }
   const canal = entrada.canal;
 
-  const guardado = await deps.expedientes.obtenerPorId(entrada.expedienteId);
-  if (!guardado) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
-
-  const { expediente, vencio } = await aplicarVencimiento(deps, reloj, guardado, entrada.contexto);
-  if (vencio) {
-    return { ok: false, motivo: "PLAZO_VENCIDO", siguientePantalla: RUTA_PANTALLA_B };
-  }
+  const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+  if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
 
   const fecha = reloj.ahora();
 
@@ -508,6 +452,13 @@ async function actoVigente(
  * Sondeo de la pantalla mientras espera a Code100, y única puerta por la que el
  * expediente pasa a FIRMADO.
  *
+ * Son **dos** transiciones en una operación: la firma del cliente deja el
+ * expediente en `FIRMADO_CLIENTE` y las institucionales lo llevan a `FIRMADO`
+ * (D-13). Que sean dos estados y no uno es lo que permite distinguir un
+ * sellado a medio hacer de un expediente sin firmar, y lo que mantiene el
+ * cobro inhabilitado si el segundo tramo falla: un expediente detenido en
+ * `FIRMADO_CLIENTE` no puede pagar. El siguiente sondeo lo reintenta.
+ *
  * Es idempotente de punta a punta: llamarlo con el expediente ya FIRMADO
  * devuelve los mismos datos sin volver a transicionar ni a escribir. Eso
  * importa porque la pantalla sondea en bucle y porque el mismo endpoint va a
@@ -518,9 +469,9 @@ export async function confirmarFirmaP8(
   deps: DependenciasP8,
   entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
 ): Promise<ResultadoConfirmarFirmaP8> {
-  // Perder la carrera de escritura contra el vencimiento o contra otro sondeo
-  // se resuelve releyendo: la operación es convergente (rama idempotente para
-  // FIRMADO, `aplicarVencimiento` para VENCIDO) y no repite efectos en Code100.
+  // Perder la carrera de escritura contra otro sondeo se resuelve releyendo:
+  // la operación es convergente —rama idempotente para FIRMADO, retoma del
+  // tramo institucional para FIRMADO_CLIENTE— y no repite efectos en Code100.
   return conReintentoPorConflicto(
     () => intentarConfirmarFirmaP8(deps, entrada),
     () => ({ ok: false, motivo: "CONFLICTO_CONCURRENCIA" }),
@@ -533,26 +484,30 @@ async function intentarConfirmarFirmaP8(
 ): Promise<ResultadoConfirmarFirmaP8> {
   const reloj = resolverReloj(deps);
 
-  const guardado = await deps.expedientes.obtenerPorId(entrada.expedienteId);
-  if (!guardado) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+  const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+  if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
 
-  // Ya firmado: se responde con lo persistido. Es la rama que hace inofensivo
-  // un callback duplicado. Se sigue intentando la captura, que es idempotente.
-  if (guardado.firma && (guardado.estado === "FIRMADO" || guardado.estado === "EMITIDO")) {
+  // Ya firmado por todos: se responde con lo persistido. Es la rama que hace
+  // inofensivo un callback duplicado.
+  if (expediente.firma && ESTADOS_YA_FIRMADOS.includes(expediente.estado)) {
     return {
       ok: true,
       firmado: true,
-      estado: guardado.estado,
-      numeroPropuesta: guardado.numeroPropuesta ?? "",
-      idCode100: guardado.firma.idCode100,
-      firmadoEn: guardado.firma.firmadoEn,
-      siguientePantalla: RUTA_P9,
+      estado: expediente.estado,
+      numeroPropuesta: expediente.numeroPropuesta ?? "",
+      idCode100: expediente.firma.idCode100,
+      firmadoEn: expediente.firma.firmadoEn,
+      plazoPagoVenceEn: expediente.plazoPagoVenceEn ?? "",
+      siguientePantalla: RUTA_PAGO,
     };
   }
 
-  const { expediente, vencio } = await aplicarVencimiento(deps, reloj, guardado, entrada.contexto);
-  if (vencio) {
-    return { ok: false, motivo: "PLAZO_VENCIDO", siguientePantalla: RUTA_PANTALLA_B };
+  // El cliente ya firmó pero el tramo institucional no llegó a completarse
+  // —una falla de red, un reinicio, una escritura perdida—. Se retoma desde
+  // ahí en vez de volver a pedirle la firma a Code100: la firma del cliente es
+  // un hecho registrado y no se repite.
+  if (expediente.estado === "FIRMADO_CLIENTE") {
+    return aplicarFirmasInstitucionales(deps, reloj, expediente, entrada.contexto);
   }
 
   if (expediente.estado !== ESTADO_REQUERIDO_P8) {
@@ -625,57 +580,77 @@ async function intentarConfirmarFirmaP8(
     },
   });
 
+  return aplicarFirmasInstitucionales(deps, reloj, transicion.expediente, entrada.contexto);
+}
+
+/**
+ * FIRMADO_CLIENTE → FIRMADO: las firmas de Interseguros y Alianza sobre el
+ * mismo documento, y con ellas la apertura del plazo para pagar (D-10).
+ *
+ * En el demo se aplican en el acto, apenas vuelve la firma del cliente; con
+ * Code100 real serán dos actos con certificado cualificado y esta función será
+ * el punto donde se los espera. Que viva aparte —y no dentro de la rama de la
+ * firma del cliente— es lo que permite retomarla sola cuando el primer tramo
+ * ya quedó registrado y el segundo no (regla inviolable #3: el sellado a medias
+ * tiene que ser distinguible, y también recuperable).
+ *
+ * El orden es el del contrato de Code100 y no se puede invertir: cliente
+ * primero, institucionales después.
+ */
+async function aplicarFirmasInstitucionales(
+  deps: DependenciasP8,
+  reloj: Reloj,
+  expediente: Expediente,
+  contexto: ContextoPeticion,
+): Promise<ResultadoConfirmarFirmaP8> {
+  const fecha = reloj.ahora();
+  const plazoPagoMs = deps.plazoPagoMs ?? PLAZO_PAGO_MS;
+  const plazoPagoVenceEn = new Date(new Date(fecha).getTime() + plazoPagoMs).toISOString();
+
+  const transicion = registrarFirmasInstitucionales(expediente, plazoPagoVenceEn, fecha);
+  if (!transicion.ok) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8,
+      fecha,
+      contexto,
+      resultado: "FALLIDO",
+      detalle: { motivo: "TRANSICION_INVALIDA", detalle: transicion.error },
+    });
+    return { ok: false, motivo: "ESTADO_INVALIDO", detalle: transicion.error };
+  }
+
+  await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
+
+  await registrarEvidencia(deps, reloj, {
+    expedienteId: expediente.id,
+    paso: PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8,
+    fecha,
+    contexto,
+    resultado: "EXITOSO",
+    detalle: {
+      firmantes: "INTERSEGUROS,ALIANZA",
+      // Simuladas en el demo, y la evidencia lo dice: un registro que
+      // afirmara una firma cualificada que nadie aplicó no probaría nada.
+      modalidad: "SIMULADA",
+      propuesta: transicion.expediente.numeroPropuesta ?? "",
+      plazoPagoVenceEn,
+    },
+  });
+
+  const firma = transicion.expediente.firma;
   return {
     ok: true,
     firmado: true,
     estado: transicion.expediente.estado,
     numeroPropuesta: transicion.expediente.numeroPropuesta ?? "",
-    idCode100: resultado.firma.idCode100,
-    firmadoEn: resultado.firma.firmadoEn,
-    siguientePantalla: RUTA_P9,
+    idCode100: firma?.idCode100 ?? "",
+    firmadoEn: firma?.firmadoEn ?? fecha,
+    plazoPagoVenceEn,
+    siguientePantalla: RUTA_PAGO,
   };
 }
 
-
-// ---------------------------------------------------------------------------
-// Operación 3 — vencimiento del plazo
-// ---------------------------------------------------------------------------
-
-export type ResultadoVencimientoP8 =
-  | { readonly ok: true; readonly vencio: boolean; readonly estado: EstadoExpediente }
-  | {
-      readonly ok: false;
-      readonly motivo: "EXPEDIENTE_NO_ENCONTRADO" | "CONFLICTO_CONCURRENCIA";
-    };
-
-/**
- * Evalúa el plazo y, si se cumplió, vence el expediente.
- *
- * Es la misma rutina que corre al principio de las otras dos operaciones,
- * expuesta aparte para que la pantalla pueda dispararla cuando su cuenta
- * regresiva llega a cero sin tener que pedir un enlace ni confirmar una firma.
- *
- * La pantalla la dispara a la vez que sigue sondeando `/api/p8/estado`, así
- * que perder la carrera de escritura contra ese sondeo es esperable: se
- * reintenta con una lectura fresca, que converge (un expediente ya VENCIDO no
- * se vuelve a escribir ni deja evidencia nueva).
- */
-export async function vencerPlazoFirmaP8(
-  deps: DependenciasP8,
-  entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
-): Promise<ResultadoVencimientoP8> {
-  return conReintentoPorConflicto<ResultadoVencimientoP8>(
-    async () => {
-      const reloj = resolverReloj(deps);
-      const guardado = await deps.expedientes.obtenerPorId(entrada.expedienteId);
-      if (!guardado) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
-
-      const { expediente, vencio } = await aplicarVencimiento(deps, reloj, guardado, entrada.contexto);
-      return { ok: true, vencio, estado: expediente.estado };
-    },
-    () => ({ ok: false, motivo: "CONFLICTO_CONCURRENCIA" }),
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Lectura para la pantalla
@@ -688,13 +663,6 @@ export interface DocumentoVisibleP8 {
   readonly cerradoEn: string;
 }
 
-export interface GarantiaDePagoVisibleP8 {
-  readonly medio: MedioDePago;
-  /** `true` cuando el dinero entró. Sin preautorización (D-02) no hay medias tintas. */
-  readonly lista: boolean;
-  readonly referenciaBancard: string | null;
-}
-
 export interface ResumenFirmaP8 {
   readonly estado: EstadoExpediente;
   readonly numeroPropuesta: string | null;
@@ -703,8 +671,6 @@ export interface ResumenFirmaP8 {
   /** Canales verificados, enmascarados: nunca el valor completo (regla de UI). */
   readonly canalWhatsappEnmascarado: string | null;
   readonly canalEmailEnmascarado: string | null;
-  readonly garantia: GarantiaDePagoVisibleP8 | null;
-  readonly plazoFirmaVenceEn: string | null;
   readonly acto: ActoDeFirmaVisible | null;
   readonly firmadoEn: string | null;
 }
@@ -730,7 +696,15 @@ export function leerResumenFirmaP8(expediente: Expediente): ResumenFirmaP8 | nul
   const paquete = expediente.paqueteDocumental;
   if (!paquete) return null;
 
-  const estadosVisibles: readonly EstadoExpediente[] = ["PAQUETE_GENERADO", "FIRMADO", "EMITIDO"];
+  // D-08 · la pantalla también tiene que poder dibujarse con el expediente ya
+  // firmado y todavía sin pagar, que es el estado normal al salir de acá.
+  const estadosVisibles: readonly EstadoExpediente[] = [
+    "PAQUETE_GENERADO",
+    "FIRMADO_CLIENTE",
+    "FIRMADO",
+    "PAGO_CONFIRMADO",
+    "EMITIDO",
+  ];
   if (!estadosVisibles.includes(expediente.estado)) return null;
 
   return {
@@ -742,17 +716,6 @@ export function leerResumenFirmaP8(expediente: Expediente): ResumenFirmaP8 | nul
       ? enmascararCelular(expediente.canalWhatsapp.valor)
       : null,
     canalEmailEnmascarado: expediente.canalEmail ? enmascararCorreo(expediente.canalEmail.valor) : null,
-    // El pago sigue precediendo a la firma en este lote; lo que cambió es que
-    // ya no hay dos formas de estar listo (acreditado o reservado): o el
-    // dinero entró o no entró.
-    garantia: expediente.pago
-      ? {
-          medio: expediente.pago.medio,
-          lista: pagoAcreditado(expediente.pago.estado),
-          referenciaBancard: expediente.pago.referenciaBancard,
-        }
-      : null,
-    plazoFirmaVenceEn: expediente.plazoFirmaVenceEn,
     acto: expediente.actoDeFirma
       ? {
           idCode100: expediente.actoDeFirma.idCode100,

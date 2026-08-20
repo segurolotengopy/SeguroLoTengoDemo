@@ -29,7 +29,11 @@ import { esEstadoTerminal, transicionarExpediente } from "../expediente";
 import { HITOS_SEGUIMIENTO } from "../textos-pantalla-b";
 import type { Expediente, MedioDePago, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
-import { expedienteEnPaqueteGenerado } from "./fixtures";
+import {
+  expedienteEnPaqueteGenerado,
+  expedienteFirmado,
+  pagoConfirmadoFixture,
+} from "./fixtures";
 
 const AHORA = "2026-08-10T15:05:00.000Z";
 const PAGO_CONFIRMADO_EN = "2026-08-09T15:01:00.000Z";
@@ -70,24 +74,47 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
   };
 }
 
-/** Expediente que venció sin firmar, con el medio de pago que se indique. */
-function expedienteVencido(medio: MedioDePago = "QR_BANCARD"): Expediente {
+/**
+ * Expediente que caducó **bajo el orden viejo**: pagó y no firmó.
+ *
+ * D-08 invirtió el flujo y estos ya no se producen —ahora se firma antes de
+ * cobrar, así que un vencimiento nunca tiene dinero adentro—, pero los que
+ * existen no se reescriben (regla inviolable #10) y su trámite de devolución
+ * sigue abierto. Este fixture arma uno a mano, que es exactamente lo que son:
+ * un estado que el flujo ya no genera y la Pantalla B todavía tiene que saber
+ * contar.
+ */
+function expedienteVencidoConCobro(medio: MedioDePago = "QR_BANCARD"): Expediente {
   const base = expedienteEnPaqueteGenerado("EXP-TEST-B");
-  const pago = base.pago;
-  if (!pago) throw new Error("el fixture debería tener pago");
 
-  const conMedio: Expediente = {
+  // Se arma con el estado puesto a mano y no con una transición, porque bajo
+  // el grafo vigente esta combinación —vencido, pagado y sin firmar— ya no se
+  // puede producir. Es un registro histórico, no un camino del código.
+  return {
     ...base,
+    estado: "VENCIDO",
+    historial: [...base.historial, { estado: "VENCIDO", en: AHORA }],
+    firma: null,
+    facturacion: null,
     pago: {
-      ...pago,
+      ...pagoConfirmadoFixture,
       medio,
       estado: medio === "TARJETA_CREDITO" ? "CANCELADO" : "CONFIRMADO",
       confirmadoEn: PAGO_CONFIRMADO_EN,
     },
-    plazoFirmaVenceEn: PLAZO_VENCE_EN,
+    plazoPagoVenceEn: PLAZO_VENCE_EN,
+    actualizadoEn: AHORA,
   };
+}
 
-  const vencido = transicionarExpediente(conMedio, "VENCIDO", {}, AHORA);
+/** Expediente caducado bajo el orden nuevo: firmado y sin ningún cobro. */
+function expedienteVencidoSinCobro(): Expediente {
+  const vencido = transicionarExpediente(
+    { ...expedienteFirmado("EXP-TEST-B"), plazoPagoVenceEn: PLAZO_VENCE_EN },
+    "VENCIDO",
+    {},
+    AHORA,
+  );
   if (!vencido.ok) throw new Error(vencido.error);
   return vencido.expediente;
 }
@@ -106,7 +133,7 @@ function armar(expediente: Expediente) {
 
 describe("Pantalla B · abrir el trámite de devolución", () => {
   it("vencido con QR pagado abre la devolución y deja evidencia", async () => {
-    const entorno = armar(expedienteVencido("QR_BANCARD"));
+    const entorno = armar(expedienteVencidoConCobro("QR_BANCARD"));
 
     const resultado = await iniciarDevolucionPantallaB(entorno.deps, {
       expedienteId: "EXP-TEST-B",
@@ -129,7 +156,7 @@ describe("Pantalla B · abrir el trámite de devolución", () => {
   });
 
   it("el débito también abre devolución: el dinero se movió igual que con QR", async () => {
-    const entorno = armar(expedienteVencido("TARJETA_DEBITO"));
+    const entorno = armar(expedienteVencidoConCobro("TARJETA_DEBITO"));
 
     const resultado = await iniciarDevolucionPantallaB(entorno.deps, {
       expedienteId: "EXP-TEST-B",
@@ -141,7 +168,7 @@ describe("Pantalla B · abrir el trámite de devolución", () => {
   });
 
   it("el crédito NO abre devolución: no hubo cobro, solo una reserva liberada", async () => {
-    const entorno = armar(expedienteVencido("TARJETA_CREDITO"));
+    const entorno = armar(expedienteVencidoConCobro("TARJETA_CREDITO"));
 
     const resultado = await iniciarDevolucionPantallaB(entorno.deps, {
       expedienteId: "EXP-TEST-B",
@@ -156,7 +183,7 @@ describe("Pantalla B · abrir el trámite de devolución", () => {
   });
 
   it("es idempotente: entrar de nuevo no vuelve a transicionar ni duplica evidencia", async () => {
-    const entorno = armar(expedienteVencido());
+    const entorno = armar(expedienteVencidoConCobro());
     await iniciarDevolucionPantallaB(entorno.deps, { expedienteId: "EXP-TEST-B", contexto: CONTEXTO });
     const historial = entorno.repositorio.actual().historial.length;
 
@@ -184,9 +211,28 @@ describe("Pantalla B · abrir el trámite de devolución", () => {
   });
 });
 
+describe("Pantalla B · caducidad sin cobro (D-08)", () => {
+  it("un vencimiento sin pago no abre ningún trámite de devolución", async () => {
+    const entorno = armar(expedienteVencidoSinCobro());
+
+    const resultado = await iniciarDevolucionPantallaB(entorno.deps, {
+      expedienteId: "EXP-TEST-B",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.iniciado).toBe(false);
+    // Se queda en VENCIDO: no hay premio que devolver, así que no hay nada que
+    // tramitar y el expediente termina acá.
+    expect(entorno.repositorio.actual().estado).toBe("VENCIDO");
+    expect(entorno.evidencias.registros).toHaveLength(0);
+  });
+});
+
 describe("Pantalla B · devolución ejecutada", () => {
   async function hastaEnTramite() {
-    const entorno = armar(expedienteVencido());
+    const entorno = armar(expedienteVencidoConCobro());
     await iniciarDevolucionPantallaB(entorno.deps, { expedienteId: "EXP-TEST-B", contexto: CONTEXTO });
     return entorno;
   }
@@ -229,7 +275,7 @@ describe("Pantalla B · devolución ejecutada", () => {
   });
 
   it("no se puede marcar devuelto un expediente que nunca abrió el trámite", async () => {
-    const entorno = armar(expedienteVencido("TARJETA_CREDITO"));
+    const entorno = armar(expedienteVencidoConCobro("TARJETA_CREDITO"));
 
     const resultado = await registrarDevolucionEjecutadaPantallaB(entorno.deps, {
       expedienteId: "EXP-TEST-B",
@@ -266,7 +312,7 @@ describe("Pantalla B · bloqueo por cédula (regla inviolable #11)", () => {
 
 describe("Pantalla B · resumen del caso", () => {
   it("trae la propuesta, la referencia de Bancard y el premio", () => {
-    const caso = leerCasoVencido(expedienteVencido(), AHORA);
+    const caso = leerCasoVencido(expedienteVencidoConCobro(), AHORA);
 
     expect(caso?.numeroPropuesta).toBe("00018425");
     expect(caso?.referenciaBancard).toBe("BCD-DEMO-000018425");
@@ -275,13 +321,13 @@ describe("Pantalla B · resumen del caso", () => {
   });
 
   it("con crédito informa que no hay premio que devolver", () => {
-    const caso = leerCasoVencido(expedienteVencido("TARJETA_CREDITO"), AHORA);
+    const caso = leerCasoVencido(expedienteVencidoConCobro("TARJETA_CREDITO"), AHORA);
 
     expect(caso?.hayPremioQueDevolver).toBe(false);
   });
 
   it("no expone la cédula completa ni ningún canal sin enmascarar", () => {
-    const expediente = expedienteVencido();
+    const expediente = expedienteVencidoConCobro();
     const caso = leerCasoVencido(expediente, AHORA);
 
     const serializado = JSON.stringify(caso);
@@ -292,7 +338,7 @@ describe("Pantalla B · resumen del caso", () => {
   });
 
   it("los cuatro hitos caen dentro del plazo, con el vencimiento al final", () => {
-    const caso = leerCasoVencido(expedienteVencido(), AHORA);
+    const caso = leerCasoVencido(expedienteVencidoConCobro(), AHORA);
 
     expect(caso?.hitos).toHaveLength(HITOS_SEGUIMIENTO.length);
     const instantes = (caso?.hitos ?? []).map((hito) => hito.en ?? "");
@@ -305,16 +351,16 @@ describe("Pantalla B · resumen del caso", () => {
   it("con el plazo comprimido por el panel, los hitos se comprimen con él", () => {
     // 40 segundos de plazo en vez de 24 horas: los recordatorios tienen que
     // caer dentro de la ventana, no todos en el futuro.
-    const base = expedienteVencido();
+    const base = expedienteVencidoConCobro();
     const comprimido: Expediente = {
       ...base,
-      plazoFirmaVenceEn: new Date(new Date(PAGO_CONFIRMADO_EN).getTime() + 40_000).toISOString(),
+      plazoPagoVenceEn: new Date(new Date(PAGO_CONFIRMADO_EN).getTime() + 40_000).toISOString(),
     };
 
     const caso = leerCasoVencido(comprimido, AHORA);
 
     for (const hito of caso?.hitos ?? []) {
-      expect(hito.en! <= comprimido.plazoFirmaVenceEn!, hito.rotulo).toBe(true);
+      expect(hito.en! <= comprimido.plazoPagoVenceEn!, hito.rotulo).toBe(true);
       expect(hito.cumplido, hito.rotulo).toBe(true);
     }
     // Los rótulos siguen siendo los de la especificación.
@@ -324,6 +370,17 @@ describe("Pantalla B · resumen del caso", () => {
       "12 HORAS",
       "24 HORAS",
     ]);
+  });
+
+  it("D-08 · el vencimiento del flujo vigente no tiene premio que devolver", () => {
+    // Firmado y sin pagar: la pantalla tiene que contar una caducidad, no una
+    // devolución. Abrir un trámite acá sería describirle a la persona un
+    // movimiento de plata que nunca existió.
+    const caso = leerCasoVencido(expedienteVencidoSinCobro(), AHORA);
+
+    expect(caso?.estado).toBe("VENCIDO");
+    expect(caso?.hayPremioQueDevolver).toBe(false);
+    expect(caso?.referenciaBancard).toBeNull();
   });
 
   it("no hay caso que mostrar si el expediente no está en la rama del vencimiento", () => {

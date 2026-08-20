@@ -8,8 +8,6 @@ import {
   declararCorreo,
   completarP5Aprobado,
   completarP6,
-  completarP7Qr,
-  continuarAFirma,
   enviarEnlaceYAbrir,
   enviarP6,
   firmarNormalmente,
@@ -38,9 +36,8 @@ test("un fallo a mitad de la firma no deja ningún documento firmado", async ({ 
   await declararCorreo(page, persona);
   await completarP5Aprobado(page);
   await completarP6(page, persona);
-  await enviarP6(page, /\/pago$/);
-  await completarP7Qr(page);
-  await continuarAFirma(page);
+  // D-08 · se firma en el paso 6, antes de que exista ninguna operación de pago.
+  await enviarP6(page, /\/firma$/);
 
   const idCode100 = await enviarEnlaceYAbrir(page);
 
@@ -66,7 +63,11 @@ test("un fallo a mitad de la firma no deja ningún documento firmado", async ({ 
   expect(despues.hashSolicitudFirmada, "la Solicitud no debe quedar firmada tras el fallo a mitad").toBeNull();
   expect(despues.hashFipfFirmado, "el FIPF no debe quedar firmado tras el fallo a mitad").toBeNull();
 
-  // El expediente sigue en P8 — nunca llegó a P9 con una firma a medias.
+  // El expediente sigue en la pantalla de firma — nunca llegó al pago con una
+  // firma a medias, que es justamente la protección que da la inversión
+  // (D-08): sin firma completa el cobro no se habilita. Que la lectura del
+  // paso de pago no exista todavía lo fija el unitario de dominio
+  // ("devuelve null para un expediente que todavía no firmó").
   await expect(page).toHaveURL(/\/firma$/);
   const resumenP9 = await page.request.get("/api/p9/resumen");
   expect(resumenP9.status()).toBe(409);

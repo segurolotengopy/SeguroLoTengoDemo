@@ -30,11 +30,13 @@ import {
   urlDeVerificacion,
 } from "../documentos";
 import { registrarPaqueteDocumental, transicionarExpediente } from "../expediente";
-import type { PaqueteDocumental } from "../tipos";
+import type { Expediente, PaqueteDocumental } from "../tipos";
 import {
   NUMERO_PROPUESTA_FIJO,
+  REFERENCIA_BANCARD_FIJA,
   crearExpediente,
-  expedienteEnPagoConfirmado,
+  expedienteEnDeclaracionesOk,
+  expedienteEnPaqueteGenerado,
   identidadFixture,
 } from "./fixtures";
 
@@ -93,7 +95,7 @@ describe("códigos del paquete", () => {
 // ---------------------------------------------------------------------------
 
 describe("armarContenidoPaquete", () => {
-  const resultado = armarContenidoPaquete(expedienteEnPagoConfirmado(), { cerradoEn: CERRADO_EN });
+  const resultado = armarContenidoPaquete(expedienteEnPaqueteGenerado(), { cerradoEn: CERRADO_EN });
   if (!resultado.ok) throw new Error(`El fixture debería alcanzar: ${resultado.faltantes.join(",")}`);
   const { contenido } = resultado;
 
@@ -122,11 +124,14 @@ describe("armarContenidoPaquete", () => {
     expect(contenido.solicitud.declaracionesMedicas[0].respuesta).toBe("SI");
     expect(contenido.solicitud.declaracionesMedicas[1].respuesta).toBe("NO");
 
-    // Referencias de la operación: correlativo, Bancard, medio y premio.
+    // Referencias de la operación: correlativo y premio. **No hay referencia
+    // de Bancard ni medio de pago** (D-08): el documento se cierra antes de
+    // que exista ninguna operación de cobro, y citar una sería inventarla.
     const referencias = contenido.solicitud.referencias.map((campo) => campo.valor);
     expect(referencias).toContain(NUMERO_PROPUESTA_FIJO);
-    expect(referencias).toContain("QR Bancard");
     expect(referencias).toContain("Gs. 475.000");
+    expect(JSON.stringify(contenido)).not.toContain(REFERENCIA_BANCARD_FIJA);
+    expect(referencias).not.toContain("QR Bancard");
   });
 
   it("el FIPF lleva datos personales, laborales, económicos, identificación, PEP, origen de fondos y evidencias", () => {
@@ -144,9 +149,12 @@ describe("armarContenidoPaquete", () => {
         "Ingreso mensual declarado",
         "Origen de fondos",
         "Propósito",
-        "Identificación fiscal",
       ]),
     );
+    // D-08 · los datos de la factura se capturan al pagar, que ahora ocurre
+    // después de firmar: no pueden estar en el FIPF firmado.
+    expect(etiquetas(contenido.fipf.laborales)).not.toContain("Identificación fiscal");
+    expect(etiquetas(contenido.fipf.laborales)).not.toContain("Nombre a facturar");
 
     expect(contenido.fipf.pep.numero).toBe(8);
     expect(contenido.fipf.pep.respuesta).toBe("NO");
@@ -182,7 +190,13 @@ describe("armarContenidoPaquete", () => {
     expect(vacio.ok).toBe(false);
     if (vacio.ok) throw new Error("no debería armar");
     expect(vacio.faltantes).toEqual(
-      expect.arrayContaining(["numeroPropuesta", "plan", "identidad", "declaraciones", "pago"]),
+      expect.arrayContaining([
+        "numeroPropuesta",
+        "plan",
+        "identidad",
+        "declaraciones",
+        "declaracionOrigenLicito",
+      ]),
     );
   });
 });
@@ -204,9 +218,17 @@ describe("auxiliares de formato", () => {
 // Transición
 // ---------------------------------------------------------------------------
 
+/**
+ * D-08 · el paquete se cierra desde DECLARACIONES_OK, con el correlativo ya
+ * acuñado por el servicio de documentos y sin ninguna operación de pago.
+ */
+function listoParaCerrar(): Expediente {
+  return { ...expedienteEnDeclaracionesOk(), numeroPropuesta: NUMERO_PROPUESTA_FIJO };
+}
+
 describe("registrarPaqueteDocumental", () => {
-  it("lleva el expediente de PAGO_CONFIRMADO a PAQUETE_GENERADO", () => {
-    const resultado = registrarPaqueteDocumental(expedienteEnPagoConfirmado(), paqueteValido(), CERRADO_EN);
+  it("lleva el expediente de DECLARACIONES_OK a PAQUETE_GENERADO", () => {
+    const resultado = registrarPaqueteDocumental(listoParaCerrar(), paqueteValido(), CERRADO_EN);
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
 
@@ -221,7 +243,7 @@ describe("registrarPaqueteDocumental", () => {
       ...paqueteValido(),
       fipf: { ...paqueteValido().fipf, codigo: codigoFipf("99999999") },
     };
-    const resultado = registrarPaqueteDocumental(expedienteEnPagoConfirmado(), ajeno, CERRADO_EN);
+    const resultado = registrarPaqueteDocumental(listoParaCerrar(), ajeno, CERRADO_EN);
 
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
@@ -231,7 +253,7 @@ describe("registrarPaqueteDocumental", () => {
   it("rechaza que la Solicitud y el FIPF queden en versiones distintas", () => {
     const base = paqueteValido();
     const desparejo: PaqueteDocumental = { ...base, fipf: { ...base.fipf, version: base.fipf.version + 1 } };
-    const resultado = registrarPaqueteDocumental(expedienteEnPagoConfirmado(), desparejo, CERRADO_EN);
+    const resultado = registrarPaqueteDocumental(listoParaCerrar(), desparejo, CERRADO_EN);
 
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
@@ -241,26 +263,27 @@ describe("registrarPaqueteDocumental", () => {
   it("rechaza un documento sin huella digital (regla #4)", () => {
     const base = paqueteValido();
     const sinHash: PaqueteDocumental = { ...base, solicitud: { ...base.solicitud, hashSha256: "" } };
-    const resultado = registrarPaqueteDocumental(expedienteEnPagoConfirmado(), sinHash, CERRADO_EN);
+    const resultado = registrarPaqueteDocumental(listoParaCerrar(), sinHash, CERRADO_EN);
 
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
     expect(resultado.error).toContain("SHA-256");
   });
 
-  it("no cierra el paquete sin garantía de pago ni desde otro estado", () => {
-    const enPago = expedienteEnPagoConfirmado();
+  it("no cierra el paquete sin correlativo ni desde un estado que ya lo pasó", () => {
+    const base = listoParaCerrar();
 
-    const sinGarantia = registrarPaqueteDocumental(
-      { ...enPago, pago: enPago.pago ? { ...enPago.pago, estado: "PENDIENTE" } : null },
+    // Sin correlativo no hay códigos que derivar: el paquete no puede existir.
+    const sinCorrelativo = registrarPaqueteDocumental(
+      { ...base, numeroPropuesta: null },
       paqueteValido(),
       CERRADO_EN,
     );
-    expect(sinGarantia.ok).toBe(false);
+    expect(sinCorrelativo.ok).toBe(false);
 
     // Desde PAQUETE_GENERADO no se puede volver a cerrar: regenerar exige una
     // versión y huellas nuevas, no un autobucle silencioso (regla #4).
-    const yaCerrado = registrarPaqueteDocumental(enPago, paqueteValido(), CERRADO_EN);
+    const yaCerrado = registrarPaqueteDocumental(base, paqueteValido(), CERRADO_EN);
     if (!yaCerrado.ok) throw new Error(yaCerrado.error);
     const otraVez = registrarPaqueteDocumental(yaCerrado.expediente, paqueteValido(), CERRADO_EN);
     expect(otraVez.ok).toBe(false);
@@ -268,7 +291,7 @@ describe("registrarPaqueteDocumental", () => {
 
   it("nunca se llega al paquete desde DERIVADO_MANUAL (regla #5)", () => {
     const derivado = transicionarExpediente(
-      { ...expedienteEnPagoConfirmado(), estado: "IDENTIDAD_VERIFICADA" },
+      { ...listoParaCerrar(), estado: "IDENTIDAD_VERIFICADA" },
       "DERIVADO_MANUAL",
     );
     if (!derivado.ok) throw new Error(derivado.error);

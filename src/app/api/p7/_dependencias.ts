@@ -9,7 +9,7 @@
  * Archivo con guion bajo: App Router solo enruta `route.ts`, así que esto no
  * queda expuesto como endpoint.
  */
-import { obtenerPaymentProvider, obtenerPlazoFirmaMs } from "@/adapters/registro";
+import { obtenerPaymentProvider } from "@/adapters/registro";
 import { URL_RETORNO_TARJETA_POR_DEFECTO } from "@/domain/pago-p7";
 import type { DependenciasP7 } from "@/domain/pago-p7";
 import { crearEvidenceStore, crearExpedienteRepository } from "@/repositories";
@@ -34,9 +34,5 @@ export function dependenciasP7(request: Request): DependenciasP7 {
     expedientes: crearExpedienteRepository(),
     evidencias: crearEvidenceStore(),
     urlRetornoTarjeta: urlRetornoTarjeta(request),
-    // 24 horas, salvo que el panel de demo lo haya comprimido. Se congela en el
-    // expediente al confirmarse el pago: cambiarlo después no mueve un
-    // vencimiento ya calculado.
-    plazoFirmaMs: obtenerPlazoFirmaMs(),
   };
 }

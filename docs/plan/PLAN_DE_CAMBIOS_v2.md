@@ -216,7 +216,8 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 | **L2 · Reordenamiento del wizard** ✅ **hecho (20-ago-2026)** | CHG-01/02, D-22 (rutas semánticas + redirects), retiro del OTP de correo (D-06), correo en identidad (CHG-14/17), TRV-02 compacta, identificadores `Pv2-N` (D-14), **TRV-03 + D-03** (barrido de la marca en las 69 apariciones, detrás del flag) | ✅ desbloqueado (D-06, D-08, D-14, D-22) | Wizard de 8 pasos navegable ida/vuelta; redirects 308 viejos→nuevos; expedientes legados legibles; E2E reescrita para el orden nuevo en verde |
 | **L3 · Pantallas 4–5** ✅ **hecho (20-ago-2026)** | CHG-15 (cotejo en edición: solo nombres y apellidos; los cuatro campos de los que cuelgan la edad y el bloqueo siguen cerrados), CHG-18 (config por producto, sin campos normativos), CHG-24 (cédula del beneficiario opcional). **Verificado sin cambio:** CHG-26 (los datos fiscales nunca estuvieron en declaraciones) | L2 + fixtures copiados (D-21) | Fixtures de Rodrigo pasan OCR con prellenado y cotejo; campo oculto nunca bloquea; beneficiario cédula-opcional no bloqueante |
 | **L4a · Medios de pago (D-02)** ✅ **hecho (20-ago-2026)** | Preautorización retirada; QR, débito y crédito con cobro directo; estados `PREAUTORIZADO`/`CAPTURADO` eliminados y reemplazados por `pagoAcreditado`; estado `DEVUELTO` para el seguimiento de devoluciones. 937 tests en verde; E2E 6/7 en la corrida completa y el séptimo verde aislado |
-| **L4b/L4c/L4d · resto del lote 4** ⚠️ **ver Anexo D** | CHG-29 (visor), CHG-30 (PDF unificado), CHG-33 (callback+polling), D-13 (firmas corredor + Alianza configurables), **D-02 (QR + TC + TD sin preautorización, tarjeta por flujo alojado)**, CHG-34, D-10 (caducidad 24 h), CMP-07/08/09 | ✅ desbloqueado (D-02, D-05, D-10, D-11, D-13); requiere L3 | Secuencia §7 completa en mock; cobro inhabilitado antes del callback de firma; regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
+| **L4b · Inversión firma ↔ pago (D-08, D-10)** ✅ **hecho (20-ago-2026)** | Grafo invertido: `DECLARACIONES_OK → PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO → PAGO_CONFIRMADO → EMITIDO`. Estado nuevo `FIRMADO_CLIENTE` y firmas institucionales (D-13, tramo de estado). Correlativo acuñado por el cierre del paquete, no por el pago. Declaración de origen lícito movida al paso de declaraciones, para que integre el FIPF firmado. Plazo de 24 h renombrado a `plazoPagoVenceEn` y mudado de la firma al pago (D-10), con `VENCIDO` sin devolución. CHG-38/39 (los copys que el orden viejo hacía mentir). Endpoint `/api/p7/vencimiento` en reemplazo de `/api/p8/vencimiento` | ✅ desbloqueado (D-08, D-10); requiere L4a | **Cumplidos (20-ago-2026):** 941 tests unitarios y de contrato en verde; typecheck, lint y build en verde; batería E2E reescrita para el orden nuevo |
+| **L4c/L4d · resto del lote 4** ⚠️ **ver Anexo D** | CHG-29 (visor), CHG-30 (PDF unificado, D-11), D-13 completo (lista de firmantes configurable con modalidad), CHG-33 (callback+polling), CHG-34, CMP-07/08/09 | ✅ desbloqueado (D-05, D-11, D-13); requiere L4b | Regeneración solo con hash intacto y dentro de las 24 h; reverso automático probado; **cero PAN/CVV en base, logs y evidencia**; `security-review` |
 | **L5 · Confirmación, CPC, notificaciones y devoluciones** | CHG-40…46, D-12 (CPC), CHG-44 (job entrega + acuse), CHG-47/D-14 (Pv2-B), **flujo de seguimiento de devoluciones (D-02) + vista en consola**, CMP-05/06 | ✅ desbloqueado (D-05, D-12, D-17, D-18); D-19 con datos parametrizados; requiere L4 | CPC solo con pago confirmado; envío automático con reintentos y acuse; inicio = pago + 24 h exactas incluyendo bordes de mes; devolución seguible de punta a punta con evidencia |
 | **L6 · Trazabilidad y hardening** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final) | L2 | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
 
@@ -325,17 +326,38 @@ de avance mientras se acumulaba trabajo descartable.
 
 **Secuencia propuesta para retomar**, en este orden y no en otro:
 
-1. **L4a · Medios de pago (D-02).** Quitar la preautorización, dejar QR, débito
-   y crédito con cobro directo. Se hace *antes* que la inversión porque borra
-   código y tests que si no habría que migrar dos veces.
-2. **L4b · Inversión firma ↔ pago (D-08).** Retomar la rama de trabajo sobre un
-   flujo que ya no tiene preautorización. La caducidad de 24 h (D-10) entra
-   acá, porque depende de que el vencimiento ocurra antes del cobro.
+1. **L4a · Medios de pago (D-02).** ✅ hecho. Quitar la preautorización, dejar
+   QR, débito y crédito con cobro directo. Se hizo *antes* que la inversión
+   porque borra código y tests que si no habría que migrar dos veces.
+2. **L4b · Inversión firma ↔ pago (D-08).** ✅ hecho. La caducidad de 24 h
+   (D-10) entró acá, porque depende de que el vencimiento ocurra antes del
+   cobro.
 3. **L4c · PDF unificado y firmas (D-11, D-13, CHG-30).** Un solo documento, un
    solo hash, tres firmantes configurables. Es autocontenido y no depende de
    los dos anteriores.
 4. **L4d · Callback de firma y habilitación del cobro (CHG-33, CMP-07/08).**
    Último, porque conecta lo que los tres anteriores dejaron en su lugar.
+
+**Lo que L4b encontró y el plan no había anticipado.** La inversión no era solo
+mover dos elementos de una lista: arrastró tres consecuencias que el plan no
+menciona y que hubo que resolver dentro del lote, porque sin ellas el flujo no
+cerraba.
+
+- **El correlativo cambió de dueño.** Lo acuñaba el pago; los documentos, que
+  ahora se cierran antes, se quedaban sin número. Pasó a
+  `src/documentos/servicio.ts`.
+- **La declaración de origen lícito se quedaba fuera del documento firmado.**
+  Se aceptaba en la pantalla de pago y su literal integra el FIPF (fila 16 de
+  la matriz, Res. SEPRELAD 71/19 art. 26(1)(a-j)); con el pago después de la
+  firma, el FIPF se habría firmado sin ella. Se movió al paso de declaraciones,
+  que es el último antes del cierre del paquete. **Se adelanta parte de lo que
+  §3.4 asigna a L4c** (*"declaraciones integradas: licitud, veracidad, cuenta
+  propia"*): acá entró la licitud sola, por necesidad, no por alcance.
+- **Los documentos ya no pueden citar el pago.** La Solicitud imprimía la
+  referencia de Bancard y el medio; el FIPF, el nombre a facturar y el RUC.
+  Ninguno de esos datos existe cuando el paquete se cierra, así que salieron
+  del contenido. Los datos de la factura se siguen capturando al pagar
+  (CHG-34), pero fuera del documento firmado.
 
 **La lección para el resto del plan:** un lote cuyo riesgo se estimó en A y que
 toca máquina de estados, motor de documentos y dos integraciones no era un

@@ -57,14 +57,15 @@ export async function armarFalla(page: Page, falla: FallaDemo): Promise<void> {
   );
 }
 
-/** Plazo que se le va a asignar al **próximo** pago que se confirme (P7). */
-export async function fijarPlazoFirmaMs(page: Page, plazoMs: number): Promise<void> {
-  await esperarOk(page.request.post("/api/demo-panel/plazo-firma", { data: { plazoMs } }), "fijar plazo de firma");
+/** Plazo que se le va a asignar a la **próxima** firma que se complete (D-10). */
+export async function fijarPlazoPagoMs(page: Page, plazoMs: number): Promise<void> {
+  await esperarOk(page.request.post("/api/demo-panel/plazo-pago", { data: { plazoMs } }), "fijar plazo de pago");
 }
 
 /**
+
  * Prepara el tablero del panel antes de un escenario: sesión, sin fallas
- * armadas, plazo de firma real (24 h) salvo que se pida otro, y la persona
+ * armadas, plazo de pago real (24 h) salvo que se pida otro, y la persona
  * indicada. Deja el tablero determinista para que un escenario no herede
  * nada del anterior (el estado del panel es del **proceso**, no por test).
  */
@@ -73,7 +74,7 @@ export async function prepararEscenario(
   opciones: {
     readonly personaId: IdPersonaDemo;
     readonly escenarioIdentidadForzado?: EscenarioIdentidadDemo | null;
-    readonly plazoFirmaMs?: number;
+    readonly plazoPagoMs?: number;
   },
 ): Promise<void> {
   await iniciarSesionPanel(page);
@@ -81,7 +82,7 @@ export async function prepararEscenario(
   await desarmarTodasLasFallas(page);
   // 24 h reales por defecto: el plazo del panel es memoria del proceso y un
   // escenario anterior puede haberlo dejado corto.
-  await fijarPlazoFirmaMs(page, opciones.plazoFirmaMs ?? 24 * 60 * 60 * 1000);
+  await fijarPlazoPagoMs(page, opciones.plazoPagoMs ?? 24 * 60 * 60 * 1000);
   await fijarPersonaActiva(page, opciones.personaId, opciones.escenarioIdentidadForzado ?? null);
 }
 

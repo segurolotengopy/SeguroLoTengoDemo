@@ -7,8 +7,8 @@
  * - **Fila 32 (idempotencia)** — un reintento del mismo intento reutiliza la
  *   clave y no abre una segunda operación en Bancard; un intento distinto
  *   (otro medio, o después de una cancelación) sí genera una clave nueva.
- * - **Fila 16 (origen de fondos)** — la declaración es bloqueante y corta
- *   *antes* de tocar al proveedor.
+ * - **D-08 (no se cobra sin firma)** — el único estado de origen es FIRMADO, y
+ *   el correlativo ya viene acuñado por el cierre del paquete documental.
  * - **Fila 25 (importe)** — lo que viaja a Bancard es el premio persistido en
  *   el expediente, pase lo que pase por el cuerpo de la petición.
  *
@@ -20,26 +20,20 @@ import type { EvidenceStore } from "../../ports/evidence-store";
 import { ErrorBancard } from "../../ports/payment-provider";
 import type { PaymentProvider } from "../../ports/payment-provider";
 import { PLANES } from "../catalogo";
-import { transicionarExpediente } from "../expediente";
 import {
   PASO_EVIDENCIA_CONFIRMACION_P7,
   PASO_EVIDENCIA_INICIO_P7,
-  PLAZO_FIRMA_MS,
+  PASO_EVIDENCIA_VENCIMIENTO_P7,
+  RUTA_PANTALLA_B,
   confirmarPagoP7,
-  generarNumeroPropuesta,
   iniciarPagoP7,
   leerResumenPagoP7,
   normalizarRuc,
+  vencerPlazoPagoP7,
 } from "../pago-p7";
-import { VERSION_DECLARACION_ORIGEN_LICITO } from "../textos-p7";
 import type { EstadoPago, Expediente, MedioDePago, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
-import {
-  avanzarHastaIdentidadVerificada,
-  crearExpediente,
-  datosComplementariosFixture,
-  declaracionesCompatibles,
-} from "./fixtures";
+import { PLAZO_PAGO_FIJO, expedienteFirmado } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Dobles en memoria
@@ -145,42 +139,12 @@ function bancardFalso(opciones: { estadoTrasAcreditar?: EstadoPago | null } = {}
 }
 
 /** Expediente en DECLARACIONES_OK, listo para P7. */
+/**
+ * D-08 · la entrada de este paso es un expediente **firmado**: paquete cerrado,
+ * correlativo acuñado y plazo de pago corriendo.
+ */
 function expedienteListoParaPagar(): Expediente {
-  const base = avanzarHastaIdentidadVerificada(crearExpediente());
-  const conIdentidad: Expediente = {
-    ...base,
-    plan: {
-      planId: "CONFIO_PLUS",
-      premioAnualGs: PREMIO,
-      idVersionOferta: "OFERTA-CONFIO-v1",
-      hashOfertaSha256: "hash-de-prueba",
-      seleccionadoEn: AHORA,
-    },
-    identidad: {
-      numeroCedula: "9323336",
-      nombres: "Mónica Mariana",
-      apellidos: "Gorena Tapia",
-      fechaNacimiento: "1990-04-17",
-      sexo: "F",
-      nacionalidad: "Paraguaya",
-      paisNacimiento: "Paraguay",
-      estadoCivil: "Soltera",
-      captura: {
-        hashFrenteCedula: "a",
-        hashDorsoCedula: "b",
-        hashSelfie: "c",
-        pruebaDeVidaAprobada: true,
-        coincidenciaFacialAprobada: true,
-      },
-    },
-  };
-
-  const transicion = transicionarExpediente(conIdentidad, "DECLARACIONES_OK", {
-    declaraciones: declaracionesCompatibles,
-    datosComplementarios: datosComplementariosFixture,
-  });
-  if (!transicion.ok) throw new Error(transicion.error);
-  return transicion.expediente;
+  return expedienteFirmado("EXP-TEST-1");
 }
 
 function armar(expediente: Expediente, bancard = bancardFalso()) {
@@ -202,7 +166,6 @@ function armar(expediente: Expediente, bancard = bancardFalso()) {
           return `id-${n}`;
         };
       })(),
-      nuevoNumeroPropuesta: () => NUMERO_PROPUESTA,
     },
   };
 }
@@ -211,55 +174,39 @@ const ENTRADA_QR = {
   expedienteId: "EXP-TEST-1",
   medio: "QR_BANCARD" as const,
   ruc: "",
-  origenLicitoDeFondos: true,
   contexto: CONTEXTO,
 };
 
 // ---------------------------------------------------------------------------
-// Origen lícito de fondos — bloqueante
+// No se cobra sin firma (D-08)
 // ---------------------------------------------------------------------------
 
-describe("P7 · declaración de origen lícito de fondos", () => {
-  it("sin la declaración no se abre ninguna operación en Bancard", async () => {
-    const { deps, bancard, expedientes } = armar(expedienteListoParaPagar());
+describe("pago · no hay cobro sin firma", () => {
+  it("desde DECLARACIONES_OK no se abre ninguna operación en Bancard", async () => {
+    // Es la garantía de la Matriz V4 §7: el medio de cobro solo se habilita
+    // con firma válida. El rechazo ocurre antes de tocar al proveedor.
+    const firmado = expedienteListoParaPagar();
+    const sinFirmar: Expediente = { ...firmado, estado: "DECLARACIONES_OK", firma: null };
+    const { deps, bancard, expedientes } = armar(sinFirmar);
 
-    const resultado = await iniciarPagoP7(deps, { ...ENTRADA_QR, origenLicitoDeFondos: false });
+    const resultado = await iniciarPagoP7(deps, ENTRADA_QR);
 
-    expect(resultado).toEqual({ ok: false, motivo: "ORIGEN_FONDOS_NO_DECLARADO" });
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivo).toBe("ESTADO_INVALIDO");
     expect(bancard.llamadas).toHaveLength(0);
     expect(expedientes.actual().pago).toBeNull();
   });
 
-  it("un valor que no sea exactamente `true` tampoco alcanza", async () => {
-    const { deps, bancard } = armar(expedienteListoParaPagar());
-
-    for (const valor of ["true", 1, {}, null, undefined]) {
-      const resultado = await iniciarPagoP7(deps, { ...ENTRADA_QR, origenLicitoDeFondos: valor });
-      expect(resultado.ok).toBe(false);
-    }
-    expect(bancard.llamadas).toHaveLength(0);
-  });
-
-  it("el rechazo deja evidencia, para que quede el intento asentado", async () => {
-    const { deps, evidencias } = armar(expedienteListoParaPagar());
-
-    await iniciarPagoP7(deps, { ...ENTRADA_QR, origenLicitoDeFondos: false });
-
-    expect(evidencias.registros).toHaveLength(1);
-    expect(evidencias.registros[0].paso).toBe(PASO_EVIDENCIA_INICIO_P7);
-    expect(evidencias.registros[0].resultado).toBe("FALLIDO");
-  });
-
-  it("al aceptarla se persiste versionada y con el literal íntegro", async () => {
+  it("la declaración de origen lícito ya no se acepta acá: viaja firmada en el FIPF", async () => {
     const { deps, expedientes } = armar(expedienteListoParaPagar());
 
     await iniciarPagoP7(deps, ENTRADA_QR);
 
-    const declaracion = expedientes.actual().facturacion?.declaracionOrigenLicito;
-    expect(declaracion?.versionTexto).toBe(VERSION_DECLARACION_ORIGEN_LICITO);
-    expect(declaracion?.textoAceptado).toContain("origen lícito");
-    expect(declaracion?.aceptadaEn).toBe(AHORA);
-    expect(declaracion?.ip).toBe(CONTEXTO.ip);
+    // Se declaró en el paso de declaraciones y quedó dentro del documento que
+    // la persona firmó; la facturación ya no la lleva.
+    expect(expedientes.actual().declaracionOrigenLicito?.textoAceptado).toContain("origen lícito");
+    expect(JSON.stringify(expedientes.actual().facturacion)).not.toContain("origen lícito");
   });
 });
 
@@ -309,21 +256,16 @@ describe("P7 · importe y datos de la factura", () => {
     expect(expedientes.actual().facturacion?.ruc).toBeNull();
   });
 
-  it("acuña el correlativo de la propuesta y no lo vuelve a cambiar", async () => {
+  it("cita el correlativo que acuñó el paquete documental, y no acuña otro (D-08)", async () => {
     const { deps, expedientes } = armar(expedienteListoParaPagar());
 
     await iniciarPagoP7(deps, ENTRADA_QR);
     expect(expedientes.actual().numeroPropuesta).toBe(NUMERO_PROPUESTA);
 
-    // Cambiar de medio abre otro intento, pero el correlativo es el mismo.
+    // Cambiar de medio abre otro intento, pero el correlativo es el mismo:
+    // no hay ninguna rama por la que este paso pueda generar un número.
     await iniciarPagoP7(deps, { ...ENTRADA_QR, medio: "TARJETA_CREDITO" });
     expect(expedientes.actual().numeroPropuesta).toBe(NUMERO_PROPUESTA);
-  });
-
-  it("genera correlativos de ocho dígitos", () => {
-    for (let i = 0; i < 20; i += 1) {
-      expect(generarNumeroPropuesta()).toMatch(/^\d{8}$/);
-    }
   });
 });
 
@@ -406,11 +348,11 @@ describe("P7 · confirmación de la garantía de pago", () => {
     const resultado = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
 
     expect(resultado).toMatchObject({ ok: true, confirmado: false });
-    expect(expedientes.actual().estado).toBe("DECLARACIONES_OK");
+    expect(expedientes.actual().estado).toBe("FIRMADO");
     expect(evidencias.registros).toHaveLength(registrosTrasIniciar);
   });
 
-  it("con el QR acreditado transiciona a PAGO_CONFIRMADO y arranca las 24 horas", async () => {
+  it("con el QR acreditado transiciona a PAGO_CONFIRMADO y cierra el plazo", async () => {
     const { deps, expedientes } = armar(expedienteListoParaPagar());
 
     await iniciarPagoP7(deps, ENTRADA_QR);
@@ -420,18 +362,19 @@ describe("P7 · confirmación de la garantía de pago", () => {
       ok: true,
       confirmado: true,
       estado: "PAGO_CONFIRMADO",
-      siguientePantalla: "/firma",
+      // D-08 · pagado el premio, la contratación queda cerrada.
+      siguientePantalla: "/confirmacion",
     });
 
     const guardado = expedientes.actual();
     expect(guardado.pago?.estado).toBe("CONFIRMADO");
     expect(guardado.pago?.confirmadoEn).toBe(AHORA);
-    expect(guardado.plazoFirmaVenceEn).toBe(
-      new Date(new Date(AHORA).getTime() + PLAZO_FIRMA_MS).toISOString(),
-    );
+    // El plazo lo abrió la firma (D-10) y no se recalcula al cobrar: lo que
+    // hace el pago es apagarlo, sacando el expediente de la ventana que caduca.
+    expect(guardado.plazoPagoVenceEn).toBe(PLAZO_PAGO_FIJO);
   });
 
-  it("el débito confirma igual que el QR: es pago definitivo antes de la firma", async () => {
+  it("el débito confirma igual que el QR: cobro directo (D-02)", async () => {
     const { deps, expedientes } = armar(expedienteListoParaPagar());
 
     await iniciarPagoP7(deps, { ...ENTRADA_QR, medio: "TARJETA_DEBITO" });
@@ -482,7 +425,7 @@ describe("P7 · confirmación de la garantía de pago", () => {
     const resultado = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
 
     expect(resultado).toEqual({ ok: false, motivo: "PAGO_CANCELADO" });
-    expect(expedientes.actual().estado).toBe("DECLARACIONES_OK");
+    expect(expedientes.actual().estado).toBe("FIRMADO");
     expect(expedientes.actual().pago?.estado).toBe("CANCELADO");
   });
 
@@ -557,11 +500,11 @@ describe("P7 · evidencia", () => {
     expect(inicio?.detalle).toContain(`montoGs=${PREMIO}`);
     expect(inicio?.detalle).toContain("referenciaBancard=REF-1");
     expect(inicio?.detalle).toContain(`propuesta=${NUMERO_PROPUESTA}`);
-    expect(inicio?.versionTextoAceptado).toBe(VERSION_DECLARACION_ORIGEN_LICITO);
+    // Este paso ya no acepta ningún literal: la declaración de origen lícito
+    // se firmó con el FIPF, dos pasos antes (D-08).
+    expect(inicio?.versionTextoAceptado).toBeNull();
 
     expect(confirmacion?.detalle).toContain("estadoPago=CONFIRMADO");
-    expect(confirmacion?.detalle).toContain("plazoFirmaVenceEn=");
-    // La evidencia de la confirmación no acepta nada: no hay literal nuevo.
     expect(confirmacion?.textoAceptado).toBeNull();
 
     for (const registro of evidencias.registros) {
@@ -573,22 +516,110 @@ describe("P7 · evidencia", () => {
 });
 
 // ---------------------------------------------------------------------------
+// El plazo de 24 horas (D-10)
+// ---------------------------------------------------------------------------
+
+describe("pago · caducidad del expediente firmado sin pagar", () => {
+  /** Un reloj después del plazo del fixture. */
+  const VENCIDO = "2026-08-10T15:03:00.001Z";
+
+  function armarConReloj(expediente: Expediente, ahora: string) {
+    const base = armar(expediente);
+    return { ...base, deps: { ...base.deps, ahora: () => ahora } };
+  }
+
+  it("cumplido el plazo el expediente vence y manda a Pantalla B", async () => {
+    const entorno = armarConReloj(expedienteListoParaPagar(), VENCIDO);
+
+    const resultado = await vencerPlazoPagoP7(entorno.deps, {
+      expedienteId: "EXP-TEST-1",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.vencio).toBe(true);
+    expect(entorno.expedientes.actual().estado).toBe("VENCIDO");
+  });
+
+  it("antes del plazo no vence nada", async () => {
+    const entorno = armarConReloj(expedienteListoParaPagar(), AHORA);
+
+    const resultado = await vencerPlazoPagoP7(entorno.deps, {
+      expedienteId: "EXP-TEST-1",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.vencio).toBe(false);
+    expect(entorno.expedientes.actual().estado).toBe("FIRMADO");
+  });
+
+  it("vencido no se puede abrir una operación en Bancard", async () => {
+    const entorno = armarConReloj(expedienteListoParaPagar(), VENCIDO);
+
+    const resultado = await iniciarPagoP7(entorno.deps, ENTRADA_QR);
+
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivo).toBe("PLAZO_VENCIDO");
+    expect(resultado.siguientePantalla).toBe(RUTA_PANTALLA_B);
+    expect(entorno.bancard.llamadas).toHaveLength(0);
+  });
+
+  it("un pago ya acreditado no vence, aunque el reloj haya pasado", async () => {
+    // El expediente salió de la ventana que caduca al cobrar: evaluar el plazo
+    // sobre él solo abriría una carrera contra la escritura recién hecha.
+    const entorno = armar(expedienteListoParaPagar());
+    await iniciarPagoP7(entorno.deps, ENTRADA_QR);
+    await confirmarPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    const tarde = armarConReloj(entorno.expedientes.actual(), VENCIDO);
+    const resultado = await confirmarPagoP7(tarde.deps, {
+      expedienteId: "EXP-TEST-1",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado).toMatchObject({ ok: true, confirmado: true });
+    expect(tarde.expedientes.actual().estado).toBe("PAGO_CONFIRMADO");
+  });
+
+  it("deja evidencia del vencimiento y de que no hubo cobro que deshacer", async () => {
+    const entorno = armarConReloj(expedienteListoParaPagar(), VENCIDO);
+
+    await vencerPlazoPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_VENCIMIENTO_P7,
+    );
+    expect(registro?.resultado).toBe("FALLIDO");
+    // Con el pago después de la firma (D-08) el expediente vence sin haber
+    // cobrado nunca: no hay premio que devolver ni reserva que liberar.
+    expect(registro?.detalle).toContain("consecuencia=CADUCIDAD_SIN_COBRO");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Lectura para la pantalla
 // ---------------------------------------------------------------------------
 
 describe("P7 · resumen para la pantalla", () => {
-  it("devuelve el nombre del asegurado y el premio persistido", () => {
+  it("devuelve el nombre del asegurado, el premio y el plazo para pagar", () => {
     const resumen = leerResumenPagoP7(expedienteListoParaPagar());
 
     expect(resumen).toMatchObject({
       nombreAFacturar: "Mónica Mariana Gorena Tapia",
       montoGs: PREMIO,
       medio: null,
-      garantiaLista: false,
+      cobrado: false,
+      // D-10 · la cuenta regresiva de la pantalla sale de acá.
+      plazoPagoVenceEn: PLAZO_PAGO_FIJO,
     });
   });
 
-  it("devuelve null para un expediente que todavía no llegó a P7", () => {
-    expect(leerResumenPagoP7(avanzarHastaIdentidadVerificada(crearExpediente()))).toBeNull();
+  it("devuelve null para un expediente que todavía no firmó", () => {
+    const sinFirmar: Expediente = { ...expedienteListoParaPagar(), estado: "DECLARACIONES_OK" };
+    expect(leerResumenPagoP7(sinFirmar)).toBeNull();
   });
 });

@@ -1,14 +1,15 @@
 /**
  * `POST /api/p7/pago` — botones `GENERAR QR BANCARD`, `PAGAR CON DÉBITO` y
- * `PREAUTORIZAR TARJETA` de P7.
+ * `PAGAR CON CRÉDITO` del paso de pago.
  *
  * Abre la operación en Bancard; **no confirma el pago ni mueve el estado del
  * expediente**. Eso lo hace `GET /api/p7/estado` cuando Bancard reporta la
  * acreditación.
  *
  * El handler no decide nada: pasa el cuerpo crudo al dominio, que interpreta
- * el medio, exige la declaración de origen lícito, valida el RUC y resuelve la
- * clave de idempotencia. En particular **el importe no se recibe del cliente**
+ * el medio, valida el RUC y resuelve la clave de idempotencia. La declaración
+ * de origen lícito ya no se acepta acá: se firma con el FIPF, dos pasos antes
+ * (D-08). En particular **el importe no se recibe del cliente**
  * — el cuerpo no tiene ningún campo de monto, y si lo tuviera el dominio lo
  * ignoraría: sale del plan persistido en el expediente (fila 25 de la matriz
  * de cumplimiento).
@@ -35,6 +36,9 @@ function estadoHttp(motivo: MotivoRechazoP7): number {
       return 404;
     case "ESTADO_INVALIDO":
     case "EXPEDIENTE_INCOMPLETO":
+    // El expediente firmado caducó sin pagarse (D-10). Terminal: la respuesta
+    // trae la pantalla a la que hay que ir, no un reintento.
+    case "PLAZO_VENCIDO":
     // Perdió la carrera de escritura contra el sondeo de estado. No se llegó
     // a abrir nada duplicado en Bancard: reintentar el botón reutiliza la
     // `idempotencyKey` persistida.
@@ -64,12 +68,18 @@ export async function POST(request: Request): Promise<Response> {
     expedienteId,
     medio: cuerpo.medio,
     ruc: cuerpo.ruc,
-    origenLicitoDeFondos: cuerpo.origenLicitoDeFondos,
     contexto,
   });
 
   if (!resultado.ok) {
-    return respuestaJson({ ok: false, motivo: resultado.motivo }, { status: estadoHttp(resultado.motivo) });
+    return respuestaJson(
+      {
+        ok: false,
+        motivo: resultado.motivo,
+        ...(resultado.siguientePantalla ? { siguientePantalla: resultado.siguientePantalla } : {}),
+      },
+      { status: estadoHttp(resultado.motivo) },
+    );
   }
 
   return respuestaJson(

@@ -1,18 +1,21 @@
 "use client";
 
 import { nombrePortal } from "@/domain/entidades";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatearGuaranies } from "@/domain/catalogo";
 // Desde `textos-p7`, no desde el caso de uso: este es un componente de cliente
 // e importar `pago-p7.ts` arrastraría `node:crypto` al bundle.
 import {
-  ADVERTENCIA_PAGO_NO_ES_FIRMA_P7,
-  AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7,
+  ADVERTENCIA_PAGO_NO_ES_EMISION_P7,
+  AVISO_PLAZO_PAGO_P7,
+  AVISO_PLAZO_RESTANTE_P7,
+  AVISO_PLAZO_VENCIDO_P7,
   BOTON_CONTINUAR_P7,
+  BOTON_PAGAR_Y_CONTRATAR_P7,
   DEPENDENCIA_BANCARD_P7,
   IDENTIFICADOR_BANCARD_PENDIENTE_P7,
   MEDIO_POR_DEFECTO_P7,
-  NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA_P7,
   NOTA_DESTINO_DE_FONDOS_P7,
   NOTA_MONEDA_P7,
   NOTA_FACTURA_A_NOMBRE_DEL_ASEGURADO_P7,
@@ -28,13 +31,12 @@ import {
   ROTULO_RUC_P7,
   SEGURIDAD_P7,
   TEXTOS_MEDIOS_DE_PAGO_P7,
-  TEXTO_DECLARACION_ORIGEN_LICITO,
   TITULO_BLOQUE_FACTURA_P7,
   TITULO_BLOQUE_MEDIOS_P7,
   TITULO_DEPENDENCIA_BANCARD_P7,
   TITULO_DESPUES_DE_ESTA_PANTALLA_P7,
   TITULO_LIQUIDACION_P7,
-  TITULO_PLAZO_FIRMA_P7,
+  TITULO_PLAZO_PAGO_P7,
   TITULO_REFERENCIAS_P7,
   TITULO_SEGURIDAD_P7,
   NOTA_DESGLOSE_PROVISIONAL_P7,
@@ -61,6 +63,7 @@ import type { MedioDePago } from "@/domain/tipos";
 
 interface Resumen {
   readonly numeroPropuesta: string | null;
+  readonly plazoPagoVenceEn: string | null;
   readonly montoGs: number;
   readonly primaNetaGs: number;
   readonly ivaGs: number;
@@ -68,7 +71,7 @@ interface Resumen {
   readonly nombreAFacturar: string;
   readonly medio: MedioDePago | null;
   readonly referenciaBancard: string | null;
-  readonly garantiaLista: boolean;
+  readonly cobrado: boolean;
 }
 
 type Instruccion =
@@ -87,8 +90,6 @@ interface RespuestaEstado {
   readonly ok?: boolean;
   readonly motivo?: string;
   readonly confirmado?: boolean;
-  readonly plazoFirmaVenceEn?: string;
-  readonly pagoDefinitivo?: boolean;
   readonly siguientePantalla?: string;
 }
 
@@ -98,8 +99,7 @@ const MENSAJES: Readonly<Record<string, string>> = {
   ESTADO_INVALIDO: "Este proceso ya no está en el paso de pago.",
   EXPEDIENTE_INCOMPLETO: "Faltan datos del expediente para preparar el pago.",
   MEDIO_INVALIDO: "Elegí uno de los medios de pago disponibles.",
-  ORIGEN_FONDOS_NO_DECLARADO:
-    "Tenés que declarar que los fondos son de tu propiedad y de origen lícito para continuar.",
+  PLAZO_VENCIDO: AVISO_PLAZO_VENCIDO_P7,
   RUC_INVALIDO: "Revisá el RUC: el formato esperado es 80012345-6.",
   BANCARD_NO_DISPONIBLE: "Bancard no respondió. Volvé a intentar en unos segundos.",
   BANCARD_RECHAZO: "Bancard rechazó la operación. Probá con otro medio de pago.",
@@ -107,6 +107,15 @@ const MENSAJES: Readonly<Record<string, string>> = {
   PAGO_CANCELADO: "La operación se canceló o venció. Generá una nueva.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",
 };
+
+function formatearRestante(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const horas = Math.floor(total / 3600);
+  const minutos = Math.floor((total % 3600) / 60);
+  const segundos = total % 60;
+  const dosDigitos = (n: number) => n.toString().padStart(2, "0");
+  return `${dosDigitos(horas)}:${dosDigitos(minutos)}:${dosDigitos(segundos)}`;
+}
 
 /** Cada cuánto se le pregunta a Bancard si la operación ya se acreditó. */
 const INTERVALO_SONDEO_MS = 2_000;
@@ -137,9 +146,9 @@ function Fila({ rotulo, valor }: { rotulo: string; valor: string }) {
 }
 
 export function FormularioPagoP7() {
+  const router = useRouter();
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [ruc, setRuc] = useState("");
-  const [origenLicito, setOrigenLicito] = useState(false);
   const [medio, setMedio] = useState<MedioDePago>(MEDIO_POR_DEFECTO_P7);
 
   const [generando, setGenerando] = useState(false);
@@ -147,7 +156,7 @@ export function FormularioPagoP7() {
   const [referenciaBancard, setReferenciaBancard] = useState<string | null>(null);
   const [numeroPropuesta, setNumeroPropuesta] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
-  const [plazoFirmaVenceEn, setPlazoFirmaVenceEn] = useState<string | null>(null);
+  const [restanteMs, setRestanteMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Evita que un sondeo en vuelo escriba estado después de desmontar.
@@ -158,6 +167,56 @@ export function FormularioPagoP7() {
       vigente.current = false;
     };
   }, []);
+
+  const irAPantallaB = useCallback(() => {
+    router.push("/solicitud-vencida");
+  }, [router]);
+
+  // Cuenta regresiva del plazo para pagar (D-10). Se muestra acá porque acá
+  // corre: el expediente ya está firmado y lo que falta es la plata.
+  useEffect(() => {
+    const vence = resumen?.plazoPagoVenceEn;
+    if (!vence || confirmado) return;
+
+    let cancelado = false;
+    const recalcular = () => {
+      if (cancelado) return;
+      setRestanteMs(new Date(vence).getTime() - Date.now());
+    };
+
+    recalcular();
+    const temporizador = setInterval(recalcular, 1_000);
+    return () => {
+      cancelado = true;
+      clearInterval(temporizador);
+    };
+  }, [resumen?.plazoPagoVenceEn, confirmado]);
+
+  // La cuenta llegó a cero: se le pide al servidor que evalúe el plazo. El que
+  // decide sigue siendo él, contra su propio reloj — adelantar la hora del
+  // navegador no adelanta nada.
+  useEffect(() => {
+    if (restanteMs === null || restanteMs > 0 || confirmado) return;
+
+    let cancelado = false;
+    void (async () => {
+      try {
+        const respuesta = await fetch("/api/p7/vencimiento", { method: "POST" });
+        const datos = (await respuesta.json().catch(() => ({}))) as {
+          ok?: boolean;
+          vencio?: boolean;
+        };
+        if (cancelado || !vigente.current) return;
+        if (datos.ok && datos.vencio) irAPantallaB();
+      } catch {
+        // Se reintenta con el próximo tick del contador.
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [restanteMs, confirmado, irAPantallaB]);
 
   useEffect(() => {
     void (async () => {
@@ -172,7 +231,7 @@ export function FormularioPagoP7() {
         setNumeroPropuesta(datos.resumen.numeroPropuesta);
         setReferenciaBancard(datos.resumen.referenciaBancard);
         if (datos.resumen.medio) setMedio(datos.resumen.medio);
-        if (datos.resumen.garantiaLista) setConfirmado(true);
+        if (datos.resumen.cobrado) setConfirmado(true);
       } catch {
         // Sin resumen la pantalla no puede operar; el error se ve al enviar.
       }
@@ -184,6 +243,10 @@ export function FormularioPagoP7() {
     const datos = (await respuesta.json().catch(() => ({}))) as RespuestaEstado;
 
     if (!datos.ok) {
+      if (datos.siguientePantalla === "/solicitud-vencida") {
+        irAPantallaB();
+        return true;
+      }
       const terminal = datos.motivo !== undefined && MOTIVOS_TERMINALES_SONDEO.has(datos.motivo);
       if (terminal && vigente.current) {
         setError(MENSAJES[datos.motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO);
@@ -194,11 +257,10 @@ export function FormularioPagoP7() {
 
     if (vigente.current) {
       setConfirmado(true);
-      setPlazoFirmaVenceEn(datos.plazoFirmaVenceEn ?? null);
       setError(null);
     }
     return true;
-  }, []);
+  }, [irAPantallaB]);
 
   // Sondeo mientras hay una operación abierta y sin confirmar.
   useEffect(() => {
@@ -224,7 +286,7 @@ export function FormularioPagoP7() {
   }, [referenciaBancard, confirmado, sondear]);
 
   async function generar() {
-    if (!origenLicito || generando) return;
+    if (generando) return;
 
     setGenerando(true);
     setError(null);
@@ -233,7 +295,7 @@ export function FormularioPagoP7() {
         method: "POST",
         headers: { "content-type": "application/json" },
         // El monto no viaja: lo pone el servidor desde el plan del expediente.
-        body: JSON.stringify({ medio, ruc, origenLicitoDeFondos: origenLicito }),
+        body: JSON.stringify({ medio, ruc }),
       });
       const datos = (await respuesta.json().catch(() => ({}))) as RespuestaInicio;
 
@@ -344,31 +406,6 @@ export function FormularioPagoP7() {
           <p className="pt-1 text-[11px] text-cuerpo">{NOTA_DESTINO_DE_FONDOS_P7}</p>
         </div>
 
-        {/* Declaración de origen lícito de fondos — bloqueante */}
-        <label
-          className={`flex items-start gap-3 rounded-lg border-2 px-4 py-3 ${
-            origenLicito
-              ? "border-verde-400 bg-verde-50 dark:border-verde-600 dark:bg-verde-950"
-              : "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
-          }`}
-        >
-          <input
-            type="checkbox"
-            checked={origenLicito}
-            onChange={(e) => setOrigenLicito(e.target.checked)}
-            disabled={confirmado}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-naranja-500"
-          />
-          <span className="flex flex-col gap-1">
-            <span className="text-sm text-titulo">{TEXTO_DECLARACION_ORIGEN_LICITO}</span>
-            {!origenLicito ? (
-              <span className="text-[11px] font-bold tracking-wide text-rojo-700 uppercase dark:text-rojo-300">
-                {NOTA_DECLARACION_ORIGEN_LICITO_OBLIGATORIA_P7}
-              </span>
-            ) : null}
-          </span>
-        </label>
-
         {/* Referencias de la operación */}
         <div className="flex flex-col rounded-lg border border-azul-200 bg-azul-50 px-4 py-3 dark:border-azul-700 dark:bg-azul-950">
           <h3 className="pb-1 text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
@@ -455,16 +492,14 @@ export function FormularioPagoP7() {
             <button
               type="button"
               onClick={() => void generar()}
-              disabled={!origenLicito || generando}
+              disabled={generando}
               className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
             >
               {generando ? "Comunicando con Bancard…" : (textoMedio?.botón ?? "Continuar")}
             </button>
-            {!origenLicito ? (
-              <p className="text-xs text-etiqueta">
-                Se habilita al declarar el origen lícito de los fondos.
-              </p>
-            ) : null}
+            {/* CHG-38 · lo que el pago hace ahora: contrata. Con el pago antes
+                de la firma este texto habría mentido. */}
+            <p className="text-xs font-semibold text-cuerpo">{BOTON_PAGAR_Y_CONTRATAR_P7}</p>
           </div>
         ) : null}
       </section>
@@ -531,15 +566,10 @@ export function FormularioPagoP7() {
           {/* D-02 · los tres medios cobran directo, así que ya no hay dos
               mensajes según si el dinero se movió o quedó reservado. */}
           <p className="text-sm text-verde-900 dark:text-verde-100">
-            Bancard acreditó el premio a Alianza Garantía. Ya podés firmar.
+            Bancard acreditó el premio a Alianza Garantía. Tu seguro quedó contratado.
           </p>
-          {plazoFirmaVenceEn ? (
-            <p className="text-sm font-semibold text-verde-900 dark:text-verde-100">
-              Tenés tiempo para firmar hasta el {new Date(plazoFirmaVenceEn).toLocaleString("es-PY")}.
-            </p>
-          ) : null}
           <a
-            href="/firma"
+            href="/confirmacion"
             className="inline-flex h-12 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"
           >
             {BOTON_CONTINUAR_P7}
@@ -559,13 +589,19 @@ export function FormularioPagoP7() {
       {/* Debajo del botón: plazo, secuencia y seguridad                       */}
       {/* ------------------------------------------------------------------ */}
       <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
-        {/* Plazo para firmar */}
+        {/* Plazo para pagar (D-10) */}
         <div className="flex flex-col gap-1 rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2.5 dark:border-naranja-700 dark:bg-naranja-950">
           <p className="text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:text-naranja-200">
-            {TITULO_PLAZO_FIRMA_P7}
+            {TITULO_PLAZO_PAGO_P7}
           </p>
+          {restanteMs !== null && !confirmado ? (
+            <p className="text-sm font-bold text-naranja-900 dark:text-naranja-100">
+              {AVISO_PLAZO_RESTANTE_P7}:{" "}
+              <span className="tabular-nums">{formatearRestante(restanteMs)}</span>
+            </p>
+          ) : null}
           <p className="text-xs text-naranja-900 dark:text-naranja-100">
-            {AVISO_PLAZO_FIRMA_CON_DEVOLUCION_P7}
+            {AVISO_PLAZO_PAGO_P7}
           </p>
         </div>
 
@@ -598,7 +634,7 @@ export function FormularioPagoP7() {
             ))}
           </ul>
           <p className="text-xs font-semibold text-verde-900 dark:text-verde-100">
-            {ADVERTENCIA_PAGO_NO_ES_FIRMA_P7}
+            {ADVERTENCIA_PAGO_NO_ES_EMISION_P7}
           </p>
         </section>
       </div>

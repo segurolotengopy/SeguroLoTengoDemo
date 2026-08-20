@@ -55,7 +55,7 @@ import {
   crearSignatureProviderMock,
 } from "./mock/signature-provider";
 import { consumirFallaDemo } from "./mock/fallas-demo";
-import { plazoFirmaMs } from "./mock/plazo-firma-demo";
+import { plazoPagoMs } from "./mock/plazo-pago-demo";
 
 /**
  * Persistencia del simulador de firma, configurada al importar este módulo.
@@ -286,12 +286,14 @@ export function obtenerPaymentProvider(): PaymentProvider {
 
 export function obtenerSignatureProvider(): SignatureProvider {
   return resolverAdaptador("SIGNATURE", {
-    // La vigencia del enlace acompaña al plazo para firmar: si el panel de
-    // demo comprime las 24 horas a segundos, un enlace que siguiera vivo un
-    // día entero mostraría un vencimiento que no vence.
+    // La vigencia del enlace de firma acompaña al plazo del expediente: si el
+    // panel de demo comprime las 24 horas a segundos, un enlace que siguiera
+    // vivo un día entero mostraría un vencimiento que no vence. Son dos
+    // caducidades distintas —la de la sesión de Code100 y la del expediente
+    // (D-10)— y en el demo se las mantiene alineadas a propósito.
     mock: () =>
       crearSignatureProviderMock({
-        vigenciaEnlaceMs: plazoFirmaMs(),
+        vigenciaEnlaceMs: plazoPagoMs(),
         fallaForzada: () => (consumirFallaDemo("CODE100_RECHAZO") ? "RECHAZADA" : null),
       }),
     live: () => {
@@ -354,13 +356,13 @@ export function obtenerPolicyIssuer(): PolicyIssuer {
 }
 
 /**
- * Plazo para firmar que rige en este proceso: 24 horas, o lo que haya fijado
- * el panel de demo con `DEMO_MODE=true` (`mock/plazo-firma-demo.ts`).
+ * Plazo para pagar que rige en este proceso: 24 horas, o lo que haya fijado
+ * el panel de demo con `DEMO_MODE=true` (`mock/plazo-pago-demo.ts`).
  *
  * Se expone desde el composition root —y no importando el módulo mock desde
  * `src/app/`— por la misma razón que los proveedores: los Route Handlers del
  * flujo no tienen por qué saber que existe un modo demo.
  */
-export function obtenerPlazoFirmaMs(): number {
-  return plazoFirmaMs();
+export function obtenerPlazoPagoMs(): number {
+  return plazoPagoMs();
 }

@@ -111,19 +111,21 @@ export const PASOS_FLUJO: readonly PasoDelFlujo[] = [
     titulo: "Datos y declaraciones",
     estadoAlCompletar: "DECLARACIONES_OK",
   },
-  // Pago y firma están todavía en el orden viejo: invertirlos es el Lote 4
-  // (D-08), y con esta lista se hace moviendo estos dos elementos.
+  // D-08 · se firma antes de pagar (Matriz Legal V4 §7). Invertir el orden fue
+  // mover estos dos elementos de lugar, que era exactamente lo que la lista
+  // prometía: el número de paso, el stepper y las redirecciones se derivan de
+  // acá y no hubo que tocarlos.
   {
     id: "Pv2-6",
-    slug: "/pago",
-    titulo: "Realizá el pago",
-    estadoAlCompletar: "PAGO_CONFIRMADO",
-  },
-  {
-    id: "Pv2-7",
     slug: "/firma",
     titulo: "Revisá, aceptá y firmá",
     estadoAlCompletar: "FIRMADO",
+  },
+  {
+    id: "Pv2-7",
+    slug: "/pago",
+    titulo: "Realizá el pago",
+    estadoAlCompletar: "PAGO_CONFIRMADO",
   },
   {
     id: "Pv2-8",
@@ -213,9 +215,11 @@ export const PANTALLA_POR_ESTADO: Readonly<Record<EstadoExpediente, string>> = {
   PAGO_CONFIRMADO: rutaDelPasoSiguiente("PAGO_CONFIRMADO") ?? PASOS_FLUJO[0].slug,
   FIRMADO: rutaDelPasoSiguiente("FIRMADO") ?? PASOS_FLUJO[0].slug,
 
-  // El paquete documental se cierra al entrar a la pantalla de firma, así que
-  // ese estado intermedio comparte pantalla con el que lo precede.
+  // El paquete documental se cierra al entrar a la pantalla de firma, y la
+  // firma del cliente deja el expediente esperando las institucionales: los
+  // dos estados intermedios comparten pantalla con el paso que los produce.
   PAQUETE_GENERADO: "/firma",
+  FIRMADO_CLIENTE: "/firma",
   // Última pantalla: no hay "siguiente" que derivar.
   EMITIDO: "/confirmacion",
 

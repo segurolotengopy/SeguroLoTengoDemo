@@ -4,19 +4,19 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 /**
- * Acelerador del plazo para firmar (CLAUDE.md → "Panel de demo").
+ * Acelerador del plazo para pagar (CLAUDE.md → "Panel de demo").
  *
- * Cambia el plazo que se le va a poner a los **próximos** pagos confirmados.
- * Un expediente que ya pagó tiene su `plazoFirmaVenceEn` congelado desde ese
- * momento: para verlo vencer en segundos hay que fijar el plazo corto **antes**
- * de pagar el QR en P7.
+ * Cambia el plazo que se le va a poner a las **próximas** firmas completadas.
+ * Un expediente ya firmado tiene su `plazoPagoVenceEn` congelado desde ese
+ * momento: para verlo caducar en segundos hay que fijar el plazo corto
+ * **antes** de firmar (D-08/D-10).
  */
-export interface SelectorPlazoFirmaProps {
+export interface SelectorPlazoPagoProps {
   opciones: readonly { readonly ms: number; readonly rotulo: string }[];
   plazoActualMs: number;
 }
 
-export function SelectorPlazoFirma({ opciones, plazoActualMs }: SelectorPlazoFirmaProps) {
+export function SelectorPlazoPago({ opciones, plazoActualMs }: SelectorPlazoPagoProps) {
   const router = useRouter();
   const [elegido, setElegido] = useState(plazoActualMs);
   const [enProceso, setEnProceso] = useState(false);
@@ -29,7 +29,7 @@ export function SelectorPlazoFirma({ opciones, plazoActualMs }: SelectorPlazoFir
     setError(null);
     setMensaje(null);
     try {
-      const respuesta = await fetch("/api/demo-panel/plazo-firma", {
+      const respuesta = await fetch("/api/demo-panel/plazo-pago", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ plazoMs }),
@@ -42,7 +42,7 @@ export function SelectorPlazoFirma({ opciones, plazoActualMs }: SelectorPlazoFir
         );
         return;
       }
-      setMensaje("Listo. Aplica a los pagos que se confirmen de ahora en más.");
+      setMensaje("Listo. Aplica a las firmas que se completen de ahora en más.");
       router.refresh();
     } catch {
       setError("No pudimos conectarnos.");
@@ -54,8 +54,8 @@ export function SelectorPlazoFirma({ opciones, plazoActualMs }: SelectorPlazoFir
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-cuerpo">
-        Plazo que se le asigna a un expediente cuando Bancard confirma el pago en P7. Elegí uno
-        corto <strong>antes</strong> de pagar para poder mostrar el vencimiento y la Pantalla B.
+        Plazo que se le asigna a un expediente cuando queda firmado. Elegí uno
+        corto <strong>antes</strong> de firmar para poder mostrar la caducidad y la Pantalla B.
       </p>
 
       <div className="flex flex-wrap gap-2">

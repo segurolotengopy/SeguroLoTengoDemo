@@ -69,7 +69,6 @@ export async function GET(request: Request): Promise<Response> {
       montoGs: resultado.montoGs,
       referenciaBancard: resultado.referenciaBancard,
       numeroPropuesta: resultado.numeroPropuesta,
-      plazoFirmaVenceEn: resultado.plazoFirmaVenceEn,
       siguientePantalla: resultado.siguientePantalla,
     },
     { cookies },

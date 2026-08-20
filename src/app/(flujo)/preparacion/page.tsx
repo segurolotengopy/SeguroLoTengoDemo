@@ -58,12 +58,13 @@ const ELEMENTOS_NECESARIOS = [
   },
   {
     titulo: "Correo electrónico activo",
-    detalle: "Va a recibir un código diferente; se usa para avisos y documentos electrónicos.",
+    detalle: "Se usa para avisos y documentos electrónicos; lo vas a declarar en el paso siguiente.",
   },
   {
     titulo: "Medio de pago disponible",
     detalle:
-      "QR Bancard: se paga antes de firmar. Tarjeta: según modalidad habilitada. No hay cobro en esta pantalla.",
+      "QR Bancard, tarjeta de débito o de crédito. El cobro se habilita recién después de que firmes; " +
+      "no hay ningún cobro en esta pantalla.",
   },
 ] as const;
 

@@ -159,6 +159,26 @@ export function crearExpedienteRepositoryDynamoDb(
     }
   }
 
+  /**
+   * Compatibilidad de lectura con los expedientes anteriores a la inversión de
+   * firma y pago (D-08).
+   *
+   * Hasta el Lote 4 el vencimiento se guardaba en `plazoFirmaVenceEn` y medía
+   * el tiempo para firmar algo ya pagado; ahora se llama `plazoPagoVenceEn` y
+   * mide el tiempo para pagar algo ya firmado. Los registros viejos **no se
+   * reescriben** (regla inviolable #10), así que se los lee por su clave y se
+   * los mapea: el instante que guardan sigue siendo el mismo hecho —cuándo
+   * caduca este expediente— y sin esto un expediente vencido de antes se
+   * mostraría sin fecha en la consola y en la Pantalla B.
+   */
+  function conPlazoDePago(expediente: Expediente): Expediente {
+    if (expediente.plazoPagoVenceEn !== undefined && expediente.plazoPagoVenceEn !== null) {
+      return expediente;
+    }
+    const legado = (expediente as Expediente & { plazoFirmaVenceEn?: string | null }).plazoFirmaVenceEn;
+    return { ...expediente, plazoPagoVenceEn: legado ?? null };
+  }
+
   /** Resuelve ids a expedientes, salteando los que ya no existan. */
   async function hidratar(ids: readonly string[]): Promise<readonly Expediente[]> {
     const expedientes: Expediente[] = [];
@@ -215,7 +235,7 @@ export function crearExpedienteRepositoryDynamoDb(
       const respuesta = await documentClient.send(new GetCommand({ TableName: nombreTabla, Key: { pk, sk } }));
       if (!respuesta.Item) return null;
       const item = respuesta.Item as { pk: string; sk: string; entityType: string } & Expediente;
-      return quitarClavesInternas(item);
+      return conPlazoDePago(quitarClavesInternas(item));
     },
 
     async guardar(expediente: Expediente, actualizadoEnEsperado?: string): Promise<void> {

@@ -46,6 +46,7 @@ export async function POST(request: Request): Promise<Response> {
     expedienteId,
     datos: bloque(cuerpo, "datos"),
     declaraciones: bloque(cuerpo, "declaraciones"),
+    origenLicitoDeFondos: cuerpo.origenLicitoDeFondos,
     contexto,
   });
 

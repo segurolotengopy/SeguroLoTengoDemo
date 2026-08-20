@@ -98,10 +98,18 @@ export const ROTULO_CANAL_P8: Readonly<Record<CanalFirma, string>> = {
   EMAIL: "Correo verificado",
 };
 
-export const TITULO_GARANTIA_PAGO_P8 = "GARANTÍA DE PAGO LISTA";
+/**
+ * D-08 · lo que sigue después de firmar.
+ *
+ * Reemplaza al bloque `GARANTÍA DE PAGO LISTA` de la especificación, que
+ * describía el orden viejo: se llegaba a firmar con el premio ya cobrado. Con
+ * el orden invertido lo que hay que decir es lo contrario — todavía no se
+ * cobró nada, y firmar es lo que habilita el cobro.
+ */
+export const TITULO_QUE_SIGUE_P8 = "DESPUÉS DE FIRMAR";
 
-export const NOTA_GARANTIA_SIN_DATOS_NUEVOS_P8 =
-  "Esta firma no solicita nuevos datos de pago.";
+export const NOTA_PAGO_DESPUES_DE_FIRMAR_P8 =
+  "Todavía no se cobró nada. Al firmar se habilita el pago, y tenés 24 horas para completarlo.";
 
 export const TITULO_UN_SOLO_ACTO_P8 = "UN SOLO ACTO DE FIRMA";
 
@@ -160,7 +168,7 @@ export const PASOS_PROGRESO_FIRMA_P8: readonly string[] = [
 export const ESTADO_ESPERANDO_CODE100_P8 = "Esperando confirmación verificable de Code100";
 
 export const NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8 =
-  "QR — seguimiento manual de firma a 1, 5 y 12 horas; vencimiento a las 24 horas.";
+  "Firmada la Solicitud, el pago tiene seguimiento a 1, 5 y 12 horas y vence a las 24 horas.";
 
 // ---------------------------------------------------------------------------
 // Después de la firma del cliente
@@ -179,9 +187,13 @@ export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
     detalle: "El cliente firmó la Solicitud y el FIPF; se verifican los hashes y la transacción.",
   },
   {
-    titulo: "Firmas y cobro",
+    titulo: "Firmas institucionales",
+    detalle: "Interseguros y Alianza firman ambos PDF con certificado cualificado.",
+  },
+  {
+    titulo: "Pago del premio",
     detalle:
-      "Interseguros y Alianza firman ambos PDF; Bancard confirma el cobro y el identificador.",
+      "Con la firma válida se habilita el cobro por Bancard; tenés 24 horas para completarlo.",
   },
   {
     titulo: "Envío y validación",
@@ -210,22 +222,8 @@ export const LEYENDAS_FINALES_P8: readonly string[] = [
 // rechazado, el plazo cumplido) y se escribieron para esta pantalla siguiendo
 // el mismo registro. No son literales citables de la especificación.
 
-export const AVISO_PLAZO_RESTANTE_P8 = "Tiempo restante para firmar";
-
-export const AVISO_PLAZO_VENCIDO_P8 =
-  "Se cumplió el plazo para firmar. Tu solicitud venció y se inició el procedimiento correspondiente.";
-
 export const AVISO_FIRMA_RECHAZADA_P8 =
-  "Code100 informó que el acto de firma no se completó. Podés pedir un enlace nuevo mientras siga vigente el plazo.";
-
-/**
- * La firma ya está registrada, pero Bancard todavía no confirmó la captura de
- * la preautorización. No se avanza a P9 hasta que el cobro esté confirmado
- * (fila 44 de la matriz: *"Si falla el cobro, no solicitar la emisión
- * automática"*).
- */
-export const AVISO_CAPTURA_PENDIENTE_P8 =
-  "Firmaste correctamente. Estamos confirmando el cobro con Bancard antes de solicitar la emisión.";
+  "Code100 informó que el acto de firma no se completó. Podés pedir un enlace nuevo cuando quieras.";
 
 export const AVISO_ENLACE_ENVIADO_P8 =
   "Enviamos el enlace de firma a tu canal verificado. Abrilo, firmá y volvé a esta pantalla.";

@@ -306,10 +306,13 @@ const CAMPO_DECLARACION: readonly (keyof PersonaDemo["declaraciones"])[] = [
 ];
 
 /**
- * P6 · Paso 6 de 9 — Datos y declaraciones. Completa el bloque 1 con los
- * datos complementarios de la persona y responde las ocho declaraciones tal
- * como están en su fixture (`personas.ts`), sin decidir acá qué habilita o
- * bloquea: esa regla la aplica siempre el servidor.
+ * Paso 5 · Datos y declaraciones. Completa el bloque 1 con los datos
+ * complementarios de la persona y responde las ocho declaraciones tal como
+ * están en su fixture (`personas.ts`), sin decidir acá qué habilita o bloquea:
+ * esa regla la aplica siempre el servidor.
+ *
+ * Marca además la declaración de origen lícito de fondos, que desde D-08 se
+ * acepta acá: integra el FIPF, y el FIPF se cierra al salir de esta pantalla.
  */
 export async function completarP6(page: Page, persona: PersonaDemo): Promise<void> {
   await expect(page).toHaveURL(/\/declaraciones$/);
@@ -354,6 +357,10 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
     await radio.click({ force: true });
     await expect(radio).toBeChecked();
   }
+
+  const origenLicito = page.getByLabel(/Declaro que los fondos utilizados/);
+  await origenLicito.check();
+  await expect(origenLicito).toBeChecked();
 }
 
 /** Envía el formulario de P6 y espera terminar en el destino esperado. */
@@ -365,8 +372,11 @@ export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<voi
 }
 
 /**
- * P7 · Paso 7 de 9 — Facturación y garantía de pago, con QR Bancard. Deja a
- * la persona en /pago, pago confirmado.
+ * Paso 7 · Realizá el pago, con QR Bancard. Deja a la persona en /pago, pago
+ * confirmado.
+ *
+ * D-08 · este paso ahora corre **después** de la firma, y la declaración de
+ * origen lícito se aceptó dos pasos antes, junto con las declaraciones.
  *
  * **No confía en el sondeo del propio cliente para confirmar el pago.**
  * Hallazgo al correr esta batería contra el stack real: `FormularioPagoP7`
@@ -388,7 +398,6 @@ export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<voi
 export async function completarP7Qr(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/pago$/);
   await esperarHidratacion(page);
-  await page.getByLabel(/Declaro que los fondos utilizados/).check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
   await expect(page.getByText("Escaneá el QR con tu app de banco")).toBeVisible();
 
@@ -405,20 +414,23 @@ let ultimaRespuestaDiagnostico = "";
   await expect(page.getByRole("heading", { name: "Pago acreditado" })).toBeVisible();
 }
 
-export async function continuarAFirma(page: Page): Promise<void> {
-  await page.getByRole("link", { name: "Continuar a firma →" }).click();
-  await expect(page).toHaveURL(/\/firma$/);
+export async function continuarAConfirmacion(page: Page): Promise<void> {
+  await page.getByRole("link", { name: "Ver la confirmación →" }).click();
+  await expect(page).toHaveURL(/\/confirmacion$/);
 }
 
 /**
- * P8 · Paso 8 de 9 — envía el enlace de firma por WhatsApp y abre el "otro
- * lado" (el panel de demo haciendo de Code100). No firma: eso lo hacen
- * `firmarNormalmente` / `firmarConFallaAMitad` de abajo, según el escenario.
+ * Paso 6 · Revisá, aceptá y firmá — envía el enlace de firma por WhatsApp y
+ * abre el "otro lado" (el panel de demo haciendo de Code100). No firma: eso lo
+ * hacen `firmarNormalmente` / `firmarConFallaAMitad` de abajo, según el
+ * escenario.
  */
 export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
   await expect(page).toHaveURL(/\/firma$/);
   await esperarHidratacion(page);
-  await expect(page.getByRole("heading", { name: "GARANTÍA DE PAGO LISTA" })).toBeVisible();
+  // D-08 · acá todavía no se cobró nada; lo que la pantalla anuncia es que
+  // firmar es lo que habilita el pago.
+  await expect(page.getByRole("heading", { name: "DESPUÉS DE FIRMAR" })).toBeVisible();
 
   await page.getByRole("button", { name: "ENVIAR ENLACE SEGURO DE FIRMA" }).click();
   await expect(
@@ -435,7 +447,7 @@ export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
   return idCode100;
 }
 
-/** Firma normalmente con el código real leído del panel; espera terminar en P9. */
+/** Firma normalmente con el código real leído del panel; espera pasar al pago. */
 export async function firmarNormalmente(page: Page, idCode100: string): Promise<void> {
   const sesion = await leerSesionFirmaDelPanel(page, idCode100);
   expect(sesion.codigo, "El panel no tiene código de firma para esta sesión.").not.toBeNull();
@@ -446,5 +458,5 @@ export async function firmarNormalmente(page: Page, idCode100: string): Promise<
   });
   expect(resultado.ok, `firmar: ${JSON.stringify(resultado.datos)}`).toBeTruthy();
 
-  await expect(page).toHaveURL(/\/confirmacion$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/pago$/, { timeout: 20_000 });
 }

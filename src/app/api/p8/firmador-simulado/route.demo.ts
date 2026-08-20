@@ -140,9 +140,10 @@ export async function POST(request: Request): Promise<Response> {
 
   // Las dos huellas juntas o ninguna. Acá no vuelve el código del OTP.
   //
-  // El expediente todavía está en PAQUETE_GENERADO: quien lo pasa a FIRMADO es
-  // el sondeo de `/api/p8/estado`, igual que si la persona hubiera firmado en
-  // la ventana real de Code100. Este endpoint no transiciona nada.
+  // El expediente todavía está en PAQUETE_GENERADO: quien lo pasa a
+  // FIRMADO_CLIENTE y de ahí a FIRMADO es el sondeo de `/api/p8/estado`, igual
+  // que si la persona hubiera firmado en la ventana real de Code100. Este
+  // endpoint no transiciona nada.
   return respuestaJson(
     {
       ok: true,

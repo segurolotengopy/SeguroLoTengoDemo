@@ -38,8 +38,18 @@ export type EstadoExpediente =
    */
   | "ASISTENCIA_IDENTIDAD"
   | "DECLARACIONES_OK"
-  | "PAGO_CONFIRMADO"
   | "PAQUETE_GENERADO"
+  /**
+   * El cliente firmó y faltan las firmas institucionales (D-13).
+   *
+   * Existe como estado propio y no como un campo del expediente porque un
+   * fallo a mitad del sellado tiene que ser distinguible de un expediente sin
+   * firmar: la regla inviolable #3 exige que Solicitud y FIPF entren juntos o
+   * no entre ninguno, y para hacerla cumplir hay que poder nombrar el momento
+   * en que la firma del cliente ya existe y el acto todavía no cerró.
+   */
+  | "FIRMADO_CLIENTE"
+  | "PAGO_CONFIRMADO"
   | "VENCIDO"
   | "DEVOLUCION_EN_TRAMITE"
   | "DEVUELTO"
@@ -71,21 +81,22 @@ export type EstadoExpediente =
  */
 const TODOS_LOS_ESTADOS: Readonly<Record<EstadoExpediente, true>> = {
   INICIADO: true,
-  CANAL_WA_VERIFICADO: true,
   PLAN_SELECCIONADO: true,
+  CANAL_WA_VERIFICADO: true,
   AUTORIZADO: true,
   CANAL_EMAIL_VERIFICADO: true,
   IDENTIDAD_VERIFICADA: true,
   ASISTENCIA_IDENTIDAD: true,
   DERIVADO_MANUAL: true,
   DECLARACIONES_OK: true,
-  PAGO_CONFIRMADO: true,
   PAQUETE_GENERADO: true,
+  FIRMADO_CLIENTE: true,
+  FIRMADO: true,
   VENCIDO: true,
+  PAGO_CONFIRMADO: true,
+  EMITIDO: true,
   DEVOLUCION_EN_TRAMITE: true,
   DEVUELTO: true,
-  FIRMADO: true,
-  EMITIDO: true,
 };
 
 export const ESTADOS_EXPEDIENTE: readonly EstadoExpediente[] = Object.keys(
@@ -417,7 +428,6 @@ export interface DatosFacturacionP7 {
   readonly nombreAFacturar: string;
   /** Manual y opcional. Si queda vacío, a Alianza se le envían nombre y cédula. */
   readonly ruc: string | null;
-  readonly declaracionOrigenLicito: DeclaracionOrigenLicito;
 }
 
 // ---------------------------------------------------------------------------
@@ -592,15 +602,37 @@ export interface Expediente {
   readonly facturacion: DatosFacturacionP7 | null;
   readonly pago: Pago | null;
   /**
-   * Vencimiento del plazo para firmar, calculado al confirmarse la garantía de
-   * pago en P7 (`PLAZO PARA FIRMAR: 24 HORAS`). Pasada esa hora sin firma el
-   * expediente va a VENCIDO y de ahí a Pantalla B.
+   * Vencimiento del plazo para **pagar**, calculado al quedar el expediente
+   * firmado por todos (D-10: 24 horas). Pasada esa hora sin cobro el
+   * expediente va a VENCIDO, que bajo este orden es el final del camino: no
+   * hubo cobro, así que no hay devolución que tramitar.
    *
-   * La consecuencia depende del medio (`esPagoDefinitivoAntesDeFirma`): con QR
-   * o débito hay que devolver el premio; con crédito alcanza con liberar la
-   * reserva, porque no se cobró nada.
+   * Se llamaba `plazoFirmaVenceEn` mientras se cobraba antes de firmar, y
+   * medía lo contrario: el tiempo que tenía la persona para firmar algo que ya
+   * había pagado. Invertido el orden (D-08), vencer dejó de costar plata —no
+   * hay premio que devolver— y por eso el nombre cambió con la semántica.
+   * Los expedientes anteriores traen la clave vieja y **no se reescriben**
+   * (regla inviolable #10): el repositorio la lee y la mapea acá, porque el
+   * dato que guardan sigue siendo el instante en que caducaron.
    */
-  readonly plazoFirmaVenceEn: string | null;
+  readonly plazoPagoVenceEn: string | null;
+  /**
+   * Declaración de origen lícito de los fondos, aceptada en el paso de
+   * declaraciones.
+   *
+   * **Se declara antes de firmar, no al pagar** (D-08). Se aceptaba en la
+   * pantalla de pago mientras el pago iba primero; invertido el orden, el
+   * literal tiene que estar en el FIPF que la persona firma —es un dato de
+   * origen de fondos, fila 16 de la matriz (Res. SEPRELAD 71/19, art.
+   * 26(1)(a-j))— y el documento se cierra antes de que exista ninguna
+   * operación de pago. Aceptarla en el paso de pago la dejaría fuera del
+   * documento firmado, que es justamente donde prueba algo.
+   *
+   * Vive en el expediente y no dentro de `DatosFacturacionP7` por lo mismo:
+   * dejó de ser un dato de la factura y pasó a ser una declaración del
+   * proponente.
+   */
+  readonly declaracionOrigenLicito: DeclaracionOrigenLicito | null;
   readonly paqueteDocumental: PaqueteDocumental | null;
   /** Enlace de firma enviado y esperando confirmación de Code100 (P8). */
   readonly actoDeFirma: ActoDeFirmaEnCurso | null;
@@ -638,7 +670,8 @@ export function crearExpedienteInicial(input: {
     numeroPropuesta: null,
     facturacion: null,
     pago: null,
-    plazoFirmaVenceEn: null,
+    plazoPagoVenceEn: null,
+    declaracionOrigenLicito: null,
     paqueteDocumental: null,
     actoDeFirma: null,
     firma: null,

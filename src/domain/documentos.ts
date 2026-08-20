@@ -52,7 +52,7 @@ import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import { TEXTOS_DECLARACIONES_P6, VERSION_TEXTOS_DECLARACIONES_P6 } from "./textos-p6";
 import { calcularEdadDesde } from "./tipos";
-import type { Expediente, MedioDePago, RespuestaDeclaracion } from "./tipos";
+import type { Expediente, RespuestaDeclaracion } from "./tipos";
 
 // ---------------------------------------------------------------------------
 // Códigos: un correlativo, dos prefijos
@@ -66,8 +66,9 @@ export const PREFIJO_FIPF = "FIPF";
  *
  * **Un solo correlativo para los dos documentos** (CLAUDE.md → "Reglas
  * transversales de integraciones": *"Solicitud y FIPF: mismo correlativo,
- * prefijos distintos"*). El correlativo lo acuña P7 al abrir la operación de
- * pago (`Expediente.numeroPropuesta`); acá solo se le pone el prefijo. Que
+ * prefijos distintos"*). El correlativo lo acuña `generarNumeroPropuesta` al
+ * cerrarse el paquete (`Expediente.numeroPropuesta`); acá solo se le pone el
+ * prefijo. Que
  * sean funciones y no dos campos independientes del expediente es lo que hace
  * imposible que los documentos se separen: no hay ningún lugar donde escribir
  * un código de FIPF que no derive del mismo número que la Solicitud.
@@ -281,8 +282,7 @@ export type CampoFaltante =
   | "declaraciones"
   | "canalWhatsapp"
   | "canalEmail"
-  | "pago"
-  | "facturacion";
+  | "declaracionOrigenLicito";
 
 export type ResultadoContenidoPaquete =
   | { readonly ok: true; readonly contenido: ContenidoPaquete }
@@ -343,8 +343,7 @@ export function armarContenidoPaquete(
     declaraciones,
     canalWhatsapp,
     canalEmail,
-    pago,
-    facturacion,
+    declaracionOrigenLicito,
   } = expediente;
 
   const faltantes: CampoFaltante[] = [];
@@ -355,8 +354,7 @@ export function armarContenidoPaquete(
   if (!declaraciones) faltantes.push("declaraciones");
   if (!canalWhatsapp) faltantes.push("canalWhatsapp");
   if (!canalEmail) faltantes.push("canalEmail");
-  if (!pago) faltantes.push("pago");
-  if (!facturacion) faltantes.push("facturacion");
+  if (!declaracionOrigenLicito) faltantes.push("declaracionOrigenLicito");
 
   if (
     !numeroPropuesta ||
@@ -366,8 +364,7 @@ export function armarContenidoPaquete(
     !declaraciones ||
     !canalWhatsapp ||
     !canalEmail ||
-    !pago ||
-    !facturacion
+    !declaracionOrigenLicito
   ) {
     return { ok: false, faltantes };
   }
@@ -478,12 +475,14 @@ export function armarContenidoPaquete(
       literalDeclaracion(5).texto,
       literalDeclaracion(4).texto,
       literalDeclaracion(6).texto,
-      facturacion.declaracionOrigenLicito.textoAceptado,
+      declaracionOrigenLicito.textoAceptado,
     ],
+    // D-08 · el documento se cierra **antes** de que exista ninguna operación
+    // de pago, así que no puede citar una referencia de Bancard ni un medio:
+    // todavía no se eligieron. Lo que sí se imprime es el premio, que es el
+    // importe que la persona está aceptando pagar al firmar.
     referencias: [
       { etiqueta: "Correlativo / futura póliza", valor: correlativo },
-      { etiqueta: "Bancard", valor: pago.referenciaBancard ?? "—" },
-      { etiqueta: "Medio", valor: etiquetaMedio(pago.medio) },
       { etiqueta: "Premio final", valor: formatearGuaranies(plan.premioAnualGs) },
     ],
     firmantes: FIRMANTES,
@@ -531,8 +530,6 @@ export function armarContenidoPaquete(
       { etiqueta: "Ingreso mensual declarado", valor: formatearGuaranies(datos.ingresoMensualDeclaradoGs) },
       { etiqueta: "Origen de fondos", valor: origenDeFondos(datos.situacionLaboral) },
       { etiqueta: "Propósito", valor: PROPOSITO_OPERACION },
-      { etiqueta: "Nombre a facturar", valor: facturacion.nombreAFacturar },
-      { etiqueta: "Identificación fiscal", valor: facturacion.ruc ?? `Cédula ${identidad.numeroCedula}` },
     ],
     pep: declaracionPorNumero(8, declaraciones.condicionPep, "NO"),
     advertenciaPep:
@@ -543,7 +540,7 @@ export function armarContenidoPaquete(
     declaraciones: [
       literalDeclaracion(5).texto,
       "Declaro que el WhatsApp y el correo verificados son de mi propiedad y están bajo mi control.",
-      facturacion.declaracionOrigenLicito.textoAceptado,
+      declaracionOrigenLicito.textoAceptado,
       "Autorizo a Alianza Garantía e Interseguros a verificar la información y conservar las evidencias del proceso.",
       literalDeclaracion(7).texto,
     ],
@@ -595,16 +592,3 @@ const FIRMANTES: readonly CampoDocumento[] = [
   },
 ];
 
-/**
- * Etiqueta legible del medio de pago para el bloque `REFERENCIAS DE LA
- * OPERACIÓN`. Nunca imprime datos de tarjeta —no los hay en el expediente
- * (regla inviolable #6)—: solo cuál de los tres medios se usó.
- */
-function etiquetaMedio(medio: MedioDePago): string {
-  const etiquetas: Readonly<Record<MedioDePago, string>> = {
-    QR_BANCARD: "QR Bancard",
-    TARJETA_DEBITO: "Tarjeta de débito",
-    TARJETA_CREDITO: "Tarjeta de crédito",
-  };
-  return etiquetas[medio];
-}

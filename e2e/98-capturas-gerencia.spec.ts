@@ -11,7 +11,7 @@ import {
   completarP5Aprobado,
   completarP6,
   completarP7Qr,
-  continuarAFirma,
+  continuarAConfirmacion,
   enviarEnlaceYAbrir,
   enviarP6,
   firmarNormalmente,
@@ -95,16 +95,17 @@ test.describe("capturas para gerencia", () => {
     await capturar(page, "05-declaraciones");
 
     await completarP6(page, persona);
-    await enviarP6(page, /\/pago$/);
-    await capturar(page, "06-pago");
-
-    await completarP7Qr(page);
-    await continuarAFirma(page);
-    await expect(page).toHaveURL(/\/firma$/);
-    await capturar(page, "07-firma");
+    // D-08 · se firma en el paso 6 y se paga en el 7.
+    await enviarP6(page, /\/firma$/);
+    await capturar(page, "06-firma");
 
     const idCode100 = await enviarEnlaceYAbrir(page);
     await firmarNormalmente(page, idCode100);
+    await expect(page).toHaveURL(/\/pago$/);
+    await capturar(page, "07-pago");
+
+    await completarP7Qr(page);
+    await continuarAConfirmacion(page);
     await expect(page).toHaveURL(/\/confirmacion$/);
     await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
     await capturar(page, "08-confirmacion");
@@ -135,19 +136,24 @@ test.describe("capturas para gerencia", () => {
     const persona = obtenerPersonaDemo("no-firma");
     if (!persona) throw new Error("Fixture 'no-firma' no encontrado.");
 
-    await prepararEscenario(page, { personaId: persona.id, plazoFirmaMs: 30_000 });
+    await prepararEscenario(page, { personaId: persona.id, plazoPagoMs: 30_000 });
     await completarPlan(page, persona);
     await completarWhatsapp(page, persona);
     await completarPreparacion(page);
     await declararCorreo(page, persona);
     await completarP5Aprobado(page);
     await completarP6(page, persona);
-    await enviarP6(page, /\/pago$/);
-    await completarP7Qr(page);
-    await continuarAFirma(page);
+    await enviarP6(page, /\/firma$/);
+
+    // D-08 · se firma, no se paga, y el expediente caduca sin cobro: la
+    // Pantalla B no promete ninguna devolución.
+    const idCode100 = await enviarEnlaceYAbrir(page);
+    await firmarNormalmente(page, idCode100);
 
     await expect(page).toHaveURL(/\/solicitud-vencida$/, { timeout: 60_000 });
-    await expect(page.getByText("VENCIDO · DEVOLUCIÓN EN TRÁMITE")).toBeVisible();
+    await expect(
+      page.getByText("No se realizó ningún cobro:", { exact: false }),
+    ).toBeVisible();
     await capturar(page, "11-pantalla-b-solicitud-vencida");
   });
 });

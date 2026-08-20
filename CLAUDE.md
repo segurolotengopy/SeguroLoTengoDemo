@@ -37,12 +37,12 @@ reescriba, sigue siendo la referencia de detalle de cada pantalla, pero **no**
 del orden ni del contador de pasos.
 
 Cambios de este plan que tocan las reglas inviolables de más abajo, ya
-decididos y aún no todos implementados: el OTP de correo se retira (queda un
-solo OTP de canal, el de WhatsApp); la firma pasa a ocurrir **antes** del pago;
-la Solicitud y el FIPF se unifican en un solo PDF; aparece el Certificado de
-Cobertura Provisional. Cada regla se corrige acá cuando el lote que la cambia
-se implementa, no antes: hasta entonces, **la regla escrita abajo es la que
-rige el código que existe hoy**.
+decididos: el OTP de correo se retiró (queda un solo OTP de canal, el de
+WhatsApp, Lote 2); la firma pasó a ocurrir **antes** del pago (Lote 4b);
+**faltan** unificar la Solicitud y el FIPF en un solo PDF (Lote 4c) y el
+Certificado de Cobertura Provisional (Lote 5). Cada regla se corrige acá cuando
+el lote que la cambia se implementa, no antes: hasta entonces, **la regla
+escrita abajo es la que rige el código que existe hoy**.
 
 ### Documentos fuente adicionales
 
@@ -145,17 +145,19 @@ infra/                    \# Terraform
 
 Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley 4868/13, Ley 1334/98, Ley 827/96, Res. SS SG. 215/15 y 223/17, Res. SEPRELAD 71/19 y 50/20, Res. BCP 25/21 — ver cita exacta por fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`). El código debe hacerlas **imposibles de violar**, no solo evitarlas.
 
-1. **Un OTP de canal, más el del acto de firma**: celular (paso 2) y firma (paso 7). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. **El OTP de correo se retiró** (D-06 del Plan v2, Lote 2): el correo se declara con doble tipeo dentro de la pantalla de identidad y se respalda con la declaración de veracidad que se firma después. El estado `CANAL_EMAIL_VERIFICADO` sobrevive como legado, sin aristas de entrada, porque hay expedientes históricos ahí (regla #10).  
+1. **Un OTP de canal, más el del acto de firma**: celular (paso 2) y firma (paso 6). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. **El OTP de correo se retiró** (D-06 del Plan v2, Lote 2): el correo se declara con doble tipeo dentro de la pantalla de identidad y se respalda con la declaración de veracidad que se firma después. El estado `CANAL_EMAIL_VERIFICADO` sobrevive como legado, sin aristas de entrada, porque hay expedientes históricos ahí (regla #10).  
 2. **Solo el hash del OTP se persiste.** Nunca el código en claro, ni en base, ni en logs, ni en respuestas de API. En modo demo el código se expone únicamente a través del panel de demo, nunca por la API del flujo.  
-3. **Regla atómica de firma**: la Solicitud y el FIPF se firman en una sola operación o ninguna. No existe estado intermedio con uno firmado.  
+3. **Regla atómica de firma**: la Solicitud y el FIPF se firman en una sola operación o ninguna. No existe estado intermedio con uno firmado. `FIRMADO_CLIENTE` no es una excepción: nombra el momento en que el cliente ya firmó **los dos** y faltan las firmas institucionales (D-13).  
 4. **Los PDF se cierran y se hashean (SHA-256) antes de habilitar la firma.** Cualquier modificación posterior invalida el paquete: hay que regenerar versión y hashes.  
-5. **Bloqueo automático de elegibilidad**: una respuesta incompatible en las declaraciones 1, 2, 3 u 8 de P6 detiene la emisión automática y deriva a Pantalla A. Ese estado es **terminal en el flujo digital**: no existe transición desde ahí hacia pago, firma ni emisión.  
-6. **Nunca se persiste PAN completo ni CVV**, en ninguna capa, incluidos logs y trazas de error.  
+5. **Bloqueo automático de elegibilidad**: una respuesta incompatible en las declaraciones 1, 2, 3 u 8 de P6 detiene la emisión automática y deriva a Pantalla A. Ese estado es **terminal en el flujo digital**: no existe transición desde ahí hacia paquete documental, firma, pago ni emisión.  
+6. **Nunca se persiste PAN completo ni CVV**, en ninguna capa, incluidos logs y trazas de error.
+   
+   6-bis. **No hay cobro sin firma** (D-08, Matriz V4 §7). El único estado desde el que se abre y se confirma una operación en Bancard es `FIRMADO`, al que solo se llega con el paquete cerrado y hasheado, la firma del cliente registrada y las institucionales aplicadas. No existe arista `DECLARACIONES_OK → PAGO_CONFIRMADO`. El corolario es la fila 30 de la matriz cumplida por construcción: el expediente caduca **antes** de cobrar, así que nunca hay premio que devolver por no firmar.  
 7. **Datos sensibles aislados**: las respuestas médicas y la condición PEP no salen hacia analítica, CRM, monitoreo de errores ni servicios de IA. Si agregás cualquier instrumentación, excluí explícitamente esos campos.  
 8. **Edad 18-64 años** verificada contra la fecha de nacimiento extraída de la cédula, no contra un campo declarado.  
 9. **Solo el titular puede contratar** para sí mismo. No existe flujo de contratación para terceros.  
 10. **Evidencia append-only**: fecha, hora, IP, dispositivo, sesión, versión de texto aceptado y resultado de cada paso. Nunca se sobrescribe ni se borra un registro de evidencia.
-11. **Bloqueo de nuevo registro por cédula**: mientras una cédula tenga un expediente en `DERIVADO_MANUAL`, `VENCIDO`, `DEVOLUCION_EN_TRAMITE` o `DEVUELTO` **sin superar**, el flujo digital normal (P0–P9) no deja empezar otro con esa cédula. Se aplica en P5, que es donde el sistema conoce la cédula. Solo la consola administrativa levanta el bloqueo, y lo hace creando un expediente **nuevo** enlazado por `expedienteAnteriorId` — nunca reactivando el viejo, que sigue siendo terminal (regla #5). El bloqueo no es un flag editable: se deriva de la cadena de expedientes. Ver `src/domain/consola-administrativa.ts`.
+11. **Bloqueo de nuevo registro por cédula**: mientras una cédula tenga un expediente en `DERIVADO_MANUAL`, `VENCIDO`, `DEVOLUCION_EN_TRAMITE` o `DEVUELTO` **sin superar**, el flujo digital normal no deja empezar otro con esa cédula. Se aplica en P5, que es donde el sistema conoce la cédula. Solo la consola administrativa levanta el bloqueo, y lo hace creando un expediente **nuevo** enlazado por `expedienteAnteriorId` — nunca reactivando el viejo, que sigue siendo terminal (regla #5). El bloqueo no es un flag editable: se deriva de la cadena de expedientes. Ver `src/domain/consola-administrativa.ts`.
 
 ---
 
@@ -169,17 +171,23 @@ INICIADO → PLAN\_SELECCIONADO → CANAL\_WA\_VERIFICADO → AUTORIZADO
 
      ├─ DERIVADO\_MANUAL (terminal) → Pantalla A
 
-     └─ DECLARACIONES\_OK → PAGO\_CONFIRMADO → PAQUETE\_GENERADO
+     └─ DECLARACIONES\_OK → PAQUETE\_GENERADO → FIRMADO\_CLIENTE → FIRMADO
 
-            ├─ VENCIDO → DEVOLUCION\_EN\_TRAMITE → DEVUELTO (Pantalla B)
+            ├─ VENCIDO (24 h sin pagar; sin cobro, sin devolución)
 
-            └─ FIRMADO → EMITIDO → P9
+            └─ PAGO\_CONFIRMADO → EMITIDO → P9
 
-`EMITIDO` significa **solicitud aceptada y emisión ordenada**, no "póliza en mano": P9 lo muestra como `Solicitud aceptada ✓` junto a `Póliza en preparación ⋯`. El estado del documento vive aparte, en `Expediente.poliza`, y lo mueve Alianza (SEBAOT y SIFEN) a su ritmo — por eso son dos cosas distintas. La póliza **conserva el correlativo de la propuesta**: SEBAOT no acuña un número nuevo.
+                   └─ DEVOLUCION\_EN\_TRAMITE → DEVUELTO (a pedido, Pantalla B)
 
-`DEVUELTO` cierra la rama del vencimiento: `DEVOLUCION_EN_TRAMITE` es un trámite en curso —no un final— y el pie de la Pantalla B declara el estado final del expediente como `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`. La devolución la ejecuta Alianza presencialmente, fuera del flujo digital; el expediente solo la asienta. Ninguno de los dos estados vuelve al flujo ni llega a póliza, y los dos bloquean por regla #11.
+**Se firma antes de pagar** (D-08, Lote 4b; Matriz Legal V4 §7). Es la inversión del orden que tenía el flujo hasta el Plan v2: cobrar antes de la firma dejaba a la persona pagando por un contrato que todavía no había aceptado, y obligaba a devolver el premio cada vez que no firmaba. Con el orden nuevo el vencimiento ocurre **antes** de que haya dinero, así que caducar es gratis y la devolución queda reservada a lo que sí puede pedirse: un cobro con tarjeta ya acreditado (D-02).
 
-Hay una arista más que no está dibujada arriba: **PAGO\_CONFIRMADO → VENCIDO**. El plazo de 24 horas arranca con el pago confirmado, no con el cierre del paquete, así que un expediente pagado cuya persona nunca abrió P8 también tiene que poder vencer; sin esa arista habría un pago sin vencimiento posible. No abre ningún camino nuevo hacia adelante: VENCIDO sigue saliendo solo a DEVOLUCION\_EN\_TRAMITE. La justificación completa está junto al grafo en `src/domain/expediente.ts`.
+`FIRMADO_CLIENTE` es el estado entre la firma del cliente y las institucionales de Interseguros y Alianza (D-13). Existe como estado propio y no como un campo porque un sellado a medio hacer tiene que ser distinguible de un expediente sin firmar (regla inviolable #3): si Code100 confirma la firma del cliente y las institucionales fallan, el expediente queda ahí y el cobro sigue inhabilitado.
+
+`EMITIDO` significa **solicitud aceptada y emisión ordenada**, no "póliza en mano": P9 lo muestra como `Solicitud aceptada ✓` junto a `Póliza en preparación ⋯`. El estado del documento vive aparte, en `Expediente.poliza`, y lo mueve Alianza (SEBAOT y SIFEN) a su ritmo — por eso son dos cosas distintas. La póliza **conserva el correlativo de la propuesta**: SEBAOT no acuña un número nuevo. El correlativo lo acuña ahora el **cierre del paquete documental**, no el pago: los documentos se cierran antes de firmarse, así que el número nace con ellos (`generarNumeroPropuesta` en `src/documentos/servicio.ts`).
+
+`VENCIDO` significa **firmado y no pagado dentro de las 24 h** (D-10), y en el flujo vigente es el final del camino: no hubo cobro, así que no hay premio que devolver. El reloj arranca al aplicarse las firmas institucionales (`Expediente.plazoPagoVenceEn`) y lo apaga el cobro. La arista `VENCIDO → DEVOLUCION_EN_TRAMITE` **se conserva como legado**: hay expedientes que vencieron bajo el orden viejo con el pago hecho y no se los reescribe (regla #10); sin esa salida quedarían con dinero adentro y sin trámite al que ir. Quien la guarda es `iniciarDevolucionPantallaB`, que exige un pago acreditado — condición que un vencimiento nuevo nunca cumple.
+
+`DEVUELTO` cierra la rama de la devolución: `DEVOLUCION_EN_TRAMITE` es un trámite en curso —no un final— y el pie de la Pantalla B declara el estado final del expediente como `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`. La devolución la ejecuta Alianza presencialmente, fuera del flujo digital; el expediente solo la asienta. Ninguno de los dos estados vuelve al flujo ni llega a póliza, y los dos bloquean por regla #11.
 
 Toda transición pasa por `src/domain/expediente.ts`. **Ningún Route Handler modifica el estado directamente.** Si necesitás una transición nueva, se agrega ahí con su validación.
 
@@ -216,7 +224,9 @@ Los adaptadores oficiales de `PaymentProvider` y `SignatureProvider` deben trata
 
 ## Servicio de generación de documentos
 
-`src/documentos/` cierra la Solicitud (`PROP-<correlativo>`) y el FIPF (`FIPF-<correlativo>`) — **un solo correlativo, dos prefijos**, el que acuña P7 en `Expediente.numeroPropuesta` — calcula el SHA-256 de cada PDF, los guarda por `ArchivoRepository` y transiciona PAGO_CONFIRMADO → PAQUETE_GENERADO. Es el paso que habilita la firma de P8: sin paquete cerrado y hasheado no hay nada válido que mandarle a Code100 (regla inviolable #4).
+`src/documentos/` **acuña el correlativo** (`generarNumeroPropuesta`, ocho dígitos de CSPRNG), cierra con él la Solicitud (`PROP-<correlativo>`) y el FIPF (`FIPF-<correlativo>`) — **un solo correlativo, dos prefijos** —, calcula el SHA-256 de cada PDF, los guarda por `ArchivoRepository` y transiciona DECLARACIONES_OK → PAQUETE_GENERADO. Es el paso que habilita la firma: sin paquete cerrado y hasheado no hay nada válido que mandarle a Code100 (regla inviolable #4).
+
+El correlativo nace acá y no en el pago desde la inversión de D-08: los documentos se cierran **antes** de que exista ninguna operación de Bancard, así que el número tiene que nacer con ellos y el pago pasa a ser uno más de los que lo citan. Se acuña en memoria y se persiste en la misma escritura que el paquete: si el cierre falla, no queda un número reservado sin documentos que lo lleven.
 
 **No es un proveedor externo, así que no tiene puerto.** Los 7 puertos modelan integraciones con terceros; generar un PDF propio no lo es. Lo único que pasa por infraestructura es guardar el archivo, y eso ya entra por `src/repositories/archivo-repository.ts`.
 
@@ -290,7 +300,7 @@ La regla #5 queda intacta: la derivación por elegibilidad sigue siendo exclusiv
 
 ## Consola administrativa
 
-Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de las 12 pantallas** ni del contador de 9 pasos. Especificación completa en `docs/CONSOLA_ADMINISTRATIVA.md` — leela antes de tocar esto. En resumen: búsqueda de expedientes, vista de datos y de envíos/respuestas a proveedores (incluidos los mocks), visibilidad de derivación a Pantalla A / vencimiento a Pantalla B, y reinicio con justificativo que **crea un expediente nuevo enlazado al anterior** — nunca reactiva ni cambia de estado el expediente original (`DERIVADO_MANUAL` sigue siendo terminal, regla inviolable #5). Introdujo la regla de negocio inviolable #11 (bloqueo de nuevo registro por cédula).
+Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de las 12 pantallas** ni del contador de 8 pasos. Especificación completa en `docs/CONSOLA_ADMINISTRATIVA.md` — leela antes de tocar esto. En resumen: búsqueda de expedientes, vista de datos y de envíos/respuestas a proveedores (incluidos los mocks), visibilidad de derivación a Pantalla A / vencimiento a Pantalla B, y reinicio con justificativo que **crea un expediente nuevo enlazado al anterior** — nunca reactiva ni cambia de estado el expediente original (`DERIVADO_MANUAL` sigue siendo terminal, regla inviolable #5). Introdujo la regla de negocio inviolable #11 (bloqueo de nuevo registro por cédula).
 
 **Estado: implementada.** Ruta `/admin-consola`, protegida por `ADMIN_CONSOLE_ENABLED=true` y `ADMIN_CONSOLE_KEY` (secreto **distinto** del panel de demo). Búsqueda por cédula, número de caso, y estado + rango de fechas, con filtro por nombre. La búsqueda por nombre es un filtro en memoria sobre el resultado de un criterio indexado — limitación conocida, documentada en `src/domain/consola-administrativa.ts`. El detalle **sí muestra** respuestas médicas y condición PEP: es la única excepción autorizada a la regla #7, porque la consola es cumplimiento interno y no analítica/CRM/IA. No copiar ese criterio a ninguna otra pantalla.
 
@@ -298,7 +308,9 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
-Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de firma de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **fallo de captura de Bancard**, rechazo de Code100, **registro civil caído**), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, rechazo de Code100, registro civil caído), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+
+El plazo que el panel acorta es el de D-10 —24 horas para **pagar** un expediente ya firmado—, y se congela al aplicarse las firmas institucionales: para verlo caducar en segundos hay que fijarlo corto **antes** de firmar.
 
 **El acto de firma también se puede completar sin abrir el panel**, desde el modal de P8 (`ModalFirmadorSimulado.tsx` + `/api/p8/firmador-simulado`, extensión `route.demo.ts`). Es la misma simulación de Code100, presentada como lo que es —la ventana del proveedor, no una pantalla de SeguroLoTengo— y existe para no tener que mostrar la consola de trucos en una demostración por pantalla compartida. **Nunca muestra el código**: lo recibe tipeado (regla inviolable #2). A diferencia del endpoint del panel, no acepta `idCode100` del cliente: lo saca del expediente de la sesión, y esa es la propiedad que reemplaza a la clave del panel.
 
@@ -364,13 +376,13 @@ No crear código, pantallas ni dependencias para esto sin que se pida explícita
 
 Además de `npm run typecheck && npm run lint && npm test`:
 
-1. ¿El cambio respeta el orden y contenido de los 9 pasos (o Pantallas A/B) de `docs/ESPECIFICACION_PANTALLAS.md`?
+1. ¿El cambio respeta el orden y contenido de los 8 pasos que fija `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) —o las Pantallas A/B— y el detalle de cada pantalla en `docs/ESPECIFICACION_PANTALLAS.md`?
 2. Si toca campos de Solicitud/FIPF: ¿existen y respetan el formato de `Solicitud.pdf`/`FIPF.pdf`?
 3. ¿Hay una fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` que respalde la regla implementada? Si no, ¿está marcado como decisión de producto y no de ley?
 4. Si usa una integración externa: ¿está descrita en `docs/Tabla de Integraciones externas - Tabla.csv`? ¿Respeta las "Reglas transversales de integraciones" de arriba?
 5. ¿Se generan y persisten las evidencias probatorias correspondientes (hash, timestamp, IP, canal, resultado) vía `EvidenceStore`?
 6. ¿La firma, si aplica, sigue la regla atómica de Code100 (Solicitud + FIPF en un solo acto)?
-7. ¿El pago, si aplica, respeta el flujo Bancard (QR-antes-de-firma o preautorización-antes/captura-después) y es idempotente? ¿La emisión exige el cobro **confirmado** y no solo garantizado (fila 44: una preautorización sin capturar habilita la firma, no la póliza)?
+7. ¿El pago, si aplica, ocurre **después** de la firma (D-08) y es idempotente? ¿El único estado de origen es `FIRMADO`? ¿La emisión exige el cobro confirmado (fila 44)?
 8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica, o (a futuro) al asistente IA?
 
 ---

@@ -3,11 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AVISO_CAPTURA_PENDIENTE_P8,
   AVISO_ENLACE_ENVIADO_P8,
   AVISO_FIRMA_RECHAZADA_P8,
-  AVISO_PLAZO_RESTANTE_P8,
-  AVISO_PLAZO_VENCIDO_P8,
   BADGE_DATOS_VERIFICADOS_P8,
   BOTON_DESCARGAR_P8,
   BOTON_ENVIAR_ENLACE_P8,
@@ -22,7 +19,7 @@ import {
   NOMBRE_SOLICITUD_P8,
   NOTA_ACEPTACION_REGISTRADA_P8,
   NOTA_ENVIO_ENLACE_P8,
-  NOTA_GARANTIA_SIN_DATOS_NUEVOS_P8,
+  NOTA_PAGO_DESPUES_DE_FIRMAR_P8,
   NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8,
   NOTA_SIN_MODIFICACION_P8,
   PASOS_PROGRESO_FIRMA_P8,
@@ -35,11 +32,10 @@ import {
   TITULO_BLOQUE_DOCUMENTOS_P8,
   TITULO_BLOQUE_FIRMA_P8,
   TITULO_DECLARACION_FIRMA_P8,
-  TITULO_GARANTIA_PAGO_P8,
+  TITULO_QUE_SIGUE_P8,
   TITULO_UN_SOLO_ACTO_P8,
 } from "@/domain/textos-p8";
-import { TEXTOS_MEDIOS_DE_PAGO_P7 } from "@/domain/textos-p7";
-import type { CanalFirma, MedioDePago } from "@/domain/tipos";
+import type { CanalFirma } from "@/domain/tipos";
 import { PanelFirmadorSimulado } from "./PanelFirmadorSimulado";
 
 /**
@@ -51,9 +47,9 @@ import { PanelFirmadorSimulado } from "./PanelFirmadorSimulado";
  * campo de código: el tercer OTP del flujo no pasa por SeguroLoTengo (regla
  * inviolable #2), y mientras tanto la pantalla solo sondea.
  *
- * El plazo se muestra como cuenta regresiva, pero quien vence el expediente es
- * el servidor: al llegar a cero se le pide que evalúe `plazoFirmaVenceEn`
- * contra su propio reloj. Adelantar la hora del navegador no adelanta nada.
+ * **Ya no muestra ninguna cuenta regresiva** (D-08): el plazo de 24 horas
+ * arranca cuando el expediente queda firmado y corre en el paso de pago, que
+ * ahora viene después. Acá no hay nada que caduque.
  */
 
 interface DocumentoVisible {
@@ -78,12 +74,6 @@ interface Resumen {
   readonly fipf: DocumentoVisible;
   readonly canalWhatsappEnmascarado: string | null;
   readonly canalEmailEnmascarado: string | null;
-  readonly garantia: {
-    readonly medio: MedioDePago;
-    readonly lista: boolean;
-    readonly referenciaBancard: string | null;
-  } | null;
-  readonly plazoFirmaVenceEn: string | null;
   readonly acto: ActoVisible | null;
   readonly firmadoEn: string | null;
 }
@@ -94,7 +84,6 @@ interface RespuestaEstado {
   readonly detalle?: string;
   readonly firmado?: boolean;
   readonly enlaceAbierto?: boolean;
-  readonly capturaPendiente?: boolean;
   readonly siguientePantalla?: string;
 }
 
@@ -102,11 +91,9 @@ const MENSAJES: Readonly<Record<string, string>> = {
   SESION_INVALIDA: "Se perdió la sesión. Volvé a empezar desde la verificación de WhatsApp.",
   EXPEDIENTE_NO_ENCONTRADO: "Se perdió la sesión. Volvé a empezar desde la verificación de WhatsApp.",
   ESTADO_INVALIDO: "Este proceso ya no está en el paso de firma.",
-  PLAZO_VENCIDO: AVISO_PLAZO_VENCIDO_P8,
   CANAL_INVALIDO: "Elegí uno de los canales verificados.",
   CANAL_NO_VERIFICADO: "Ese canal no está verificado en este expediente.",
   PAQUETE_NO_GENERADO: "Todavía estamos preparando la Solicitud y el FIPF. Recargá en unos segundos.",
-  GARANTIA_PAGO_NO_LISTA: "Todavía no hay una garantía de pago lista. Volvé al paso de pago.",
   CODE100_NO_DISPONIBLE: "Code100 no respondió. Volvé a intentar en unos segundos.",
   CODE100_RECHAZO: "Code100 rechazó la apertura del acto de firma.",
   FIRMA_NO_INICIADA: "Todavía no pediste el enlace de firma.",
@@ -116,15 +103,6 @@ const MENSAJES: Readonly<Record<string, string>> = {
 
 /** Cada cuánto se le pregunta a Code100 si la persona ya firmó. */
 const INTERVALO_SONDEO_MS = 2_000;
-
-function formatearRestante(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const horas = Math.floor(total / 3600);
-  const minutos = Math.floor((total % 3600) / 60);
-  const segundos = total % 60;
-  const dosDigitos = (n: number) => n.toString().padStart(2, "0");
-  return `${dosDigitos(horas)}:${dosDigitos(minutos)}:${dosDigitos(segundos)}`;
-}
 
 function TarjetaDocumento({
   nombre,
@@ -197,8 +175,6 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
   const [enlaceAbierto, setEnlaceAbierto] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [firmado, setFirmado] = useState(false);
-  const [capturaPendiente, setCapturaPendiente] = useState(false);
-  const [restanteMs, setRestanteMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Evita que un sondeo en vuelo escriba estado después de desmontar.
@@ -247,50 +223,6 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
     })();
   }, [irAPantallaB]);
 
-  // Cuenta regresiva del plazo para firmar.
-  useEffect(() => {
-    const vence = resumen?.plazoFirmaVenceEn;
-    if (!vence || firmado) return;
-
-    let cancelado = false;
-    const recalcular = () => {
-      if (cancelado) return;
-      setRestanteMs(new Date(vence).getTime() - Date.now());
-    };
-
-    recalcular();
-    const temporizador = setInterval(recalcular, 1_000);
-    return () => {
-      cancelado = true;
-      clearInterval(temporizador);
-    };
-  }, [resumen?.plazoFirmaVenceEn, firmado]);
-
-  // La cuenta llegó a cero: se le pide al servidor que evalúe el plazo. El que
-  // decide sigue siendo él, contra su propio reloj.
-  useEffect(() => {
-    if (restanteMs === null || restanteMs > 0 || firmado) return;
-
-    let cancelado = false;
-    void (async () => {
-      try {
-        const respuesta = await fetch("/api/p8/vencimiento", { method: "POST" });
-        const datos = (await respuesta.json().catch(() => ({}))) as {
-          ok?: boolean;
-          vencio?: boolean;
-        };
-        if (cancelado || !vigente.current) return;
-        if (datos.ok && datos.vencio) irAPantallaB();
-      } catch {
-        // Se reintenta con el próximo tick del contador.
-      }
-    })();
-
-    return () => {
-      cancelado = true;
-    };
-  }, [restanteMs, firmado, irAPantallaB]);
-
   const sondear = useCallback(async (): Promise<boolean> => {
     const respuesta = await fetch("/api/p8/estado");
     const datos = (await respuesta.json().catch(() => ({}))) as RespuestaEstado;
@@ -313,21 +245,11 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
       return false;
     }
 
-    // Firmado, pero con la captura de la preautorización todavía sin cerrar:
-    // no se pasa a P9. La emisión no se pide sin cobro confirmado (fila 44 de
-    // la matriz de cumplimiento), y cada sondeo reintenta la captura, que es
-    // idempotente por `referenciaBancard`. `firmado` se deja en `false` a
-    // propósito: es lo que mantiene vivo el sondeo.
-    if (datos.capturaPendiente === true) {
-      if (vigente.current) setCapturaPendiente(true);
-      return false;
-    }
-
     if (vigente.current) {
-      setCapturaPendiente(false);
       setFirmado(true);
       setError(null);
-      router.push(datos.siguientePantalla ?? "/confirmacion");
+      // D-08 · firmado el expediente, lo que sigue es pagar.
+      router.push(datos.siguientePantalla ?? "/pago");
     }
     return true;
   }, [irAPantallaB, router]);
@@ -356,7 +278,7 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
   }, [acto, firmado, sondear]);
 
   async function enviarEnlace() {
-    if (enviando || !resumen?.garantia?.lista) return;
+    if (enviando || !resumen) return;
 
     setEnviando(true);
     setError(null);
@@ -401,10 +323,6 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
       ? [{ canal: "EMAIL" as const, destino: resumen.canalEmailEnmascarado }]
       : []),
   ];
-
-  const textoMedio = TEXTOS_MEDIOS_DE_PAGO_P7.find(
-    (opcion) => opcion.medio === resumen?.garantia?.medio,
-  );
 
   // Paso 1 apenas se envía el enlace; paso 2 cuando Code100 informa que la
   // persona lo abrió y le pidió el OTP de firma; paso 3 al confirmarse.
@@ -504,19 +422,13 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
           ))}
         </fieldset>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-verde-300 bg-verde-50 px-4 py-3 dark:border-verde-700 dark:bg-verde-950">
-          <h3 className="text-[11px] font-bold tracking-wide text-verde-800 uppercase dark:text-verde-200">
-            {TITULO_GARANTIA_PAGO_P8}
+        {/* D-08 · lo que sigue es pagar: acá todavía no se cobró nada. */}
+        <div className="flex flex-col gap-2 rounded-lg border border-naranja-300 bg-naranja-50 px-4 py-3 dark:border-naranja-700 dark:bg-naranja-950">
+          <h3 className="text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:text-naranja-200">
+            {TITULO_QUE_SIGUE_P8}
           </h3>
-          <p className="text-sm text-verde-900 dark:text-verde-100">
-            {resumen?.garantia
-              ? `${textoMedio?.titulo ?? resumen.garantia.medio} — ${
-                  resumen.garantia.lista ? "pagado" : "pendiente"
-                }.`
-              : "Verificando la garantía de pago…"}
-          </p>
-          <p className="text-xs italic text-verde-900 dark:text-verde-100">
-            {NOTA_GARANTIA_SIN_DATOS_NUEVOS_P8}
+          <p className="text-sm text-naranja-900 dark:text-naranja-100">
+            {NOTA_PAGO_DESPUES_DE_FIRMAR_P8}
           </p>
         </div>
 
@@ -547,17 +459,10 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
           </p>
         </div>
 
-        {resumen?.plazoFirmaVenceEn && !firmado ? (
-          <p className="text-sm font-semibold text-naranja-700 dark:text-naranja-300">
-            {AVISO_PLAZO_RESTANTE_P8}:{" "}
-            <span className="tabular-nums">{formatearRestante(restanteMs ?? 0)}</span>
-          </p>
-        ) : null}
-
         <button
           type="button"
           onClick={enviarEnlace}
-          disabled={enviando || firmado || acto !== null || !resumen?.garantia?.lista}
+          disabled={enviando || firmado || acto !== null || resumen === null}
           className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:opacity-40"
         >
           {enviando ? "Enviando…" : BOTON_ENVIAR_ENLACE_P8}
@@ -597,7 +502,7 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
           })}
         </ol>
 
-        {acto && !firmado && !capturaPendiente ? (
+        {acto && !firmado ? (
           <p aria-live="polite" className="text-sm text-cuerpo">
             ⏳ {ESTADO_ESPERANDO_CODE100_P8}
             <span className="block font-mono text-xs text-etiqueta">ID {acto.idCode100}</span>
@@ -646,15 +551,6 @@ export function FirmaP8({ firmadorSimuladoDisponible = false }: FirmaP8Props = {
             }}
             alCerrar={() => setFirmadorAbierto(false)}
           />
-        ) : null}
-
-        {capturaPendiente ? (
-          <p
-            aria-live="polite"
-            className="text-sm font-semibold text-naranja-700 dark:text-naranja-300"
-          >
-            ⏳ {AVISO_CAPTURA_PENDIENTE_P8}
-          </p>
         ) : null}
 
         <p className="text-xs text-etiqueta">{NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8}</p>
