@@ -301,6 +301,47 @@ Cierre de Fase 3: `docs/plan/INFORME_VERIFICACION_v2.md` con resultados, desviac
 
 ---
 
+## Anexo C — La batería E2E corre contra AWS real, y eso ya cuesta
+
+Estado al cierre del Lote 2, con evidencia de nueve corridas completas.
+
+**Lo que se observa.** Los siete escenarios pasan **de a uno**. La batería
+completa deja uno o dos en rojo, y **no siempre los mismos**: fueron 01/02/03/05/07,
+después 05/07, después 07, después 02/06 dos veces, después 06/07. El tiempo
+total crece corrida a corrida: 9,2 → 13,3 → 14,1 minutos.
+
+**Por qué pasa.** La batería no usa dobles: habla con DynamoDB, S3 y Secrets
+Manager reales. Cada paso que cierra un expediente hace varias idas y vueltas a
+AWS antes de navegar, y con siete escenarios seguidos se encolan. Además, la
+tabla es compartida y **crece en cada corrida**: los expedientes por cédula de
+prueba pasaron de 28/26/57 a 31/28/61 en tres corridas. El saneo previo no
+achica nada —levanta el bloqueo creando un expediente nuevo enlazado, que es lo
+correcto por la regla #11— así que el volumen sube de forma monótona y con él
+el costo de cada consulta por cédula.
+
+**Qué se hizo.** Subir el presupuesto por aserción a 30 s y corregir tres
+carreras reales del arnés (hidratación, radios controlados, clic sin handler).
+Eso llevó la batería de siete rojos a uno o dos, pero no la vuelve estable: se
+está compensando latencia con espera, y la latencia sigue creciendo.
+
+**Decisión pendiente, de Andres.** Hay tres caminos y ninguno es de código:
+
+1. **Tabla por corrida** (nombre con sufijo, borrada al terminar). Conserva la
+   fidelidad contra AWS real y elimina el crecimiento. Cuesta aprovisionamiento
+   en cada corrida.
+2. **Dobles locales** para DynamoDB y S3 en la batería. La vuelve rápida y
+   determinista, y la aleja de lo que corre en producción — justamente lo que
+   hoy le da valor.
+3. **Purga periódica** de los expedientes de prueba. Es lo más barato, y hay
+   que decidirlo explícitamente porque toca datos de expedientes, aunque sean
+   de cédulas de demostración.
+
+Mientras tanto, el criterio honesto para aceptar un lote es: **suite unitaria
+en verde, y cada escenario E2E verde de a uno**. La corrida completa sirve como
+señal, no como semáforo.
+
+---
+
 ## Anexo B — Rojos de la batería E2E que no eran del código
 
 Diagnóstico hecho durante el Lote 1. Se documenta con el camino equivocado
