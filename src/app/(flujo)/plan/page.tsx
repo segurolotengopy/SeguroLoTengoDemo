@@ -15,7 +15,15 @@ import {
   TITULO_INFORMACION_RELEVANTE,
   TITULO_VIDEO_PLAN,
 } from "@/domain/textos-plan";
+import { cookies } from "next/headers";
+import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
+import { destinoDelExpediente } from "@/domain/rutas-flujo";
+import type { DestinoDelExpediente } from "@/domain/rutas-flujo";
+import { puedeElegirPlan } from "@/domain/seleccion-plan";
+import { crearExpedienteRepository } from "@/repositories";
 import { SelectorDePlanes } from "./SelectorDePlanes";
+import { TramiteEnOtroPaso } from "./TramiteEnOtroPaso";
 
 /**
  * Paso 1 · Selección del plan — `/plan`, en el formato de la maqueta
@@ -142,7 +150,46 @@ function VideoInformativo() {
   );
 }
 
-export default function PantallaSeleccionDePlan() {
+/**
+ * ¿El expediente de este navegador todavía puede elegir plan?
+ *
+ * Devuelve `null` cuando sí —visita nueva, o expediente en `INICIADO` /
+ * `PLAN_SELECCIONADO`, que es el enlace `Cambiar plan`— y el destino a donde
+ * reencaminar cuando ya no.
+ *
+ * Se resuelve **en el servidor y antes de dibujar** a propósito: preguntarlo
+ * después, cuando la persona ya eligió, es lo que producía el
+ * `ESTADO_INVALIDO` sin salida. El costo es que esta pantalla pasa a
+ * renderizarse por pedido —leer la cookie desactiva el render estático—; a
+ * cambio no hay una llamada extra desde el celular ni un parpadeo de tarjetas
+ * que después se reemplazan.
+ *
+ * Sin cookie no toca la base: quien llega por primera vez —la mayoría del
+ * tráfico de esta pantalla— no paga ninguna lectura.
+ *
+ * Si la consulta falla, se sigue de largo y se dibuja el selector: una caída
+ * del repositorio no tiene por qué dejar sin entrada al embudo entero, y el
+ * Route Handler valida el estado igual.
+ */
+async function tramiteQueYaPasoEstePaso(): Promise<DestinoDelExpediente | null> {
+  const expedienteId = (await cookies()).get(COOKIE_EXPEDIENTE)?.value;
+  if (!expedienteId) return null;
+
+  try {
+    const expediente = await crearExpedienteRepository().obtenerPorId(expedienteId);
+    // Cookie sin expediente detrás (purgado, otro ambiente): no es un trámite
+    // en curso, así que la pantalla se comporta como con una visita nueva.
+    if (!expediente) return null;
+    if (puedeElegirPlan(expediente.estado)) return null;
+    return destinoDelExpediente(expediente.estado);
+  } catch {
+    return null;
+  }
+}
+
+export default async function PantallaSeleccionDePlan() {
+  const enOtroPaso = await tramiteQueYaPasoEstePaso();
+
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/plan" />} />
@@ -172,31 +219,35 @@ export default function PantallaSeleccionDePlan() {
 
         {/* La franja `Información relevante` entra por prop: la maqueta la
             dibuja entre las tarjetas y el pie, y el pie vive en el selector. */}
-        <SelectorDePlanes
-          entreTarjetasYPie={
-            <section aria-label="Información relevante" className="flex flex-col gap-1.5">
-              <h2 className="text-sm font-bold text-naranja-700 dark:text-naranja-300">
-                {TITULO_INFORMACION_RELEVANTE}
-              </h2>
-              <dl className="grid gap-x-8 gap-y-2 rounded-xl border-2 border-borde-sutil bg-superficie px-4 py-3 sm:grid-cols-3">
-                {INFORMACION_RELEVANTE.map(({ rotulo, detalle }, indice) => (
-                  <div key={rotulo} className="flex items-start gap-2.5 leading-tight">
-                    <Icono
-                      trazo={[TRAZOS.persona, TRAZOS.calendario, TRAZOS.reloj][indice] ?? TRAZOS.reloj}
-                      className="mt-0.5 h-6 w-6 text-azul-700 dark:text-azul-300"
-                    />
-                    <div className="flex flex-col gap-0.5">
-                      <dt className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-                        {rotulo}
-                      </dt>
-                      <dd className="text-xs text-cuerpo">{detalle}</dd>
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso destino={enOtroPaso} modoDemo={esModoDemo()} />
+        ) : (
+          <SelectorDePlanes
+            entreTarjetasYPie={
+              <section aria-label="Información relevante" className="flex flex-col gap-1.5">
+                <h2 className="text-sm font-bold text-naranja-700 dark:text-naranja-300">
+                  {TITULO_INFORMACION_RELEVANTE}
+                </h2>
+                <dl className="grid gap-x-8 gap-y-2 rounded-xl border-2 border-borde-sutil bg-superficie px-4 py-3 sm:grid-cols-3">
+                  {INFORMACION_RELEVANTE.map(({ rotulo, detalle }, indice) => (
+                    <div key={rotulo} className="flex items-start gap-2.5 leading-tight">
+                      <Icono
+                        trazo={[TRAZOS.persona, TRAZOS.calendario, TRAZOS.reloj][indice] ?? TRAZOS.reloj}
+                        className="mt-0.5 h-6 w-6 text-azul-700 dark:text-azul-300"
+                      />
+                      <div className="flex flex-col gap-0.5">
+                        <dt className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
+                          {rotulo}
+                        </dt>
+                        <dd className="text-xs text-cuerpo">{detalle}</dd>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          }
-        />
+                  ))}
+                </dl>
+              </section>
+            }
+          />
+        )}
 
       </main>
 

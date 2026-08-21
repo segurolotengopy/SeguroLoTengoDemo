@@ -79,6 +79,21 @@ Cada tarjeta lleva enlace `Ver coberturas, exclusiones y condiciones` y botón `
 
 **Regla técnica:** al seleccionar plan se guarda el ID de versión de la oferta y su hash SHA-256.
 
+**Trámite ya empezado (agregado 2026-08-20).** La pantalla mira el estado del
+expediente **antes** de dibujar el catálogo. Elegir plan es legal solo desde
+`INICIADO` y desde `PLAN_SELECCIONADO` —este último es el enlace `Cambiar
+plan`—; con el trámite más adelante, en lugar del selector se muestra `Ya tenés
+un trámite empezado` con el botón que devuelve al paso donde quedó (o, si el
+expediente está en un estado terminal, a la pantalla que explica qué pasó). El
+destino y el rótulo del botón salen de `destinoDelExpediente`
+(`src/domain/rutas-flujo.ts`), no de esta pantalla.
+
+Antes de este cambio el catálogo se dibujaba siempre y el rechazo llegaba al
+enviar, como `ESTADO_INVALIDO`: cierto, pero sin salida. La validación del
+Route Handler no se movió —sigue siendo la que garantiza la regla— y ahora
+además devuelve el destino, para el caso en que el estado cambie después de
+dibujada la pantalla (otra pestaña, el panel de demo).
+
 ---
 
 ## Paso 2 · Verificación de WhatsApp — `/whatsapp`

@@ -79,3 +79,35 @@ export const NOTA_LEGAL_PLAN =
   "la información presentada.";
 
 export const BOTON_CONTINUAR_PLAN = "CONTINUAR CON EL PLAN SELECCIONADO →";
+
+// ---------------------------------------------------------------------------
+// Trámite que ya pasó este paso
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que ve quien vuelve a `/plan` con un expediente que ya avanzó.
+ *
+ * No es un error: el trámite existe y está más adelante. Por eso el texto no
+ * dice *"no se puede"* sino qué pasó y qué hacer — el botón lo pone
+ * `destinoDelExpediente` (`rutas-flujo.ts`), que es quien sabe si se continúa
+ * o si el trámite se cerró.
+ */
+export const TITULO_TRAMITE_EN_OTRO_PASO = "Ya tenés un trámite empezado";
+
+export const DETALLE_TRAMITE_EN_OTRO_PASO =
+  "Este trámite ya pasó la selección de plan, así que el plan elegido no se puede cambiar " +
+  "desde acá. Podés retomarlo donde quedaste.";
+
+/** Los estados terminales no se retoman: se consultan. */
+export const DETALLE_TRAMITE_CERRADO =
+  "Este trámite ya no está en curso, así que no vuelve a la selección de plan. En la pantalla " +
+  "de tu trámite está el detalle de qué pasó y qué sigue.";
+
+/**
+ * Solo con `DEMO_MODE=true`. Quien está demostrando el producto necesita
+ * empezar de cero muchas veces al día, y el camino sancionado para eso es el
+ * botón `Reiniciar expediente` del panel — que olvida el expediente de este
+ * navegador sin tocar el que quedó en la base (regla inviolable #10).
+ */
+export const AYUDA_DEMO_TRAMITE_EN_OTRO_PASO =
+  "Demostración: para empezar un trámite nuevo, reiniciá el expediente desde el panel de demo.";
