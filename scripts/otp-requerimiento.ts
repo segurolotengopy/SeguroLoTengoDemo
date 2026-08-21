@@ -26,8 +26,8 @@
  *
  * ## Cómo se usa
  *
- *     npx tsx scripts/otp-requerimiento.ts +59172047339
- *     npx tsx scripts/otp-requerimiento.ts +59172047339 --proposito SIGNATURE_P7A
+ *     npx tsx scripts/otp-requerimiento.ts +59XXXXXXXXX
+ *     npx tsx scripts/otp-requerimiento.ts +59XXXXXXXXX --proposito SIGNATURE_P7A
  *
  * Necesita en `.env.local` (nunca en el repo):
  *
@@ -118,7 +118,7 @@ function leerArgumentos(argv: readonly string[]): Argumentos {
   if (telefonoE164 === undefined) {
     throw new Error(
       "Falta el teléfono destino.\n\n" +
-        "  npx tsx scripts/otp-requerimiento.ts +59172047339 [--proposito SIGNATURE_P7A]",
+        "  npx tsx scripts/otp-requerimiento.ts +59XXXXXXXXX [--proposito SIGNATURE_P7A]",
     );
   }
   // El servicio valida el prefijo de país (solo +595/+591) y responde con su
