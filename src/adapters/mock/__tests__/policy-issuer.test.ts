@@ -28,7 +28,7 @@ const ENTRADA: EmitirPolizaInput = {
   },
   firma: {
     canal: "WHATSAPP",
-    idCode100: "MOCK-CODE100-XYZ",
+    idCode100: "MOCK-FIRMA-XYZ",
     firmadoEn: "2026-08-09T15:10:00.000Z",
     hashDocumentoFirmado: "c".repeat(64),
   },

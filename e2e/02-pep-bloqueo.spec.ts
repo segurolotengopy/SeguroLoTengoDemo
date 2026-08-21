@@ -58,8 +58,8 @@ test("declaración PEP = Sí deriva a Pantalla A, sin pago ni firma", async ({ p
   // Regla del sistema: no hay camino de vuelta a pago, firma ni emisión.
   await expect(
     page.getByText(
-      "Desde este estado el proceso digital no continúa a pago mediante Bancard, ni a firma mediante " +
-        "Code100, ni a emisión mediante SEBAOT.",
+      "Desde este estado el proceso digital no continúa a pago mediante Bancard, ni a la firma " +
+        "electrónica del paquete documental, ni a emisión mediante SEBAOT.",
     ),
   ).toBeVisible();
 

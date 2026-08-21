@@ -301,9 +301,13 @@ export interface OpcionesSignatureProviderMock {
 }
 
 function identificadorDeSesion(): string {
-  // Formato análogo al `session_id` que devolvería Code100: identifica el acto
-  // de firma, no contiene ningún dato de la persona ni de los documentos.
-  return `MOCK-CODE100-${randomUUID().slice(0, 13).toUpperCase()}`;
+  // Formato análogo al `session_id` que devolvería el proveedor: identifica el
+  // acto de firma, no contiene ningún dato de la persona ni de los documentos.
+  // El prefijo no nombra al proveedor a propósito: este identificador se
+  // imprime en la pantalla de firma, y ninguna pantalla lo nombra mientras
+  // quién ejecuta la firma del cliente siga sin decidirse (Code100 - Respuestas
+  // C1 a C12, C1).
+  return `MOCK-FIRMA-${randomUUID().slice(0, 13).toUpperCase()}`;
 }
 
 function esperar(ms: number): Promise<void> {

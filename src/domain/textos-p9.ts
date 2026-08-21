@@ -238,7 +238,7 @@ export const TITULO_QUE_OCURRIRA_P9 = "¿QUÉ OCURRIRÁ AHORA?";
 
 export const PASOS_QUE_OCURRIRA_P9: readonly string[] = [
   "Emitir la póliza (Alianza mediante SEBAOT).",
-  "Firmar la póliza (Alianza mediante Code100).",
+  "Firmar la póliza (Alianza, con firma electrónica cualificada).",
   "Enviar al correo verificado.",
   "Enviar al WhatsApp verificado.",
 ];
