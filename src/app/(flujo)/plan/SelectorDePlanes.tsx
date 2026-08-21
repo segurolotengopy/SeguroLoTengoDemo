@@ -37,13 +37,23 @@ import type { PlanId } from "@/domain/tipos";
 interface RespuestaApi {
   readonly ok?: boolean;
   readonly motivo?: string;
+  /**
+   * A dónde puede seguir esta persona cuando su expediente ya no está en este
+   * paso. Lo calcula el servidor con `destinoDelExpediente`.
+   *
+   * La pantalla ya se dibuja reencaminada cuando el trámite avanzó (lo
+   * resuelve `page.tsx` antes de renderizar), así que esto cubre lo que aquel
+   * chequeo no puede ver: el estado que cambió **después** de dibujar —otra
+   * pestaña, el panel de demo, una sesión vieja.
+   */
+  readonly destino?: { readonly ruta: string; readonly rotulo: string; readonly terminal: boolean };
 }
 
 const MENSAJES: Readonly<Record<string, string>> = {
   PLAN_INVALIDO: "Ese plan no está disponible. Elegí uno de los tres.",
   EXPEDIENTE_NO_ENCONTRADO: "Se perdió la sesión. Volvé a empezar desde el inicio.",
   SESION_INVALIDA: "Se perdió la sesión. Volvé a empezar desde el inicio.",
-  ESTADO_INVALIDO: "Este proceso ya no está en el paso de selección de plan.",
+  ESTADO_INVALIDO: "Este trámite ya pasó la selección de plan.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",
 };
 
@@ -168,6 +178,7 @@ export function SelectorDePlanes({ entreTarjetasYPie }: { entreTarjetasYPie?: Re
   const [planElegido, setPlanElegido] = useState<PlanId | null>(null);
   const [enProceso, setEnProceso] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reencaminado, setReencaminado] = useState<RespuestaApi["destino"] | null>(null);
 
   const plan = planElegido ? OFERTA_VIGENTE.planes.find((p) => p.id === planElegido) : undefined;
 
@@ -175,6 +186,7 @@ export function SelectorDePlanes({ entreTarjetasYPie }: { entreTarjetasYPie?: Re
     if (!plan) return;
     setEnProceso(true);
     setError(null);
+    setReencaminado(null);
     try {
       const respuesta = await fetch("/api/p2/plan", {
         method: "POST",
@@ -187,6 +199,7 @@ export function SelectorDePlanes({ entreTarjetasYPie }: { entreTarjetasYPie?: Re
         setError(
           (datos.motivo && MENSAJES[datos.motivo]) ?? "No pudimos guardar el plan. Intentá de nuevo.",
         );
+        setReencaminado(datos.destino ?? null);
         return;
       }
 
@@ -237,9 +250,21 @@ export function SelectorDePlanes({ entreTarjetasYPie }: { entreTarjetasYPie?: Re
       </div>
 
       {error ? (
-        <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
-          {error}
-        </p>
+        <div className="flex flex-col gap-3 sm:items-start">
+          <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
+            {error}
+          </p>
+          {/* El servidor sabe dónde quedó el trámite: se ofrece el camino, no
+              solo el aviso. */}
+          {reencaminado ? (
+            <a
+              href={reencaminado.ruta}
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"
+            >
+              {reencaminado.rotulo} →
+            </a>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

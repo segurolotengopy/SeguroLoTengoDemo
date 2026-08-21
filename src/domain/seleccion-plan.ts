@@ -19,10 +19,16 @@ import { createHash, randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
 import { ID_VERSION_OFERTA, OFERTA_VIGENTE, PLANES, esPlanId, serializarOfertaCanonica } from "./catalogo";
 import type { OfertaVersionada } from "./catalogo";
-import { transicionarExpediente } from "./expediente";
+import { esTransicionLegal, transicionarExpediente } from "./expediente";
 import { crearExpedienteInicial } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal-whatsapp";
-import type { Expediente, PlanId, PlanSeleccionado, RegistroEvidencia } from "./tipos";
+import type {
+  EstadoExpediente,
+  Expediente,
+  PlanId,
+  PlanSeleccionado,
+  RegistroEvidencia,
+} from "./tipos";
 
 export const PASO_EVIDENCIA_SELECCION_PLAN = "P2_SELECCION_PLAN";
 
@@ -66,7 +72,32 @@ export type ResultadoSeleccionPlan =
   | {
       readonly ok: false;
       readonly motivo: MotivoRechazoSeleccion;
+      /**
+       * Estado en que quedó el expediente cuando el rechazo es
+       * `ESTADO_INVALIDO`.
+       *
+       * Va en el resultado —y no solo en la evidencia— para que la pantalla
+       * pueda **reencaminar** en vez de limitarse a avisar. El servidor sabe
+       * dónde quedó el trámite; sin este dato la persona queda leyendo "este
+       * proceso ya no está en el paso de selección de plan", que es cierto e
+       * inútil (mismo criterio que `verificacion-canal.ts`, ver
+       * `rutas-flujo.ts`).
+       */
+      readonly estado?: EstadoExpediente;
     };
+
+/**
+ * `true` si un expediente en ese estado todavía puede elegir plan.
+ *
+ * Se deriva del grafo de transiciones en vez de repetir la lista de estados:
+ * si mañana se agrega una arista hacia `PLAN_SELECCIONADO`, la pantalla se
+ * entera sola. Existe para que `/plan` pueda **preguntar antes** de dibujar
+ * el selector, en lugar de dejar elegir y rechazar con `ESTADO_INVALIDO`
+ * después de que la persona ya eligió.
+ */
+export function puedeElegirPlan(estado: EstadoExpediente): boolean {
+  return esTransicionLegal(estado, "PLAN_SELECCIONADO");
+}
 
 export interface EntradaSeleccionPlan {
   /** `null` en la primera visita: el expediente todavía no existe. */
@@ -183,7 +214,7 @@ export async function seleccionarPlan(
       detalle: { planId, motivo: "ESTADO_INVALIDO", estado: expediente.estado },
       nuevoId,
     });
-    return { ok: false, motivo: "ESTADO_INVALIDO" };
+    return { ok: false, motivo: "ESTADO_INVALIDO", estado: expediente.estado };
   }
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);

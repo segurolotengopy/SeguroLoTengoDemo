@@ -7,13 +7,15 @@ import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { EvidenceStore } from "../../ports/evidence-store";
 import { ID_VERSION_OFERTA, PLANES, serializarOfertaCanonica } from "../catalogo";
-import { transicionarExpediente } from "../expediente";
+import { esTransicionLegal, transicionarExpediente } from "../expediente";
 import {
   PASO_EVIDENCIA_SELECCION_PLAN,
   hashOfertaSha256,
+  puedeElegirPlan,
   seleccionarPlan,
 } from "../seleccion-plan";
 import type { DependenciasP2 } from "../seleccion-plan";
+import { ESTADOS_EXPEDIENTE } from "../tipos";
 import type { Expediente, RegistroEvidencia } from "../tipos";
 import type { RepositorioExpediente } from "../verificacion-canal-whatsapp";
 import { crearExpediente } from "./fixtures";
@@ -227,6 +229,45 @@ describe("seleccionarPlan", () => {
       contexto: CONTEXTO,
     });
 
-    expect(resultado).toEqual({ ok: false, motivo: "ESTADO_INVALIDO" });
+    // El estado viaja en el rechazo —no solo en la evidencia— para que la
+    // pantalla pueda reencaminar en vez de limitarse a avisar.
+    expect(resultado).toEqual({
+      ok: false,
+      motivo: "ESTADO_INVALIDO",
+      estado: "AUTORIZADO",
+    });
+  });
+});
+
+describe("puedeElegirPlan", () => {
+  it("dice que sí exactamente en los estados desde los que la transición es legal", () => {
+    for (const estado of ESTADOS_EXPEDIENTE) {
+      expect(puedeElegirPlan(estado)).toBe(esTransicionLegal(estado, "PLAN_SELECCIONADO"));
+    }
+  });
+
+  it("habilita el catálogo al empezar y mientras se pueda cambiar de plan", () => {
+    expect(puedeElegirPlan("INICIADO")).toBe(true);
+    expect(puedeElegirPlan("PLAN_SELECCIONADO")).toBe(true);
+  });
+
+  it("lo cierra apenas el trámite avanza, y también en los terminales", () => {
+    for (const estado of [
+      "CANAL_WA_VERIFICADO",
+      "AUTORIZADO",
+      "IDENTIDAD_VERIFICADA",
+      "DECLARACIONES_OK",
+      "PAQUETE_GENERADO",
+      "FIRMADO_CLIENTE",
+      "FIRMADO",
+      "PAGO_CONFIRMADO",
+      "EMITIDO",
+      "DERIVADO_MANUAL",
+      "ASISTENCIA_IDENTIDAD",
+      "VENCIDO",
+      "DEVUELTO",
+    ] as const) {
+      expect(puedeElegirPlan(estado)).toBe(false);
+    }
   });
 });
