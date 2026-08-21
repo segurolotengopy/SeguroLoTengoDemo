@@ -98,7 +98,7 @@ export const FIRMANTES_POR_DOCUMENTO: Readonly<
       nivel: "SIMPLE",
       modalidad: "CONJUNTO",
       leyenda:
-        "Firma electrónica no cualificada mediante enlace seguro de Code100; " +
+        "Firma electrónica no cualificada mediante enlace seguro; " +
         "un solo acto cubre la Solicitud y el FIPF de este documento.",
     },
     {

@@ -456,7 +456,7 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
     const conActo: Expediente = {
       ...expediente,
       actoDeFirma: {
-        idCode100: "MOCK-CODE100-X",
+        idCode100: "MOCK-FIRMA-X",
         canal: "WHATSAPP",
         destinoEnmascarado: "+595 ••• ••• 456",
         enlaceEnviadoEn: AHORA,
@@ -466,7 +466,7 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
 
     const resultado = registrarFirmaP8(conActo, {
       canal: "WHATSAPP",
-      idCode100: "MOCK-CODE100-X",
+      idCode100: "MOCK-FIRMA-X",
       firmadoEn: AHORA,
       hashDocumentoFirmado: "",
     });
@@ -481,7 +481,7 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
     const conActo: Expediente = {
       ...expediente,
       actoDeFirma: {
-        idCode100: "MOCK-CODE100-PROPIO",
+        idCode100: "MOCK-FIRMA-PROPIO",
         canal: "WHATSAPP",
         destinoEnmascarado: "+595 ••• ••• 456",
         enlaceEnviadoEn: AHORA,
@@ -491,7 +491,7 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
 
     const resultado = registrarFirmaP8(conActo, {
       canal: "WHATSAPP",
-      idCode100: "MOCK-CODE100-AJENO",
+      idCode100: "MOCK-FIRMA-AJENO",
       firmadoEn: AHORA,
       hashDocumentoFirmado: "c".repeat(64),
     });

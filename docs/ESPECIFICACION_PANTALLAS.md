@@ -310,7 +310,7 @@ Encabezado verde: `¡Tu solicitud de seguro fue aceptada!` — Alianza Garantía
 - `DOCUMENTOS QUE RECIBIRÁS EN BREVES MOMENTOS` — Póliza electrónica y Factura electrónica, ambas con badge `EN EMISIÓN` (las emite y envía Alianza por correo y WhatsApp).  
 - `RECIBIRÁS LOS DOCUMENTOS EN` — correo y WhatsApp verificados, **enmascarados**.
 
-**`¿QUÉ OCURRIRÁ AHORA?`:** 1\. Emitir la póliza (Alianza mediante SEBAOT) → 2\. Firmar la póliza (Alianza mediante Code100) → 3\. Enviar al correo verificado → 4\. Enviar al WhatsApp verificado.
+**`¿QUÉ OCURRIRÁ AHORA?`:** 1\. Emitir la póliza (Alianza mediante SEBAOT) → 2\. Firmar la póliza (Alianza, con firma electrónica cualificada) → 3\. Enviar al correo verificado → 4\. Enviar al WhatsApp verificado.
 
 **`¿NECESITÁS AYUDA?`** (CHG-45): botón `ESCRIBIR POR WHATSAPP` —solo en esta pantalla (D-17), y solo si hay número configurado— más las fichas de Alianza (emisión, cobertura y reclamos) e Interseguros (asistencia y seguimiento) con razón social, domicilio, teléfono, correo y sitio. Los datos salen de `src/domain/entidades.ts`; **lo que D-19 todavía no cerró no se muestra**, ni siquiera como marcador.
 
@@ -356,7 +356,7 @@ Encabezado rojo: `Tu solicitud requiere una revisión adicional` — por la info
 
 **`¿QUÉ OCURRIRÁ AHORA?`:** 1\. Remisión segura → 2\. Análisis → 3\. Contacto → 4\. Resultado.
 
-**Pie:** datos de contacto de Alianza (análisis del riesgo) e Interseguros (asistencia y seguimiento), botón `FINALIZAR / Volver al inicio`. Leyendas: la derivación no significa un rechazo definitivo. **Regla del sistema: no continuar a pago Bancard, firma Code100 ni emisión mediante SEBAOT.** El número de caso de revisión es distinto del correlativo de una propuesta o póliza.
+**Pie:** datos de contacto de Alianza (análisis del riesgo) e Interseguros (asistencia y seguimiento), botón `FINALIZAR / Volver al inicio`. Leyendas: la derivación no significa un rechazo definitivo. **Regla del sistema: no continuar a pago Bancard, ni a la firma electrónica del paquete documental, ni a emisión mediante SEBAOT.** El número de caso de revisión es distinto del correlativo de una propuesta o póliza.
 
 ---
 

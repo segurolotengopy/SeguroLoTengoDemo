@@ -76,11 +76,11 @@ export const ACLARACION_COBERTURAS: DocumentoAclaracion = {
 export const ACLARACION_DOCUMENTACION_PRECONTRACTUAL: DocumentoAclaracion = {
   id: "documentacion-precontractual",
   titulo: "Documentación precontractual completa",
-  version: "v1.0",
+  version: "v1.1",
   secciones: [
     {
       parrafos: [
-        "Antes de la firma vas a poder revisar y descargar todos los documentos que rigen la contratación. Ninguna aceptación se produce por leer esta información: la aceptación contractual se realiza únicamente mediante la firma electrónica en Code100, al final del proceso.",
+        "Antes de la firma vas a poder revisar y descargar todos los documentos que rigen la contratación. Ninguna aceptación se produce por leer esta información: la aceptación contractual se realiza únicamente mediante la firma electrónica, al final del proceso.",
       ],
     },
     {
@@ -172,7 +172,7 @@ export const ACLARACION_AVISO_PRIVACIDAD: DocumentoAclaracion = {
 export const ACLARACION_TERMINOS_CONDICIONES: DocumentoAclaracion = {
   id: "terminos-condiciones",
   titulo: "Términos y condiciones del canal digital",
-  version: "v1.0",
+  version: "v1.1",
   secciones: [
     {
       titulo: "Sobre el canal",
@@ -193,7 +193,7 @@ export const ACLARACION_TERMINOS_CONDICIONES: DocumentoAclaracion = {
       titulo: "Perfeccionamiento del contrato",
       parrafos: [
         "Ningún paso previo a la firma constituye aceptación contractual: la selección del plan, la verificación de canales y la autorización inicial solo preparan la solicitud.",
-        "La aceptación se produce con la firma electrónica de la Solicitud y del FIPF a través de Code100, en un único acto. La emisión de la póliza corresponde a la aseguradora una vez aceptada la solicitud y confirmado el pago.",
+        "La aceptación se produce con la firma electrónica de la Solicitud y del FIPF, en un único acto. La emisión de la póliza corresponde a la aseguradora una vez aceptada la solicitud y confirmado el pago.",
         "El pago se procesa a través de Bancard; la cobertura comienza 24 horas después del pago confirmado, completada la contratación.",
       ],
     },

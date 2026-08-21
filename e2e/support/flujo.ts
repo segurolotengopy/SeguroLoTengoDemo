@@ -473,7 +473,7 @@ export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
     page.getByText("Enviamos el enlace de firma a tu canal verificado.", { exact: false }),
   ).toBeVisible();
 
-  const idMatch = await page.getByText(/^ID MOCK-CODE100-/).textContent();
+  const idMatch = await page.getByText(/^ID MOCK-FIRMA-/).textContent();
   const idCode100 = (idMatch ?? "").replace(/^ID\s*/, "").trim();
   expect(idCode100, "No se encontró el ID de Code100 en la pantalla de P8.").not.toBe("");
 
