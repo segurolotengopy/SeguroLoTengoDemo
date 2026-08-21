@@ -18,6 +18,27 @@ const TABLA_DE_LA_CORRIDA = process.env.DYNAMODB_TABLE ?? nombreTablaDeLaCorrida
 process.env.DYNAMODB_TABLE = TABLA_DE_LA_CORRIDA;
 
 /**
+ * Los mismos valores por defecto de AWS que recibe el `webServer`, pero puestos
+ * en **este** proceso.
+ *
+ * `webServer.env` solo alcanza al servidor de Next. `global-setup.ts` y
+ * `global-teardown.ts` corren acá, en el proceso de Playwright, y usaban lo que
+ * hubiera en el ambiente: con `AWS_PROFILE` sin definir caían al perfil
+ * `default`, que en esta máquina es una sesión de `aws login` que caduca. El
+ * síntoma era "Your session has expired. Please reauthenticate" al crear la
+ * tabla efímera, y llevaba a pensar que el perfil de QA estaba vencido cuando
+ * en realidad ni se lo estaba usando.
+ *
+ * Se respeta lo que venga del entorno, igual que la tabla: exportar
+ * `AWS_PROFILE` sigue mandando.
+ */
+process.env.AWS_PROFILE ??= "aab1-demo-qa";
+process.env.AWS_REGION ??= "us-east-1";
+process.env.S3_BUCKET ??= "slt-demo-evidencias-9e0e93f3";
+process.env.APP_SECRETS_ARN ??=
+  "arn:aws:secretsmanager:us-east-1:120005938663:secret:slt-demo-app-secrets-wX3mDq";
+
+/**
  * Configuración de Playwright para los escenarios E2E de SeguroLoTengo.
  *
  * Contexto obligatorio (ver CLAUDE.md y docs/ESPECIFICACION_DEMO.md):
@@ -120,13 +141,14 @@ export default defineConfig({
       // el global-setup libera por consola administrativa lo que la corrida
       // anterior dejó bloqueante por regla #11.
       ADMIN_CONSOLE_ENABLED: "true",
-      AWS_PROFILE: process.env.AWS_PROFILE ?? "aab1-demo-qa",
-      AWS_REGION: process.env.AWS_REGION ?? "us-east-1",
+      // Ya resueltos arriba, en este proceso: el servidor hereda exactamente lo
+      // mismo que usan el global-setup y el teardown, que era justamente lo que
+      // no pasaba.
+      AWS_PROFILE: process.env.AWS_PROFILE!,
+      AWS_REGION: process.env.AWS_REGION!,
       DYNAMODB_TABLE: TABLA_DE_LA_CORRIDA,
-      S3_BUCKET: process.env.S3_BUCKET ?? "slt-demo-evidencias-9e0e93f3",
-      APP_SECRETS_ARN:
-        process.env.APP_SECRETS_ARN ??
-        "arn:aws:secretsmanager:us-east-1:120005938663:secret:slt-demo-app-secrets-wX3mDq",
+      S3_BUCKET: process.env.S3_BUCKET!,
+      APP_SECRETS_ARN: process.env.APP_SECRETS_ARN!,
     },
   },
 });
