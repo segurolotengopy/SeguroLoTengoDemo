@@ -33,7 +33,7 @@ Los adaptadores **ya** dependen solo del puerto y del dominio genérico — la r
 - `src/ports/registro-civil.ts` y su consumo — ítem 33, específico de Paraguay y del flujo CONFÍO.
 - `src/domain/catalogo-identidad.ts` — opciones de PAÍS DE NACIMIENTO y ESTADO CIVIL: eso es FIPF/SEPRELAD, no identidad genérica.
 - `src/adapters/mock/identity-provider.ts` — está atado a las personas de prueba y al estado compartido del demo. El paquete llevará un **mock de referencia propio** (mínimo, sin personas) para sus tests de contrato; el mock rico del demo sigue siendo de SeguroLoTengo.
-- Las pantallas y Route Handlers de P5 (`src/app/(flujo)/p5-identidad/`, `src/app/api/p5/`).
+- Las pantallas y Route Handlers de P5 (`src/app/(flujo)/identidad/`, `src/app/api/p5/`).
 
 ### Abierto (se decide en la fase 1, no ahora)
 
