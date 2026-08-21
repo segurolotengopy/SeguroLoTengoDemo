@@ -158,6 +158,41 @@ WHATSAPP_MODULAR_TOKEN=<bearer del otp-service>
 Y el destinatario tiene que estar registrado como número de prueba en la app
 de Meta (máximo 5). A cualquier otro número, Meta responde `131030`.
 
+### Números habilitados hoy (21/08/2026)
+
+**Número de origen** —el que Meta presta mientras no haya número propio, y el
+que aparece como remitente de todo OTP de prueba—:
+
+```
++1 555 672 2923
+```
+
+Es el mismo valor que `WHATSAPP_NUMERO_PRUEBA` en `.claude/launch.json`. **No
+es de nadie**: es el número de prueba compartido que asigna Meta a la app de
+desarrollador, así que no aplica la regla de no versionar números reales.
+
+**Destinatarios registrados** en la app, los únicos a los que Meta va a
+entregar (a cualquier otro, `131030`):
+
+| Número | Prefijo |
+| :---- | :---- |
+| `+591 72047339` | Bolivia |
+| `+591 70661250` | Bolivia |
+| `+595 991 478468` | Paraguay |
+
+Quedan **dos lugares libres** de los cinco. Se administran en el panel de Meta,
+que es la fuente de verdad: esta tabla es una copia de conveniencia y puede
+quedar vieja, así que ante una duda mandan Meta y no este documento.
+
+> **Tensión con la regla de más abajo, declarada a propósito.** "Qué no hacer"
+> dice *no versionar números reales*, y esta tabla los versiona. Se decidió
+> así el 21/08/2026, a pedido, porque saber a quién llega un OTP de prueba es
+> justamente lo que se necesita para no perder media hora averiguando por qué
+> no llegó — y porque el documento **ya** traía uno en los ejemplos de uso, o
+> sea que la regla estaba incumplida sin decirlo. Lo que la regla sigue
+> cubriendo, y ahí no se toca, es el **bearer**. Si el repo alguna vez se hace
+> público, esta tabla es lo primero que hay que sacar.
+
 ### Uso
 
 ```bash
@@ -232,8 +267,13 @@ Son política funcionando, no fallas:
   la VM, en el repo `~/WhatsApp-Modular`. Este repo solo consume la API.
 - **No usar el laboratorio Evolution** para OTPs: sus reglas de contención lo
   prohíben.
-- **No versionar números reales** ni el bearer. El número de prueba vive en el
-  panel de Meta y el bearer en `.env.local` o Secrets Manager.
+- **No versionar el bearer.** Vive en `.env.local` o en Secrets Manager, nunca
+  acá.
+- **Los destinatarios de prueba sí están versionados**, en "Números habilitados
+  hoy" más arriba, por decisión del 21/08/2026 — la regla decía lo contrario y
+  el propio documento ya la incumplía en los ejemplos de uso. La fuente de
+  verdad sigue siendo el panel de Meta; esa tabla es una copia de conveniencia.
+  **Si el repo se hace público, esa tabla sale primero.**
 
 ### Estado de fondo
 
