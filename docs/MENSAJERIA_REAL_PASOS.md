@@ -158,12 +158,45 @@ WHATSAPP_MODULAR_TOKEN=<bearer del otp-service>
 Y el destinatario tiene que estar registrado como número de prueba en la app
 de Meta (máximo 5). A cualquier otro número, Meta responde `131030`.
 
+### Números habilitados hoy (21/08/2026)
+
+**Número de origen** —el que Meta presta mientras no haya número propio, y el
+que aparece como remitente de todo OTP de prueba—:
+
+```
++1 555 672 2923
+```
+
+Es el mismo valor que `WHATSAPP_NUMERO_PRUEBA` en `.claude/launch.json`. **No
+es de nadie**: es el número de prueba compartido que asigna Meta a la app de
+desarrollador, así que no aplica la regla de no versionar números reales.
+
+**Destinatarios registrados** en la app, los únicos a los que Meta va a
+entregar (a cualquier otro, `131030`). Van **enmascarados**, que alcanza para
+reconocer cuál es cuál sin versionar el número entero:
+
+| Número | Prefijo |
+| :---- | :---- |
+| `+591 720…339` | Bolivia |
+| `+591 706…250` | Bolivia |
+| `+595 991…468` | Paraguay |
+
+Quedan **dos lugares libres** de los cinco.
+
+**El número completo se saca del panel de Meta**, que es la fuente de verdad de
+todos modos: esta tabla dice *cuántos hay y de quién es cada uno*, no sirve
+para copiar y pegar. Si un destinatario se agrega o se quita allá, acá queda
+viejo — ante una duda manda Meta.
+
 ### Uso
 
 ```bash
-npm run otp:requerimiento -- +59172047339
-npm run otp:requerimiento -- +59172047339 --proposito SIGNATURE_P7A
+npm run otp:requerimiento -- +59XXXXXXXXX
+npm run otp:requerimiento -- +59XXXXXXXXX --proposito SIGNATURE_P7A
 ```
+
+El número va completo y en formato E.164, sacado del panel de Meta: acá va como
+marcador de posición por la misma razón que la tabla de arriba va enmascarada.
 
 El script envía, muestra el `otpId` y el destino enmascarado, y espera a que
 teclees el código que te llegó al celular para verificarlo. El código **nunca
@@ -232,8 +265,15 @@ Son política funcionando, no fallas:
   la VM, en el repo `~/WhatsApp-Modular`. Este repo solo consume la API.
 - **No usar el laboratorio Evolution** para OTPs: sus reglas de contención lo
   prohíben.
-- **No versionar números reales** ni el bearer. El número de prueba vive en el
-  panel de Meta y el bearer en `.env.local` o Secrets Manager.
+- **No versionar números reales** ni el bearer. El bearer vive en `.env.local` o
+  en Secrets Manager, y los números completos en el panel de Meta.
+
+  La tabla de "Números habilitados hoy" **no es una excepción**: va enmascarada
+  justamente para respetar esta regla y a la vez responder la pregunta que
+  importa —cuántos destinatarios hay y de quién es cada uno—, que era lo que
+  obligaba a abrir el panel de Meta cada vez que un OTP de prueba no llegaba.
+  El número de origen sí va completo porque es el de prueba **compartido que
+  asigna Meta**, no el de una persona.
 
 ### Estado de fondo
 
