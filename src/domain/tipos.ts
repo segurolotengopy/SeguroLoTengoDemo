@@ -454,7 +454,7 @@ export interface DocumentoCerrado {
    * El documento es uno solo y su identidad es `codigo` (`PROP-<correlativo>`),
    * pero las dos secciones conservan su código propio porque son dos
    * formularios con vida normativa distinta: la Solicitud responde a la Res.
-   * SS SG. 215/15 y el FIPF a la Res. SEPRELAD 71/19, y un auditor de
+   * SS SG. 215/17 y el FIPF a la Res. SEPRELAD 71/19, y un auditor de
    * cualquiera de los dos tiene que poder citar el suyo. Un solo correlativo,
    * dos códigos internos visibles en sus secciones.
    */

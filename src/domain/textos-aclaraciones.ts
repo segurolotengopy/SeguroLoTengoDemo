@@ -7,7 +7,28 @@
  * Son textos informativos del canal digital, no citas normativas: ninguno
  * cita artículos de ley (regla de trabajo con los documentos de CLAUDE.md).
  * Módulo sin `node:*`: se importa desde componentes de cliente.
+ *
+ * ## Los datos de contacto no se escriben acá
+ *
+ * Salen de `./entidades`, que es la fuente única de razón social, domicilio,
+ * teléfono y correo. Hasta el 26-ago-2026 estos textos publicaban una
+ * casilla de atención sobre un dominio propio del portal que no existe: no
+ * está cerrada en la matriz, el dominio no es el del corredor y nadie la
+ * lee. Un canal de reclamos inventado es peor que no publicar ninguno,
+ * porque el reclamo se pierde en silencio; y D-19 ya había decidido que lo
+ * que todavía no tenemos viaja como `null` y **la pantalla lo omite**.
+ *
+ * Por eso el documento de consultas y reclamos es una **función**: lo que
+ * publica depende de qué contactos estén configurados en ese momento. El
+ * único correo escrito literal es el de retracto y derechos sobre datos,
+ * que la matriz sí da por cerrado — y solo aparece donde corresponde a esos
+ * dos usos.
  */
+import {
+  CORREO_RETRACTO_Y_DATOS,
+  INTERSEGUROS,
+  contactosInstitucionales,
+} from "./entidades";
 
 export interface SeccionAclaracion {
   readonly titulo?: string;
@@ -103,40 +124,67 @@ export const ACLARACION_DOCUMENTACION_PRECONTRACTUAL: DocumentoAclaracion = {
   ],
 };
 
-export const ACLARACION_CONSULTAS_RECLAMOS: DocumentoAclaracion = {
-  id: "consultas-reclamos",
-  titulo: "Consultas y reclamos",
-  version: "v1.0",
-  secciones: [
-    {
-      titulo: "Canales de atención",
-      parrafos: [
-        "Correo electrónico: atencion@segurolotengo.com.py — respuesta dentro de las 48 horas hábiles.",
-        "WhatsApp: el mismo número verificado en el proceso recibe también las notificaciones del expediente.",
-        "Atención presencial: oficinas de Interseguros S.A., Asunción, en días y horarios hábiles.",
-      ],
-    },
-    {
-      titulo: "Cómo presentar un reclamo",
-      parrafos: [
-        "Indicá tu número de cédula y, si lo tenés, el número de propuesta o de caso que figura en tus comunicaciones.",
-        "Describí el motivo del reclamo y adjuntá la documentación de respaldo que consideres pertinente.",
-        "Vas a recibir un número de seguimiento y una respuesta formal dentro de los plazos establecidos por la normativa de defensa del consumidor y de la Superintendencia de Seguros.",
-      ],
-    },
-    {
-      titulo: "Instancias posteriores",
-      parrafos: [
-        "Si la respuesta no te resulta satisfactoria, podés recurrir a la Superintendencia de Seguros del Banco Central del Paraguay o a las instancias de defensa del consumidor, sin costo y sin perjuicio de las acciones legales que te correspondan.",
-      ],
-    },
-  ],
-};
+/**
+ * Canales de atención publicables **hoy**, con los datos que existan.
+ *
+ * Cada entidad aporta una línea solo si tiene teléfono o correo configurado
+ * (D-19). Las dos líneas que no dependen de datos pendientes —la atención
+ * presencial en el domicilio registrado del corredor y el WhatsApp ya
+ * verificado en el proceso— van siempre: son ciertas sin necesidad de que
+ * nadie complete una variable de entorno.
+ */
+function canalesDeAtencion(): readonly string[] {
+  const lineas = contactosInstitucionales().flatMap((contacto) => {
+    const medios = [contacto.telefono, contacto.correo].filter(
+      (medio): medio is string => medio !== null,
+    );
+    if (medios.length === 0) return [];
+    return [`${contacto.entidad.razonSocial} — ${contacto.rol}: ${medios.join(" · ")}.`];
+  });
+
+  return [
+    ...lineas,
+    `Atención presencial: oficinas de ${INTERSEGUROS.razonSocial}, ${INTERSEGUROS.domicilio}, en días y horarios hábiles.`,
+    "WhatsApp: el mismo número que verificaste en el proceso recibe las notificaciones de tu expediente.",
+  ];
+}
+
+/**
+ * Consultas y reclamos. Es función y no constante porque sus canales salen
+ * de `contactosInstitucionales()`, que depende de qué datos estén cargados.
+ */
+export function aclaracionConsultasReclamos(): DocumentoAclaracion {
+  return {
+    id: "consultas-reclamos",
+    titulo: "Consultas y reclamos",
+    version: "v1.1",
+    secciones: [
+      {
+        titulo: "Canales de atención",
+        parrafos: canalesDeAtencion(),
+      },
+      {
+        titulo: "Cómo presentar un reclamo",
+        parrafos: [
+          "Indicá tu número de cédula y, si lo tenés, el número de propuesta o de caso que figura en tus comunicaciones.",
+          "Describí el motivo del reclamo y adjuntá la documentación de respaldo que consideres pertinente.",
+          "Vas a recibir un número de seguimiento y una respuesta formal dentro de los plazos establecidos por la normativa de defensa del consumidor y de la Superintendencia de Seguros.",
+        ],
+      },
+      {
+        titulo: "Instancias posteriores",
+        parrafos: [
+          "Si la respuesta no te resulta satisfactoria, podés recurrir a la Superintendencia de Seguros del Banco Central del Paraguay o a las instancias de defensa del consumidor, sin costo y sin perjuicio de las acciones legales que te correspondan.",
+        ],
+      },
+    ],
+  };
+}
 
 export const ACLARACION_AVISO_PRIVACIDAD: DocumentoAclaracion = {
   id: "aviso-privacidad",
   titulo: "Aviso de privacidad y tratamiento de datos personales",
-  version: "v1.0",
+  version: "v1.1",
   secciones: [
     {
       titulo: "Responsables del tratamiento",
@@ -162,7 +210,7 @@ export const ACLARACION_AVISO_PRIVACIDAD: DocumentoAclaracion = {
     {
       titulo: "Tus derechos",
       parrafos: [
-        "Podés solicitar el acceso, la rectificación o la actualización de tus datos personales escribiendo a atencion@segurolotengo.com.py, acreditando tu identidad.",
+        `Podés solicitar el acceso, la actualización, la rectificación y la eliminación de tus datos personales escribiendo a ${CORREO_RETRACTO_Y_DATOS}, acreditando tu identidad. Esa misma dirección recibe el ejercicio del derecho de retracto.`,
         "El registro de evidencia del proceso (fechas, resultados y textos aceptados) se conserva por el plazo legal como respaldo de la contratación electrónica y no se altera ni se elimina.",
       ],
     },
@@ -230,14 +278,30 @@ export const ACLARACION_REQUISITOS_IDENTIDAD: DocumentoAclaracion = {
   ],
 };
 
-/** Catálogo por id, para resolver el documento desde el componente. */
-export const DOCUMENTOS_ACLARACION = {
-  coberturas: ACLARACION_COBERTURAS,
-  documentacionPrecontractual: ACLARACION_DOCUMENTACION_PRECONTRACTUAL,
-  consultasReclamos: ACLARACION_CONSULTAS_RECLAMOS,
-  avisoPrivacidad: ACLARACION_AVISO_PRIVACIDAD,
-  terminosCondiciones: ACLARACION_TERMINOS_CONDICIONES,
-  requisitosIdentidad: ACLARACION_REQUISITOS_IDENTIDAD,
-} as const;
+export type IdDocumentoAclaracion =
+  | "coberturas"
+  | "documentacionPrecontractual"
+  | "consultasReclamos"
+  | "avisoPrivacidad"
+  | "terminosCondiciones"
+  | "requisitosIdentidad";
 
-export type IdDocumentoAclaracion = keyof typeof DOCUMENTOS_ACLARACION;
+/**
+ * Catálogo por id, para resolver el documento desde el componente.
+ *
+ * Es función y no constante porque `consultasReclamos` se arma con los
+ * contactos configurados: una constante congelaría en el módulo los datos
+ * que había al importarlo.
+ */
+export function documentosAclaracion(): Readonly<
+  Record<IdDocumentoAclaracion, DocumentoAclaracion>
+> {
+  return {
+    coberturas: ACLARACION_COBERTURAS,
+    documentacionPrecontractual: ACLARACION_DOCUMENTACION_PRECONTRACTUAL,
+    consultasReclamos: aclaracionConsultasReclamos(),
+    avisoPrivacidad: ACLARACION_AVISO_PRIVACIDAD,
+    terminosCondiciones: ACLARACION_TERMINOS_CONDICIONES,
+    requisitosIdentidad: ACLARACION_REQUISITOS_IDENTIDAD,
+  };
+}

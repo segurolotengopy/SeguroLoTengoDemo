@@ -19,6 +19,15 @@ implementado y qué falta, en qué horizonte.
 investigación jurídica. Sirven como mapa y dirección, no como fuente de
 verdad final — toda norma que citen y que el proyecto use debe entrar como
 PDF oficial a `docs/normativa/` antes de citarse en pantallas o matriz.
+El inventario de qué está y qué falta vive en `docs/normativa/INDICE.md`.
+
+**Aplicado el 26-ago-2026** (mismo día, en esta rama): la errata «215/15» →
+«215/17» en las 72 apariciones del repositorio; ocho filas nuevas en la
+matriz de cumplimiento (86-93) con los arts. 4 a 10 de la 210/2025; el
+retiro del correo de atención inventado de las dos aclaraciones que lo
+publicaban; el índice de `docs/normativa/`; la etiqueta normativa del Lote 6
+en el plan; y un test que impide que las normas derogadas y los contactos
+inventados vuelvan. Lo que sigue abierto es de Alianza, Legal o negocio.
 
 ---
 

@@ -2,7 +2,7 @@
 
 import { ALIANZA, INTERSEGUROS, nombrePortal } from "@/domain/entidades";
 import { useEffect, useId, useState } from "react";
-import { DOCUMENTOS_ACLARACION } from "@/domain/textos-aclaraciones";
+import { documentosAclaracion } from "@/domain/textos-aclaraciones";
 import type { DocumentoAclaracion, IdDocumentoAclaracion } from "@/domain/textos-aclaraciones";
 
 /**
@@ -12,7 +12,8 @@ import type { DocumentoAclaracion, IdDocumentoAclaracion } from "@/domain/textos
  * `src/domain/textos-aclaraciones.ts`.
  *
  * Es contenido informativo: leerlo o descargarlo no acepta nada ni genera
- * evidencia — la aceptación contractual sigue siendo solo la firma en Code100.
+ * evidencia — la aceptación contractual sigue siendo solo el acto de firma
+ * del paso 6, sobre el PDF único ya cerrado y hasheado.
  */
 
 function comoTextoPlano(documento: DocumentoAclaracion): string {
@@ -58,7 +59,7 @@ const CLASE_ENLACE =
 export function EnlaceAclaracion({ documento, children, className }: EnlaceAclaracionProps) {
   const [abierto, setAbierto] = useState(false);
   const idTitulo = useId();
-  const doc = DOCUMENTOS_ACLARACION[documento];
+  const doc = documentosAclaracion()[documento];
 
   useEffect(() => {
     if (!abierto) return;

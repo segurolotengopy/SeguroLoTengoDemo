@@ -6,7 +6,7 @@
  * legal, no la maquetación:
  *
  * - **Un correlativo, dos prefijos** (fila 47 de `docs/Tabla Cumplimiento
- *   SeguroLo Tengo - Tabla.csv`, Res. SS SG. 215/15, punto 14): los códigos
+ *   SeguroLo Tengo - Tabla.csv`, Res. SS SG. 215/17, punto 14): los códigos
  *   se derivan del mismo número y la transición rechaza cualquier paquete
  *   cuyos códigos no lo hagan.
  * - **Regla inviolable #4**: no hay paquete sin huella digital, ni con

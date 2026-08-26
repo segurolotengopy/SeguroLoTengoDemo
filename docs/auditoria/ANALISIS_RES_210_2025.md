@@ -40,8 +40,12 @@ Dos números parecidos con los que **no** hay que confundirla:
   modelos, numeración y contenido contractual es la **Res. SIS N° 215/2017**
   (sustituyó a la 292/2007; modificada por las Res. 238/2019 y 181/2020) —
   así la citan la Matriz V4 §10, la ficha oficial del BCP y
-  `src/domain/tipos.ts`. Las 38 citas «215/15» del CSV y de `CLAUDE.md` son
-  una errata de numeración a corregir. Sigue vigente: la 210/2025 **no
+  `src/domain/tipos.ts`. **Corregida (v3):** eran 72 apariciones en todo el
+  repositorio —CSV, `CLAUDE.md`, `.claude/agents/` y 14 módulos de `src/`—,
+  todas heredadas de la primera cita mal copiada; hoy dicen «215/17» y un
+  test impide que vuelvan (§8.9). La prueba de que es la misma resolución y
+  no otra: la Matriz V4 §5 cita los **mismos numerales** (11.3, 11.4, 11.6,
+  11.13, 11.14, 9.f) que el CSV atribuía a «215/15». Sigue vigente: la 210/2025 **no
   contiene cláusula derogatoria** — su parte resolutiva solo establece las
   condiciones mínimas del Anexo I y ordena publicar, registrar y archivar.
   Las dos capas conviven.
@@ -367,18 +371,34 @@ vs. CPC, y quién ejecuta la firma del cliente); y (4) higiene de citas
 
 ## 8. Lista de acciones consolidada (reemplaza y amplía §4)
 
-1. **CSV de cumplimiento:** agregar filas para la **210/2025** (arts. 4, 5,
-   6, 7, 9, 10) y corregir la errata **«215/15» → «215/17»** en las ~38
-   citas (también en `CLAUDE.md`). Verificar contra la ficha oficial del BCP
-   antes del cambio masivo.
-2. **`docs/normativa/`:** incorporar los PDFs oficiales de **205/2025**,
-   **030/2025**, **219/2018**, **167/2010** y **Ley 7503/2025** antes de
-   citarlas en pantallas o matriz (regla de trabajo del repo). El memo
-   trae los enlaces del BCP.
-3. **Corregir el correo inventado** en `ACLARACION_CONSULTAS_RECLAMOS`
-   (`atencion@segurolotengo.com.py`) antes de que CMP-10/L6 la enlace
-   (viola D-19).
-4. **Compuertas de producción — sumar a la §8 de la matriz:** (a) marco
+> **Estado al 26-ago-2026.** Las acciones 1, 3, 6 y 9 quedaron **aplicadas**
+> en esta misma rama; la 2 quedó **preparada** (el entorno no puede
+> descargar los PDF); las demás son de Alianza, Legal o negocio.
+
+1. ✅ **APLICADA — CSV de cumplimiento.** Errata **«215/15» → «215/17»**
+   corregida en las 72 apariciones del repositorio (CSV, `CLAUDE.md`,
+   `.claude/agents/` y 14 módulos de `src/`), y **ocho filas nuevas** (86-93)
+   con los arts. 4, 5, 6, 7, 8, 9 y 10 de la 210/2025, redactadas leyendo el
+   PDF oficial que ya estaba en `docs/normativa/`. Se agregó también el art. 8
+   —que la lista original no pedía— porque es el que sostiene la compuerta
+   del contrato de servicios tecnológicos. La numeración quedó correlativa
+   1-93 y las 93 filas tienen sus cuatro campos.
+2. ⏳ **PREPARADA — `docs/normativa/`.** No se pudieron incorporar los PDF:
+   el proxy de egreso del entorno bloquea `bcp.gov.py`, `mic.gov.py`,
+   `acraiz.gov.py` y `silpy.congreso.gov.py` (los cuatro comprobados). En su
+   lugar se creó **`docs/normativa/INDICE.md`** con lo que hay, lo que falta
+   —separado en prioridad A (normas que el código ya cita y cuyo texto no
+   está, empezando por la **215/2017**) y prioridad B (las que el criterio
+   unificado incorpora)— y la dirección oficial de cada una. Las descarga
+   una persona desde una red común.
+3. ✅ **APLICADA — correo inventado.** Se retiró de las dos aclaraciones que
+   lo publicaban (consultas y reclamos, y aviso de privacidad). Los canales
+   de atención ahora se derivan de `contactosInstitucionales()` y **omiten lo
+   que no existe** (D-19); el aviso de privacidad usa
+   `CORREO_RETRACTO_Y_DATOS`, que es el único correo que la matriz da por
+   cerrado y exactamente para ese uso. El documento de reclamos pasó a ser
+   una función porque su contenido depende de qué contactos estén cargados.
+4. 👤 **Compuertas de producción — sumar a la §8 de la matriz:** (a) marco
    MGCTI de Alianza (Res. 219/2018) cubriendo evaluación de riesgos del
    canal, gobernanza y planes de contingencia aprobados por Directorio
    (210/2025 arts. 2.c, 2.d y 10); (b) contrato AAB1↔Interseguros con el
@@ -387,21 +407,33 @@ vs. CPC, y quién ejecuta la firma del cliente); y (4) higiene de citas
    Echazú (mat. 2918)** y que el contrato con Code100 documente el servicio
    (cualificado/no cualificado) por firmante; (d) en la §8.7, comercio
    receptor Bancard = **Alianza** (Ley 7503/2025).
-5. **Dos consultas jurídicas a Alianza/Legal**, registradas junto a D1:
+5. 👤 **Dos consultas jurídicas a Alianza/Legal**, registradas junto a D1:
    quién ejecuta la firma simple del cliente (art. 4 la respalda) y la
    lectura de la exigibilidad de la prima frente al CPC (§5.2). El diseño
    actual soporta ambas respuestas sin reescritura.
-6. **L6 con etiqueta normativa:** tratar TRV-01 (art. 9), CMP-10 (art. 7.d +
-   030/2025), CMP-12/13 (art. 2.e + Ley 7593/2025) y CMP-14 (plazos 2/5/10)
-   como obligaciones de la 210/2025, no como mejoras.
-7. **D-19 con dos normas esperando** (210/2025 art. 7.a + 030/2025):
-   conseguir teléfono y correos de atención reales deja de ser cosmético.
-8. **Calendario regulatorio:** renovación de matrícula de Interseguros antes
-   del **18-sep-2027** bajo el régimen 031/2026 + 117/2026. No toca código;
-   anotarlo donde el negocio siga vencimientos.
-9. **Higiene de citas:** no citar nunca como vigentes la Ley 4017/2010, la
-   4610/2012, la Res. 136/2018, la 292/2007, la 022/2024, la 303/2024 ni los
-   arts. 1–8 de la Res. 14/96. Hoy el repo no las cita — mantenerlo.
+6. ✅ **APLICADA — L6 con etiqueta normativa.** `PLAN_DE_CAMBIOS_v2.md` lleva
+   ahora una tabla que asocia cada ítem pendiente de L6 con el artículo que
+   lo exige y la fila de la matriz que lo respalda (TRV-01 y CMP-14 → art. 9;
+   CMP-10 → art. 7(a-d); CMP-12/13, CMP-16 y rate limiting → art. 2(e)), con
+   la consecuencia dicha sin rodeos: mientras L6 no esté, el portal no
+   cumple los arts. 2(e), 7 y 9 de la norma que habilita la venta
+   electrónica.
+7. 👤 **D-19 con dos normas esperando** (210/2025 art. 7.a + 030/2025):
+   conseguir teléfono y correos de atención reales deja de ser cosmético. La
+   pantalla ya está preparada para mostrarlos apenas existan, sin tocar
+   código: se configuran por variables `NEXT_PUBLIC_*`.
+8. 👤 **Calendario regulatorio:** renovación de matrícula de Interseguros
+   antes del **18-sep-2027** bajo el régimen 031/2026 + 117/2026, y aviso de
+   Alianza a la SIS ≥ 10 días hábiles antes de comercializar por el canal
+   (231/2025). No toca código; anotarlo donde el negocio siga vencimientos.
+9. ✅ **APLICADA — higiene de citas.**
+   `src/domain/__tests__/higiene-de-citas.test.ts` pone la suite en rojo si
+   alguna norma derogada (Ley 4017/2010, 4610/2012, Res. 136/2018, 292/2007,
+   022/2024, 303/2024), la errata «215/15» o un dato de contacto inventado
+   reaparecen en `src/` o en la matriz de cumplimiento. No valida que la cita
+   sea *pertinente* —eso exige leer la norma—, solo impide las que ya sabemos
+   equivocadas. No revisa el resto de `docs/`: los documentos de auditoría
+   nombran las normas derogadas justamente para advertir que no se citen.
 
 ---
 

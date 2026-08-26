@@ -24,7 +24,7 @@
  * Respaldo normativo (`docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`,
  * categoría "R4 - FIRMA ELECTRÓNICA MEDIANTE CODE100"): fila 34 (el cliente
  * firma la Solicitud y el FIPF, Ley 6822/21, arts. 38(1), 42(5) y 67-69;
- * Res. SS SG. 215/15, anexo 1, numeral 11.15), fila 36 (un mismo enlace para
+ * Res. SS SG. 215/17, anexo 1, numeral 11.15), fila 36 (un mismo enlace para
  * los dos documentos), fila 41 (vigencia de 24 horas del enlace) y fila 42
  * (conservar identidad, OTP, IP, fecha, hora, hash y resultado, Ley 6822/21,
  * arts. 42(5), 66 y 68(3)).

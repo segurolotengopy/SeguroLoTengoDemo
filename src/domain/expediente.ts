@@ -330,7 +330,7 @@ export function registrarPagoConfirmadoP7(
 
   // Mismo control que en el cierre del paquete: los códigos del certificado
   // tienen que derivar del correlativo del expediente. Un CPC que citara otro
-  // número rompería el vínculo de la fila 47 (Res. SS SG. 215/15, punto 14).
+  // número rompería el vínculo de la fila 47 (Res. SS SG. 215/17, punto 14).
   const correlativo = expediente.numeroPropuesta;
   if (!correlativo) {
     return { ok: false, error: "No se puede confirmar el pago sin correlativo de propuesta." };
@@ -376,7 +376,7 @@ export function registrarPagoConfirmadoP7(
  * `expediente.numeroPropuesta`: un paquete cuya sección FIPF no derive del
  * mismo número que la Solicitud se rechaza acá y nunca llega a persistirse
  * (CLAUDE.md → "Reglas transversales de integraciones"; fila 47 de la matriz
- * de cumplimiento, Res. SS SG. 215/15, punto 14; Ley 6822/21, arts. 44-46).
+ * de cumplimiento, Res. SS SG. 215/17, punto 14; Ley 6822/21, arts. 44-46).
  *
  * **Ya no exige ninguna garantía de pago** (D-08). Esa condición tenía sentido
  * cuando se cobraba antes de firmar: el paquete se cerraba con el pago hecho.
