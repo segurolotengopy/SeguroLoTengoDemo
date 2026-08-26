@@ -15,6 +15,11 @@
 > tres documentos, con el mapa de mecanismos AWS y de seguridad, vive ahora
 > en **`docs/CRITERIO_UNIFICADO_NORMATIVA_Y_SEGURIDAD.md`**; este archivo
 > queda como el análisis de detalle que lo respalda.
+>
+> **v4 (mismo día):** el archivo `215_2025.pdf` se presentó otra vez como la
+> resolución «215» del proyecto. Es, de nuevo, la **210/2025** — la
+> comprobación y la desambiguación de los tres «215» quedaron asentadas en
+> §0 y, con más detalle, en `docs/normativa/INDICE.md` §0.
 
 ---
 
@@ -28,6 +33,18 @@ presenciales»**, Asunción, 25 de setiembre de 2025, firmada digitalmente por
 Adriana Jazmín Bernal Lugo (Superintendente de Seguros) el 26-09-2025. Es
 **el mismo documento** que ya vive en el repo como
 `docs/normativa/210 2025.pdf` (misma carátula y contenido; distinto escaneo).
+
+> **Reafirmado el 26-ago-2026 (v4).** El archivo llamado `215_2025.pdf` se
+> presentó dos veces como si fuera la resolución «215» del proyecto. Las dos
+> veces era el mismo archivo, byte por byte, y las dos veces era la
+> **210/2025**. La comprobación no depende de ninguna fuente externa: el PDF
+> tiene una parte resolutiva de **dos puntos** y un Anexo I de **diez
+> artículos**, mientras que las filas «215» de la matriz citan *«Anexo 1,
+> numeral 11.14»*, *«numeral 6.13.14»*, *«numerales 12.8 y 6.13.6»*, *«punto
+> resolutivo 14»* y *«punto 9(d)»* — numerales y puntos que este documento no
+> tiene. Se dejó la desambiguación asentada en `docs/normativa/INDICE.md` §0
+> para que no vuelva a ocurrir. **Consecuencia:** tener este PDF no cubre la
+> brecha de la 215/2017, que sigue sin texto oficial en el repositorio.
 
 Dos números parecidos con los que **no** hay que confundirla:
 

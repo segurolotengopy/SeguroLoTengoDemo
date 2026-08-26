@@ -15,11 +15,48 @@ va en `docs/Integraciones/`.
 
 ---
 
+## 0. Aclaración de numeración: los tres «215» (26-ago-2026)
+
+**Si tenés un archivo llamado `215_2025.pdf`, ese archivo es la Res. 210/2025.**
+Ha circulado dos veces con ese nombre y conviene dejarlo asentado, porque la
+confusión lleva a citar una resolución en lugar de otra.
+
+El documento que circula como `215_2025.pdf` se identifica a sí mismo, en su
+carátula y en sus metadatos, como **RESOLUCIÓN SS.SG. N° 210/2025 —
+«Condiciones mínimas para la comercialización de seguros por medios
+electrónicos y canales no presenciales»**, Asunción, 25 de setiembre de 2025,
+expediente EXP-2025-003387, firmada digitalmente por la Superintendente el
+26-09-2025. Es el mismo contenido que este directorio ya guarda, bien
+nombrado, como `210 2025.pdf`.
+
+Cómo se comprueba sin abrir ninguna otra fuente: su parte resolutiva tiene
+**dos puntos** (1° establecer las condiciones mínimas del Anexo I; 2°
+publicar, registrar y archivar) y su Anexo I tiene **diez artículos**. Las
+filas de la matriz de cumplimiento que citan «215» invocan, en cambio,
+*«Anexo 1, numeral 11.14»*, *«numeral 6.13.14»*, *«numerales 12.8 y 6.13.6»*,
+*«punto resolutivo 14»*, *«punto 9(d)»*. Nada de eso existe en este
+documento: no tiene numerales 6.x, 11.x ni 12.x, y no tiene un punto 14 ni un
+punto 9(d). **Las filas «215» no citan este texto.**
+
+Los tres números distintos que conviven, para no volver a mezclarlos:
+
+| Cómo aparece | Qué es realmente | Dónde está |
+| :--- | :--- | :--- |
+| **Res. SIS 215/2017** (el CSV la escribía «215/15») | Modelos de propuesta y póliza, numeración, contenido contractual, art. 1556. Sustituyó a la 292/2007; modificada por las Res. 238/2019 y 181/2020. **Es la que citan las ~30 filas «215» de la matriz** | ❌ **Falta** — ver §2 |
+| **Res. SIS 210/2025** (circula mal nombrada como `215_2025.pdf`) | Condiciones mínimas de comercialización electrónica. Norma central del portal | ✅ `210 2025.pdf` |
+| **Res. SIS 215/2025** | Renovación de inscripción de matrículas de auxiliares del seguro. Acto administrativo, sin relación con el flujo | No se necesita |
+
+Corolario que importa: **tener el PDF adjunto no cubre la brecha de la
+215/2017.** Esa sigue siendo la norma más citada del proyecto y su texto
+oficial sigue sin estar en el repositorio (§2, prioridad A).
+
+---
+
 ## 1. Presentes
 
 | Archivo | Qué es | Quién lo usa |
 | :--- | :--- | :--- |
-| `210 2025.pdf` | **Res. SS.SG. N° 210/2025** — Condiciones mínimas para la comercialización de seguros por medios electrónicos y canales no presenciales (25-sep-2025). Parte resolutiva + Anexo I con 10 artículos | **Norma central del portal.** Analizada artículo por artículo en `docs/auditoria/ANALISIS_RES_210_2025.md`; filas 86-93 de la matriz de cumplimiento |
+| `210 2025.pdf`<br>*(circula también como `215_2025.pdf` — ver §0)* | **Res. SS.SG. N° 210/2025** — Condiciones mínimas para la comercialización de seguros por medios electrónicos y canales no presenciales (25-sep-2025). Parte resolutiva + Anexo I con 10 artículos | **Norma central del portal.** Analizada artículo por artículo en `docs/auditoria/ANALISIS_RES_210_2025.md`; filas 86-93 de la matriz de cumplimiento |
 | `231 2025.pdf` | **Res. SS.SG. N° 231/2025** — Condiciones para la emisión de pólizas electrónicas (29-oct-2025) | Firma cualificada de Alianza, QR de verificación, prohibición de firmas facsimilares, aviso previo a la SIS |
 | `190 2025.pdf` | **Res. SS.SG. N° 190/2025** — Uso exclusivo de la denominación registrada y autorizada (8-sep-2025) | `src/domain/entidades.ts` (`marcaVisible()`, flag `MARCA_FANTASIA_AUTORIZADA`) |
 | `011 2025.pdf` | **Circular SS.SG. N° 011/2025** — Uso de denominaciones comerciales | Formato de `IDENTIFICACION_SIS` (razón social + actividad + matrícula) |
