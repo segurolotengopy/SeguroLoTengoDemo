@@ -263,7 +263,7 @@ export interface Beneficiario {
   /**
    * Cédula del beneficiario designado (CHG-24). **Opcional y no bloqueante.**
    *
-   * La Res. SIS 215/17 (num. 11.4) exige nombre y domicilio cuando se designa
+   * La Res. SIS 215/2025 (num. 11.4) exige nombre y domicilio cuando se designa
    * expresamente a alguien; la cédula no la pide nadie. Se ofrece porque
    * facilita el cobro el día del siniestro, y se deja vacía sin consecuencia
    * porque quien contrata no siempre tiene a mano el documento de un tercero
@@ -454,7 +454,7 @@ export interface DocumentoCerrado {
    * El documento es uno solo y su identidad es `codigo` (`PROP-<correlativo>`),
    * pero las dos secciones conservan su código propio porque son dos
    * formularios con vida normativa distinta: la Solicitud responde a la Res.
-   * SS SG. 215/17 y el FIPF a la Res. SEPRELAD 71/19, y un auditor de
+   * SS SG. 215/2025 y el FIPF a la Res. SEPRELAD 71/19, y un auditor de
    * cualquiera de los dos tiene que poder citar el suyo. Un solo correlativo,
    * dos códigos internos visibles en sus secciones.
    */

@@ -19,7 +19,7 @@
  * Solicitud (P8, leyendas finales: *"la póliza conserva el correlativo de la
  * Solicitud y el identificador de Bancard"*; fila 47 de la matriz de
  * cumplimiento — *"Vincular póliza, Solicitud, FIPF, pago y firmas mediante
- * correlativos o hashes"*, Res. SS SG. 215/17, punto 14; Ley 6822/21, arts.
+ * correlativos o hashes"*, Res. SS SG. 215/2025, punto 14; Ley 6822/21, arts.
  * 44-46). Por eso `numeroPoliza` es igual a `propuestaId` y este adaptador no
  * genera ningún identificador nuevo.
  *

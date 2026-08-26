@@ -35,7 +35,7 @@
  * - 35 — *"Cerrar los documentos antes de firmar y conservar sus huellas
  *   digitales"*, Ley 6822/21, arts. 42(5), 61 y 66.
  * - 47 — *"Vincular póliza, Solicitud, FIPF, pago y firmas mediante
- *   correlativos o hashes"*, Res. SS SG. 215/17, punto 14; Ley 6822/21,
+ *   correlativos o hashes"*, Res. SS SG. 215/2025, punto 14; Ley 6822/21,
  *   arts. 44-46.
  * - 77 — *"Generar un hash individual para Solicitud, FIPF y póliza"*, Ley
  *   6822/21, arts. 42(5), 44 y 66.
@@ -284,7 +284,7 @@ export interface ContenidoFipf {
  *
  * `solicitud` y `fipf` dejaron de ser dos documentos y pasaron a ser dos
  * **secciones** del mismo archivo. Conservan su nombre porque siguen siendo
- * dos formularios con vida normativa propia —Res. SS SG. 215/17 y Res.
+ * dos formularios con vida normativa propia —Res. SS SG. 215/2025 y Res.
  * SEPRELAD 71/19— y cada uno imprime su código interno; lo que ya no tienen es
  * archivo, huella ni acto de firma separados.
  */

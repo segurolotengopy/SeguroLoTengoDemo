@@ -14,15 +14,15 @@
  * - 43 — Firma confirmada → cobro → envío a Alianza → validación automática →
  *   emisión (Código Civil, arts. 1348 y 1373-1374).
  * - 47 — Vincular póliza, Solicitud, FIPF, pago y firmas mediante correlativos
- *   o hashes (Res. SS SG. 215/17, punto 14; Ley 6822/21, arts. 44-46).
+ *   o hashes (Res. SS SG. 215/2025, punto 14; Ley 6822/21, arts. 44-46).
  * - 50 — Iniciar cobertura 24 horas después de confirmarse el pago; **debe
- *   constar expresamente** (Res. SS SG. 215/17, Anexo 1, numeral 6.13.14;
+ *   constar expresamente** (Res. SS SG. 215/2025, Anexo 1, numeral 6.13.14;
  *   Código Civil, art. 1374). Desde D-12 esa fecha **consta acá y en el
  *   Certificado de Cobertura Provisional**, calculada al acreditarse el cobro;
  *   antes la pantalla remitía a la póliza porque el portal todavía no la
  *   sabía.
  * - 39 — Alianza firma la póliza mediante firma electrónica cualificada
- *   ("R4"; Res. SS SG. 215/17, art. 1; Ley 6822/21, arts. 38(2) y 43).
+ *   ("R4"; Res. SS SG. 215/2025, art. 1; Ley 6822/21, arts. 38(2) y 43).
  * - 40 — La factura electrónica la emite SIFEN y **no** se firma con Code100
  *   ("R4"; Ley 4868/13, arts. 31-32; Ley 125/91, art. 85).
  *

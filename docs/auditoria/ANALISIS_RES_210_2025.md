@@ -16,10 +16,11 @@
 > en **`docs/CRITERIO_UNIFICADO_NORMATIVA_Y_SEGURIDAD.md`**; este archivo
 > queda como el análisis de detalle que lo respalda.
 >
-> **v4 (mismo día):** el archivo `215_2025.pdf` se presentó otra vez como la
-> resolución «215» del proyecto. Es, de nuevo, la **210/2025** — la
-> comprobación y la desambiguación de los tres «215» quedaron asentadas en
-> §0 y, con más detalle, en `docs/normativa/INDICE.md` §0.
+> **v4 y v5 (mismo día):** se asentó la desambiguación entre la **215/2025**
+> (modelos y contenido contractual, la que citan las filas «215» de la
+> matriz) y la **210/2025** (comercialización electrónica, la analizada
+> acá), y se corrigió la numeración de la primera en todo el repositorio.
+> Detalle en §0 y en `docs/normativa/INDICE.md` §0.
 
 ---
 
@@ -34,38 +35,31 @@ Adriana Jazmín Bernal Lugo (Superintendente de Seguros) el 26-09-2025. Es
 **el mismo documento** que ya vive en el repo como
 `docs/normativa/210 2025.pdf` (misma carátula y contenido; distinto escaneo).
 
-> **Reafirmado el 26-ago-2026 (v4).** El archivo llamado `215_2025.pdf` se
-> presentó dos veces como si fuera la resolución «215» del proyecto. Las dos
-> veces era el mismo archivo, byte por byte, y las dos veces era la
-> **210/2025**. La comprobación no depende de ninguna fuente externa: el PDF
-> tiene una parte resolutiva de **dos puntos** y un Anexo I de **diez
-> artículos**, mientras que las filas «215» de la matriz citan *«Anexo 1,
-> numeral 11.14»*, *«numeral 6.13.14»*, *«numerales 12.8 y 6.13.6»*, *«punto
-> resolutivo 14»* y *«punto 9(d)»* — numerales y puntos que este documento no
-> tiene. Se dejó la desambiguación asentada en `docs/normativa/INDICE.md` §0
-> para que no vuelva a ocurrir. **Consecuencia:** tener este PDF no cubre la
-> brecha de la 215/2017, que sigue sin texto oficial en el repositorio.
+> **Corregido el 26-ago-2026 (v5), por indicación del proyecto.** La
+> resolución de modelos y contenido contractual es la **Res. SIS N°
+> 215/2025**. El repositorio la escribía «215/15» y una corrección anterior
+> de esta misma rama la había pasado a «215/17»; las dos formas eran
+> erratas y hoy las 89 citas dicen «215/2025». El test de higiene rechaza
+> ambas si vuelven.
 
-Dos números parecidos con los que **no** hay que confundirla:
+Dos resoluciones del mismo año que **no** hay que confundir, porque el
+proyecto usa las dos:
 
-- **Res. SS.SG. N° 215/2025** (BCP): existe, pero trata la **renovación de
-  inscripción de matrículas de auxiliares del seguro** — un acto
-  administrativo de renovación, sin relación con la comercialización
-  electrónica.
-- **La resolución de pólizas y modelos que el CSV cita como «Res. SS SG.
-  215/15»** (~38 menciones). **Corrección (v2):** la resolución vigente de
-  modelos, numeración y contenido contractual es la **Res. SIS N° 215/2017**
-  (sustituyó a la 292/2007; modificada por las Res. 238/2019 y 181/2020) —
-  así la citan la Matriz V4 §10, la ficha oficial del BCP y
-  `src/domain/tipos.ts`. **Corregida (v3):** eran 72 apariciones en todo el
-  repositorio —CSV, `CLAUDE.md`, `.claude/agents/` y 14 módulos de `src/`—,
-  todas heredadas de la primera cita mal copiada; hoy dicen «215/17» y un
-  test impide que vuelvan (§8.9). La prueba de que es la misma resolución y
-  no otra: la Matriz V4 §5 cita los **mismos numerales** (11.3, 11.4, 11.6,
-  11.13, 11.14, 9.f) que el CSV atribuía a «215/15». Sigue vigente: la 210/2025 **no
-  contiene cláusula derogatoria** — su parte resolutiva solo establece las
-  condiciones mínimas del Anexo I y ordena publicar, registrar y archivar.
-  Las dos capas conviven.
+- **Res. SIS 215/2025** — modelos de propuesta y póliza, numeración,
+  contenido contractual y art. 1556. Es la que citan las ~30 filas «215» de
+  la matriz, con sus numerales 6.x, 11.x y 12.x del Anexo 1 y sus puntos
+  resolutivos 7, 9 y 14. **Su texto oficial todavía no está en
+  `docs/normativa/`** (ver `INDICE.md` §2).
+- **Res. SIS 210/2025** — la analizada en este documento: condiciones
+  mínimas de comercialización electrónica, con parte resolutiva de dos
+  puntos y Anexo I de diez artículos. **No contiene cláusula derogatoria**,
+  así que las dos capas conviven.
+
+El archivo que circula como `215_2025.pdf` trae el texto de la **210/2025**
+—así lo dicen su carátula, sus metadatos y su firma digital, y su estructura
+no tiene los numerales que las filas «215» invocan—, de modo que sirve como
+copia de esta resolución pero no como fuente de aquellas citas. La
+desambiguación completa quedó en `docs/normativa/INDICE.md` §0.
 
 ## 1. Ficha del documento
 
@@ -299,7 +293,7 @@ citarse en pantallas o en la matriz.
 | **Ley N° 7503/2025 + reglamentos BCP 2026 (SIPAP)** | Marco nuevo de proveedores de pago; aplica a Bancard. El memo deriva: **el dinero debe ingresar directamente a Alianza**; ni Interseguros ni el portal como beneficiarios del premio | Ya está implícito en la compuerta §8.7 («definir comercio receptor»), pero ahora con fundamento legal: el comercio Bancard debe ser **Alianza**. El portal ya cumple lo demás (solo referencia, importe, fecha, estado — regla inviolable #6) |
 | **Ley N° 5830/2017 + Decreto 8000/2017 (No Molestar)** | Consentimiento comercial separado del contractual, nunca preseleccionado, revocable; responsabilidad aun si contacta un tercero | **Ya cumplido**: Matriz §4 fila Marketing («desmarcado; separado y revocable», D-01) |
 | **Code100 con doble condición ante ACRAIZ** | Es prestador **cualificado y también no cualificado**: OTP/enlace/aceptación/evidencias = firma **no** cualificada; certificado + dispositivo cualificado = cualificada. «Debe contratarse y documentarse exactamente qué servicio utiliza cada firmante» | Confirma por tercera vía lo que C1 ya dijo y lo que `firmantes-documento.ts` hace cumplir con test. Agrega un requisito **contractual**: el contrato con Code100 debe identificar el servicio por firmante (compuerta §8.5) |
-| **Normas derogadas que no deben citarse** | Ley 4017/2010 y 4610/2012 (derogadas por la 6822/2021); Res. 136/2018 (derogada por la 231/2025); Res. 292/2007 (sustituida por la **215/2017**); Res. 022/2024 (por la 030/2025); Res. 303/2024 y arts. 1–8 de la Res. 14/96 (por la 031/2026) | Lista de control para el lint normativo del proyecto: ninguna pantalla, PDF ni fila del CSV debe citarlas como fundamento vigente. Hoy el repo no las cita — mantenerlo así |
+| **Normas derogadas que no deben citarse** | Ley 4017/2010 y 4610/2012 (derogadas por la 6822/2021); Res. 136/2018 (derogada por la 231/2025); Res. 292/2007 (sustituida por la **215/2025**); Res. 022/2024 (por la 030/2025); Res. 303/2024 y arts. 1–8 de la Res. 14/96 (por la 031/2026) | Lista de control para el lint normativo del proyecto: ninguna pantalla, PDF ni fila del CSV debe citarlas como fundamento vigente. Hoy el repo no las cita — mantenerlo así |
 
 ### 5.2 El punto jurídico nuevo más serio: CPC y exigibilidad de la prima
 
@@ -341,7 +335,7 @@ cambio de código. Registrarla como pendiente junto a D1.
   cliente por Code100 es no cualificada salvo certificado propio — la
   arquitectura de D-13 (cliente simple + institucionales cualificadas) es
   exactamente la que el marco permite.
-- La **numeración de la resolución de modelos** se corrige: es **215/2017**,
+- La **numeración de la resolución de modelos** se corrige: es **215/2025**,
   no «215/15» (§0).
 - Se agrega el **matiz CPC/exigibilidad de la prima** (§5.2), que no surge de
   la 210/2025 sino del Código Civil, y queda como consulta a Alianza/Legal.
@@ -353,7 +347,7 @@ cambio de código. Registrarla como pendiente junto a D1.
 La regla de decisión que queda tras cruzar los dos documentos con la Matriz
 V4, el CSV y el código. **Jerarquía de fuentes para cualquier duda nueva:**
 norma oficial en `docs/normativa/` → Matriz V4 → CSV de cumplimiento (con la
-errata 215/15→215/17 presente) → memos de investigación como mapa.
+errata 215/15→215/2025 presente) → memos de investigación como mapa.
 
 | # | Tema | Norma rectora | Estado en SeguroLoTengo |
 | :--- | :--- | :--- | :--- |
@@ -370,7 +364,7 @@ errata 215/15→215/17 presente) → memos de investigación como mapa.
 | 11 | Pagos | **Ley 7503/2025** + reglamentos BCP 2026 | ✅ portal sin PAN/CVV, solo referencia Bancard; comercio receptor = **Alianza** (compuerta §8.7, ahora con fundamento legal) |
 | 12 | Factura | Decreto 872/2023 + normativa SIFEN/DNIT | ✅ el comprobante del portal se declara «no factura»; la factura la emite Alianza (fila 40) |
 | 13 | Identidad del canal y marca | Res. 190/2025 + Circ. 011/2025 + **Res. 205/2025** | ✅ `IDENTIFICACION_SIS` permanente; marca detrás de `MARCA_FANTASIA_AUTORIZADA=false` (D-03) |
-| 14 | Modelos y contenido contractual | **Res. 215/2017** (mod. 238/2019, 181/2020) — no «215/15» | ✅ estructura de Solicitud/FIPF conforme; corregir la cita en CSV y CLAUDE.md |
+| 14 | Modelos y contenido contractual | **Res. 215/2025** — no «215/15» ni «215/17» | ✅ estructura de Solicitud/FIPF conforme; cita corregida en CSV, `CLAUDE.md` y `src/` |
 | 15 | Matriculación de auxiliares | Res. 031/2026 + 117/2026 (+ renovaciones 205/2025 y 215/2025) | ✅ no toca pantallas; calendario: renovación de Interseguros antes del **18-sep-2027** |
 
 **Síntesis del criterio:** la arquitectura jurídica del proyecto **no cambia**
@@ -382,7 +376,7 @@ nombre** (219/2018 para gobernanza/contingencia, 030/2025 para canales de
 reclamo, 7503/2025 para el comercio receptor); (3) dos consultas jurídicas a
 Alianza que el código ya soporta sin reescritura (exigibilidad de la prima
 vs. CPC, y quién ejecuta la firma del cliente); y (4) higiene de citas
-(215/2017, derogadas prohibidas, PDFs oficiales a `docs/normativa/`).
+(215/2025, derogadas prohibidas, PDFs oficiales a `docs/normativa/`).
 
 ---
 
@@ -392,7 +386,7 @@ vs. CPC, y quién ejecuta la firma del cliente); y (4) higiene de citas
 > en esta misma rama; la 2 quedó **preparada** (el entorno no puede
 > descargar los PDF); las demás son de Alianza, Legal o negocio.
 
-1. ✅ **APLICADA — CSV de cumplimiento.** Errata **«215/15» → «215/17»**
+1. ✅ **APLICADA — CSV de cumplimiento.** Errata **«215/15» → «215/2025»**
    corregida en las 72 apariciones del repositorio (CSV, `CLAUDE.md`,
    `.claude/agents/` y 14 módulos de `src/`), y **ocho filas nuevas** (86-93)
    con los arts. 4, 5, 6, 7, 8, 9 y 10 de la 210/2025, redactadas leyendo el
@@ -405,7 +399,7 @@ vs. CPC, y quién ejecuta la firma del cliente); y (4) higiene de citas
    `acraiz.gov.py` y `silpy.congreso.gov.py` (los cuatro comprobados). En su
    lugar se creó **`docs/normativa/INDICE.md`** con lo que hay, lo que falta
    —separado en prioridad A (normas que el código ya cita y cuyo texto no
-   está, empezando por la **215/2017**) y prioridad B (las que el criterio
+   está, empezando por la **215/2025**) y prioridad B (las que el criterio
    unificado incorpora)— y la dirección oficial de cada una. Las descarga
    una persona desde una red común.
 3. ✅ **APLICADA — correo inventado.** Se retiró de las dos aclaraciones que

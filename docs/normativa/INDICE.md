@@ -15,40 +15,33 @@ va en `docs/Integraciones/`.
 
 ---
 
-## 0. Aclaración de numeración: los tres «215» (26-ago-2026)
+## 0. Aclaración de numeración: 215/2025 y 210/2025 (26-ago-2026)
 
-**Si tenés un archivo llamado `215_2025.pdf`, ese archivo es la Res. 210/2025.**
-Ha circulado dos veces con ese nombre y conviene dejarlo asentado, porque la
-confusión lleva a citar una resolución en lugar de otra.
+**La resolución de modelos y contenido contractual que cita la matriz es la
+Res. SIS N° 215/2025.** Antes se la escribió «215/15» y después «215/17»;
+ambas formas son erratas y quedaron corregidas en todo el repositorio. Un
+test las rechaza si vuelven (§5).
 
-El documento que circula como `215_2025.pdf` se identifica a sí mismo, en su
-carátula y en sus metadatos, como **RESOLUCIÓN SS.SG. N° 210/2025 —
-«Condiciones mínimas para la comercialización de seguros por medios
-electrónicos y canales no presenciales»**, Asunción, 25 de setiembre de 2025,
-expediente EXP-2025-003387, firmada digitalmente por la Superintendente el
-26-09-2025. Es el mismo contenido que este directorio ya guarda, bien
-nombrado, como `210 2025.pdf`.
+**No confundirla con la Res. 210/2025**, que es otra cosa: las condiciones
+mínimas de comercialización electrónica. Son dos resoluciones del mismo año
+con contenidos distintos, y el proyecto usa las dos.
 
-Cómo se comprueba sin abrir ninguna otra fuente: su parte resolutiva tiene
-**dos puntos** (1° establecer las condiciones mínimas del Anexo I; 2°
-publicar, registrar y archivar) y su Anexo I tiene **diez artículos**. Las
-filas de la matriz de cumplimiento que citan «215» invocan, en cambio,
-*«Anexo 1, numeral 11.14»*, *«numeral 6.13.14»*, *«numerales 12.8 y 6.13.6»*,
-*«punto resolutivo 14»*, *«punto 9(d)»*. Nada de eso existe en este
-documento: no tiene numerales 6.x, 11.x ni 12.x, y no tiene un punto 14 ni un
-punto 9(d). **Las filas «215» no citan este texto.**
-
-Los tres números distintos que conviven, para no volver a mezclarlos:
-
-| Cómo aparece | Qué es realmente | Dónde está |
+| Número | Qué regula | Dónde está |
 | :--- | :--- | :--- |
-| **Res. SIS 215/2017** (el CSV la escribía «215/15») | Modelos de propuesta y póliza, numeración, contenido contractual, art. 1556. Sustituyó a la 292/2007; modificada por las Res. 238/2019 y 181/2020. **Es la que citan las ~30 filas «215» de la matriz** | ❌ **Falta** — ver §2 |
-| **Res. SIS 210/2025** (circula mal nombrada como `215_2025.pdf`) | Condiciones mínimas de comercialización electrónica. Norma central del portal | ✅ `210 2025.pdf` |
-| **Res. SIS 215/2025** | Renovación de inscripción de matrículas de auxiliares del seguro. Acto administrativo, sin relación con el flujo | No se necesita |
+| **Res. SIS 215/2025** | Modelos de propuesta y póliza, numeración, contenido contractual, art. 1556. **Es la que citan las ~30 filas «215» de la matriz** (numerales 6.x, 11.x y 12.x del Anexo 1, y los puntos resolutivos 7, 9 y 14) | ❌ **Falta** — ver §2 |
+| **Res. SIS 210/2025** | Condiciones mínimas de comercialización por medios electrónicos y canales no presenciales. Norma central del portal (parte resolutiva de 2 puntos + Anexo I de 10 artículos) | ✅ `210 2025.pdf` |
 
-Corolario que importa: **tener el PDF adjunto no cubre la brecha de la
-215/2017.** Esa sigue siendo la norma más citada del proyecto y su texto
-oficial sigue sin estar en el repositorio (§2, prioridad A).
+### Cuidado con el archivo `215_2025.pdf`
+
+Circula un PDF con ese nombre que **contiene el texto de la 210/2025**: su
+carátula, sus metadatos y su firma digital lo dicen, y su estructura —dos
+puntos resolutivos y diez artículos— no tiene los numerales 6.x, 11.x ni
+12.x que las filas «215» de la matriz invocan. Sirve como copia de la
+210/2025, no como fuente de las citas «215». Es el mismo contenido que este
+directorio ya guarda, bien nombrado, como `210 2025.pdf`.
+
+Por eso la 215/2025 sigue figurando como faltante: hasta que entre su texto
+oficial, sus ~30 filas de la matriz son citas que nadie puede contrastar.
 
 ---
 
@@ -74,7 +67,7 @@ seria del inventario: son citas que nadie puede contrastar.
 
 | Norma | Por qué hace falta | Dónde conseguirla |
 | :--- | :--- | :--- |
-| **Res. SIS N° 215/2017** (mod. por 238/2019 y 181/2020) | La más citada del proyecto: modelos de propuesta y póliza, numeración, contenido contractual, art. 1556. Sostiene ~30 filas de la matriz de cumplimiento y decenas de comentarios | Ficha oficial del BCP: `www.bcp.gov.py/web/institucional/w/res.ss.sg.n°215/17` |
+| **Res. SIS N° 215/2025** | La más citada del proyecto: modelos de propuesta y póliza, numeración, contenido contractual, art. 1556. Sostiene ~30 filas de la matriz de cumplimiento y decenas de comentarios en `src/`. **Es la brecha más urgente del inventario** | Buscador de resoluciones del BCP (`www.bcp.gov.py`). No confundir con el archivo `215_2025.pdf` que circula: ese trae el texto de la 210/2025 (§0) |
 | **Ley N° 6822/2021** — Servicios de confianza para transacciones electrónicas | Base de toda la arquitectura de firma; define firma simple y cualificada, y los arts. 9, 13, 14, 15 y 20 deciden si Interseguros debe comunicarse al MIC | `www.mic.gov.py/wp-content/uploads/2023/11/Ley-Nro-6822-2021pdf-1.pdf` |
 | **Ley N° 827/1996** — De Seguros | Rol de aseguradora y corredor; art. 61 inc. b) (potestad reglamentaria de la SIS) y art. 76 (firma del corredor) | `www.bcp.gov.py/documents/20117/213083/LEY_827_96_DE_SEGUROS.pdf` |
 | **Ley N° 4868/2013** — Comercio electrónico | La norma más citada en `src/`: información previa, precio total, conservación, acuse, retracto | `bacn.gov.py` |
@@ -131,7 +124,7 @@ cumplimiento:
 | :--- | :--- |
 | Ley 4017/2010 y Ley 4610/2012 | Ley 6822/2021 |
 | Res. SIS 136/2018 | Res. SIS 231/2025 |
-| Res. SIS 292/2007 | Res. SIS 215/2017 |
+| Res. SIS 292/2007 | Res. SIS 215/2025 |
 | Res. SIS 022/2024 | Res. SIS 030/2025 |
 | Res. SIS 303/2024 y arts. 1-8 de la Res. 14/1996 | Res. SIS 031/2026 (ampliada por la 117/2026) |
-| «Res. 215/15» | Errata de numeración: esa resolución es **215/2017** |
+| «Res. 215/15» y «Res. 215/17» | Erratas de numeración: la resolución de modelos es la **215/2025** |
