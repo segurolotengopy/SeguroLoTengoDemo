@@ -8,6 +8,13 @@
 > §5–§8 son las nuevas; §0–§4 conservan el análisis artículo por artículo de
 > la 210/2025, con una corrección en §0 sobre la numeración de la resolución
 > de modelos.
+>
+> **v3 (mismo día):** se incorporó un tercer documento —el memo *Marco
+> Regulatorio de Firma Electrónica para Seguros en Paraguay*— que cierra la
+> dirección técnica de D1 (§9). El criterio operativo consolidado de los
+> tres documentos, con el mapa de mecanismos AWS y de seguridad, vive ahora
+> en **`docs/CRITERIO_UNIFICADO_NORMATIVA_Y_SEGURIDAD.md`**; este archivo
+> queda como el análisis de detalle que lo respalda.
 
 ---
 
@@ -395,3 +402,74 @@ vs. CPC, y quién ejecuta la firma del cliente); y (4) higiene de citas
 9. **Higiene de citas:** no citar nunca como vigentes la Ley 4017/2010, la
    4610/2012, la Res. 136/2018, la 292/2007, la 022/2024, la 303/2024 ni los
    arts. 1–8 de la Res. 14/96. Hoy el repo no las cita — mantenerlo.
+
+---
+
+## 9. Tercer documento: memo «Marco Regulatorio de Firma Electrónica» (v3)
+
+**Naturaleza:** memo jurídico-técnico (6 páginas) sobre el mecanismo de firma
+del cliente bajo la Ley 6822/2021 y la Res. 210/2025. Es el documento que
+**cierra la dirección técnica de D1**: SeguroLoTengo implementa internamente
+la firma electrónica no cualificada (FENC) del cliente — la 210/2025 no exige
+prestador registrado, exige autenticación y evidencia, y el portal ya produce
+las dos cosas. Code100 queda solo para las firmas cualificadas
+institucionales. El criterio operativo completo y el mapa de mecanismos de
+seguridad están en `docs/CRITERIO_UNIFICADO_NORMATIVA_Y_SEGURIDAD.md`; acá
+quedan las **aclaraciones que modifica** sobre lo dicho en §2–§8:
+
+### 9.1 Aclaración sobre D-07 y la regla inviolable #1 (modifica lo dicho en §2, art. 4)
+
+D-07 retiró el OTP de firma del portal suponiendo que el acto ocurría dentro
+del flujo de Code100. Con C1 (Code100 no puede recibir la firma del cliente)
+y este memo, la dirección es la inversa: **el OTP del acto de firma vuelve a
+ser un acto propio del portal, distinto del OTP de canal aunque viaje al
+mismo WhatsApp**. Cuando D1 se formalice, D-07 y la regla inviolable #1 se
+re-redactan; hasta entonces no se implementa nada (las decisiones PENDIENTES
+no se implementan). El análisis del art. 4 en §2 sigue siendo válido: el
+esquema autenticación + integridad + trazabilidad es el mismo; cambia quién
+emite el OTP del acto.
+
+### 9.2 Aclaración sobre el registro ante el MIC (tema nuevo, no cubierto en §2–§7)
+
+El memo trae dos posiciones en tensión: su primera sección afirma que operar
+el software de firmas en AWS convierte a Interseguros en **prestador de
+servicios de confianza no cualificado** con inscripción obligatoria en el
+REPSE; su complemento lo refina con la letra de la Ley 6822/2021 (servicio de
+confianza = prestado *habitualmente a cambio de remuneración*): un mecanismo
+**interno, gratuito y exclusivo** de las propias contrataciones no es un
+servicio de confianza y **no requiere registro**. Criterio adoptado: el del
+complemento, **más una consulta escrita al MIC antes de producción** para
+convertir la interpretación en certeza. Si alguna condición cambia (cobrar
+por la firma, ofrecerla a terceros, publicitarla, emitir certificados),
+corresponde la comunicación FOR-ICPP-02 dentro de los tres meses.
+
+### 9.3 Aclaración sobre la 231/2025 (amplía §7 tema 4)
+
+Dos precisiones que el análisis anterior no tenía: la 231/2025 **prohíbe las
+firmas facsimilares o imágenes digitalizadas** en la póliza (refuerza que las
+institucionales sean cualificadas de verdad, nunca un sello gráfico), y exige
+que la aseguradora **notifique a la SIS con al menos 10 días hábiles de
+anticipación** el inicio de la comercialización por el canal no presencial.
+Ese trámite es de Alianza — va al calendario regulatorio junto a la
+renovación de matrícula (§8.8).
+
+### 9.4 Aclaración sobre el texto del acto de firma (modifica la Matriz §4)
+
+El memo fija los textos del acto: botón *«Firmar electrónicamente la
+Solicitud y el FIPF»* y declaración que nombra el código de un solo uso al
+WhatsApp verificado — **sin nombrar proveedor ni presentarse como
+prestador**. El texto actual de la Matriz V4 §4 («…deseo firmarlo mediante
+Code100») contradice esa regla y la de CLAUDE.md («ninguna pantalla nombra al
+proveedor»); al implementar D1 el texto se corrige y el cambio se registra en
+la matriz (su propia regla de control lo exige). Se suma a la lista de
+divergencias declaradas junto a ALR-06/ALR-07.
+
+### 9.5 Evidencia por firma (confirma §2 art. 9 y precisa TRV-01)
+
+La lista de ~20 datos por acto de firma que el memo exige está cubierta casi
+entera por `RegistroEvidencia` + `DecisionBiometrica` + los hashes del
+paquete. Lo que falta cae en TRV-01/L6 (descargas como evento) y en dos
+refuerzos de Go-Live: los **tres timestamps del OTP de firma** como eventos
+propios (al implementar D1) y el **sellado criptográfico de la constancia de
+evidencias** (firma asimétrica con AWS KMS). Detalle en el checklist §3 del
+criterio unificado.
