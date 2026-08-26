@@ -2,6 +2,13 @@
 
 **Fecha del análisis:** 26-ago-2026 · **Rama:** `claude/analisis-ra-215-2025-fre8rp`
 
+> **v2 (mismo día):** se incorporó un segundo documento —el memo
+> *Actualizaciones normativas relevantes* (corte 26-ago-2026)— y el análisis
+> cierra ahora con un **criterio normativo unificado** (§7). Las secciones
+> §5–§8 son las nuevas; §0–§4 conservan el análisis artículo por artículo de
+> la 210/2025, con una corrección en §0 sobre la numeración de la resolución
+> de modelos.
+
 ---
 
 ## 0. Aclaración previa: qué documento es este (y qué no es)
@@ -21,11 +28,16 @@ Dos números parecidos con los que **no** hay que confundirla:
   inscripción de matrículas de auxiliares del seguro** — un acto
   administrativo de renovación, sin relación con la comercialización
   electrónica.
-- **Res. SS.SG. N° 215/15** (año 2015): la resolución histórica de pólizas y
-  modelos que la matriz de cumplimiento CSV cita en ~30 filas. Sigue vigente:
-  la 210/2025 **no contiene cláusula derogatoria** — su parte resolutiva solo
-  establece las condiciones mínimas del Anexo I y ordena publicar, registrar
-  y archivar. Las dos capas conviven.
+- **La resolución de pólizas y modelos que el CSV cita como «Res. SS SG.
+  215/15»** (~38 menciones). **Corrección (v2):** la resolución vigente de
+  modelos, numeración y contenido contractual es la **Res. SIS N° 215/2017**
+  (sustituyó a la 292/2007; modificada por las Res. 238/2019 y 181/2020) —
+  así la citan la Matriz V4 §10, la ficha oficial del BCP y
+  `src/domain/tipos.ts`. Las 38 citas «215/15» del CSV y de `CLAUDE.md` son
+  una errata de numeración a corregir. Sigue vigente: la 210/2025 **no
+  contiene cláusula derogatoria** — su parte resolutiva solo establece las
+  condiciones mínimas del Anexo I y ordena publicar, registrar y archivar.
+  Las dos capas conviven.
 
 ## 1. Ficha del documento
 
@@ -201,7 +213,10 @@ nuevo que deja esta resolución.
 | 9 | Conservación | ⚠️ Núcleo ✅ · TRV-01 y política de retención = L6/CMP-14 |
 | 10 | Procedimiento y contingencia por Directorio | ❌ Organizacional, sin artefacto ni compuerta |
 
-## 4. Acciones que deja este análisis
+## 4. Acciones del primer análisis
+
+> Estas seis acciones siguen vigentes; §8 las absorbe y las amplía con lo que
+> aporta el segundo documento.
 
 1. **CSV de cumplimiento sin filas de la 210/2025.** La matriz CSV — fuente
    regulatoria operativa del repo — cita `Res. SS SG. 215/15` en ~30 filas y
@@ -227,3 +242,156 @@ nuevo que deja esta resolución.
    «RA 215/2025» corresponde a otra resolución (renovación de matrículas) que
    no afecta al flujo — solo confirma que la matrícula del corredor debe
    estar vigente, que ya es dato visible (`Matrícula SIS N° 118`).
+
+---
+
+## 5. Segundo documento: memo «Actualizaciones normativas relevantes»
+
+**Naturaleza:** informe de investigación jurídica (corte **26-ago-2026**, 17
+páginas) que barre el marco completo aplicable al portal y clasifica cada
+norma en DIRECTA / INSTITUCIONAL / CONDICIONAL / FUTURA / HISTÓRICA. Su
+conclusión coincide con la nuestra en lo central: **nada de 2026 derogó ni
+modificó la 210/2025 ni la 231/2025**; la arquitectura jurídica del proyecto
+se mantiene.
+
+**Cautela de fuente:** es un memo de investigación, no una norma. Para la
+regla de trabajo del repo («nunca cites de memoria un artículo de ley») sirve
+como **mapa**, no como fuente de verdad final: cada norma que introduce y que
+el proyecto decida usar debe incorporarse como PDF oficial a
+`docs/normativa/` (como ya se hizo con 210, 231, 190, 011 y 117) antes de
+citarse en pantallas o en la matriz.
+
+### 5.1 Lo que el memo agrega y el repo no tenía
+
+| Novedad | Qué establece | Impacto |
+| :--- | :--- | :--- |
+| **Res. SIS N° 205/2025** (19-sep-2025) | Renovación de la matrícula corredora de **Interseguros**: SIS 118, ramos Patrimoniales y Vida, **vigencia hasta el 18-sep-2027**, y las propuestas deben ser firmadas por **Rodrigo Fernández Echazú, agente matrícula N° 2918** | La configuración de firmantes (`firmantes-documento.ts`) trabaja por **rol**, sin persona nominada — correcto para el demo, pero la compuerta §8.5 debe verificar que el certificado cualificado de Interseguros en Code100 sea **el de esa persona**. Y la renovación 18-sep-2027 pasa a ser una fecha de calendario regulatorio (bajo el régimen nuevo 031/2026 + 117/2026) |
+| **Res. SIS N° 219/2018 (MGCTI)** | Gobierno y control de tecnología exigible a las aseguradoras: seguridad, continuidad, accesos, proveedores, respaldo, riesgo tecnológico, incidentes | **Cierra el hueco de norma** que el primer análisis señaló en los arts. 2.c, 2.d y 10 de la 210/2025: la evaluación de riesgos, la gobernanza y los planes de contingencia no son solo «organizacionales sin artefacto» — tienen norma propia que Alianza ya debería estar cumpliendo como marco |
+| **Res. SIS N° 030/2025** | Consultas, quejas y reclamos ante la SIS (derogó la 022/2024); el portal debe ofrecer los canales de atención de ambas entidades | Refuerza con norma específica el art. 7.d de la 210/2025 y le pone más presión a **D-19** (contactos en `null`) y al enlace pendiente de `ACLARACION_CONSULTAS_RECLAMOS` |
+| **Ley N° 7503/2025 + reglamentos BCP 2026 (SIPAP)** | Marco nuevo de proveedores de pago; aplica a Bancard. El memo deriva: **el dinero debe ingresar directamente a Alianza**; ni Interseguros ni el portal como beneficiarios del premio | Ya está implícito en la compuerta §8.7 («definir comercio receptor»), pero ahora con fundamento legal: el comercio Bancard debe ser **Alianza**. El portal ya cumple lo demás (solo referencia, importe, fecha, estado — regla inviolable #6) |
+| **Ley N° 5830/2017 + Decreto 8000/2017 (No Molestar)** | Consentimiento comercial separado del contractual, nunca preseleccionado, revocable; responsabilidad aun si contacta un tercero | **Ya cumplido**: Matriz §4 fila Marketing («desmarcado; separado y revocable», D-01) |
+| **Code100 con doble condición ante ACRAIZ** | Es prestador **cualificado y también no cualificado**: OTP/enlace/aceptación/evidencias = firma **no** cualificada; certificado + dispositivo cualificado = cualificada. «Debe contratarse y documentarse exactamente qué servicio utiliza cada firmante» | Confirma por tercera vía lo que C1 ya dijo y lo que `firmantes-documento.ts` hace cumplir con test. Agrega un requisito **contractual**: el contrato con Code100 debe identificar el servicio por firmante (compuerta §8.5) |
+| **Normas derogadas que no deben citarse** | Ley 4017/2010 y 4610/2012 (derogadas por la 6822/2021); Res. 136/2018 (derogada por la 231/2025); Res. 292/2007 (sustituida por la **215/2017**); Res. 022/2024 (por la 030/2025); Res. 303/2024 y arts. 1–8 de la Res. 14/96 (por la 031/2026) | Lista de control para el lint normativo del proyecto: ninguna pantalla, PDF ni fila del CSV debe citarlas como fundamento vigente. Hoy el repo no las cita — mantenerlo así |
+
+### 5.2 El punto jurídico nuevo más serio: CPC y exigibilidad de la prima
+
+El memo recuerda que el Código Civil dispone que **la prima no es exigible
+sino contra entrega de la póliza o de un certificado o instrumento
+provisional de cobertura**, y concluye que el CPC «debe existir al momento de
+exigir o cobrar la prima, **no únicamente como documento generado con
+posterioridad al cobro**» — con la nota de que esto «debe validarlo Alianza
+con su asesoría jurídica».
+
+Cómo queda frente a lo implementado (D-12, CMP-07): hoy `confirmarPagoP7`
+**cierra y hashea el CPC antes de transicionar** y lo asienta en la misma
+escritura que confirma el cobro; si el certificado no se puede emitir, el
+pago **no se confirma** (`CERTIFICADO_NO_EMITIDO`). Es decir: la operación ya
+es atómica y el orden interno ya es «certificado primero, asiento del cobro
+después». Lo que queda expuesto es un matiz: la **autorización del débito en
+Bancard ocurre antes** de que el CPC exista. Dos lecturas posibles —(a) la
+prima se «exige» recién con la confirmación, y ahí el CPC ya existe
+(cumplimos por construcción); (b) la prima se «exige» al abrir la operación
+de pago, y entonces haría falta un instrumento previo—. **La lectura la debe
+cerrar Alianza/Legal**; el diseño actual soporta ambas sin reescritura
+(la emisión es inyectada y atómica), así que es una consulta jurídica, no un
+cambio de código. Registrarla como pendiente junto a D1.
+
+---
+
+## 6. Qué cambia del análisis de la 210/2025 con el memo
+
+- **Art. 2.c/2.d y art. 10** dejan de ser brechas «sin norma con nombre»: el
+  marco es la **Res. 219/2018 (MGCTI)** — la evaluación de riesgos del canal,
+  la gobernanza tecnológica y los planes de contingencia deben producirse
+  bajo ese estándar de Alianza, y la compuerta de producción nueva debe
+  citarlo.
+- **Art. 7.a/7.d** ganan una segunda norma directa: la **Res. 030/2025**
+  (canales de reclamo de ambas entidades). D-19 y el enlace de la aclaración
+  de reclamos pasan de «pendiente de dato» a «pendiente con dos normas
+  esperando».
+- **Art. 4/5** quedan confirmados por tercera fuente (ACRAIZ): la firma del
+  cliente por Code100 es no cualificada salvo certificado propio — la
+  arquitectura de D-13 (cliente simple + institucionales cualificadas) es
+  exactamente la que el marco permite.
+- La **numeración de la resolución de modelos** se corrige: es **215/2017**,
+  no «215/15» (§0).
+- Se agrega el **matiz CPC/exigibilidad de la prima** (§5.2), que no surge de
+  la 210/2025 sino del Código Civil, y queda como consulta a Alianza/Legal.
+
+---
+
+## 7. Criterio normativo unificado
+
+La regla de decisión que queda tras cruzar los dos documentos con la Matriz
+V4, el CSV y el código. **Jerarquía de fuentes para cualquier duda nueva:**
+norma oficial en `docs/normativa/` → Matriz V4 → CSV de cumplimiento (con la
+errata 215/15→215/17 presente) → memos de investigación como mapa.
+
+| # | Tema | Norma rectora | Estado en SeguroLoTengo |
+| :--- | :--- | :--- | :--- |
+| 1 | Venta electrónica (norma central) | **Res. SIS 210/2025** | ✅ núcleo cumplido (§2); cierre en L6 (TRV-01, CMP-10/12/13/14) |
+| 2 | Firma del cliente | Ley 6822/2021 + **Res. 210/2025 art. 4** (autenticación + evidencias) | ✅ firma simple + OTP + biometría + hash + evidencia; D1 (quién la ejecuta) pendiente de Gerencia/Legal, con base normativa clara |
+| 3 | Firma del corredor | Ley 827/96 art. 76 + **Res. 205/2025** (firmante nominado: R. Fernández Echazú, mat. 2918) | ✅ cualificada por rol; la persona y su certificado son compuerta §8.5 |
+| 4 | Póliza y CPC | **Res. 231/2025** (firma cualificada de Alianza, QR de verificación, conservación) | ✅ CPC prefirmado por Alianza, QR a `/verificar/<código>`; matiz de exigibilidad de la prima → consulta Alianza/Legal (§5.2) |
+| 5 | Comercio electrónico | Ley 4868/2013 + Decreto 1165/2014 | ⚠️ resumen revisable y acuse cumplidos; información del canal = CMP-10 (L6) |
+| 6 | Información al consumidor | Ley 1334/98 | ✅ premio total IVA incluido, carencias y exclusiones a la vista |
+| 7 | Comunicaciones comerciales | Ley 5830/2017 + Decreto 8000/2017 | ✅ casilla separada, desmarcada y revocable (D-01) |
+| 8 | Datos personales | Régimen actual + **Ley 7593/2025** (plena vigencia fines 2027) | ⚠️ diseño ya conforme en lo estructural; aviso de privacidad y panel de cookies = CMP-12/13 (L6). Construir todo lo nuevo ya conforme a la 7593 |
+| 9 | FIPF, origen de fondos y PEP | Res. SEPRELAD 71/2019 y 50/2019 | ✅ FIPF integrado al PDF único; PEP deriva a análisis reforzado, nunca rechazo automático; biometría limitada a verificación |
+| 10 | Seguridad y trazabilidad | **Res. 210/2025 art. 9 + Res. 219/2018 + Res. 167/2010** | ⚠️ evidencia núcleo ✅; TRV-01 y política de retención 2/5/10 años = L6; marco MGCTI de Alianza = compuerta nueva |
+| 11 | Pagos | **Ley 7503/2025** + reglamentos BCP 2026 | ✅ portal sin PAN/CVV, solo referencia Bancard; comercio receptor = **Alianza** (compuerta §8.7, ahora con fundamento legal) |
+| 12 | Factura | Decreto 872/2023 + normativa SIFEN/DNIT | ✅ el comprobante del portal se declara «no factura»; la factura la emite Alianza (fila 40) |
+| 13 | Identidad del canal y marca | Res. 190/2025 + Circ. 011/2025 + **Res. 205/2025** | ✅ `IDENTIFICACION_SIS` permanente; marca detrás de `MARCA_FANTASIA_AUTORIZADA=false` (D-03) |
+| 14 | Modelos y contenido contractual | **Res. 215/2017** (mod. 238/2019, 181/2020) — no «215/15» | ✅ estructura de Solicitud/FIPF conforme; corregir la cita en CSV y CLAUDE.md |
+| 15 | Matriculación de auxiliares | Res. 031/2026 + 117/2026 (+ renovaciones 205/2025 y 215/2025) | ✅ no toca pantallas; calendario: renovación de Interseguros antes del **18-sep-2027** |
+
+**Síntesis del criterio:** la arquitectura jurídica del proyecto **no cambia**
+con ninguno de los dos documentos — la 210/2025 es la norma central y ya es
+la columna vertebral de la Matriz V4 y del Plan v2. Lo que los dos documentos
+juntos agregan es: (1) **L6 es cierre normativo obligatorio**, no hardening
+opcional; (2) tres compuertas de producción nuevas ahora **con norma con
+nombre** (219/2018 para gobernanza/contingencia, 030/2025 para canales de
+reclamo, 7503/2025 para el comercio receptor); (3) dos consultas jurídicas a
+Alianza que el código ya soporta sin reescritura (exigibilidad de la prima
+vs. CPC, y quién ejecuta la firma del cliente); y (4) higiene de citas
+(215/2017, derogadas prohibidas, PDFs oficiales a `docs/normativa/`).
+
+---
+
+## 8. Lista de acciones consolidada (reemplaza y amplía §4)
+
+1. **CSV de cumplimiento:** agregar filas para la **210/2025** (arts. 4, 5,
+   6, 7, 9, 10) y corregir la errata **«215/15» → «215/17»** en las ~38
+   citas (también en `CLAUDE.md`). Verificar contra la ficha oficial del BCP
+   antes del cambio masivo.
+2. **`docs/normativa/`:** incorporar los PDFs oficiales de **205/2025**,
+   **030/2025**, **219/2018**, **167/2010** y **Ley 7503/2025** antes de
+   citarlas en pantallas o matriz (regla de trabajo del repo). El memo
+   trae los enlaces del BCP.
+3. **Corregir el correo inventado** en `ACLARACION_CONSULTAS_RECLAMOS`
+   (`atencion@segurolotengo.com.py`) antes de que CMP-10/L6 la enlace
+   (viola D-19).
+4. **Compuertas de producción — sumar a la §8 de la matriz:** (a) marco
+   MGCTI de Alianza (Res. 219/2018) cubriendo evaluación de riesgos del
+   canal, gobernanza y planes de contingencia aprobados por Directorio
+   (210/2025 arts. 2.c, 2.d y 10); (b) contrato AAB1↔Interseguros con el
+   reparto de responsabilidad del art. 8; (c) en la §8.5, que el certificado
+   cualificado de Interseguros en Code100 sea el de **Rodrigo Fernández
+   Echazú (mat. 2918)** y que el contrato con Code100 documente el servicio
+   (cualificado/no cualificado) por firmante; (d) en la §8.7, comercio
+   receptor Bancard = **Alianza** (Ley 7503/2025).
+5. **Dos consultas jurídicas a Alianza/Legal**, registradas junto a D1:
+   quién ejecuta la firma simple del cliente (art. 4 la respalda) y la
+   lectura de la exigibilidad de la prima frente al CPC (§5.2). El diseño
+   actual soporta ambas respuestas sin reescritura.
+6. **L6 con etiqueta normativa:** tratar TRV-01 (art. 9), CMP-10 (art. 7.d +
+   030/2025), CMP-12/13 (art. 2.e + Ley 7593/2025) y CMP-14 (plazos 2/5/10)
+   como obligaciones de la 210/2025, no como mejoras.
+7. **D-19 con dos normas esperando** (210/2025 art. 7.a + 030/2025):
+   conseguir teléfono y correos de atención reales deja de ser cosmético.
+8. **Calendario regulatorio:** renovación de matrícula de Interseguros antes
+   del **18-sep-2027** bajo el régimen 031/2026 + 117/2026. No toca código;
+   anotarlo donde el negocio siga vencimientos.
+9. **Higiene de citas:** no citar nunca como vigentes la Ley 4017/2010, la
+   4610/2012, la Res. 136/2018, la 292/2007, la 022/2024, la 303/2024 ni los
+   arts. 1–8 de la Res. 14/96. Hoy el repo no las cita — mantenerlo.
