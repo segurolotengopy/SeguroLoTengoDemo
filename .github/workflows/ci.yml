@@ -91,7 +91,7 @@ jobs:
       #    permanente, aunque la tag de trivy-action sí exista. Desde v0.31.0
       #    la referencia interna es por SHA de commit, que nadie puede borrar.
       - name: Dependencias (CVEs en package-lock.json)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -108,7 +108,7 @@ jobs:
       # Con el baseline conocido, este job pasa a bloquear: exit-code "1".
       # Cualquier configuración insegura NUEVA en infra/ frena el build.
       - name: Terraform (configuración insegura en infra/)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: infra
