@@ -4,6 +4,12 @@
  * vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos) y
  * la #2 (el código nunca se expone en texto plano por esta interfaz).
  *
+ * Los **tres** propósitos entran acá: verificación de celular, verificación
+ * de correo y firma. El de firma es el que sostiene la firma electrónica no
+ * cualificada del cliente (Res. SS.SG. 210/2025, art. 4), así que su
+ * independencia de los otros dos no es una prolijidad: es lo que hace que un
+ * código de verificación no pueda pasar por una manifestación de voluntad.
+ *
  * Como la interfaz nunca expone el código en claro (regla #2), esta suite
  * recibe además un segundo parámetro `obtenerCodigoDePrueba`: un canal de
  * lectura fuera de `OtpProvider`, pensado para que un adaptador de pruebas
@@ -169,6 +175,61 @@ export function runOtpProviderContractTests(
       const codigoCelular = await obtenerCodigoDePrueba(envioCelular.otpId);
       const codigoCorreo = await obtenerCodigoDePrueba(envioCorreo.otpId);
       expect(codigoCelular).not.toBe(codigoCorreo);
+    });
+
+    it("el OTP de firma viaja por cualquiera de los dos canales verificados", async () => {
+      const p = await proveedor();
+      const porWhatsApp = await p.enviarOtp({
+        expedienteId: "EXP-CONTRATO-8",
+        proposito: "FIRMA",
+        destino: { canal: "WHATSAPP", valor: "+595981000000" },
+      });
+      const porCorreo = await p.enviarOtp({
+        expedienteId: "EXP-CONTRATO-8-BIS",
+        proposito: "FIRMA",
+        destino: { canal: "EMAIL", valor: "persona@correo.com" },
+      });
+
+      expect(porWhatsApp.ok).toBe(true);
+      expect(porCorreo.ok).toBe(true);
+      if (!porWhatsApp.ok || !porCorreo.ok) return;
+
+      // Y firma de verdad por los dos: el canal no cambia el acto.
+      for (const envio of [porWhatsApp, porCorreo]) {
+        const codigo = await obtenerCodigoDePrueba(envio.otpId);
+        expect(codigo).toMatch(/^\d{6}$/);
+        const verificacion = await p.verificarOtp({ otpId: envio.otpId, codigoIngresado: codigo });
+        expect(verificacion.ok).toBe(true);
+      }
+    });
+
+    it("el código que verificó el celular no sirve para firmar (regla inviolable #1)", async () => {
+      const p = await proveedor();
+      const verificacion = await p.enviarOtp({
+        expedienteId: "EXP-CONTRATO-9",
+        proposito: "VERIFICACION_CELULAR",
+        destino: { canal: "WHATSAPP", valor: "+595981000000" },
+      });
+      const firma = await p.enviarOtp({
+        expedienteId: "EXP-CONTRATO-9",
+        proposito: "FIRMA",
+        destino: { canal: "WHATSAPP", valor: "+595981000000" },
+      });
+      if (!verificacion.ok || !firma.ok) throw new Error("ambos envíos deberían haber tenido éxito");
+
+      // Mismo expediente y mismo teléfono, pero son dos actos distintos.
+      expect(verificacion.otpId).not.toBe(firma.otpId);
+
+      const codigoDeVerificacion = await obtenerCodigoDePrueba(verificacion.otpId);
+      const codigoDeFirma = await obtenerCodigoDePrueba(firma.otpId);
+      expect(codigoDeVerificacion).not.toBe(codigoDeFirma);
+
+      // Y el del canal no firma: reutilizarlo cuenta como intento fallido.
+      const intento = await p.verificarOtp({
+        otpId: firma.otpId,
+        codigoIngresado: codigoDeVerificacion,
+      });
+      expect(intento.ok).toBe(false);
     });
   });
 }

@@ -63,7 +63,7 @@ Los tres son afirmaciones falsas bajo el modelo nuevo, impresas en un documento 
 
 | Pieza | Estado hoy | Qué implica el modelo nuevo |
 | :---- | :---- | :---- |
-| `src/ports/otp-provider.ts:28` | `PropositoOtp` tiene solo `VERIFICACION_CELULAR` y `VERIFICACION_CORREO` | Agregar el propósito de **firma**. Es el cambio más limpio de toda la lista: ver §3.1. |
+| `src/ports/otp-provider.ts` | ~~`PropositoOtp` tiene solo dos propósitos~~ | **Hecho.** `FIRMA` es el tercer propósito, con `canalCoherenteConProposito()` haciendo cumplir que los de verificación van por su canal y el de firma por cualquiera de los dos. |
 | `src/ports/signature-provider.ts` | Modela el acto del cliente: canal, destino, enlace, sondeo, descarga | Se convierte en el puerto de las **firmas institucionales**, donde no hay canal ni destino ni enlace. Además arrastra los problemas ya detectados en `PLAN_ACCION_CODE100.md` §3.1 y §3.2 (el "descargar" que en realidad firma, y la falta de idempotencia). |
 | `src/domain/firma-p8.ts` | `iniciarFirmaP8` = enviar enlace; `confirmarFirmaP8` = sondear al proveedor | Pasa a ser: emitir el OTP de firma, verificarlo, aplicar la firma a los dos documentos y transicionar. Sin sondeo. |
 | `src/domain/expediente.ts:81` | `FIRMADO: ["EMITIDO"]` | No hay lugar para "firmado por el cliente, pendiente de las firmas institucionales" (§4.1). |
@@ -123,7 +123,7 @@ La matriz es fuente de verdad de obligación legal y no se edita desde una sesi�
 2. **Corregir las fuentes de verdad**: `ESPECIFICACION_PANTALLAS.md` (P8, P9, Pantalla B) y `CLAUDE.md`. Antes de tocar código, según la regla del proyecto.
 3. **Marcar para revisión** las filas de §5 y actualizar el ítem 18 del catálogo de integraciones.
 4. **Podar el bloque 1 (C13-C20)** de `CONSULTAS_CODE100_SEGUNDA_RONDA.md` y enviar el resto: C21-C31 siguen todas vigentes, y C21 (firma desatendida institucional) pasa a ser **la consulta más importante**, porque ahora las firmas institucionales son el único uso del PSC cualificado.
-5. **Mudar el tercer OTP** a `OtpProvider` (§3.1) — cambio acotado, independiente de la decisión de §1, y se puede hacer ya.
+5. ~~**Mudar el tercer OTP** a `OtpProvider` (§3.1)~~ — **hecho el 27-ago-2026**: `PropositoOtp` tiene `FIRMA`, viaja por cualquiera de los dos canales verificados, y los adaptadores mock, WhatsApp-Modular y SES lo soportan. Falta el consumidor, que llega con el acto de firma.
 6. **Implementar el servicio de firma interna** con su nueva versión documental, atomicidad y evidencia.
 7. **Rediseñar P8** contra la especificación corregida.
 8. **Diseñar el tramo institucional**: estado en la máquina, orden serial, evidencia por firmante, y su simulación en el modo demo.

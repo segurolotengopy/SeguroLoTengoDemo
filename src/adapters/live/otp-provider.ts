@@ -38,8 +38,10 @@
  * que no hay camino para verificarlo.
  */
 import { randomUUID } from "node:crypto";
+import { canalCoherenteConProposito } from "../../ports/otp-provider";
 import type {
   OtpProvider,
+  PropositoOtp,
   ResultadoEnvioOtp,
   ResultadoVerificacionOtp,
   SolicitudEnvioOtp,
@@ -52,14 +54,32 @@ import type { LectorMetadataOtp, RegistroOtpMinimo } from "../../domain/verifica
 // `mock/estado-compartido.ts`, misma solución).
 import { estadoCompartidoDemo } from "../mock/estado-compartido";
 import type { OtpFirmaRemoto } from "../mock/signature-provider";
-import type { ClienteWhatsAppModular } from "./whatsapp-modular";
+import type { ClienteWhatsAppModular, PropositoWhatsAppModular } from "./whatsapp-modular";
 
 interface MetadataOtpWm {
   readonly otpId: string;
   readonly expedienteId: string;
   readonly destino: string;
+  /** Se guarda para que el reenvío repita el mismo acto y el lector no mienta. */
+  readonly proposito: PropositoOtp;
   ultimoEnvioEn: string;
   consumidoEn: string | null;
+}
+
+/**
+ * WhatsApp-Modular exige un propósito propio por política de su servicio (su
+ * T9), que es la regla inviolable #1 vista desde el otro lado: el código que
+ * verifica el número y el que firma no pueden compartir plantilla.
+ */
+function propositoWhatsAppDe(proposito: PropositoOtp): PropositoWhatsAppModular | null {
+  switch (proposito) {
+    case "VERIFICACION_CELULAR":
+      return "PHONE_VERIFICATION";
+    case "FIRMA":
+      return "SIGNATURE_P7A";
+    case "VERIFICACION_CORREO":
+      return null;
+  }
 }
 
 const metadataPorOtpId = estadoCompartidoDemo(
@@ -85,12 +105,13 @@ export function crearOtpProviderWhatsAppModular(
 
   async function solicitarANumero(
     telefonoE164: string,
+    proposito: PropositoWhatsAppModular,
     registrar: (otpId: string, enviadoEn: string) => void,
   ): Promise<ResultadoEnvioOtp> {
     const enviadoEn = ahora();
     const respuesta = await cliente.solicitarOtp({
       telefonoE164,
-      proposito: "PHONE_VERIFICATION",
+      proposito,
       idempotencyKey: nuevaClave(),
     });
 
@@ -114,22 +135,37 @@ export function crearOtpProviderWhatsAppModular(
 
   return {
     async enviarOtp(solicitud: SolicitudEnvioOtp): Promise<ResultadoEnvioOtp> {
-      if (solicitud.proposito === "VERIFICACION_CORREO") {
-        return correo.enviarOtp(solicitud);
-      }
-      if (solicitud.destino.canal !== "WHATSAPP") {
+      // La coherencia se valida **antes** de rutear: si se delegara primero,
+      // el destinatario tendría que volver a validarla y un doble de pruebas
+      // podría dejar pasar un OTP de celular hacia un correo.
+      if (!canalCoherenteConProposito(solicitud.proposito, solicitud.destino.canal)) {
         return {
           ok: false,
           motivo: "ERROR_ENVIO",
-          detalle: `El canal ${solicitud.destino.canal} no corresponde al propósito VERIFICACION_CELULAR.`,
+          detalle: `El canal ${solicitud.destino.canal} no corresponde al propósito ${solicitud.proposito}.`,
+        };
+      }
+      // Después se delega por canal, no por propósito: el OTP de firma
+      // también puede ir por correo si la persona eligió ese canal.
+      if (solicitud.destino.canal === "EMAIL") {
+        return correo.enviarOtp(solicitud);
+      }
+
+      const propositoWm = propositoWhatsAppDe(solicitud.proposito);
+      if (!propositoWm) {
+        return {
+          ok: false,
+          motivo: "ERROR_ENVIO",
+          detalle: `El propósito ${solicitud.proposito} no viaja por WhatsApp.`,
         };
       }
 
-      return solicitarANumero(solicitud.destino.valor, (otpId, enviadoEn) => {
+      return solicitarANumero(solicitud.destino.valor, propositoWm, (otpId, enviadoEn) => {
         metadataPorOtpId.set(otpId, {
           otpId,
           expedienteId: solicitud.expedienteId,
           destino: solicitud.destino.valor,
+          proposito: solicitud.proposito,
           ultimoEnvioEn: enviadoEn,
           consumidoEn: null,
         });
@@ -180,12 +216,14 @@ export function crearOtpProviderWhatsAppModular(
         return { ok: false, motivo: "ERROR_ENVIO", detalle: "El OTP ya fue utilizado." };
       }
 
-      return solicitarANumero(metadata.destino, (nuevoOtpId, enviadoEn) => {
+      const propositoWm = propositoWhatsAppDe(metadata.proposito) ?? "PHONE_VERIFICATION";
+      return solicitarANumero(metadata.destino, propositoWm, (nuevoOtpId, enviadoEn) => {
         metadata.ultimoEnvioEn = enviadoEn;
         metadataPorOtpId.set(nuevoOtpId, {
           otpId: nuevoOtpId,
           expedienteId: metadata.expedienteId,
           destino: metadata.destino,
+          proposito: metadata.proposito,
           ultimoEnvioEn: enviadoEn,
           consumidoEn: null,
         });
@@ -208,7 +246,7 @@ export function lectorConMetadataWhatsAppModular(local: LectorMetadataOtp): Lect
       return {
         otpId: metadata.otpId,
         expedienteId: metadata.expedienteId,
-        proposito: "VERIFICACION_CELULAR",
+        proposito: metadata.proposito,
         destino: metadata.destino,
         ultimoEnvioEn: metadata.ultimoEnvioEn,
         consumidoEn: metadata.consumidoEn,

@@ -18,8 +18,10 @@
  * que el `fetchFn` inyectable del cliente de WhatsApp-Modular.
  */
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
+import { canalCoherenteConProposito } from "../../ports/otp-provider";
 import type {
   OtpProvider,
+  PropositoOtp,
   ResultadoEnvioOtp,
   ResultadoVerificacionOtp,
   SolicitudEnvioOtp,
@@ -78,7 +80,37 @@ export function crearEnviadorSes(opciones: {
  * que la plantilla AUTHENTICATION de WhatsApp. El literal de P4 en pantalla
  * es el de la especificación; esto es el mensaje del canal.
  */
-function redactarCorreo(destino: string, codigo: string): CorreoOtpAEnviar {
+/**
+ * El texto cambia con el propósito, y no por prolijidad: un código que firma
+ * un contrato de seguro de vida no puede anunciarse como "verificación de
+ * correo". La persona tiene que saber qué está por hacer con ese código
+ * antes de tipearlo (Res. SS.SG. 210/2025, art. 6 — consentimiento
+ * informado, y regla inviolable #1: son actos distintos).
+ */
+function redactarCorreo(
+  destino: string,
+  codigo: string,
+  proposito: PropositoOtp,
+): CorreoOtpAEnviar {
+  const cierre =
+    "Si no lo pediste, ignorá este mensaje. Nunca te vamos a pedir este " +
+    "código por teléfono ni por WhatsApp.\n\n" +
+    "SeguroLoTengo — Interseguros S.A. · Alianza Garantía Seguros y Reaseguros S.A.";
+
+  if (proposito === "FIRMA") {
+    return {
+      para: destino,
+      asunto: "Tu código para firmar — SeguroLoTengo",
+      texto:
+        `Tu código para firmar es: ${codigo}\n\n` +
+        "Con este código vas a firmar electrónicamente tu Solicitud de Seguro " +
+        "y el Formulario de Identificación de Persona Física. Revisá los " +
+        "documentos antes de usarlo.\n\n" +
+        "Vence en 5 minutos y solo se puede usar una vez.\n\n" +
+        cierre,
+    };
+  }
+
   return {
     para: destino,
     asunto: "Tu código de verificación de correo — SeguroLoTengo",
@@ -86,9 +118,7 @@ function redactarCorreo(destino: string, codigo: string): CorreoOtpAEnviar {
       `Tu código de verificación es: ${codigo}\n\n` +
       "Vence en 5 minutos y solo se puede usar una vez. Ingresalo en la " +
       "pantalla de verificación de correo de SeguroLoTengo.\n\n" +
-      "Si no lo pediste, ignorá este mensaje. Nunca te vamos a pedir este " +
-      "código por teléfono ni por WhatsApp.\n\n" +
-      "SeguroLoTengo — Interseguros S.A. · Alianza Garantía Seguros y Reaseguros S.A.",
+      cierre,
   };
 }
 
@@ -104,11 +134,14 @@ export function crearOtpProviderCorreoSes(opciones: OpcionesOtpProviderCorreoSes
 
   return {
     async enviarOtp(solicitud: SolicitudEnvioOtp): Promise<ResultadoEnvioOtp> {
-      if (solicitud.proposito !== "VERIFICACION_CORREO" || solicitud.destino.canal !== "EMAIL") {
+      if (
+        solicitud.destino.canal !== "EMAIL" ||
+        !canalCoherenteConProposito(solicitud.proposito, solicitud.destino.canal)
+      ) {
         return {
           ok: false,
           motivo: "ERROR_ENVIO",
-          detalle: "Este adaptador solo envía el OTP de correo (VERIFICACION_CORREO · EMAIL).",
+          detalle: "Este adaptador solo envía OTP por correo (VERIFICACION_CORREO o FIRMA · EMAIL).",
         };
       }
 
@@ -120,7 +153,9 @@ export function crearOtpProviderCorreoSes(opciones: OpcionesOtpProviderCorreoSes
         ahora: ahora(),
       });
 
-      const envio = await enviador.enviar(redactarCorreo(solicitud.destino.valor, creado.codigo));
+      const envio = await enviador.enviar(
+        redactarCorreo(solicitud.destino.valor, creado.codigo, solicitud.proposito),
+      );
       // `creado.codigo` muere acá: si el envío falló, el registro huérfano
       // vence solo (TTL) y el reintento de la pantalla crea un OTP nuevo.
       if (!envio.ok) return { ok: false, motivo: "ERROR_ENVIO", detalle: envio.detalle };
@@ -148,7 +183,9 @@ export function crearOtpProviderCorreoSes(opciones: OpcionesOtpProviderCorreoSes
         return { ok: false, motivo: "ERROR_ENVIO", detalle: "No existe un OTP con ese identificador." };
       }
 
-      const envio = await enviador.enviar(redactarCorreo(registro.destino, rotado.codigo));
+      const envio = await enviador.enviar(
+        redactarCorreo(registro.destino, rotado.codigo, registro.proposito),
+      );
       if (!envio.ok) return { ok: false, motivo: "ERROR_ENVIO", detalle: envio.detalle };
 
       return { ok: true, otpId, expiraEn: rotado.expiraEn, referenciaEnvio: envio.referencia };
@@ -177,7 +214,17 @@ export function dividirOtpPorCanal(opciones: {
 
   return {
     async enviarOtp(solicitud: SolicitudEnvioOtp): Promise<ResultadoEnvioOtp> {
-      return solicitud.proposito === "VERIFICACION_CORREO"
+      if (!canalCoherenteConProposito(solicitud.proposito, solicitud.destino.canal)) {
+        return {
+          ok: false,
+          motivo: "ERROR_ENVIO",
+          detalle: `El canal ${solicitud.destino.canal} no corresponde al propósito ${solicitud.proposito}.`,
+        };
+      }
+      // Se rutea por **canal**, no por propósito: el OTP de firma viaja por
+      // cualquiera de los dos, así que el propósito ya no alcanza para saber
+      // quién lo envía.
+      return solicitud.destino.canal === "EMAIL"
         ? correo.enviarOtp(solicitud)
         : celular.enviarOtp(solicitud);
     },
