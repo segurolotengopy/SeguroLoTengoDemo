@@ -12,7 +12,12 @@
  *   la del cerrado daría "no coincide" sobre un documento legítimo.
  */
 import { describe, expect, it } from "vitest";
-import { interpretarCodigo, verificarDocumento } from "../verificacion-documento";
+import {
+  documentoDelToken,
+  interpretarCodigo,
+  interpretarEntrada,
+  verificarDocumento,
+} from "../verificacion-documento";
 import { codigoCertificado } from "../certificado-cobertura";
 import { codigoComprobante } from "../comprobante-pago";
 import { codigoFipf, codigoSolicitud } from "../documentos";
@@ -20,6 +25,8 @@ import { firmantesDe } from "../firmantes-documento";
 import type { Expediente } from "../tipos";
 import {
   NUMERO_PROPUESTA_FIJO,
+  TOKEN_CERTIFICADO_FIXTURE,
+  TOKEN_PAQUETE_FIXTURE,
   certificadoFixture,
   expedienteEnPagoConfirmado,
   expedienteEnPaqueteGenerado,
@@ -199,6 +206,78 @@ describe("comprobante de pago", () => {
     const resultado = verificarDocumento(expedienteEnPagoConfirmado(), interpretado);
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.motivo).toBe("COMPROBANTE_SIN_VERIFICACION");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Token del QR
+// ---------------------------------------------------------------------------
+
+describe("entrada por token del QR", () => {
+  it("distingue el token del código impreso", () => {
+    const porToken = interpretarEntrada(TOKEN_PAQUETE_FIXTURE);
+    expect(porToken.modo).toBe("TOKEN");
+    if (porToken.modo === "TOKEN") expect(porToken.correlativo).toBe(CORRELATIVO);
+
+    const porCodigo = interpretarEntrada(codigoSolicitud(CORRELATIVO));
+    expect(porCodigo.modo).toBe("CODIGO");
+    if (porCodigo.modo === "CODIGO") expect(porCodigo.interpretado.tipo).toBe("PAQUETE");
+
+    expect(interpretarEntrada("cualquier cosa").modo).toBe("INVALIDA");
+  });
+
+  it("el token del paquete abre el paquete y el del certificado, el certificado", () => {
+    const expediente = expedienteEnPagoConfirmado();
+    expect(documentoDelToken(expediente, TOKEN_PAQUETE_FIXTURE)).toBe("PAQUETE");
+    expect(documentoDelToken(expediente, TOKEN_CERTIFICADO_FIXTURE)).toBe("CERTIFICADO");
+  });
+
+  /**
+   * La propiedad que justifica el token: el correlativo se puede recorrer, el
+   * sufijo no. Un sufijo inventado sobre un correlativo que **sí** existe no
+   * abre nada.
+   */
+  it("un sufijo inventado no abre ningún documento aunque el correlativo exista", () => {
+    const expediente = expedienteEnPagoConfirmado();
+    expect(documentoDelToken(expediente, `${CORRELATIVO}-${"0".repeat(32)}`)).toBeNull();
+  });
+
+  it("un documento cerrado antes de que el token existiera no coincide con nada", () => {
+    const expediente = expedienteEnPagoConfirmado();
+    const legado: Expediente = {
+      ...expediente,
+      paqueteDocumental: expediente.paqueteDocumental
+        ? { ...expediente.paqueteDocumental, tokenVerificacion: null }
+        : null,
+      certificadoCobertura: expediente.certificadoCobertura
+        ? { ...expediente.certificadoCobertura, tokenVerificacion: null }
+        : null,
+    };
+    expect(documentoDelToken(legado, TOKEN_PAQUETE_FIXTURE)).toBeNull();
+    expect(documentoDelToken(legado, TOKEN_CERTIFICADO_FIXTURE)).toBeNull();
+  });
+
+  it("sin expediente no hay documento que abrir", () => {
+    expect(documentoDelToken(null, TOKEN_PAQUETE_FIXTURE)).toBeNull();
+  });
+
+  /**
+   * El token no da acceso a nada distinto del código: es la misma proyección
+   * pública. Lo único que cambia es quién puede llegar.
+   */
+  it("llegar por token o por código devuelve exactamente el mismo documento", () => {
+    const expediente = expedienteEnPagoConfirmado();
+    const porCodigo = verificarDocumento(expediente, {
+      tipo: "CERTIFICADO",
+      correlativo: CORRELATIVO,
+      codigo: codigoCertificado(CORRELATIVO),
+    });
+    const porToken = verificarDocumento(expediente, {
+      tipo: "CERTIFICADO",
+      correlativo: CORRELATIVO,
+      codigo: TOKEN_CERTIFICADO_FIXTURE,
+    });
+    expect(porCodigo).toEqual(porToken);
   });
 });
 

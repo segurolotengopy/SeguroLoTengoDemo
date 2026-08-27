@@ -459,6 +459,27 @@ export interface DocumentoCerrado {
    * dos códigos internos visibles en sus secciones.
    */
   readonly codigoSeccionFipf: string;
+  /**
+   * Token público del QR: `<correlativo>-<32 hexadecimales>`, 128 bits de
+   * aleatoriedad detrás de un correlativo de ocho dígitos.
+   *
+   * El QR impreso **no** codifica el código visible sino esto. El correlativo
+   * lo acuña `randomInt(0, 10**8)`: veintisiete bits, recorribles por
+   * cualquiera con una tarde y un script, y el destino del QR es una página
+   * pública sin sesión. Con el sufijo aleatorio la URL deja de ser adivinable
+   * y quien no tenga el documento no puede llegar a su verificación.
+   *
+   * Va delante el correlativo, y no un blob opaco entero, porque la búsqueda
+   * reusa el índice que ya existe (`buscarPorNumeroPropuesta`): el token se
+   * parte, se busca por su mitad conocida y se compara el sufijo contra el
+   * registrado. Un token íntegramente aleatorio exigiría un índice nuevo para
+   * no ganar ni un bit de imprevisibilidad.
+   *
+   * `null` en los paquetes cerrados **antes** de que el token existiera: no se
+   * reescriben (regla inviolable #10) y su QR sigue apuntando al código, que
+   * es lo que sus bytes ya llevan impreso.
+   */
+  readonly tokenVerificacion: string | null;
 }
 
 /**
@@ -641,6 +662,15 @@ export interface CertificadoCobertura {
    * acepte nada nuevo— y por eso acá no hay ningún acto de Code100.
    */
   readonly firmas: readonly FirmaInstitucional[];
+  /**
+   * Token público del QR del certificado, con el mismo formato y el mismo
+   * motivo que el del paquete (`DocumentoCerrado.tokenVerificacion`). Es
+   * distinto del suyo aunque compartan correlativo: son dos documentos y cada
+   * QR lleva al que lo imprime.
+   *
+   * `null` en los certificados emitidos antes de que el token existiera.
+   */
+  readonly tokenVerificacion: string | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -447,6 +447,7 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
       "codigo",
       "codigoSeccionFipf",
       "hashSha256",
+      "tokenVerificacion",
       "version",
     ]);
   });

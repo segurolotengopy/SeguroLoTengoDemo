@@ -135,6 +135,12 @@ async function verificarRutaPublica(page: Page, correlativo: string): Promise<vo
     // Un código inventado tampoco revienta la página.
     await publica.goto("/verificar/PROP-00000001");
     await expect(publica.getByText("NO PUDIMOS VERIFICAR ESTE CÓDIGO")).toBeVisible();
+
+    // La otra forma de llegar es el token del QR, y un sufijo inventado sobre
+    // un correlativo que **sí** existe no abre nada: es la propiedad por la
+    // que el QR lleva el token y no el código.
+    await publica.goto(`/verificar/${correlativo}-${"0".repeat(32)}`);
+    await expect(publica.getByText("NO PUDIMOS VERIFICAR ESTE CÓDIGO")).toBeVisible();
   } finally {
     await sinSesion.close();
   }

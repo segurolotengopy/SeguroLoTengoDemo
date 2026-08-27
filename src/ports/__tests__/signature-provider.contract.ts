@@ -14,6 +14,7 @@ const PAQUETE_DE_PRUEBA: PaqueteDocumental = {
   version: 1,
   hashSha256: "a".repeat(64),
   cerradoEn: "2026-01-01T00:00:00.000Z",
+  tokenVerificacion: `00018425-${"1".repeat(32)}`,
 };
 
 export interface CableadoSignatureProvider {

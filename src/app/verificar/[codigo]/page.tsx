@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { sufijoTitulo } from "@/domain/entidades";
 import {
-  interpretarCodigo,
+  documentoDelToken,
+  interpretarEntrada,
   verificarDocumento,
 } from "@/domain/verificacion-documento";
 import type { DocumentoVerificado, ResultadoVerificacion } from "@/domain/verificacion-documento";
@@ -35,7 +36,12 @@ import { BuscadorDeCodigo } from "../BuscadorDeCodigo";
 import { ComparadorDeHuella } from "../ComparadorDeHuella";
 
 /**
- * `/verificar/<código>` — el destino del QR de cada documento (CMP-06).
+ * `/verificar/<token|código>` — el destino del QR de cada documento (CMP-06).
+ *
+ * El segmento acepta las dos formas: el **token** que codifica el QR
+ * (`<correlativo>-<32 hex>`, imposible de adivinar) y el **código** impreso que
+ * alguien tipea del papel (`PROP-00018425`). `interpretarEntrada` las
+ * distingue y explica por qué existen las dos.
  *
  * **Pública, sin sesión y sin ningún dato de la persona.** El código va impreso
  * en un PDF que se reenvía, así que cualquiera que lo tenga abre esta página;
@@ -61,19 +67,53 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { codigo } = await params;
-  const interpretado = interpretarCodigo(decodeURIComponent(codigo));
+  const entrada = interpretarEntrada(decodeURIComponent(codigo));
   return {
-    title: `${interpretado?.codigo ?? TITULO_VERIFICACION} · ${sufijoTitulo()}`,
+    // Con un token no hay nada que anunciar en el título: el código del
+    // documento se sabe recién después de resolverlo, y meterlo acá obligaría
+    // a buscar en la base dos veces por carga.
+    title: `${entrada.modo === "CODIGO" ? entrada.interpretado.codigo : TITULO_VERIFICACION} · ${sufijoTitulo()}`,
     // Es la verificación de un documento concreto, no una página de catálogo.
     robots: { index: false, follow: false },
   };
 }
 
-async function resolver(codigoCrudo: string): Promise<ResultadoVerificacion> {
-  const interpretado = interpretarCodigo(codigoCrudo);
-  if (!interpretado) {
-    return { ok: false, motivo: "CODIGO_INVALIDO", codigo: codigoCrudo.trim().toUpperCase() };
+/**
+ * Resuelve las dos formas de llegar: el token que codifica el QR y el código
+ * que alguien tipea del papel.
+ *
+ * Las dos terminan en el mismo `verificarDocumento`, y por diseño responden lo
+ * mismo del mismo documento: el token no da acceso a nada que el código no dé.
+ * Lo que cambia es quién puede llegar — el token no se puede adivinar, el
+ * código sí (ver `interpretarEntrada`).
+ */
+async function resolver(entradaCruda: string): Promise<ResultadoVerificacion> {
+  const entrada = interpretarEntrada(entradaCruda);
+
+  if (entrada.modo === "INVALIDA") {
+    return { ok: false, motivo: "CODIGO_INVALIDO", codigo: entrada.entrada };
   }
+
+  if (entrada.modo === "TOKEN") {
+    const encontrados = await crearExpedienteRepository().buscarPorNumeroPropuesta(
+      entrada.correlativo,
+    );
+    const expediente = encontrados[0] ?? null;
+    const tipo = documentoDelToken(expediente, entrada.token);
+    // Un sufijo que no coincide se responde igual que un correlativo que no
+    // existe: quien prueba tokens al azar no aprende de la diferencia si el
+    // expediente existía o no.
+    if (!tipo) {
+      return { ok: false, motivo: "NO_ENCONTRADO", codigo: entrada.token };
+    }
+    return verificarDocumento(expediente, {
+      tipo,
+      correlativo: entrada.correlativo,
+      codigo: entrada.token,
+    });
+  }
+
+  const { interpretado } = entrada;
   // El comprobante no se busca: no tiene huella registrada (D-05) y el dominio
   // responde sin tocar la base.
   if (interpretado.tipo === "COMPROBANTE") return verificarDocumento(null, interpretado);

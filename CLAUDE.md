@@ -76,6 +76,7 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 | `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf`                                                                  | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable.   |
 | `Cumplimiento SeguroLoTengo.pdf`                                                                                                                                            | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario.                                                                                                                                                                                                                                    |
 | `CONFIGURACION_SES.md`                                                                                                                                                      | Guía operativa del OTP de correo (P4) sobre Amazon SES: sandbox y sus tres límites, verificación de remitente y destinatarios, salida a producción, deliverability con dominio propio, y el reparto de permisos entre el rol de cómputo y el usuario local. Leela antes de tocar `INTEGRATION_OTP_EMAIL` o `infra/ses-correo-otp.tf`.                        |
+| `QR_HASH_Y_EVIDENCIAS_INMUTABLES.pdf` y `ANALISIS_QR_HASH_Y_EVIDENCIAS.md`                                                                                                  | Diseño del QR interno, la cadena de hashes y el registro inmutable de evidencias. El PDF es la propuesta; el `.md` la confronta punto por punto contra lo implementado y dice qué está hecho, qué falta y qué diverge a propósito. **Leelo antes de tocar `qr.ts`, el token de verificación o `/verificar`.** |
 | `SeguroLoTengo_Asistente_IA_y_Configuracion.pdf`                                                                                                                            | Especificación del asistente Terra — **fuera de alcance de esta demo por ahora**, ver sección "Asistente IA (Terra)" más abajo.                                                                                                                                                                                                                              |
 
 ---
@@ -333,11 +334,39 @@ Tres cosas no negociables de este servicio:
 - **Un documento, una huella** (regla inviolable #3, estructural desde D-11). `registrarPaqueteDocumental` valida que los dos códigos internos deriven del mismo correlativo; ya no hay versiones que puedan divergir porque hay una sola.
 - **Sin librerías de PDF ni de QR.** Ambas se escribieron acá (menos de 400 líneas cada una) porque lo que hace falta es la matriz de módulos y los bytes del archivo, no renderers de canvas ni fuentes embebidas — y porque las librerías de PDF de uso corriente emiten metadatos no deterministas. Mismo criterio con el que P7 decidió no dibujar el QR de Bancard.
 
-**El QR es decisión de producto, no obligación legal**: no hay fila en la matriz de cumplimiento que lo exija (la 77 exige el hash individual y la 47 vincular por correlativo o hash, cosas que el paquete cumple sin él). Codifica **solo** `<URL_BASE>/<código>` — nunca el hash (el QR va dentro del PDF que se hashea) ni ningún dato de la persona.
+**El QR es decisión de producto, no obligación legal**: no hay fila en la matriz de cumplimiento que lo exija (la 77 exige el hash individual y la 47 vincular por correlativo o hash, cosas que el paquete cumple sin él). Codifica **solo** `<URL_BASE>/<token>` — nunca el hash (el QR va dentro del PDF que se hashea) ni ningún dato de la persona.
+
+**El QR lleva el token público, no el código visible.** El token es
+`<correlativo>-<32 hexadecimales>`: 128 bits que no se pueden adivinar, contra
+los veintisiete bits del correlativo de ocho dígitos. Sin él, la página pública
+de verificación —sin sesión y hoy sin límite de tasa— quedaba enumerable con un
+script. El código sigue impreso en la caja del encabezado y en el pie de todas
+las páginas, y `/verificar/PROP-…` sigue resolviendo: son dos formas de llegar
+al **mismo** documento y el token no da acceso a nada extra, solo cierra el
+camino de adivinarlo.
+
+**Se deriva, no se sortea** (`derivarTokenVerificacion` en `src/documentos/servicio.ts`):
+`SHA-256(<id del expediente>:<código>:<versión>)` truncado a 128 bits. Un token
+aleatorio rompería el determinismo del servicio —el certificado se reemite en
+cada reintento del pago y daría bytes distintos para el mismo instante—; el `id`
+del expediente es un `randomUUID` que nunca se imprime ni viaja en una URL, y el
+SHA-256 no se invierte. El código y la versión entran en la derivación para que
+el QR del certificado no abra la verificación del paquete y para que una versión
+nueva no herede la dirección de la anterior.
+
+`tokenVerificacion` es `string | null`: los documentos cerrados antes de que el
+token existiera lo traen en `null` y no se reescriben (regla inviolable #10). Su
+QR sigue apuntando al código, que es lo que sus bytes ya llevan impreso.
+
+Origen y análisis completo en [`docs/ANALISIS_QR_HASH_Y_EVIDENCIAS.md`](docs/ANALISIS_QR_HASH_Y_EVIDENCIAS.md),
+sobre `docs/QR_HASH_Y_EVIDENCIAS_INMUTABLES.pdf`. **Pendiente asociado (L6):
+límite de tasa sobre `/verificar/[codigo]`** — mientras el código tipeado
+resuelva sin cupo, el recorrido de correlativos sigue siendo posible y el token
+solo cierra la otra mitad.
 
 ### La verificación pública (CMP-06, Lote 5c)
 
-`/verificar/<código>` es el destino del QR de cada documento con huella. Es **pública, sin sesión y sin ningún dato de la persona**: el código va impreso en un PDF que se reenvía, así que cualquiera que lo tenga abre esa página. Lo que responde son hechos del documento —código, correlativo, versión, sello de tiempo, SHA-256, firmantes con su nivel y modalidad y, en el certificado, la ventana de cobertura que declara—. Nunca el nombre, la cédula, los canales, el plan ni el importe (regla inviolable #7). Proyección en `src/domain/verificacion-documento.ts`.
+`/verificar/<token|código>` es el destino del QR de cada documento con huella. Acepta las dos formas —el token que codifica el QR y el código que alguien tipea del papel—, y las dos devuelven exactamente el mismo documento; `interpretarEntrada` las distingue. Es **pública, sin sesión y sin ningún dato de la persona**: el token va impreso en un PDF que se reenvía, así que cualquiera que lo tenga abre esa página. Lo que responde son hechos del documento —código, correlativo, versión, sello de tiempo, SHA-256, firmantes con su nivel y modalidad y, en el certificado, la ventana de cobertura que declara—. Nunca el nombre, la cédula, los canales, el plan ni el importe (regla inviolable #7). Proyección en `src/domain/verificacion-documento.ts`.
 
 **Verifica autenticidad, no vigencia**, y lo dice en la pantalla. Un certificado emitido sobre un cobro que después se devolvió sigue siendo auténtico: lo que cambió no es el documento sino la relación. Afirmar "vigente" o "anulado" exigiría una regla sobre qué le pasa a la cobertura cuando un cobro se revierte, y esa regla no está decidida en ningún documento fuente.
 

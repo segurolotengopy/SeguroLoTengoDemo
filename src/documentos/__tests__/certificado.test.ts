@@ -184,6 +184,29 @@ describe("emisión del Certificado de Cobertura Provisional", () => {
     if (!resultado.ok) expect(resultado.motivo).toBe("ALMACENAMIENTO_INCONSISTENTE");
   });
 
+  /**
+   * El paquete y el certificado comparten correlativo, así que sus tokens solo
+   * se separan por el código que entra en la derivación. Si se los compartiera,
+   * el QR del certificado abriría la verificación del paquete y diría cosas de
+   * otro documento.
+   */
+  it("el token del certificado es distinto del token del paquete que lo respalda", async () => {
+    const expediente = expedienteEnPagoConfirmado();
+    const resultado = await emitirCertificadoCobertura(
+      { archivos: repositorioArchivos() },
+      { expediente, emitidoEn: EMITIDO_EN },
+    );
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.certificado.tokenVerificacion).toMatch(
+      new RegExp(`^${NUMERO_PROPUESTA_FIJO}-[0-9a-f]{32}$`),
+    );
+    expect(resultado.certificado.tokenVerificacion).not.toBe(
+      expediente.paqueteDocumental?.tokenVerificacion,
+    );
+  });
+
   it("sin cobro acreditado no hay certificado, y el motivo dice qué faltó", async () => {
     const resultado = await emitirCertificadoCobertura(
       { archivos: repositorioArchivos() },

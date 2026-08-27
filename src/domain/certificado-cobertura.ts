@@ -195,6 +195,12 @@ export interface OpcionesCertificado {
   readonly emitidoEn: string;
   readonly version?: number;
   readonly urlBaseVerificacion?: string;
+  /**
+   * Token público del QR de este certificado. Obligatorio y sin valor por
+   * defecto, por el mismo motivo que en `OpcionesContenido`: un QR que cayera
+   * en el código visible sería enumerable y nada lo delataría.
+   */
+  readonly tokenVerificacion: string;
 }
 
 const LEYENDA_NO_ES_POLIZA =
@@ -289,7 +295,7 @@ export function armarContenidoCertificado(
     version,
     cerradoEn: opciones.emitidoEn,
     titulo: TITULO_CERTIFICADO,
-    urlVerificacion: urlDeVerificacion(codigo, base),
+    urlVerificacion: urlDeVerificacion(opciones.tokenVerificacion, base),
     selloDeTiempo: formatearInstante(opciones.emitidoEn),
   };
 

@@ -25,6 +25,7 @@ import {
   expedienteEnPagoConfirmado,
   expedienteFirmado,
   pagoConfirmadoFixture,
+  TOKEN_CERTIFICADO_FIXTURE,
 } from "./fixtures";
 
 const EMITIDO_EN = "2026-08-09T15:04:00.000Z";
@@ -104,7 +105,10 @@ describe("formato de instante", () => {
 
 describe("contenido del certificado", () => {
   function contenidoDe(expediente: Expediente = expedienteEnPagoConfirmado()) {
-    const resultado = armarContenidoCertificado(expediente, { emitidoEn: EMITIDO_EN });
+    const resultado = armarContenidoCertificado(expediente, {
+      emitidoEn: EMITIDO_EN,
+      tokenVerificacion: TOKEN_CERTIFICADO_FIXTURE,
+    });
     if (!resultado.ok) throw new Error(`Faltantes: ${resultado.faltantes.join(",")}`);
     return resultado.contenido;
   }
@@ -117,13 +121,19 @@ describe("contenido del certificado", () => {
     expect(contenido.correlativo).toBe(NUMERO_PROPUESTA_FIJO);
   });
 
-  it("el QR codifica solo la URL de verificación, sin hash ni datos de la persona", () => {
+  it("el QR codifica solo la URL de verificación, con el token y sin datos de la persona", () => {
     const contenido = contenidoDe();
-    expect(contenido.encabezado.urlVerificacion).toMatch(
-      new RegExp(`/${codigoCertificado(NUMERO_PROPUESTA_FIJO)}$`),
+    expect(contenido.encabezado.urlVerificacion).toBe(
+      `https://segurolotengo.com/verificar/${TOKEN_CERTIFICADO_FIXTURE}`,
+    );
+    // El código es adivinable y el token no: el QR lleva el que no lo es.
+    expect(contenido.encabezado.urlVerificacion).not.toContain(
+      `verificar/${codigoCertificado(NUMERO_PROPUESTA_FIJO)}`,
     );
     const identidad = expedienteEnPagoConfirmado().identidad;
     expect(contenido.encabezado.urlVerificacion).not.toContain(identidad?.numeroCedula ?? "@@");
+    // Ninguna huella viaja en el QR: el QR va dentro del PDF que se hashea.
+    expect(contenido.encabezado.urlVerificacion).not.toMatch(/[a-f0-9]{64}/);
   });
 
   it("las fechas de vigencia salen del instante del cobro, no del de emisión", () => {
@@ -174,7 +184,10 @@ describe("contenido del certificado", () => {
    * cuelga toda la vigencia.
    */
   it("un expediente firmado y sin pagar devuelve faltantes en vez de un documento a medias", () => {
-    const resultado = armarContenidoCertificado(expedienteFirmado(), { emitidoEn: EMITIDO_EN });
+    const resultado = armarContenidoCertificado(expedienteFirmado(), {
+      emitidoEn: EMITIDO_EN,
+      tokenVerificacion: TOKEN_CERTIFICADO_FIXTURE,
+    });
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.faltantes).toContain("pagoConfirmado");
   });

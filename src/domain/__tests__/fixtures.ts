@@ -176,6 +176,19 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
 // Expediente con el paquete documental ya cerrado (entrada de la firma)
 // ---------------------------------------------------------------------------
 
+/**
+ * Tokens públicos fijos de los fixtures. Son fijos y no aleatorios porque el
+ * token entra en los bytes del PDF: con uno distinto en cada corrida, la
+ * huella del documento dejaría de ser reproducible y con ella los tests que
+ * la fijan.
+ *
+ * Distintos entre sí a propósito: el paquete y el certificado comparten
+ * correlativo pero cada QR tiene que abrir la verificación del suyo, y un
+ * fixture que los igualara dejaría pasar el error de compartirlos.
+ */
+export const TOKEN_PAQUETE_FIXTURE = `${NUMERO_PROPUESTA_FIJO}-${"a1b2c3d4".repeat(4)}`;
+export const TOKEN_CERTIFICADO_FIXTURE = `${NUMERO_PROPUESTA_FIJO}-${"e5f6a7b8".repeat(4)}`;
+
 /** D-11 · un solo documento con las dos secciones adentro. */
 export const PAQUETE_FIXTURE: PaqueteDocumental = {
   codigo: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
@@ -183,6 +196,7 @@ export const PAQUETE_FIXTURE: PaqueteDocumental = {
   version: 1,
   hashSha256: "a".repeat(64),
   cerradoEn: "2026-08-09T15:02:00.000Z",
+  tokenVerificacion: TOKEN_PAQUETE_FIXTURE,
 };
 
 export const PLAZO_PAGO_FIJO = "2026-08-10T15:03:00.000Z";
@@ -279,6 +293,7 @@ export const certificadoFixture: CertificadoCobertura = (() => {
     inicioCobertura,
     finCobertura: finCoberturaDesde(inicioCobertura),
     referenciaBancard: REFERENCIA_BANCARD_FIJA,
+    tokenVerificacion: TOKEN_CERTIFICADO_FIXTURE,
     firmas: firmantesDe("CPC").map((firmante) => ({
       rol: firmante.rol,
       nivel: firmante.nivel,

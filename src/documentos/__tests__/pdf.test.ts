@@ -17,7 +17,10 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { armarContenidoPaquete } from "../../domain/documentos";
 import type { ContenidoPaquete } from "../../domain/documentos";
-import { expedienteEnPaqueteGenerado } from "../../domain/__tests__/fixtures";
+import {
+  TOKEN_PAQUETE_FIXTURE,
+  expedienteEnPaqueteGenerado,
+} from "../../domain/__tests__/fixtures";
 import { ANCHO_A4, anchoDeTexto, crearDocumentoPdf, partirEnLineas } from "../pdf";
 import { renderizarPaquete } from "../plantillas";
 import { bytesWinAnsi, escaparTextoPdf } from "../tipografia";
@@ -25,7 +28,10 @@ import { bytesWinAnsi, escaparTextoPdf } from "../tipografia";
 const CERRADO_EN = "2026-08-09T15:05:00.000Z";
 
 function contenido(cerradoEn = CERRADO_EN): ContenidoPaquete {
-  const resultado = armarContenidoPaquete(expedienteEnPaqueteGenerado(), { cerradoEn });
+  const resultado = armarContenidoPaquete(expedienteEnPaqueteGenerado(), {
+    cerradoEn,
+    tokenVerificacion: TOKEN_PAQUETE_FIXTURE,
+  });
   if (!resultado.ok) throw new Error(`faltantes: ${resultado.faltantes.join(",")}`);
   return resultado.contenido;
 }
@@ -172,7 +178,20 @@ describe("contenido impreso", () => {
 
   it("lleva impreso el enlace de verificación del QR, uno solo (D-11)", () => {
     const texto = comoTexto(renderizarPaquete(contenido()));
-    expect(texto).toContain("https://segurolotengo.com/verificar/PROP-00018425");
+    expect(texto).toContain(`https://segurolotengo.com/verificar/${TOKEN_PAQUETE_FIXTURE}`);
+  });
+
+  /**
+   * El enlace impreso —el mismo que codifica el QR— lleva el token y no el
+   * código. Si volviera a llevar el código, la dirección del documento sería
+   * deducible de su correlativo y la página pública quedaría enumerable.
+   */
+  it("el enlace del QR lleva el token, no el código del documento", () => {
+    const texto = comoTexto(renderizarPaquete(contenido()));
+    expect(texto).not.toContain("verificar/PROP-00018425");
+    // El código sigue impreso en la caja del encabezado y en el pie, para
+    // quien prefiera tipearlo.
+    expect(texto).toContain("PROP-00018425");
   });
 
   it("imprime la advertencia del art. 1556 y el sello de tiempo (CMP-09)", () => {

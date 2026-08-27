@@ -27,6 +27,8 @@ import {
   correlativoDeCodigo,
   formatearFecha,
   origenDeFondos,
+  partirTokenVerificacion,
+  tokensIguales,
   urlDeVerificacion,
 } from "../documentos";
 import { registrarPaqueteDocumental, transicionarExpediente } from "../expediente";
@@ -37,6 +39,8 @@ import {
   REFERENCIA_BANCARD_FIJA,
   crearExpediente,
   expedienteEnDeclaracionesOk,
+  TOKEN_CERTIFICADO_FIXTURE,
+  TOKEN_PAQUETE_FIXTURE,
   expedienteEnPaqueteGenerado,
   identidadFixture,
 } from "./fixtures";
@@ -50,6 +54,7 @@ function paqueteValido(correlativo = NUMERO_PROPUESTA_FIJO): PaqueteDocumental {
     version: VERSION_INICIAL_PAQUETE,
     hashSha256: "a".repeat(64),
     cerradoEn: CERRADO_EN,
+    tokenVerificacion: `${correlativo}-${"a1b2c3d4".repeat(4)}`,
   };
 }
 
@@ -70,17 +75,68 @@ describe("códigos del paquete", () => {
     expect(correlativoDeCodigo("CASO-2026-000042")).toBeNull();
   });
 
-  it("el QR de verificación lleva la URL con el código y nada más", () => {
-    const url = urlDeVerificacion("PROP-00018425");
-    expect(url).toBe("https://segurolotengo.com/verificar/PROP-00018425");
+  it("el QR de verificación lleva la URL con el token y nada más", () => {
+    const url = urlDeVerificacion(TOKEN_PAQUETE_FIXTURE);
+    expect(url).toBe(`https://segurolotengo.com/verificar/${TOKEN_PAQUETE_FIXTURE}`);
     // Ningún dato de la persona ni huella digital viajan en el QR.
     expect(url).not.toContain(identidadFixture.numeroCedula);
     expect(url).not.toMatch(/[a-f0-9]{64}/);
   });
 
   it("respeta una base de verificación propia, con o sin barra final", () => {
-    expect(urlDeVerificacion("FIPF-1", "https://demo.local/v/")).toBe("https://demo.local/v/FIPF-1");
-    expect(urlDeVerificacion("FIPF-1", "https://demo.local/v")).toBe("https://demo.local/v/FIPF-1");
+    const token = TOKEN_PAQUETE_FIXTURE;
+    expect(urlDeVerificacion(token, "https://demo.local/v/")).toBe(`https://demo.local/v/${token}`);
+    expect(urlDeVerificacion(token, "https://demo.local/v")).toBe(`https://demo.local/v/${token}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Token público del QR
+// ---------------------------------------------------------------------------
+
+describe("token público de verificación", () => {
+  it("parte el token en correlativo y sufijo", () => {
+    const partido = partirTokenVerificacion(TOKEN_PAQUETE_FIXTURE);
+    expect(partido).not.toBeNull();
+    expect(partido?.correlativo).toBe(NUMERO_PROPUESTA_FIJO);
+    expect(partido?.sufijo).toHaveLength(32);
+    expect(partido?.token).toBe(TOKEN_PAQUETE_FIXTURE);
+  });
+
+  it("acepta mayúsculas y espacios: el token puede llegar de un lector de QR", () => {
+    const partido = partirTokenVerificacion(`  ${TOKEN_PAQUETE_FIXTURE.toUpperCase()}  `);
+    expect(partido?.token).toBe(TOKEN_PAQUETE_FIXTURE);
+  });
+
+  /**
+   * El sufijo son 128 bits y el formato es exacto: un token corto, largo, con
+   * caracteres fuera del alfabeto hexadecimal o sin correlativo no se parte.
+   * Sin este control, un sufijo de dos caracteres sería adivinable a mano.
+   */
+  it("rechaza cualquier forma que no sea correlativo + 32 hexadecimales", () => {
+    for (const entrada of [
+      "00018425-abc",
+      `00018425-${"a".repeat(31)}`,
+      `00018425-${"a".repeat(33)}`,
+      `00018425-${"z".repeat(32)}`,
+      `123-${"a".repeat(32)}`,
+      "PROP-00018425",
+      "",
+    ]) {
+      expect(partirTokenVerificacion(entrada)).toBeNull();
+    }
+  });
+
+  it("un código impreso no se confunde con un token", () => {
+    expect(partirTokenVerificacion(codigoSolicitud(NUMERO_PROPUESTA_FIJO))).toBeNull();
+  });
+
+  it("compara tokens sin salir temprano y sin equivocarse", () => {
+    expect(tokensIguales(TOKEN_PAQUETE_FIXTURE, TOKEN_PAQUETE_FIXTURE)).toBe(true);
+    expect(tokensIguales(TOKEN_PAQUETE_FIXTURE, TOKEN_CERTIFICADO_FIXTURE)).toBe(false);
+    // Distinto largo y prefijo compartido: los dos casos que una comparación
+    // ingenua confundiría.
+    expect(tokensIguales(TOKEN_PAQUETE_FIXTURE, TOKEN_PAQUETE_FIXTURE.slice(0, -1))).toBe(false);
   });
 });
 
@@ -89,7 +145,10 @@ describe("códigos del paquete", () => {
 // ---------------------------------------------------------------------------
 
 describe("armarContenidoPaquete", () => {
-  const resultado = armarContenidoPaquete(expedienteEnPaqueteGenerado(), { cerradoEn: CERRADO_EN });
+  const resultado = armarContenidoPaquete(expedienteEnPaqueteGenerado(), {
+    cerradoEn: CERRADO_EN,
+    tokenVerificacion: TOKEN_PAQUETE_FIXTURE,
+  });
   if (!resultado.ok) throw new Error(`El fixture debería alcanzar: ${resultado.faltantes.join(",")}`);
   const { contenido } = resultado;
 
@@ -194,7 +253,10 @@ describe("armarContenidoPaquete", () => {
   });
 
   it("informa los campos que faltan en vez de armar un documento incompleto", () => {
-    const vacio = armarContenidoPaquete(crearExpediente(), { cerradoEn: CERRADO_EN });
+    const vacio = armarContenidoPaquete(crearExpediente(), {
+      cerradoEn: CERRADO_EN,
+      tokenVerificacion: TOKEN_PAQUETE_FIXTURE,
+    });
     expect(vacio.ok).toBe(false);
     if (vacio.ok) throw new Error("no debería armar");
     expect(vacio.faltantes).toEqual(

@@ -25,6 +25,7 @@ const ENTRADA: EmitirPolizaInput = {
     version: 1,
     hashSha256: "a".repeat(64),
     cerradoEn: "2026-08-09T15:02:00.000Z",
+    tokenVerificacion: `00018425-${"1".repeat(32)}`,
   },
   firma: {
     canal: "WHATSAPP",

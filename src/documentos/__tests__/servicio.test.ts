@@ -29,6 +29,7 @@ import {
 import {
   PASO_EVIDENCIA_DOCUMENTOS,
   claveDocumento,
+  derivarTokenVerificacion,
   generarPaqueteDocumental,
 } from "../servicio";
 import type { DependenciasDocumentos, RepositorioArchivos } from "../servicio";
@@ -134,6 +135,16 @@ describe("generarPaqueteDocumental", () => {
     expect(expediente.paqueteDocumental?.codigo).toBe("PROP-00018425");
     // La sección FIPF conserva su código interno dentro del mismo documento.
     expect(expediente.paqueteDocumental?.codigoSeccionFipf).toBe(codigoFipf(NUMERO_PROPUESTA_FIJO));
+    // El token del QR queda persistido con el paquete: sin él, el QR impreso
+    // apuntaría a una dirección que después nadie sabría resolver.
+    expect(expediente.paqueteDocumental?.tokenVerificacion).toBe(
+      derivarTokenVerificacion({
+        expedienteId: "EXP-TEST-DOCS",
+        correlativo: NUMERO_PROPUESTA_FIJO,
+        codigo: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
+        version: 1,
+      }),
+    );
   });
 
   it("registra el SHA-256 real de los bytes guardados", async () => {
@@ -301,5 +312,57 @@ describe("generarPaqueteDocumental — idempotencia y rechazos", () => {
     expect(resultado.motivo).toBe("EXPEDIENTE_NO_ENCONTRADO");
     expect(archivos.archivos.size).toBe(0);
     expect(evidencias.registros).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Token público del QR
+// ---------------------------------------------------------------------------
+
+/**
+ * El token es lo que codifica el QR y va **dentro** de los bytes que se
+ * hashean, así que tiene dos exigencias a la vez que se estorban entre sí:
+ * tiene que ser imposible de adivinar y tiene que ser el mismo cada vez que el
+ * mismo documento se vuelve a generar. Lo primero lo da la entropía del `id`
+ * del expediente (un `randomUUID`); lo segundo, que se derive en vez de
+ * sortearse.
+ */
+describe("derivarTokenVerificacion", () => {
+  const BASE = {
+    expedienteId: "d3f1a0c2-5b6e-4f7a-9c8d-0e1f2a3b4c5d",
+    correlativo: "00018425",
+    codigo: "PROP-00018425",
+    version: 1,
+  };
+
+  it("tiene la forma que la verificación sabe partir: correlativo + 32 hexadecimales", () => {
+    expect(derivarTokenVerificacion(BASE)).toMatch(/^00018425-[0-9a-f]{32}$/);
+  });
+
+  it("es determinista: el mismo documento da el mismo token", () => {
+    expect(derivarTokenVerificacion(BASE)).toBe(derivarTokenVerificacion(BASE));
+  });
+
+  /**
+   * Los tres ejes que tienen que separar tokens. El del código es el que
+   * impide que el QR del certificado abra la verificación del paquete; el de
+   * la versión, que una versión nueva herede la dirección de la anterior.
+   */
+  it.each([
+    ["el expediente", { ...BASE, expedienteId: "otro-expediente" }],
+    ["el código del documento", { ...BASE, codigo: "CPC-00018425" }],
+    ["la versión", { ...BASE, version: 2 }],
+  ])("cambia si cambia %s", (_eje, variante) => {
+    expect(derivarTokenVerificacion(variante)).not.toBe(derivarTokenVerificacion(BASE));
+  });
+
+  /**
+   * El SHA-256 es de un solo sentido: del token no se vuelve al `id` del
+   * expediente. Si el token lo llevara en claro, la URL pública del QR estaría
+   * publicando el identificador interno del expediente.
+   */
+  it("no filtra el id del expediente que lo generó", () => {
+    expect(derivarTokenVerificacion(BASE)).not.toContain(BASE.expedienteId);
+    expect(derivarTokenVerificacion(BASE)).not.toContain(BASE.expedienteId.slice(0, 8));
   });
 });

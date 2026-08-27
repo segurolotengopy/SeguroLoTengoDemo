@@ -1,8 +1,12 @@
 /**
- * Verificación pública de un documento por su código (CMP-06).
+ * Verificación pública de un documento (CMP-06).
  *
  * Es la otra mitad del QR: cada PDF que el motor cierra imprime
- * `<URL_BASE>/verificar/<código>`, y esto decide qué se responde de ese lado.
+ * `<URL_BASE>/verificar/<token>`, y esto decide qué se responde de ese lado.
+ *
+ * Se llega por dos caminos —el token que codifica el QR y el código que se
+ * tipea del papel—, y `interpretarEntrada` es quien los distingue. Ver ahí por
+ * qué el token existe y qué cierra que el código no.
  *
  * ## Qué verifica, y qué no
  *
@@ -40,6 +44,8 @@ import {
   PREFIJO_SOLICITUD,
   codigoFipf,
   codigoSolicitud,
+  partirTokenVerificacion,
+  tokensIguales,
 } from "./documentos";
 import {
   PREFIJO_CERTIFICADO,
@@ -97,6 +103,80 @@ export function interpretarCodigo(entrada: string): CodigoInterpretado | null {
   if (!tipo || !CORRELATIVO.test(correlativo)) return null;
 
   return { tipo, correlativo, codigo: `${prefijo}-${correlativo}` };
+}
+
+// ---------------------------------------------------------------------------
+// Entrada: el token del QR o el código tipeado
+// ---------------------------------------------------------------------------
+
+/**
+ * Las dos formas de llegar a esta página, que son dos y no una.
+ *
+ * - `TOKEN` es lo que codifica el QR: `<correlativo>-<32 hex>`. Es la
+ *   dirección que se escanea y se reenvía, y la única que no se puede
+ *   adivinar.
+ * - `CODIGO` es lo que alguien tipea del papel: `PROP-00018425`. Sigue
+ *   existiendo porque el código está impreso en la caja del encabezado y en el
+ *   pie de todas las páginas, y sin ese camino un documento en papel sin
+ *   cámara a mano no se podría verificar.
+ *
+ * **El camino del código es enumerable y el del token no.** Ocho dígitos son
+ * veintisiete bits: quien quiera recorrerlos puede, y lo que obtiene es la
+ * lista de correlativos que existen con su versión, su sello de tiempo, su
+ * huella y sus firmantes — nunca un dato de la persona (regla inviolable #7),
+ * pero sí el hecho de que ese expediente existe. Acotar ese recorrido es
+ * cuestión de límite de tasa sobre la ruta, que es trabajo de L6; el token no
+ * lo reemplaza, cierra la otra mitad: que la URL que circula por WhatsApp y
+ * queda impresa en un PDF reenviado no sea deducible de las que ya se vieron.
+ */
+export type EntradaVerificacion =
+  | { readonly modo: "TOKEN"; readonly correlativo: string; readonly token: string }
+  | { readonly modo: "CODIGO"; readonly interpretado: CodigoInterpretado }
+  | { readonly modo: "INVALIDA"; readonly entrada: string };
+
+/**
+ * Decide si lo que llegó por la URL es un token del QR o un código tipeado.
+ *
+ * Se prueba el token primero. Las dos formas son inconfundibles —el token
+ * empieza con dígitos y el código con letras— así que el orden no cambia el
+ * resultado; está escrito así para que se lea cuál es el camino previsto.
+ */
+export function interpretarEntrada(entrada: string): EntradaVerificacion {
+  const token = partirTokenVerificacion(entrada);
+  if (token) return { modo: "TOKEN", correlativo: token.correlativo, token: token.token };
+
+  const interpretado = interpretarCodigo(entrada);
+  if (interpretado) return { modo: "CODIGO", interpretado };
+
+  return { modo: "INVALIDA", entrada: entrada.trim().toUpperCase() };
+}
+
+/**
+ * Qué documento del expediente nombra un token, comparando contra los tokens
+ * registrados.
+ *
+ * Devuelve `null` si ninguno coincide, que es lo que pasa cuando alguien
+ * inventa un sufijo o cuando el correlativo existe pero el token es de otro
+ * expediente. Los documentos cerrados **antes** de que el token existiera lo
+ * traen en `null` y nunca coinciden: su QR no lleva un token que buscar.
+ */
+export function documentoDelToken(
+  expediente: Expediente | null,
+  token: string,
+): TipoDocumentoCodigo | null {
+  if (!expediente) return null;
+
+  const paquete = expediente.paqueteDocumental;
+  if (paquete?.tokenVerificacion && tokensIguales(paquete.tokenVerificacion, token)) {
+    return "PAQUETE";
+  }
+
+  const certificado = expediente.certificadoCobertura;
+  if (certificado?.tokenVerificacion && tokensIguales(certificado.tokenVerificacion, token)) {
+    return "CERTIFICADO";
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------

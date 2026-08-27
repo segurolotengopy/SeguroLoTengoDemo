@@ -117,19 +117,86 @@ export const VERSION_INICIAL_PAQUETE = 1;
 export const URL_BASE_VERIFICACION_POR_DEFECTO = "https://segurolotengo.com/verificar";
 
 /**
- * El QR codifica **solo** la URL de verificación, con el código del
+ * Forma del token público: correlativo de ocho dígitos, un guion, y treinta y
+ * dos hexadecimales — los 128 bits que exige el documento de diseño.
+ *
+ * Hexadecimal y no base64url por una razón práctica: el separador del token es
+ * un guion y el alfabeto de base64url también lo contiene, así que un token
+ * base64url no se podría partir mirando el primer guion sin razonar sobre
+ * dónde cae. Con hexadecimal el formato es inequívoco y además es el mismo
+ * alfabeto con el que el proyecto ya escribe las huellas SHA-256.
+ */
+export const TOKEN_VERIFICACION = /^(\d{8})-([0-9a-f]{32})$/;
+
+/** Octetos de aleatoriedad del sufijo. Dieciséis = 128 bits. */
+export const OCTETOS_TOKEN_VERIFICACION = 16;
+
+export interface TokenPartido {
+  readonly correlativo: string;
+  /** Los 32 hexadecimales, sin el correlativo ni el guion. */
+  readonly sufijo: string;
+  /** El token completo, normalizado a minúsculas. */
+  readonly token: string;
+}
+
+/**
+ * `00018425-3f0a…` → `{ correlativo: "00018425", sufijo: "3f0a…" }`.
+ *
+ * Devuelve `null` si la entrada no tiene la forma exacta. La página de
+ * verificación prueba esto **antes** que `interpretarCodigo`: las dos formas
+ * son inconfundibles —una empieza con letras y la otra con dígitos— pero el
+ * orden deja explícito cuál es el camino que el QR usa.
+ */
+export function partirTokenVerificacion(entrada: string): TokenPartido | null {
+  const token = entrada.trim().toLowerCase();
+  const coincidencia = TOKEN_VERIFICACION.exec(token);
+  if (!coincidencia) return null;
+  return { correlativo: coincidencia[1], sufijo: coincidencia[2], token };
+}
+
+/**
+ * Compara dos tokens sin que el tiempo de la comparación revele cuántos
+ * caracteres coincidieron.
+ *
+ * Con 128 bits de sufijo un ataque de temporización sobre la red es teórico y
+ * no práctico, así que esto no es lo que hace segura a la URL — lo que la hace
+ * segura es la entropía. Está igual porque una comparación de tokens que sale
+ * temprano es la clase de detalle que después nadie vuelve a mirar, y acá
+ * cuesta seis líneas.
+ *
+ * Se escribe a mano y no con `timingSafeEqual` porque este módulo no importa
+ * `node:*`: es contenido de documentos y corre también donde no hay Node.
+ */
+export function tokensIguales(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diferencia = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diferencia |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diferencia === 0;
+}
+
+/**
+ * El QR codifica **solo** la URL de verificación, con el token público del
  * documento. Deliberadamente no lleva el hash: el QR se dibuja dentro del PDF
  * que después se hashea, así que un hash impreso en el propio documento no
  * podría ser nunca el suyo. La verificación es del otro lado — se busca el
- * código y se compara el hash registrado contra el del archivo que tenga
+ * documento y se compara el hash registrado contra el del archivo que tenga
  * quien consulta.
  *
+ * **Lleva el token y no el código visible** porque el código es adivinable: el
+ * correlativo son ocho dígitos y la página de destino es pública y sin sesión,
+ * así que recorrerlos daría la lista de los documentos que existen. El código
+ * sigue impreso en la caja del encabezado y en el pie —quien tenga el papel
+ * puede tipearlo— pero la dirección que se escanea y se reenvía es la que no
+ * se puede inventar.
+ *
  * Tampoco lleva ningún dato de la persona: un QR es texto plano para
- * cualquiera que lo escanee, y el código de propuesta no identifica a nadie
- * por sí solo (regla inviolable #7).
+ * cualquiera que lo escanee, y ni el correlativo ni el sufijo aleatorio
+ * identifican a nadie por sí solos (regla inviolable #7).
  */
-export function urlDeVerificacion(codigo: string, base: string = URL_BASE_VERIFICACION_POR_DEFECTO): string {
-  return `${base.replace(/\/+$/, "")}/${codigo}`;
+export function urlDeVerificacion(token: string, base: string = URL_BASE_VERIFICACION_POR_DEFECTO): string {
+  return `${base.replace(/\/+$/, "")}/${token}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +393,16 @@ export interface OpcionesContenido {
   readonly cerradoEn: string;
   readonly version?: number;
   readonly urlBaseVerificacion?: string;
+  /**
+   * Token público que va a codificar el QR. **Obligatorio**: lo acuña quien
+   * cierra el documento (`src/documentos/servicio.ts`, que sí tiene CSPRNG) y
+   * entra por acá porque este módulo es contenido puro y no genera azar.
+   *
+   * No tiene valor por defecto a propósito. Un `?? codigo` de reserva daría un
+   * QR enumerable sin que nada lo señalara, que es exactamente el problema que
+   * el token viene a resolver.
+   */
+  readonly tokenVerificacion: string;
 }
 
 /**
@@ -579,7 +656,7 @@ export function armarContenidoPaquete(
         version,
         cerradoEn,
         titulo: "Solicitud de Seguro de Vida Oncológico y FIPF",
-        urlVerificacion: urlDeVerificacion(codigoProp, base),
+        urlVerificacion: urlDeVerificacion(opciones.tokenVerificacion, base),
         selloDeTiempo: formatearSelloDeTiempo(cerradoEn),
       },
       correlativo,

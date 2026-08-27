@@ -43,6 +43,7 @@
  */
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import {
+  OCTETOS_TOKEN_VERIFICACION,
   VERSION_INICIAL_PAQUETE,
   armarContenidoPaquete,
   codigoFipf,
@@ -94,6 +95,8 @@ export interface DependenciasDocumentos {
   readonly nuevoId?: () => string;
   /** Inyectable solo para que los tests puedan fijar el correlativo. */
   readonly nuevoNumeroPropuesta?: () => string;
+  /** Inyectable solo para que los tests puedan fijar el token del QR. */
+  readonly derivarToken?: typeof derivarTokenVerificacion;
   /** Base del enlace que codifica el QR de verificación impreso en cada PDF. */
   readonly urlBaseVerificacion?: string;
 }
@@ -133,6 +136,58 @@ export const LARGO_NUMERO_PROPUESTA = 8;
  */
 export function generarNumeroPropuesta(): string {
   return String(randomInt(0, 10 ** LARGO_NUMERO_PROPUESTA)).padStart(LARGO_NUMERO_PROPUESTA, "0");
+}
+
+/**
+ * Acuña el token público que va a codificar el QR: `<correlativo>-<32 hex>`.
+ *
+ * ## Qué compra el sufijo
+ *
+ * El correlativo son ocho dígitos: veintisiete bits, recorribles con un script
+ * y una tarde. La página a la que apunta el QR es pública y sin sesión, así que
+ * un QR que codificara el código dejaría la lista de documentos que existen al
+ * alcance de cualquiera. Los 128 bits del sufijo —lo que pide el documento de
+ * diseño del QR— hacen que la dirección que se escanea y se reenvía no se
+ * pueda deducir de las que ya se vieron.
+ *
+ * ## Por qué se deriva y no se sortea
+ *
+ * `randomBytes` daría un token distinto en cada llamada, y el certificado se
+ * emite de nuevo en cada reintento de la confirmación del pago: dos intentos
+ * producirían dos PDF con bytes distintos y dos huellas distintas para el
+ * mismo documento y el mismo instante. Eso rompería el determinismo, que en
+ * este servicio no es una comodidad sino la propiedad que permite que una
+ * auditoría reproduzca el archivo y le vuelva a salir el mismo SHA-256.
+ *
+ * Derivarlo del `id` del expediente conserva las dos cosas: el `id` es un
+ * `randomUUID` —122 bits de CSPRNG que nunca se imprimen en un documento ni
+ * viajan en una URL pública— y el SHA-256 que lo envuelve es de un solo
+ * sentido, así que del token no se vuelve al `id`. Quien conozca el `id` de un
+ * expediente puede derivar sus tokens, y no es un problema: para conocerlo ya
+ * tiene que ser su titular o el personal de la consola, que ven bastante más
+ * que estos tokens.
+ *
+ * **Un token por documento, no por expediente.** El código y la versión entran
+ * en la derivación porque el paquete y el certificado comparten correlativo
+ * pero cada QR tiene que abrir la verificación del suyo, y una versión nueva
+ * de un documento es un documento nuevo que no debe heredar la dirección del
+ * anterior.
+ *
+ * Vive acá por el mismo motivo que `generarNumeroPropuesta`: necesita
+ * `node:crypto` y `src/domain/documentos.ts` es deliberadamente libre de
+ * `node:*`.
+ */
+export function derivarTokenVerificacion(entrada: {
+  readonly expedienteId: string;
+  readonly correlativo: string;
+  readonly codigo: string;
+  readonly version: number;
+}): string {
+  const sufijo = createHash("sha256")
+    .update(`${entrada.expedienteId}:${entrada.codigo}:${entrada.version}`)
+    .digest("hex")
+    .slice(0, OCTETOS_TOKEN_VERIFICACION * 2);
+  return `${entrada.correlativo}-${sufijo}`;
 }
 
 export const PASO_EVIDENCIA_DOCUMENTOS = "P8_PAQUETE_DOCUMENTAL";
@@ -296,10 +351,21 @@ export async function generarPaqueteDocumental(
       ? expediente
       : { ...expediente, numeroPropuesta: (deps.nuevoNumeroPropuesta ?? generarNumeroPropuesta)() };
 
+  // El token nace con el correlativo y en la misma escritura: va dentro de los
+  // bytes que se hashean, así que no hay forma de agregarlo después.
+  const correlativoDelPaquete = conCorrelativo.numeroPropuesta ?? "";
+  const tokenVerificacion = (deps.derivarToken ?? derivarTokenVerificacion)({
+    expedienteId: conCorrelativo.id,
+    correlativo: correlativoDelPaquete,
+    codigo: codigoSolicitud(correlativoDelPaquete),
+    version: VERSION_INICIAL_PAQUETE,
+  });
+
   const contenido = armarContenidoPaquete(conCorrelativo, {
     cerradoEn: fecha,
     version: VERSION_INICIAL_PAQUETE,
     urlBaseVerificacion: deps.urlBaseVerificacion,
+    tokenVerificacion,
   });
   if (!contenido.ok) {
     await registrarEvidencia(deps, reloj, {
@@ -328,6 +394,7 @@ export async function generarPaqueteDocumental(
     cerrado.documento,
     fecha,
     codigoFipf(contenido.contenido.correlativo),
+    tokenVerificacion,
   );
 
   const transicion = registrarPaqueteDocumental(conCorrelativo, paquete, fecha);
@@ -378,6 +445,7 @@ function documentoCerrado(
   generado: DocumentoGenerado,
   cerradoEn: string,
   codigoSeccionFipf: string,
+  tokenVerificacion: string,
 ): DocumentoCerrado {
   return {
     codigo: generado.codigo,
@@ -385,6 +453,7 @@ function documentoCerrado(
     hashSha256: generado.hashSha256,
     cerradoEn,
     codigoSeccionFipf,
+    tokenVerificacion,
   };
 }
 
@@ -512,6 +581,8 @@ export type ResultadoEmitirCertificado =
 export interface DependenciasCertificado {
   readonly archivos: RepositorioArchivos;
   readonly urlBaseVerificacion?: string;
+  /** Inyectable solo para los tests, igual que en el cierre del paquete. */
+  readonly derivarToken?: typeof derivarTokenVerificacion;
 }
 
 /**
@@ -544,10 +615,22 @@ export async function emitirCertificadoCobertura(
 ): Promise<ResultadoEmitirCertificado> {
   const { expediente, emitidoEn } = entrada;
 
+  // Token propio: comparte correlativo con el paquete pero es otro documento y
+  // su QR tiene que abrir su verificación, no la del paquete. Lo separa el
+  // código, que entra en la derivación.
+  const correlativoDelCertificado = expediente.numeroPropuesta ?? "";
+  const tokenVerificacion = (deps.derivarToken ?? derivarTokenVerificacion)({
+    expedienteId: expediente.id,
+    correlativo: correlativoDelCertificado,
+    codigo: codigoCertificado(correlativoDelCertificado),
+    version: VERSION_INICIAL_CERTIFICADO,
+  });
+
   const contenido = armarContenidoCertificado(expediente, {
     emitidoEn,
     version: VERSION_INICIAL_CERTIFICADO,
     urlBaseVerificacion: deps.urlBaseVerificacion,
+    tokenVerificacion,
   });
   if (!contenido.ok) {
     return { ok: false, motivo: "EXPEDIENTE_INCOMPLETO", faltantes: contenido.faltantes };
@@ -598,6 +681,7 @@ export async function emitirCertificadoCobertura(
       inicioCobertura,
       finCobertura: finCoberturaDesde(inicioCobertura),
       referenciaBancard: expediente.pago?.referenciaBancard ?? "",
+      tokenVerificacion,
       firmas,
     },
   };
