@@ -237,6 +237,13 @@ la reversa llega tarde porque el pago se acreditó en el intervalo. Bancard resp
 segundo caso el expediente ya no debería vencer. Es la misma carrera que
 `conReintentoPorConflicto` ya resuelve para el estado, extendida al proveedor.
 
+**Esta corrección está condicionada a una respuesta que todavía no tenemos.** Supone
+que reversar apaga el QR. Bancard describe la reversa como la forma de resolver un pago
+incierto, no como una forma de anular un QR **no pagado** — y esas son dos cosas distintas.
+Si la reversa solo revierte pagos ocurridos y el QR sigue vivo sus 3 días, esta vía no
+sirve y hay que buscar otra. Es la consulta **B4-bis** del correo de repregunta (§6), y es
+la que más conviene contestar antes de escribir una línea.
+
 **Corolario sobre el TTL propio.** `VIGENCIA_QR_MINUTOS = 15`
 (`src/adapters/mock/payment-provider.ts:73`) está documentado en el mock como si fuera
 el TTL del QR. **No lo es**: el TTL del proveedor es de 3 días. Los 15 minutos son una
@@ -280,6 +287,14 @@ una clave nueva, el adaptador acuña un `shop_process_id` nuevo, y el reintento
 funciona sin tocar la función. Es el cambio de menor superficie que resuelve el caso,
 y deja P7 en condiciones de contar intentos (→ §4.2), que hoy no puede hacer porque
 todos los intentos se ven iguales.
+
+**También está condicionada.** Asentar `RECHAZADO` exige que Bancard nos cuente el rechazo,
+y no sabemos por cuál de las dos vías: si el POST de confirmación se envía también para
+operaciones rechazadas, o si `get_confirmation` devuelve la operación con su código en vez
+de `PaymentNotFoundError`. Consulta **B10-bis** (§6). Si resultara que un intento se quema
+sin que el comercio pueda enterarse por ninguna vía, el arreglo deja de ser técnico y pasa
+a ser de producto: habría que acuñar clave nueva en cada apertura del formulario, con el
+costo de perder la protección contra el doble click.
 
 **Alcance.** Afecta a las dos ramas de tarjeta. La rama QR no la sufre: un QR no se
 "rechaza" por tarjeta, se cancela o expira, y para eso `CANCELADO` alcanza.
@@ -441,12 +456,19 @@ intención se cubre por otros medios.
 
 ## 6. Preguntas abiertas — insumo para la parte 2
 
+**Redactadas y listas para enviar** en `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` →
+"Segunda ronda — Bancard": **Correo 3** (equipo técnico) y **Correo 4** (equipo comercial /
+ejecutiva de cuenta). Van separados porque tienen destinatarios distintos.
+
 | # | Destinatario | Pregunta | Por qué bloquea |
 | :---- | :---- | :---- | :---- |
 | **B2** (repreguntar) | Equipo comercial Bancard | Devolución posterior al cuponado: ¿único canal el ticket manual? SLA, **constancia/comprobante emitido**, plazo máximo, ¿admite parcial? | La constancia se incorpora al expediente en Pantalla B (D-02). Sin saber qué documento emite Bancard, no se puede diseñar ese asiento |
 | **B3** (repreguntar) | Equipo comercial Bancard | ¿La devolución aplica igual a TC, TD, QR y débito en cuenta? ¿Por qué vía y en qué plazo vuelve el dinero en cada uno? | El texto de Pantalla B le informa a la persona un plazo. Hoy no tenemos ninguno que sea cierto |
 | **B7** (en curso) | Ejecutiva de cuenta | Hosts de staging/producción del API de Comercios, credenciales, lista de casos de prueba y certificación de QR | Precondición del adaptador `live/` de la rama QR |
 | **B11** (en curso) | Ejecutiva de cuenta | Montos mínimos y máximos para vPOS pago ocasional y para QR | El premio anual de CONFÍO debe caer dentro del rango en los tres medios. Hay que verificarlo, no suponerlo |
+| **B4-bis** (nueva) | Bancard técnico | ¿La reversa por `hook_alias` **invalida un QR generado y no pagado**, o solo revierte un pago ocurrido? Si es lo segundo, ¿hay alguna operación para **desactivar un QR emitido y no usado**? | **Es la que decide si G1 tiene arreglo.** Toda la mitigación del §3.1 supone que reversar al vencer apaga el QR. Si no lo apaga, hay que buscar otra cosa |
+| **B6-bis** (nueva) | Bancard técnico | Sin consulta por `hook_alias` y sin callback, un pago QR acreditado nos queda invisible. ¿Existe **conciliación diaria** —reporte, archivo de cierre, exportación del portal— para detectarlo? | Fila 31 de la matriz obliga a conservar constancia de cada cobro. Si no existe, hay que asentarlo como riesgo operativo aceptado, no descubrirlo en producción |
+| **B10-bis** (nueva) | Bancard técnico | Ante un intento **rechazado**: ¿llega igual el POST de confirmación con su `response_code`? ¿`get_confirmation` devuelve la operación rechazada o `PaymentNotFoundError`? | **Es la que decide si G2 tiene arreglo.** Sin una vía por la que enterarnos del rechazo no se puede asentar `RECHAZADO`, y sin eso no hay reintento |
 | **B8-bis** (nueva) | Bancard técnico | **Política de reintentos** de Bancard cuando el comercio no responde en tiempo: ¿reintenta el callback? ¿cuántas veces, con qué espaciado? ¿o reversa directamente? | Dimensiona la idempotencia del route handler y el "tiempo X" antes de reversar |
 | **B13-bis** (nueva) | Bancard técnico | Desambiguar *"una única URL de confirmación, tanto para vPOS como para QR"*: ¿(a) una por producto, (b) una compartida por ambos, o (c) una en total? Y en cualquier caso: **¿una por ambiente, o la misma para staging y producción?** | Define si el callback es un route handler o dos, y si se puede certificar sin pisar producción |
 | **B8-ter** (nueva) | Bancard técnico | Las 4 IP listadas bajo el título "vPOS 2.0" aparecen rotuladas como *"IP de origen del servicio QR"*. ¿Es un error de tipeo y corresponden a vPOS? | Una whitelist mal armada corta los cobros en producción |
@@ -465,11 +487,13 @@ respuestas dejan planteado, en orden de importancia:
    y asienta el resultado como evidencia. Resuelve el QR de 3 días sobre un plazo de
    24 h, y le da su primer llamador a un método del puerto que hoy no tiene ninguno.
    *Toca:* `src/domain/pago-p7.ts`, evidencia, tests de contrato del puerto.
+   **Bloqueado por B4-bis:** si la reversa no apaga un QR no pagado, esta vía no sirve.
 2. **G2 · Agregar `RECHAZADO` a `EstadoPago`** y asentarlo en el sondeo ante un
    rechazo de Bancard. Desbloquea el reintento tras un rechazo de tarjeta (B10) y
    habilita el contador de intentos.
    *Toca:* `src/domain/tipos.ts`, `src/domain/pago-p7.ts`, mock, panel de demo (una
    palanca "tarjeta rechazada" que hoy no existe), tests.
+   **Bloqueado por B10-bis:** hace falta saber por qué vía nos llega el rechazo.
 3. **G3 · Declarar el invariante del callback** antes de escribir el adaptador
    `live/`: el callback persiste y responde; la transición y la emisión del
    certificado siguen en `confirmarPagoP7`. Idempotencia por `hook_alias` /
