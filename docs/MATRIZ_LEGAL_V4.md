@@ -8,6 +8,22 @@
 
 > **Regla de prevalencia declarada por el propio documento:** *"esta V4 reemplaza la V3"*, y se define como **fuente maestra aprobada para el diseño de seis pantallas y el demo**. Su alcance jurídico está acotado: no sustituye el plan registrado, ni el dictamen jurídico de Alianza, ni la aprobación de Cumplimiento/ALA-CFT, ni las autorizaciones de la Superintendencia de Seguros.
 
+
+> ## ⚠ Corrección del 27-ago-2026 — leer antes que el resto
+>
+> Este documento se escribió contra una rama que estaba **63 commits atrás de `main`**, y describe como pendientes varias cosas que ya estaban implementadas. Tras traer `main`, el estado real es:
+>
+> | Lo que este documento daba por pendiente | Estado real |
+> | :---- | :---- |
+> | Reordenar el cobro para que vaya después de las firmas | **Implementado** (D-08). `FIRMADO` es el único estado desde el que se cobra |
+> | Unificar la Solicitud y el FIPF en un PDF único | **Implementado** (D-11). `paqueteDocumental` es un `DocumentoCerrado` con una sola huella y dos códigos de sección |
+> | Certificado de Cobertura Provisional | **Implementado** (D-12), emitido en la misma escritura que el cobro |
+> | Estado intermedio para "el cliente firmó, faltan las institucionales" | **Existe**: `FIRMADO_CLIENTE → FIRMADO` (D-13), con `FirmaInstitucional` por firmante |
+> | Limpiar de los PDF y las pantallas el nombre del proveedor de firma | **Hecho** (`fix(textos)`) |
+> | Tres medios de pago sin preautorización | **Implementado** (D-02) |
+>
+> **Lo que sí sigue pendiente** y era el objeto de este análisis: la firma del cliente **todavía pasa por `SignatureProvider`** —el mock de Code100—, así que la firma interna no está cableada. Ese es el hueco real, y `src/domain/firma-cliente.ts` es su primera mitad.
+
 ---
 
 ## 1. Estado de los bloques
