@@ -124,69 +124,27 @@ Van **dos correos separados porque tienen dos destinatarios distintos**: el equi
 
 ## Correo 3 — Bancard, equipo técnico de integraciones
 
-**Para:** soporte de integraciones de Bancard
-**Asunto:** Interseguros S.A. (SeguroLoTengo) — Segunda ronda de consultas técnicas (B4-bis, B5-bis, B6-bis, B8-bis, B8-ter, B10-bis, B13-bis)
+**Cuerpo listo para reenviar:** `docs/correos/Correo 3 - Bancard tecnico - segunda ronda (B4-bis a B13-bis).md`
 
-Estimado equipo de Soporte de Integraciones de Bancard:
+Siete consultas: **B4-bis** (¿la reversa invalida un QR no pagado?), **B5-bis** (¿el TTL de 3 días es configurable?), **B6-bis** (¿hay conciliación diaria para un callback perdido?), **B10-bis** (¿por qué vía nos enteramos de un intento rechazado?), **B8-bis** (política de reintentos del callback), **B8-ter** (confirmar las 4 IP de vPOS) y **B13-bis** (desambiguar "una única URL de confirmación").
 
-Muchas gracias por las respuestas a nuestras consultas B1 a B13. Nos resultaron claras y ya están incorporadas a nuestra documentación técnica. De su lectura surgieron **siete puntos** que necesitamos precisar antes de escribir los adaptadores definitivos; todos son consecuencia directa de lo que ustedes nos respondieron, y los numeramos colgando de la consulta original para mantener la trazabilidad.
-
-Un dato de contexto que ayuda a entender por qué preguntamos lo que preguntamos: **nuestro proceso cobra al final, después de que el cliente firmó electrónicamente la solicitud, y el expediente caduca si no se paga dentro de las 24 horas.** Es decir, tenemos una ventana de cobro propia, más corta que la vigencia del QR que ustedes nos informaron.
-
-**Ventas QR**
-
-- **B4-bis.** Es nuestra consulta más importante de esta ronda. Ustedes nos informaron (B5) que el QR dinámico vive **3 días**, y nuestro expediente caduca a las **24 horas**. Eso nos deja hasta dos días en los que existe un QR técnicamente pagable asociado a una operación que de nuestro lado ya está cerrada. Para evitar recibir un pago que no vamos a poder honrar, necesitamos **desactivar el QR cuando vence nuestro plazo**. Concretamente: (a) ¿la operación `PUT .../selling/payments/revert/:hook_alias` **invalida el QR generado y no pagado**, de modo que un escaneo posterior ya no pueda pagar, o solo revierte un pago que efectivamente ocurrió? (b) Si solo hace lo segundo, ¿existe alguna otra operación para **anular o desactivar un QR emitido y no utilizado** antes de que se cumplan sus 3 días? (c) Si no existe ninguna, ¿cuál es el procedimiento que Bancard recomienda para este escenario?
-- **B5-bis.** ¿El TTL de 3 días del QR dinámico es **configurable por comercio** (por ejemplo, a 24 horas o menos), o es un valor fijo de la plataforma? Si fuera configurable, sería la solución más limpia al punto anterior.
-- **B6-bis.** Entendemos de su respuesta a B6 que **no existe un servicio de consulta del estado de un pago QR** y que la única fuente de información es el callback. Nuestra pregunta es sobre el caso en que el callback se pierda por completo (no que llegue tarde: que no llegue). Por tratarse de un producto de seguros regulado, estamos obligados a conservar constancia de cada cobro. ¿Bancard pone a disposición del comercio algún mecanismo de **conciliación diaria** —reporte, archivo de cierre, exportación desde el Portal de Comercios, extracto de movimientos— que nos permita detectar un pago acreditado del que no nos hayamos enterado? De no existir, agradeceremos que nos lo confirmen explícitamente, para dejarlo asentado como riesgo operativo aceptado.
-
-**vPOS — pago ocasional**
-
-- **B10-bis.** Su respuesta a B10 —el `shop_process_id` queda registrado aunque el intento de pago falle, y hay que generar uno nuevo para reintentar— nos obliga a **detectar el rechazo** para poder ofrecerle al cliente un segundo intento con otra tarjeta. La pregunta es cómo nos enteramos: (a) ante un intento **rechazado**, ¿el POST de confirmación se envía igual a nuestra URL, con el `response_code` correspondiente, o solo se notifican las operaciones aprobadas? (b) ¿`single_buy/confirmations` (`get_confirmation`) sobre un `shop_process_id` cuyo único intento fue rechazado devuelve esa operación con su código de rechazo, o devuelve `PaymentNotFoundError`? (c) ¿Existe algún caso en que un intento quede "quemado" **sin** que el comercio pueda enterarse por ninguna de las dos vías? Ese último caso es el que nos preocupa, porque dejaría al cliente sin posibilidad de reintentar.
-
-**Callbacks y seguridad**
-
-- **B8-bis.** Quedó sin responder la **política de reintentos de Bancard** cuando el comercio no responde en tiempo. ¿Bancard reintenta la notificación? De ser así: ¿cuántas veces, con qué espaciado y durante cuánto tiempo? ¿O la falta de respuesta en plazo deriva directamente en la reversa automática de la transacción? Lo consultamos para dimensionar correctamente el tratamiento de notificaciones duplicadas de nuestro lado y para fijar el "tiempo X" antes de invocar la reversa que ustedes recomiendan configurar.
-- **B8-ter.** En su respuesta, el bloque titulado "vPOS 2.0" lista cuatro direcciones IP bajo la leyenda *"Las IP de origen del servicio QR son las siguientes"*. Entendemos que se trata de un error de tipeo y que esas cuatro direcciones (190.128.218.209, 190.128.232.10, 190.104.129.98, 200.85.46.226) corresponden efectivamente a **vPOS**. ¿Nos lo confirman? Una lista de acceso mal armada nos cortaría los cobros en producción, así que preferimos verificarlo antes que suponerlo. Aprovechamos para consultar si esos rangos son **estables** o si Bancard notifica los cambios con antelación, y por qué canal.
-- **B13-bis.** Su respuesta a B13 indica que *"solo se puede configurar una única URL de confirmación, tanto para vPOS como para QR"*. Necesitamos desambiguar esa frase, porque las tres lecturas posibles nos llevan a arquitecturas distintas: (a) una URL para vPOS y otra para QR, es decir una por producto; (b) una sola URL compartida que reciba las notificaciones de ambos productos; o (c) una única URL en total para todo el comercio. Y en cualquiera de los tres casos: **¿se configura una URL por ambiente (staging y producción), o es la misma para ambos?** Esto último nos condiciona la certificación: necesitamos poder completar las pruebas sin apuntar a nuestro ambiente productivo.
-
-Como en la ronda anterior, quedamos a disposición para una reunión técnica si les resulta más práctico repasar estos siete puntos en conjunto — en particular B4-bis y B13-bis, que son los que más condicionan nuestro diseño.
-
-Desde ya, muchas gracias por la disposición.
-
-Atentamente,
-
-[Nombre y apellido]
-Equipo técnico — SeguroLoTengo (operador tecnológico AAB1)
-Interseguros S.A.
-[teléfono de contacto]
+Las dos que más pesan son **B4-bis** y **B10-bis**: de sus respuestas depende que las correcciones propuestas para los huecos G1 y G2 del análisis se puedan hacer tal como están planteadas.
 
 ---
 
 ## Correo 4 — Bancard, equipo comercial / ejecutiva de cuenta
 
-**Para:** equipo comercial de Bancard · Laura Vera (ejecutiva de cuenta), con copia a Soporte de Integraciones
-**Asunto:** Interseguros S.A. (SeguroLoTengo) — Consultas B2 y B3 pendientes (devoluciones) y recordatorio de B7 y B11
+**Cuerpo listo para reenviar:** `docs/correos/Correo 4 - Bancard comercial - devoluciones (B2, B3, B7, B11).md`
 
-Estimada Laura, estimado equipo comercial:
+Cuatro consultas: **B2** y **B3** repreguntadas con el contexto que les faltaba (qué constancia emite Bancard en una devolución y en qué plazo vuelve el dinero por cada medio), más el recordatorio de **B7** (hosts, credenciales y certificación de QR) y **B11** (montos mínimos y máximos).
 
-Nos dirigimos a ustedes de parte del equipo técnico de **SeguroLoTengo**, portal de venta electrónica del Seguro de Vida Oncológico CONFÍO — canal digital de **Interseguros S.A.**, con emisión de **Alianza Garantía Seguros y Reaseguros S.A.**
+De las cuatro, la que más bloquea es **B2(b)**: la constancia de devolución se incorpora al expediente del cliente, y no se puede diseñar dónde se guarda sin saber qué documento se recibe.
 
-El equipo de Soporte de Integraciones respondió nuestras consultas técnicas y nos indicó que **B2 y B3 las responde el equipo comercial**, y que **B7 y B11** se compartirían en el hilo que se abriría con ustedes. Reiteramos esas cuatro acá, con el contexto que les faltaba.
+---
 
-**Por qué preguntamos por devoluciones.** Somos un producto de seguros y estamos alcanzados por la normativa de seguros y de defensa del consumidor, que nos obliga a **informarle al cliente, antes de pagar, cómo y en cuánto tiempo recuperaría su dinero** si correspondiera una devolución. Hoy esa pantalla no puede decir un plazo cierto porque no lo tenemos. No estamos previendo un volumen alto de devoluciones: desde que invertimos el orden del proceso —ahora se firma primero y se cobra después—, un cliente que abandona el trámite **nunca llega a pagar**. La devolución quedó como un caso excepcional, a pedido del titular, sobre un cobro ya acreditado. Pero es justamente por ser excepcional que necesitamos tenerla bien documentada de antemano.
-
-- **B2.** Para una transacción **ya cuponada** (fuera de la ventana de reversa automática que nos precisó Soporte en B1): confirmamos que el único canal es el **pedido manual por el Portal de Comercios**. Sobre ese trámite necesitamos saber: (a) ¿cuál es el **SLA típico de resolución**? (b) ¿qué **constancia o comprobante** emite Bancard una vez ejecutada la devolución, y en qué formato? Este punto es el más importante de los cuatro: esa constancia la tenemos que incorporar al expediente del cliente como respaldo documental, así que necesitamos saber qué documento vamos a recibir antes de diseñar dónde se guarda. (c) ¿Existe un **plazo máximo** desde la transacción original para solicitarla? (d) ¿Se admite **devolución parcial**, o solo por el importe total?
-- **B3.** ¿El procedimiento de devolución es el mismo para pagos con **tarjeta de crédito**, **tarjeta de débito** y **QR** (incluido el débito en cuenta)? Para cada uno de esos medios: **¿por qué vía vuelve el dinero al cliente** (reversa al plástico, acreditación en cuenta, otra) **y en qué plazo estimado**? Es el dato que necesitamos para poder informarle al cliente algo cierto en pantalla.
-- **B7** (recordatorio). Quedamos a la espera de las **URLs base de staging y producción** del API de Comercios (QR), las **credenciales de prueba** y la **lista de casos de prueba** del proceso de certificación de QR, junto con la versión vigente de esa documentación. Es la precondición para que podamos empezar a integrar la rama de QR.
-- **B11** (recordatorio). Nos indicaron que los **montos mínimos y máximos por transacción** para vPOS (Pago Ocasional) y para QR los definimos con ustedes. Les agradeceremos confirmarnos ambos límites para los dos productos. El importe que vamos a cobrar es el premio anual del seguro, en guaraníes, en un único cobro por operación; necesitamos verificar que caiga dentro del rango admitido en los tres medios de pago antes de salir a producción, y no suponerlo.
-
-Quedamos atentos y a disposición para coordinar una llamada si resulta más práctico.
-
-Desde ya, muchas gracias.
-
-Atentamente,
-
-[Nombre y apellido]
-Equipo técnico — SeguroLoTengo (operador tecnológico AAB1)
-Interseguros S.A.
-[teléfono de contacto]
+> **Por qué estos dos correos no están transcriptos acá y los dos primeros sí.** Se
+> pidieron como archivos sueltos para reenviar, y tener el mismo texto en dos lugares
+> es la forma más segura de que uno de los dos quede viejo. El cuerpo vive en
+> `docs/correos/`; este documento conserva la trazabilidad B1…B13 y el porqué de cada
+> consulta. Si se agrega una pregunta, se agrega en el archivo del correo y se
+> actualiza el resumen de arriba.

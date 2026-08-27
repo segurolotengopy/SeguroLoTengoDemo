@@ -456,9 +456,14 @@ intención se cubre por otros medios.
 
 ## 6. Preguntas abiertas — insumo para la parte 2
 
-**Redactadas y listas para enviar** en `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` →
-"Segunda ronda — Bancard": **Correo 3** (equipo técnico) y **Correo 4** (equipo comercial /
-ejecutiva de cuenta). Van separados porque tienen destinatarios distintos.
+**Redactadas y listas para reenviar**, un archivo por correo —van separados porque tienen
+destinatarios distintos—:
+
+- `docs/correos/Correo 3 - Bancard tecnico - segunda ronda (B4-bis a B13-bis).md`
+- `docs/correos/Correo 4 - Bancard comercial - devoluciones (B2, B3, B7, B11).md`
+
+El porqué de cada consulta y la trazabilidad B1…B13 siguen en
+`docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` → "Segunda ronda — Bancard".
 
 | # | Destinatario | Pregunta | Por qué bloquea |
 | :---- | :---- | :---- | :---- |
