@@ -124,7 +124,7 @@ La matriz es fuente de verdad de obligación legal y no se edita desde una sesi�
 3. **Marcar para revisión** las filas de §5 y actualizar el ítem 18 del catálogo de integraciones.
 4. **Podar el bloque 1 (C13-C20)** de `CONSULTAS_CODE100_SEGUNDA_RONDA.md` y enviar el resto: C21-C31 siguen todas vigentes, y C21 (firma desatendida institucional) pasa a ser **la consulta más importante**, porque ahora las firmas institucionales son el único uso del PSC cualificado.
 5. ~~**Mudar el tercer OTP** a `OtpProvider` (§3.1)~~ — **hecho el 27-ago-2026**: `PropositoOtp` tiene `FIRMA`, viaja por cualquiera de los dos canales verificados, y los adaptadores mock, WhatsApp-Modular y SES lo soportan. Falta el consumidor, que llega con el acto de firma.
-6. **Implementar el servicio de firma interna** con su nueva versión documental, atomicidad y evidencia.
+6. **Implementar el servicio de firma interna** con su nueva versión documental, atomicidad y evidencia. **Primera mitad hecha el 27-ago-2026**: `src/domain/firma-cliente.ts` decide y produce el acto (OTP de firma, elegibilidad, huellas, evidencia). Falta la mitad que depende de definiciones abiertas: sellar los bytes (§1, dictamen legal) y persistir la transición (máquina de estados, `ORDEN_FIRMA_PAGO_Y_CPC.md` §2.3).
 7. **Rediseñar P8** contra la especificación corregida.
 8. **Diseñar el tramo institucional**: estado en la máquina, orden serial, evidencia por firmante, y su simulación en el modo demo.
 
