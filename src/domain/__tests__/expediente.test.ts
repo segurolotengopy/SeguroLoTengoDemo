@@ -5,6 +5,7 @@ import {
   esEstadoTerminal,
   esTransicionLegal,
   registrarDeclaracionesP6,
+  registrarFirmaClienteInterna,
   registrarPagoConfirmadoP7,
   transicionarExpediente,
   transicionesLegalesDesde,
@@ -13,6 +14,7 @@ import {
   avanzarHastaIdentidadVerificada,
   certificadoFixture,
   crearExpediente,
+  expedienteEnPaqueteGenerado,
   beneficiarioFixture,
   declaracionesCompatibles,
   expedienteFirmado,
@@ -294,5 +296,76 @@ describe("registrarPagoConfirmadoP7 · el certificado entra con el cobro", () =>
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.error).toMatch(/no cuelga del paquete/);
+  });
+});
+
+describe("registrarFirmaClienteInterna", () => {
+  const FECHA = "2026-08-27T12:00:00.000Z";
+
+  function firmaInterna(cambios: Partial<Parameters<typeof registrarFirmaClienteInterna>[1]> = {}) {
+    return {
+      canal: "WHATSAPP" as const,
+      origen: "INTERNA" as const,
+      referenciaActo: "otp-de-firma-1",
+      firmadoEn: FECHA,
+      hashDocumentoFirmado: "a".repeat(64),
+      ...cambios,
+    };
+  }
+
+  it("lleva de PAQUETE_GENERADO a FIRMADO_CLIENTE sin exigir acto de proveedor", () => {
+    // El expediente no tiene `actoDeFirma`: no hay sesión de nadie, y esa es
+    // justamente la diferencia con `registrarFirmaP8`.
+    const expediente = expedienteEnPaqueteGenerado();
+    expect(expediente.actoDeFirma).toBeNull();
+
+    const resultado = registrarFirmaClienteInterna(expediente, firmaInterna(), FECHA);
+
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.expediente.estado).toBe("FIRMADO_CLIENTE");
+    expect(resultado.expediente.firma?.origen).toBe("INTERNA");
+  });
+
+  it("rechaza una firma de proveedor: esa va por su propia transición", () => {
+    const resultado = registrarFirmaClienteInterna(
+      expedienteEnPaqueteGenerado(),
+      firmaInterna({ origen: "PROVEEDOR" }),
+      FECHA,
+    );
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/registrarFirmaP8/);
+  });
+
+  it("rechaza una huella vacía: un string en blanco no prueba nada", () => {
+    const resultado = registrarFirmaClienteInterna(
+      expedienteEnPaqueteGenerado(),
+      firmaInterna({ hashDocumentoFirmado: "   " }),
+      FECHA,
+    );
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/huella/);
+  });
+
+  it("rechaza una firma sin referencia del acto que la produjo", () => {
+    const resultado = registrarFirmaClienteInterna(
+      expedienteEnPaqueteGenerado(),
+      firmaInterna({ referenciaActo: "" }),
+      FECHA,
+    );
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/referencia/);
+  });
+
+  it("no firma un expediente sin paquete cerrado (regla inviolable #4)", () => {
+    const sinPaquete = { ...expedienteEnPaqueteGenerado(), paqueteDocumental: null };
+
+    const resultado = registrarFirmaClienteInterna(sinPaquete, firmaInterna(), FECHA);
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/paquete documental/);
   });
 });

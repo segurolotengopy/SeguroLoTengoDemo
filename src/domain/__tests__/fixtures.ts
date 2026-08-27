@@ -6,6 +6,7 @@ import type {
   Declaraciones,
   EstadoExpediente,
   Expediente,
+  Firma,
   FirmaInstitucional,
   Identidad,
   PaqueteDocumental,
@@ -208,9 +209,10 @@ export function expedienteEnPaqueteGenerado(id = "EXP-TEST-P8"): Expediente {
   return conPaquete.expediente;
 }
 
-export const firmaFixture = {
-  idCode100: "C100-TEST-1",
-  canal: "WHATSAPP" as const,
+export const firmaFixture: Firma = {
+  origen: "PROVEEDOR",
+  referenciaActo: "C100-TEST-1",
+  canal: "WHATSAPP",
   firmadoEn: "2026-08-09T15:03:00.000Z",
   hashDocumentoFirmado: "e".repeat(64),
 };
@@ -235,7 +237,7 @@ export function expedienteFirmado(id = "EXP-TEST-P7"): Expediente {
   const conActo = {
     ...expedienteEnPaqueteGenerado(id),
     actoDeFirma: {
-      idCode100: firmaFixture.idCode100,
+      idCode100: firmaFixture.referenciaActo,
       canal: firmaFixture.canal,
       destinoEnmascarado: "+5959•••••456",
       enlaceEnviadoEn: "2026-08-09T15:02:30.000Z",

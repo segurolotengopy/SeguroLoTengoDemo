@@ -83,7 +83,7 @@ export function runSignatureProviderContractTests(cableado: CableadoSignaturePro
       expect(resultado.estado).toBe("FIRMADO");
       if (resultado.estado !== "FIRMADO") return;
       expect(resultado.firma.hashDocumentoFirmado.length).toBeGreaterThan(0);
-      expect(resultado.firma.idCode100).toBe(iniciada.idCode100);
+      expect(resultado.firma.referenciaActo).toBe(iniciada.idCode100);
       expect(resultado.firma.canal).toBe("WHATSAPP");
     });
 

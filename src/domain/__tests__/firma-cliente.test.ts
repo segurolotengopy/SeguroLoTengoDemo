@@ -46,7 +46,9 @@ const CONTEXTO: ContextoPeticion = {
 const TEXTO = "Declaro haber revisado la Solicitud y el FIPF y solicito firmarlos.";
 const VERSION_TEXTO = "2026-08-FIRMA-v1";
 
-function repositorioFalso(inicial: Expediente): RepositorioExpediente {
+function repositorioFalso(
+  inicial: Expediente,
+): RepositorioExpediente & { actual: () => Expediente } {
   let guardado = inicial;
   return {
     async obtenerPorId(id) {
@@ -58,6 +60,7 @@ function repositorioFalso(inicial: Expediente): RepositorioExpediente {
     async guardar(expediente) {
       guardado = expediente;
     },
+    actual: () => guardado,
   };
 }
 
@@ -75,7 +78,10 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
 }
 
 interface Armado {
-  readonly deps: DependenciasFirmaCliente & { readonly evidencias: ReturnType<typeof evidenciasFalsas> };
+  readonly deps: DependenciasFirmaCliente & {
+    readonly evidencias: ReturnType<typeof evidenciasFalsas>;
+    readonly expedientes: ReturnType<typeof repositorioFalso>;
+  };
   readonly expediente: Expediente;
   readonly otpRepository: OtpRepository;
   readonly otpProvider: OtpProvider;
@@ -420,5 +426,77 @@ describe("acto de firma", () => {
 
     expect(resultado).toEqual({ ok: false, motivo: "PAQUETE_NO_CERRADO" });
     expect(verificaciones()).toBe(0);
+  });
+
+  it("deja el expediente en FIRMADO_CLIENTE con la firma interna registrada", async () => {
+    const { deps, expediente } = armar();
+    const envio = await solicitarOtpDeFirmaCliente(deps, {
+      expedienteId: expediente.id,
+      canal: "WHATSAPP",
+      contexto: CONTEXTO,
+    });
+    if (!envio.ok) throw new Error("el envío debería haber salido");
+
+    const resultado = await registrarActoDeFirmaCliente(deps, {
+      expedienteId: expediente.id,
+      canal: "WHATSAPP",
+      otpId: envio.otpId,
+      codigoIngresado: codigoDe(envio.otpId),
+      textoAceptado: TEXTO,
+      versionTextoAceptado: VERSION_TEXTO,
+      contexto: CONTEXTO,
+    });
+    expect(resultado.ok).toBe(true);
+
+    const guardado = deps.expedientes.actual();
+    // FIRMADO_CLIENTE y no FIRMADO: faltan las institucionales (D-13), así que
+    // el cobro sigue inhabilitado.
+    expect(guardado.estado).toBe("FIRMADO_CLIENTE");
+    expect(guardado.firma?.origen).toBe("INTERNA");
+    // La referencia del acto es el OTP consumido: no hay sesión de proveedor
+    // que registrar, y el campo no finge que la haya.
+    expect(guardado.firma?.referenciaActo).toBe(envio.otpId);
+    expect(guardado.firma?.hashDocumentoFirmado).toBe(expediente.paqueteDocumental?.hashSha256);
+  });
+
+  it("un expediente ya firmado no vuelve a firmarse, ni con un código nuevo", async () => {
+    const { deps, expediente } = armar();
+
+    const primerEnvio = await solicitarOtpDeFirmaCliente(deps, {
+      expedienteId: expediente.id,
+      canal: "WHATSAPP",
+      contexto: CONTEXTO,
+    });
+    if (!primerEnvio.ok) throw new Error("el envío debería haber salido");
+    await registrarActoDeFirmaCliente(deps, {
+      expedienteId: expediente.id,
+      canal: "WHATSAPP",
+      otpId: primerEnvio.otpId,
+      codigoIngresado: codigoDe(primerEnvio.otpId),
+      textoAceptado: TEXTO,
+      versionTextoAceptado: VERSION_TEXTO,
+      contexto: CONTEXTO,
+    });
+
+    // Código nuevo, expediente ya firmado: lo corta el grafo de transiciones.
+    const segundoEnvio = await solicitarOtpDeFirmaCliente(deps, {
+      expedienteId: expediente.id,
+      canal: "WHATSAPP",
+      contexto: CONTEXTO,
+    });
+    if (!segundoEnvio.ok) throw new Error("el segundo envío debería haber salido");
+
+    const resultado = await registrarActoDeFirmaCliente(deps, {
+      expedienteId: expediente.id,
+      canal: "WHATSAPP",
+      otpId: segundoEnvio.otpId,
+      codigoIngresado: codigoDe(segundoEnvio.otpId),
+      textoAceptado: TEXTO,
+      versionTextoAceptado: VERSION_TEXTO,
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado).toEqual({ ok: false, motivo: "ESTADO_INVALIDO" });
+    expect(deps.expedientes.actual().firma?.referenciaActo).toBe(primerEnvio.otpId);
   });
 });

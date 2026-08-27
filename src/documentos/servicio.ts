@@ -668,7 +668,12 @@ export type ResultadoArchivadoFirmados =
   | { readonly ok: true; readonly clave: string }
   | {
       readonly ok: false;
-      readonly motivo: "SIN_FIRMA" | "PROVEEDOR_SIN_DOCUMENTOS" | "HUELLA_NO_COINCIDE";
+      readonly motivo:
+        | "SIN_FIRMA"
+        | "PROVEEDOR_SIN_DOCUMENTOS"
+        /** La firma es interna: el PDF firmado no viene de ningún tercero. */
+        | "SIN_DESCARGA_DE_PROVEEDOR"
+        | "HUELLA_NO_COINCIDE";
       readonly detalle?: string;
     };
 
@@ -685,7 +690,12 @@ export async function archivarDocumentosFirmados(
   const yaGuardado = await deps.archivos.obtenerArchivo(clave);
   if (yaGuardado !== null) return { ok: true, clave };
 
-  const bytes = await deps.firmas.descargarDocumentoFirmado(firma.idCode100);
+  // Una firma interna no tiene nada que descargar: el PDF firmado lo produce
+  // SeguroLoTengo, no un tercero. Se corta acá en vez de pedirle al proveedor
+  // un documento de un acto que nunca abrió.
+  if (firma.origen !== "PROVEEDOR") return { ok: false, motivo: "SIN_DESCARGA_DE_PROVEEDOR" };
+
+  const bytes = await deps.firmas.descargarDocumentoFirmado(firma.referenciaActo);
   if (!bytes) return { ok: false, motivo: "PROVEEDOR_SIN_DOCUMENTOS" };
 
   // Se verifica la huella **antes** de escribir: si el PDF que devolvió el

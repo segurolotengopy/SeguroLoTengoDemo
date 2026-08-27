@@ -27,20 +27,19 @@
  * normativa distinta y un auditor de cualquiera de los dos tiene que poder
  * citar el suyo.
  *
- * **Lo que este módulo no hace todavía, y por qué.** No transiciona el
- * expediente ni sella los bytes. `registrarFirmaP8` —la única escritura de
- * `expediente.firma`— exige hoy un `actoDeFirma` abierto con su `idCode100`,
- * que es identidad del proveedor y el acto interno no tiene: cablearlo pide
- * una arista propia en `expediente.ts`, no un parche acá. Sellar es igual de
- * posterior: si el dictamen legal elige la variante criptográfica, se agrega
- * encima sin tocar nada de este módulo
+ * **Lo que este módulo todavía no hace.** No sella los bytes: con la variante
+ * de evidencia, firmar no modifica el PDF y lo que prueba la firma es el
+ * registro. Si el dictamen legal elige la variante criptográfica, el sellado
+ * se agrega encima sin tocar nada de acá
  * (`docs/VALIDACION_LEGAL_FIRMA_INTERNA.md` §1).
  */
+import { conReintentoPorConflicto } from "./concurrencia";
 import { enmascararCorreo } from "./correo";
+import { registrarFirmaClienteInterna } from "./expediente";
 import { enmascararCelular } from "./telefono";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { OtpProvider } from "../ports/otp-provider";
-import type { CanalFirma, DocumentoCerrado, Expediente, RegistroEvidencia } from "./tipos";
+import type { CanalFirma, DocumentoCerrado, Expediente, Firma, RegistroEvidencia } from "./tipos";
 import type {
   ContextoPeticion,
   LectorMetadataOtp,
@@ -73,6 +72,9 @@ export interface DependenciasFirmaCliente {
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
 }
+
+/** Distingue "el expediente no podía firmar" de "perdí la carrera de escritura". */
+class ErrorTransicionFirma extends Error {}
 
 interface Reloj {
   readonly ahora: () => string;
@@ -130,7 +132,15 @@ export type MotivoRechazoFirmaCliente =
   | "INTENTOS_AGOTADOS"
   | "CODIGO_EXPIRADO"
   | "CODIGO_YA_UTILIZADO"
-  | "OTP_NO_ENCONTRADO";
+  | "OTP_NO_ENCONTRADO"
+  /** El expediente no está en el estado desde el que se puede firmar. */
+  | "ESTADO_INVALIDO"
+  /**
+   * Otra escritura ganó la carrera y el conflicto persistió tras los
+   * reintentos. **El código ya se consumió**: no se puede reintentar la firma
+   * sin pedir uno nuevo, y por eso este caso se distingue de los demás.
+   */
+  | "CONFLICTO_CONCURRENCIA";
 
 // ---------------------------------------------------------------------------
 // Elegibilidad
@@ -421,6 +431,65 @@ export async function registrarActoDeFirmaCliente(
     dispositivo: entrada.contexto.dispositivo,
     sesionId: entrada.contexto.sesionId,
   };
+
+  // El código ya se consumió, así que de acá en adelante no se puede volver a
+  // empezar: el reintento por conflicto vuelve a leer y a transicionar, pero
+  // nunca a verificar otro OTP.
+  const firma: Firma = {
+    canal: entrada.canal,
+    origen: "INTERNA",
+    referenciaActo: entrada.otpId,
+    firmadoEn: fecha,
+    // Sin sellado, el PDF firmado es byte a byte el que se cerró: lo que
+    // prueba la firma es la evidencia, no un archivo distinto.
+    hashDocumentoFirmado: documento.hashSha256,
+  };
+
+  let persistido = false;
+  try {
+    persistido = await conReintentoPorConflicto(
+      async () => {
+        const actual = await deps.expedientes.obtenerPorId(expediente.id);
+        if (!actual) {
+          throw new ErrorTransicionFirma("El expediente desapareció entre la lectura y la escritura.");
+        }
+
+        const transicion = registrarFirmaClienteInterna(actual, firma, fecha);
+        if (!transicion.ok) throw new ErrorTransicionFirma(transicion.error);
+
+        await deps.expedientes.guardar(transicion.expediente, actual.actualizadoEn);
+        return true;
+      },
+      () => false,
+    );
+  } catch (error) {
+    const motivo = error instanceof ErrorTransicionFirma ? "ESTADO_INVALIDO" : "CONFLICTO_CONCURRENCIA";
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_ACTO_FIRMA_CLIENTE,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: {
+        otpId: entrada.otpId,
+        motivo,
+        detalle: error instanceof Error ? error.message : String(error),
+      },
+    });
+    return { ok: false, motivo };
+  }
+
+  if (!persistido) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_ACTO_FIRMA_CLIENTE,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: { otpId: entrada.otpId, motivo: "CONFLICTO_CONCURRENCIA" },
+    });
+    return { ok: false, motivo: "CONFLICTO_CONCURRENCIA" };
+  }
 
   await registrarEvidencia(deps, reloj, {
     expedienteId: expediente.id,

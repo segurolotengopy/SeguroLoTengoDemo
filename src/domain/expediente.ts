@@ -500,12 +500,66 @@ export function registrarFirmaP8(
     return { ok: false, error: "No hay ningún acto de firma abierto para este expediente." };
   }
 
-  if (expediente.actoDeFirma.idCode100 !== firma.idCode100) {
+  if (firma.origen === "PROVEEDOR" && expediente.actoDeFirma.idCode100 !== firma.referenciaActo) {
     return {
       ok: false,
       error:
-        `La firma llegó con el identificador ${firma.idCode100}, ` +
+        `La firma llegó con el identificador ${firma.referenciaActo}, ` +
         `pero el acto abierto de este expediente es ${expediente.actoDeFirma.idCode100}.`,
+    };
+  }
+
+  if (firma.hashDocumentoFirmado.trim() === "") {
+    return { ok: false, error: "La firma tiene que traer la huella del documento firmado." };
+  }
+
+  return transicionarExpediente(expediente, "FIRMADO_CLIENTE", { firma }, ahora);
+}
+
+/**
+ * PAQUETE_GENERADO → FIRMADO_CLIENTE con la **firma interna** del cliente
+ * (`origen: "INTERNA"`), la que genera SeguroLoTengo con su propio OTP en vez
+ * de delegarla en un prestador (Res. SS.SG. 210/2025, art. 4).
+ *
+ * Es una arista propia y no un parámetro más de `registrarFirmaP8` por una
+ * razón concreta: aquella exige un `actoDeFirma` abierto y compara su
+ * `idCode100`, y acá **no hay sesión de nadie que comparar**. Meter la firma
+ * interna por ese camino obligaría a inventarle al acto un identificador de
+ * proveedor que no existe, que es exactamente la mentira que el campo
+ * `referenciaActo` vino a evitar.
+ *
+ * Lo que sí se sigue haciendo cumplir es lo mismo de siempre: no hay firma sin
+ * paquete cerrado (regla inviolable #4), la huella no puede venir vacía, y el
+ * expediente queda en `FIRMADO_CLIENTE` —faltan las institucionales (D-13)—,
+ * así que el cobro sigue inhabilitado hasta que el acto cierre.
+ *
+ * **Sobre la huella mientras no haya sellado.** Con la variante de evidencia
+ * (`docs/VALIDACION_LEGAL_FIRMA_INTERNA.md` §1), firmar no modifica el PDF: la
+ * huella del documento firmado es la del documento cerrado, y lo que prueba la
+ * firma es el registro de evidencia. Si el dictamen legal elige la variante
+ * criptográfica, el sellado producirá bytes nuevos y esta huella dejará de
+ * coincidir con la del cierre — por eso se recibe como dato y no se deriva.
+ */
+export function registrarFirmaClienteInterna(
+  expediente: Expediente,
+  firma: Firma,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (firma.origen !== "INTERNA") {
+    return {
+      ok: false,
+      error: "Esta transición es para la firma interna; una firma de proveedor va por registrarFirmaP8.",
+    };
+  }
+
+  if (!expediente.paqueteDocumental) {
+    return { ok: false, error: "No se puede registrar una firma sin paquete documental cerrado." };
+  }
+
+  if (firma.referenciaActo.trim() === "") {
+    return {
+      ok: false,
+      error: "La firma interna tiene que traer la referencia del acto que la produjo.",
     };
   }
 

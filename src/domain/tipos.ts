@@ -509,9 +509,31 @@ export interface ActoDeFirmaEnCurso {
  * (`hashSolicitudFirmada` y `hashFipfFirmado`) desaparecen con los dos
  * archivos que describían.
  */
+/**
+ * De dónde salió la firma del cliente.
+ *
+ * `PROVEEDOR` es el acto que abre un prestador externo y la persona completa
+ * en su ventana. `INTERNA` es la firma electrónica no cualificada que genera
+ * SeguroLoTengo con su propio OTP (Res. SS.SG. 210/2025, art. 4), donde no
+ * hay sesión de nadie más que registrar.
+ *
+ * Es un campo y no una suposición porque la evidencia tiene que poder decir
+ * **cómo se firmó**, no solo que se firmó: son dos mecanismos con respaldo
+ * probatorio distinto y un auditor pregunta cuál se usó.
+ */
+export type OrigenFirmaCliente = "PROVEEDOR" | "INTERNA";
+
 export interface Firma {
   readonly canal: CanalFirma;
-  readonly idCode100: string;
+  readonly origen: OrigenFirmaCliente;
+  /**
+   * Identificador del acto que produjo la firma: la sesión del prestador
+   * cuando el origen es `PROVEEDOR`, el OTP consumido cuando es `INTERNA`.
+   *
+   * Se llamaba `idCode100`. El nombre presuponía un proveedor y dejó de ser
+   * cierto en cuanto la firma del cliente pasó a poder generarse acá.
+   */
+  readonly referenciaActo: string;
   readonly firmadoEn: string;
   /** Huella del PDF único ya firmado por el cliente. */
   readonly hashDocumentoFirmado: string;
