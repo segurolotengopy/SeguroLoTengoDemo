@@ -1,3 +1,4 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
@@ -41,7 +42,7 @@ import { ResumenDelCaso } from "./ResumenDelCaso";
  */
 
 export const metadata: Metadata = {
-  title: "Tu solicitud requiere una revisión adicional · SeguroLoTengo",
+  title: `Tu solicitud requiere una revisión adicional · ${sufijoTitulo()}`,
   description:
     "Pantalla A: la póliza no puede emitirse automáticamente; el caso se derivó a Interseguros y Alianza Garantía.",
 };

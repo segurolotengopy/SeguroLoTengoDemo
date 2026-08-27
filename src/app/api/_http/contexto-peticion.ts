@@ -12,11 +12,15 @@
  * otra persona simplemente escribiendo otro id.
  */
 import { randomUUID } from "node:crypto";
+import { URL_BASE_VERIFICACION_POR_DEFECTO } from "@/domain/documentos";
 import type { ContextoPeticion } from "@/domain/verificacion-canal-whatsapp";
 
 export const COOKIE_SESION = "slt_sesion";
 export const COOKIE_EXPEDIENTE = "slt_expediente";
 export const COOKIE_OTP = "slt_otp";
+
+/** Ruta pública de la verificación de documentos (CMP-06). */
+export const RUTA_VERIFICACION = "/verificar";
 
 /** 8 horas: cubre de sobra una sesión de contratación sin quedar viva para siempre. */
 const VIDA_COOKIE_SEGUNDOS = 8 * 60 * 60;
@@ -132,5 +136,27 @@ export async function leerJson(request: Request): Promise<Record<string, unknown
     return cuerpo as Record<string, unknown>;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Base del enlace que codifica el QR de verificación impreso en cada PDF.
+ *
+ * Se arma con el origen de la propia petición, igual que la URL de retorno de
+ * Bancard: en el demo corre en `localhost` y en Amplify en el dominio
+ * desplegado, sin necesidad de una variable de entorno más. La constante de
+ * `src/domain/documentos.ts` queda como último recurso, para el día en que
+ * esto se llame desde algo que no sea una petición HTTP.
+ *
+ * Consecuencia querida: el QR de un documento apunta al origen desde el que se
+ * lo cerró, y no cambia después. El documento es inmutable (regla inviolable
+ * #4) y su QR es parte de sus bytes: reescribirlo exigiría versión y huella
+ * nuevas.
+ */
+export function urlBaseVerificacion(request: Request): string {
+  try {
+    return new URL(RUTA_VERIFICACION, new URL(request.url).origin).toString();
+  } catch {
+    return URL_BASE_VERIFICACION_POR_DEFECTO;
   }
 }

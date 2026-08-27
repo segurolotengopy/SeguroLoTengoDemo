@@ -7,7 +7,12 @@ export { HeaderInstitucional } from "./HeaderInstitucional";
 export type { HeaderInstitucionalProps } from "./HeaderInstitucional";
 
 export { StepperPasos } from "./StepperPasos";
-export type { PasoFlujo } from "./StepperPasos";
+
+export { TituloDePantalla } from "./TituloDePantalla";
+
+export { PieLegal } from "./PieLegal";
+export { AvisoCookies } from "./AvisoCookies";
+
 
 export { BarraPlanSeleccionado } from "./BarraPlanSeleccionado";
 export type { BarraPlanSeleccionadoProps } from "./BarraPlanSeleccionado";

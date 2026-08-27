@@ -46,7 +46,24 @@ export async function POST(request: Request): Promise<Response> {
     expedienteId,
     imagenes: { frente: frente.imagen, dorso: dorso.imagen, selfie: selfie.captura },
     paisNacimiento: typeof cuerpo.paisNacimiento === "string" ? cuerpo.paisNacimiento : "",
+    paisResidencia: typeof cuerpo.paisResidencia === "string" ? cuerpo.paisResidencia : "",
     estadoCivil: typeof cuerpo.estadoCivil === "string" ? cuerpo.estadoCivil : "",
+    correo: typeof cuerpo.correo === "string" ? cuerpo.correo : "",
+    // Solo se leen los cuatro campos corregibles; cualquier otra clave que
+    // venga en el cuerpo se ignora en silencio, que es lo que corresponde con
+    // un dato que el dominio no admite corregir.
+    correcciones: {
+      ...(typeof cuerpo.nombres === "string" ? { nombres: cuerpo.nombres } : {}),
+      ...(typeof cuerpo.apellidos === "string" ? { apellidos: cuerpo.apellidos } : {}),
+      ...(typeof cuerpo.sexo === "string" ? { sexo: cuerpo.sexo } : {}),
+      ...(typeof cuerpo.nacionalidad === "string" ? { nacionalidad: cuerpo.nacionalidad } : {}),
+    },
+    // Bloque económico y laboral: el dominio lo interpreta y valida entero, así
+    // que la ruta lo pasa crudo sin mirar campo por campo.
+    datosComplementarios:
+      typeof cuerpo.datosComplementarios === "object" && cuerpo.datosComplementarios !== null
+        ? (cuerpo.datosComplementarios as Readonly<Record<string, unknown>>)
+        : {},
     autorizacionBiometrica: cuerpo.autorizacionBiometrica === true,
     contexto,
   });

@@ -12,18 +12,23 @@
  *     `session_id` y el `_authUrl` que se le manda a la persona.
  *   - abrir el enlace ≈ que la persona entre al `_authUrl`: ahí Code100 emite
  *     el OTP de firma y lo pide en su propia pantalla.
- *   - firmar ≈ `POST /signature/sign-pdf`: devuelve los dos PDF firmados.
+ *   - firmar ≈ `POST /signature/sign-pdf`: devuelve el PDF firmado.
  *   - `confirmarResultado` ≈ `POST /signature/getSessionId`: el estado.
  *
- * ## Regla inviolable #3 — o los dos, o ninguno
+ * ## Regla inviolable #3 — ya no se defiende acá
  *
- * El sellado calcula las dos huellas firmadas **antes** de escribir nada, y
- * después las asienta en una sola asignación (`sesion.firma`). No hay ningún
- * instante en el que la sesión tenga la Solicitud firmada y el FIPF no: si la
- * simulación falla en el medio —palanca `fallarAMitadDelSellado`, que existe
- * justamente para poder probarlo— la sesión queda sin firma, con las dos
- * huellas originales intactas y el acto reintentable. Ver
- * `__tests__/signature-provider.test.ts`.
+ * Este mock tenía una coreografía entera para la atomicidad: calcular las dos
+ * huellas antes de escribir nada, asentarlas en una sola asignación, y una
+ * palanca (`fallarAMitadDelSellado`) para poder demostrar que un corte a mitad
+ * no dejaba un documento firmado y el otro no.
+ *
+ * Con el documento único (D-11) nada de eso hace falta: hay un PDF y una
+ * huella. La regla dejó de depender de que el proveedor —o su simulación— se
+ * porte bien, y pasó a ser una propiedad de la estructura. La palanca de demo
+ * se reemplazó por la falla que sí sigue siendo posible y que sí tiene un
+ * estado que mostrar: que las firmas institucionales no lleguen después de la
+ * del cliente, y el expediente quede en `FIRMADO_CLIENTE` con el cobro
+ * inhabilitado (D-13).
  *
  * ## Regla inviolable #2 — el OTP de firma
  *
@@ -46,7 +51,6 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { crearDocumentoPdf } from "../../documentos/pdf";
 import type {
-  DocumentosFirmados,
   FirmaIniciada,
   IniciarFirmaInput,
   MotivoNoFirmado,
@@ -56,7 +60,7 @@ import type {
 import { ErrorCode100 } from "../../ports/signature-provider";
 import { INTENTOS_MAXIMOS_OTP, VIGENCIA_OTP_MS } from "../../domain/reglas-otp";
 import { generarCodigoOtp } from "../../repositories/otp-hash";
-import type { CanalFirma, DocumentoCerrado, Firma, PaqueteDocumental } from "../../domain/tipos";
+import type { CanalFirma, DocumentoCerrado, Firma } from "../../domain/tipos";
 import { estadoCompartidoDemo } from "./estado-compartido";
 
 /**
@@ -180,19 +184,15 @@ export interface SesionFirmaMock {
   readonly expedienteId: string;
   readonly canal: CanalFirma;
   readonly destino: string;
-  readonly paquete: PaqueteDocumental;
+  readonly documento: DocumentoCerrado;
   readonly enlaceEnviadoEn: string;
   readonly venceEn: string;
   readonly urlActoDeFirma: string;
   /** `null` hasta que la persona abre el enlace y Code100 emite el código. */
   otp: OtpDeFirma | null;
-  /**
-   * Única escritura del resultado firmado. O están las dos huellas (porque
-   * `Firma` no admite menos) o no hay nada: regla inviolable #3.
-   */
   firma: Firma | null;
-  /** Los dos PDF firmados. Se escriben en la misma asignación que `firma`. */
-  documentosFirmados: DocumentosFirmados | null;
+  /** El PDF firmado. Se escribe en la misma asignación que `firma`. */
+  documentoFirmado: Uint8Array | null;
   fallo: { readonly motivo: MotivoNoFirmado; readonly detalle: string | null } | null;
   actualizadoEn: string;
 }
@@ -301,9 +301,13 @@ export interface OpcionesSignatureProviderMock {
 }
 
 function identificadorDeSesion(): string {
-  // Formato análogo al `session_id` que devolvería Code100: identifica el acto
-  // de firma, no contiene ningún dato de la persona ni de los documentos.
-  return `MOCK-CODE100-${randomUUID().slice(0, 13).toUpperCase()}`;
+  // Formato análogo al `session_id` que devolvería el proveedor: identifica el
+  // acto de firma, no contiene ningún dato de la persona ni de los documentos.
+  // El prefijo no nombra al proveedor a propósito: este identificador se
+  // imprime en la pantalla de firma, y ninguna pantalla lo nombra mientras
+  // quién ejecuta la firma del cliente siga sin decidirse (Code100 - Respuestas
+  // C1 a C12, C1).
+  return `MOCK-FIRMA-${randomUUID().slice(0, 13).toUpperCase()}`;
 }
 
 function esperar(ms: number): Promise<void> {
@@ -329,12 +333,12 @@ const FIRMANTES = [
  * El PDF **firmado** que devolvería `POST /signature/sign-pdf`.
  *
  * Code100 recibe el PDF cerrado y le incrusta las firmas; este mock no tiene
- * los bytes originales —el puerto le pasa el `PaqueteDocumental`, que es
+ * los bytes originales —el puerto le pasa el `DocumentoCerrado`, que es
  * metadata— así que genera una constancia de firma con los datos del acto. Lo
  * que sí es real y es lo que importa: **el archivo es determinista y su
- * SHA-256 es el que se registra como `hashSolicitudFirmada` /
- * `hashFipfFirmado`**, así que la huella que queda en el expediente es
- * verificable contra el archivo que después se descarga en P9.
+ * SHA-256 es el que se registra como `hashDocumentoFirmado`**, así que la
+ * huella que queda en el expediente es verificable contra el archivo que
+ * después se descarga en P9.
  *
  * Usa el escritor de PDF de `src/documentos/pdf.ts` en vez de traer una
  * librería: es el mismo que ya emite los documentos del paquete, y garantiza
@@ -399,19 +403,18 @@ function renderizarPdfFirmado(
   return pdf.construir();
 }
 
-/** El paquete tiene que llegar cerrado y hasheado (regla inviolable #4). */
-function validarPaquete(paquete: PaqueteDocumental): void {
-  const documentos = [paquete.solicitud, paquete.fipf];
-  if (documentos.some((documento) => documento.hashSha256.trim() === "")) {
+/**
+ * El documento tiene que llegar cerrado y hasheado (regla inviolable #4).
+ *
+ * La segunda comprobación que había acá —que la Solicitud y el FIPF vinieran
+ * con la misma versión— desapareció con el documento único (D-11): son
+ * secciones del mismo archivo y no hay dos versiones que puedan diferir.
+ */
+function validarDocumento(documento: DocumentoCerrado): void {
+  if (documento.hashSha256.trim() === "") {
     throw new ErrorCode100(
       "PAQUETE_INVALIDO",
       "Code100 no acepta un documento sin huella digital: hay que cerrarlo y hashearlo antes de firmar.",
-    );
-  }
-  if (paquete.solicitud.version !== paquete.fipf.version) {
-    throw new ErrorCode100(
-      "PAQUETE_INVALIDO",
-      "La Solicitud y el FIPF tienen versiones distintas: se firman en un solo acto, con la misma versión.",
     );
   }
 }
@@ -431,6 +434,13 @@ function proyectar(sesion: SesionFirmaMock, instante: string): ResultadoFirma {
     enlaceEnviadoEn: sesion.enlaceEnviadoEn,
     venceEn: sesion.venceEn,
     enlaceAbierto: sesion.otp !== null,
+    // El mock alinea la caducidad de la sesión con `venceEn` porque es el
+    // único dato que tiene. El proveedor real la informa por su cuenta
+    // (`fecha_expiracion` / `expirado`) y puede no coincidir: la rama de
+    // arriba ya la habría convertido en NO_FIRMADO, así que acá siempre es
+    // `false` — el campo existe para que el adaptador oficial pueda decir otra
+    // cosa sin cambiar el contrato (D-10).
+    expirada: false,
   };
 }
 
@@ -444,7 +454,7 @@ export function crearSignatureProviderMock(
 
   return {
     async iniciarFirma(input: IniciarFirmaInput): Promise<FirmaIniciada> {
-      validarPaquete(input.paqueteDocumental);
+      validarDocumento(input.documento);
 
       const falla = fallaForzada();
       if (falla === "TIMEOUT") {
@@ -467,13 +477,13 @@ export function crearSignatureProviderMock(
         destino: input.destino,
         // Los DOS documentos en la MISMA sesión: fila 36 de la matriz y regla
         // inviolable #3. No hay ninguna rama que abra una sesión por documento.
-        paquete: input.paqueteDocumental,
+        documento: input.documento,
         enlaceEnviadoEn: enviado.toISOString(),
         venceEn: new Date(enviado.getTime() + vigenciaEnlaceMs).toISOString(),
         urlActoDeFirma: `https://firmador.simulado.code100.com.py/sign/${idCode100}`,
         otp: null,
         firma: null,
-        documentosFirmados: null,
+        documentoFirmado: null,
         fallo: null,
         actualizadoEn: enviado.toISOString(),
       };
@@ -488,10 +498,8 @@ export function crearSignatureProviderMock(
       };
     },
 
-    async descargarDocumentosFirmados(idCode100: string): Promise<DocumentosFirmados | null> {
-      // Los dos o ninguno: `documentosFirmados` se escribe en la misma
-      // asignación que la firma, así que no puede haber uno solo.
-      return (await leerSesion(idCode100))?.documentosFirmados ?? null;
+    async descargarDocumentoFirmado(idCode100: string): Promise<Uint8Array | null> {
+      return (await leerSesion(idCode100))?.documentoFirmado ?? null;
     },
 
     async confirmarResultado(idCode100: string): Promise<ResultadoFirma> {
@@ -605,19 +613,13 @@ export type ResultadoFirmaDemo =
 
 /**
  * La persona tipea el OTP en la pantalla de Code100 y firma. **Un solo acto
- * para los dos documentos** (regla inviolable #3).
- *
- * `fallarAMitadDelSellado` es la palanca que existe para poder demostrar —y
- * testear— la atomicidad: corta el sellado con la primera huella ya calculada
- * y la segunda no. Lo importante es lo que pasa entonces: como nada se escribió
- * todavía, la sesión queda sin firma y con los dos documentos sin firmar.
+ * sobre un solo documento** (D-11).
  */
 export async function firmarEnCode100Mock(
   idCode100: string,
   codigoIngresado: string,
   opciones: {
     readonly ahora?: () => Date;
-    readonly fallarAMitadDelSellado?: boolean;
     readonly otpRemoto?: OtpFirmaRemoto | null;
   } = {},
 ): Promise<ResultadoFirmaDemo> {
@@ -673,37 +675,26 @@ export async function firmarEnCode100Mock(
     }
   }
 
-  // --- Sellado atómico ---------------------------------------------------
-  // Los dos PDF firmados se renderizan y hashean en listas temporales; recién
-  // cuando están los dos se escriben `sesion.firma` y `sesion.documentosFirmados`,
-  // en dos asignaciones seguidas sin nada en el medio que pueda fallar. Hasta
-  // ese momento la sesión no cambió, así que una interrupción acá no deja
-  // ningún documento firmado.
-  const documentos = [sesion.paquete.solicitud, sesion.paquete.fipf] as const;
-  const pdfs: Uint8Array[] = [];
-  const huellas: string[] = [];
-  for (const documento of documentos) {
-    if (opciones.fallarAMitadDelSellado && huellas.length === 1) {
-      sesion.actualizadoEn = firmadoEn;
-      await guardarSesion(sesion);
-      return { ok: false, motivo: "FALLA_DEL_PROVEEDOR" };
-    }
-    const bytes = renderizarPdfFirmado(documento, sesion, firmadoEn);
-    pdfs.push(bytes);
-    // La huella registrada es la del archivo que se va a poder descargar.
-    huellas.push(createHash("sha256").update(bytes).digest("hex"));
-  }
+  // --- Sellado -----------------------------------------------------------
+  // Con el documento único (D-11) esto dejó de ser un sellado atómico de dos
+  // piezas: hay un PDF, se renderiza, se hashea y se escribe. La coreografía
+  // que había acá —dos listas temporales y dos asignaciones seguidas sin nada
+  // en el medio que pudiera fallar— existía para que una interrupción no
+  // dejara un documento firmado y el otro no. Ese riesgo se fue con el
+  // segundo archivo.
+  const bytes = renderizarPdfFirmado(sesion.documento, sesion, firmadoEn);
+  // La huella registrada es la del archivo que se va a poder descargar.
+  const hashDocumentoFirmado = createHash("sha256").update(bytes).digest("hex");
 
   const firma: Firma = {
     canal: sesion.canal,
     idCode100,
     firmadoEn,
-    hashSolicitudFirmada: huellas[0],
-    hashFipfFirmado: huellas[1],
+    hashDocumentoFirmado,
   };
 
   sesion.firma = firma;
-  sesion.documentosFirmados = { solicitud: pdfs[0], fipf: pdfs[1] };
+  sesion.documentoFirmado = bytes;
   sesion.otp = null; // Uso único: el código no sirve para nada más.
   sesion.actualizadoEn = firmadoEn;
   await guardarSesion(sesion);

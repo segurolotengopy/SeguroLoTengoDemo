@@ -7,7 +7,7 @@
  *
  * 1. `emitirPolizaP9` — al entrar a la pantalla: SeguroLoTengo remite el
  *    expediente a Alianza, que lo valida automáticamente por SEBAOT.
- *    FIRMADO → EMITIDO, con la póliza `EN PROCESO DE EMISIÓN`.
+ *    PAGO_CONFIRMADO → EMITIDO, con la póliza `EN PROCESO DE EMISIÓN`.
  * 2. `consultarEmisionP9` — el sondeo posterior, mientras la pantalla muestra
  *    el badge `EN EMISIÓN`. Actualiza el estado de la póliza y de la factura
  *    **sin mover el estado del expediente**, que ya llegó a EMITIDO.
@@ -15,17 +15,18 @@
  *
  * ## Las cuatro reglas que este módulo hace imposibles de violar
  *
- * **No hay emisión sin firma completa** (regla inviolable #3). El único estado
- * de origen es FIRMADO, y `PolicyIssuer.emitirPoliza` exige `firma: Firma` con
- * los dos hashes obligatorios: no hay forma de pedirle a SEBAOT que emita sobre
- * un paquete a medio firmar.
+ * **No hay emisión sin firma completa** (regla inviolable #3).
+ * `PolicyIssuer.emitirPoliza` exige `firma: Firma` con los dos hashes
+ * obligatorios, y llegar al estado de origen ya exigió pasar por la firma: no
+ * hay forma de pedirle a SEBAOT que emita sobre un paquete a medio firmar.
  *
  * **El orden es firma → cobro → emisión** (filas 43 y 44 de la matriz de
- * cumplimiento). No alcanza con que la garantía de pago esté lista: hace falta
- * que el dinero haya **entrado**. Con crédito eso significa CAPTURADO, no
- * PREAUTORIZADO — la captura la ordena la firma en P8, y si no se completó, la
- * fila 44 es explícita: *"Si falla el cobro, no solicitar la emisión
- * automática"* (Código Civil, art. 1373; Ley 4868/13, arts. 7(e) y 7(p)).
+ * cumplimiento), que desde D-08 es también el orden de las pantallas. El único
+ * estado de origen es PAGO_CONFIRMADO, que ya significa *"el dinero entró"*;
+ * la comprobación explícita del `Pago` se conserva igual porque una condición
+ * de la que depende una obligación legal no se sostiene sola en el grafo —
+ * fila 44: *"Si falla el cobro, no solicitar la emisión automática"* (Código
+ * Civil, art. 1373; Ley 4868/13, arts. 7(e) y 7(p)).
  *
  * **La póliza conserva el correlativo de la propuesta** (fila 47). El número no
  * lo inventa nadie acá: se le pasa `numeroPropuesta` a SEBAOT y
@@ -46,13 +47,14 @@ import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurren
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { PolicyIssuer } from "../ports/policy-issuer";
 import { actualizarEstadoPolizaP9, registrarEmisionP9 } from "./expediente";
+import { codigoComprobante } from "./comprobante-pago";
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import {
   TEXTO_COMUNICACIONES_COMERCIALES,
   VERSION_COMUNICACIONES_COMERCIALES,
 } from "./textos-p9";
-import { cobroConfirmadoParaEmision, esPagoDefinitivoAntesDeFirma } from "./tipos";
+import { cobroConfirmadoParaEmision } from "./tipos";
 import type {
   EstadoExpediente,
   Expediente,
@@ -74,8 +76,14 @@ export interface DependenciasP9 {
   readonly nuevoId?: () => string;
 }
 
-/** Único estado desde el que se puede remitir el expediente a Alianza. */
-export const ESTADO_REQUERIDO_P9: EstadoExpediente = "FIRMADO";
+/**
+ * Único estado desde el que se puede remitir el expediente a Alianza.
+ *
+ * Era `FIRMADO` mientras se cobraba antes de firmar. Con el orden invertido
+ * (D-08) firmar es el paso anterior y lo último que falta es la plata, así que
+ * la emisión arranca del cobro acreditado.
+ */
+export const ESTADO_REQUERIDO_P9: EstadoExpediente = "PAGO_CONFIRMADO";
 
 export const PASO_EVIDENCIA_EMISION_P9 = "P9_EMISION_POLIZA";
 export const PASO_EVIDENCIA_ESTADO_POLIZA_P9 = "P9_ESTADO_POLIZA";
@@ -191,7 +199,7 @@ function polizaDesde(
 // ---------------------------------------------------------------------------
 
 /**
- * FIRMADO → EMITIDO, al entrar a P9.
+ * PAGO_CONFIRMADO → EMITIDO, al entrar a P9.
  *
  * Idempotente de punta a punta: con el expediente ya EMITIDO devuelve la póliza
  * persistida sin volver a llamar a SEBAOT ni a transicionar. Importa porque la
@@ -272,7 +280,7 @@ async function intentarEmitirPolizaP9(
       // El correlativo de la propuesta: SEBAOT no acuña un número nuevo.
       propuestaId: expediente.numeroPropuesta,
       referenciaBancard: pago.referenciaBancard ?? "",
-      paqueteDocumental: paquete,
+      documento: paquete,
       // Completa por tipo: no hay forma de emitir sobre una firma parcial.
       firma,
     });
@@ -323,8 +331,7 @@ async function intentarEmitirPolizaP9(
       estadoPoliza: poliza.estado,
       referenciaBancard: pago.referenciaBancard ?? "",
       idCode100: firma.idCode100,
-      hashSolicitudFirmada: firma.hashSolicitudFirmada,
-      hashFipfFirmado: firma.hashFipfFirmado,
+      hashDocumentoFirmado: firma.hashDocumentoFirmado,
       emisorPoliza: "ALIANZA_GARANTIA_SEBAOT",
       // Constancia explícita de que no existe: el producto no la contempla.
       notaDeCobertura: "NO_SE_GENERA",
@@ -470,9 +477,29 @@ export async function registrarComunicacionesComercialesP9(
 
 export interface DocumentoDescargableP9 {
   readonly codigo: string;
+  /** Código interno de la sección FIPF, dentro del mismo PDF (D-11). */
+  readonly codigoSeccionFipf: string;
   readonly version: number;
   /** Huella del PDF **firmado**, que es el archivo que se descarga. */
   readonly hashFirmado: string;
+}
+
+/**
+ * El Certificado de Cobertura Provisional, tal como lo muestra la pantalla
+ * (D-12, CHG-42).
+ *
+ * Las fechas salen del expediente **calculadas al cobrar**, no del reloj de
+ * quien abre la pantalla: es la fecha desde la que responde la aseguradora, y
+ * recalcularla acá abriría la puerta a que la pantalla y el PDF dijeran cosas
+ * distintas.
+ */
+export interface CertificadoDescargableP9 {
+  readonly codigo: string;
+  readonly version: number;
+  readonly hashSha256: string;
+  readonly inicioCobertura: string;
+  readonly finCobertura: string;
+  readonly emitidoEn: string;
 }
 
 export interface ResumenP9 {
@@ -485,7 +512,8 @@ export interface ResumenP9 {
   readonly polizaEmitidaEn: string | null;
   readonly referenciaBancard: string | null;
   readonly medio: MedioDePago | null;
-  readonly pagoDefinitivo: boolean;
+  /** Premio efectivamente cobrado, para la banda de pago confirmado (CHG-40). */
+  readonly montoGs: number | null;
   readonly nombreAsegurado: string | null;
   readonly documentoEnmascarado: string | null;
   readonly whatsappEnmascarado: string | null;
@@ -493,8 +521,17 @@ export interface ResumenP9 {
   readonly firmadoEn: string | null;
   readonly pagoConfirmadoEn: string | null;
   readonly solicitudAceptadaEn: string;
-  readonly solicitud: DocumentoDescargableP9;
-  readonly fipf: DocumentoDescargableP9;
+  /** El documento único firmado: Solicitud + FIPF (D-11). */
+  readonly documento: DocumentoDescargableP9;
+  /**
+   * El certificado emitido con el cobro (D-12), o `null` en los expedientes
+   * que cobraron antes de que este documento existiera y **no se reescriben**
+   * (regla inviolable #10). La pantalla contempla la ausencia en vez de
+   * inventarla.
+   */
+  readonly certificado: CertificadoDescargableP9 | null;
+  /** Código del comprobante de pago (D-05); se genera al pedirlo. */
+  readonly codigoComprobante: string;
 }
 
 /** `9323336` → `93•••••`: alcanza para reconocer el documento sin exponerlo. */
@@ -520,6 +557,7 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
 
   const identidad = expediente.identidad;
   const pago = expediente.pago;
+  const certificado = expediente.certificadoCobertura;
 
   return {
     estado: expediente.estado,
@@ -531,7 +569,7 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
     polizaEmitidaEn: poliza.emitidaEn,
     referenciaBancard: pago?.referenciaBancard ?? null,
     medio: pago?.medio ?? null,
-    pagoDefinitivo: pago ? esPagoDefinitivoAntesDeFirma(pago.medio) : false,
+    montoGs: pago?.montoGs ?? null,
     nombreAsegurado: identidad ? `${identidad.nombres} ${identidad.apellidos}`.trim() : null,
     documentoEnmascarado: identidad ? enmascararCedula(identidad.numeroCedula) : null,
     whatsappEnmascarado: expediente.canalWhatsapp
@@ -541,15 +579,22 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
     firmadoEn: firma.firmadoEn,
     pagoConfirmadoEn: pago?.confirmadoEn ?? null,
     solicitudAceptadaEn: poliza.solicitadaEn,
-    solicitud: {
-      codigo: paquete.solicitud.codigo,
-      version: paquete.solicitud.version,
-      hashFirmado: firma.hashSolicitudFirmada,
+    documento: {
+      codigo: paquete.codigo,
+      codigoSeccionFipf: paquete.codigoSeccionFipf,
+      version: paquete.version,
+      hashFirmado: firma.hashDocumentoFirmado,
     },
-    fipf: {
-      codigo: paquete.fipf.codigo,
-      version: paquete.fipf.version,
-      hashFirmado: firma.hashFipfFirmado,
-    },
+    certificado: certificado
+      ? {
+          codigo: certificado.codigo,
+          version: certificado.version,
+          hashSha256: certificado.hashSha256,
+          inicioCobertura: certificado.inicioCobertura,
+          finCobertura: certificado.finCobertura,
+          emitidoEn: certificado.emitidoEn,
+        }
+      : null,
+    codigoComprobante: codigoComprobante(expediente.numeroPropuesta ?? poliza.numeroPoliza),
   };
 }

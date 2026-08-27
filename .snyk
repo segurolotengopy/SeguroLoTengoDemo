@@ -1,0 +1,66 @@
+# Política de Snyk del proyecto.
+#
+# Cada entrada acá es un riesgo ACEPTADO con fundamento y con vencimiento.
+# No es una forma de bajar el ruido: si una entrada vence, el análisis vuelve
+# a fallar a propósito, para obligar a revisar si el fundamento sigue vivo.
+#
+# Regla de trabajo: no se agrega una entrada sin (a) evaluar el CVE contra
+# este código, no contra la descripción genérica, y (b) dejar escrito qué
+# haría falta para que dejara de ser aceptable.
+version: v1.25.0
+
+ignore:
+  # CVE-2025-59472 — Agotamiento de memoria por el endpoint de "resume" de
+  # Partial Prerendering (POST con cabecera `Next-Resume: 1`).
+  #
+  # NO APLICA A ESTE CÓDIGO. El propio aviso lo condiciona: solo es
+  # explotable con `experimental.ppr: true` o `cacheComponents: true`.
+  # `next.config.ts` no tiene bloque `experimental` en absoluto — verificado
+  # el 2026-08-20 — así que el endpoint vulnerable no existe en el build.
+  #
+  # Tampoco hay upgrade posible: el arreglo está en 15.6.0-canary.61 (una
+  # canary, no apta para producción) y en 16.1.5, y el proyecto está fijo en
+  # Next 15 por el límite de Amplify Hosting (CLAUDE.md → "Stack").
+  #
+  # Deja de ser aceptable si: alguien habilita PPR o `cacheComponents`.
+  SNYK-JS-NEXT-15105315:
+    - "*":
+        reason: >-
+          No explotable: requiere experimental.ppr o cacheComponents, y
+          next.config.ts no declara ninguno de los dos. Sin upgrade estable
+          en la línea 15.x, que es la que fija Amplify Hosting.
+        created: 2026-08-20T00:00:00.000Z
+        expires: 2026-11-20T00:00:00.000Z
+
+  # CVE-2026-27980 — El cache en disco del optimizador de imágenes no tiene
+  # tope: variando `q` en `/_next/image` se generan variantes infinitas.
+  #
+  # MITIGADO POR CONFIGURACIÓN, no por upgrade (el arreglo es 16.1.7 y no
+  # podemos subir a 16). `images.unoptimized: true` en `next.config.ts` apaga
+  # el optimizador entero. No cuesta nada porque ninguna pantalla usa
+  # `next/image` y todo `public/` son SVG, que el optimizador no toca.
+  #
+  # Verificado empíricamente el 2026-08-20 con un PNG de prueba, comparando
+  # contra el mismo build sin la mitigación:
+  #   sin `unoptimized`: HTTP 200 y 3 variantes en .next/cache/images
+  #   con `unoptimized`: HTTP 404 y 0 variantes
+  #
+  # ALCANCE, comprobado contra el sitio desplegado el mismo día: en Amplify
+  # esta opción NO es el control operativo. Amplify intercepta `/_next/image`
+  # con su propio optimizador (cabecera `x-amplify-optimized: true`), así que
+  # el código vulnerable de Next no llega a correr en producción — pero
+  # porque lo reemplaza Amplify, no porque lo apaguemos nosotros. La opción
+  # cubre el build local, el dev de cualquiera y cualquier destino que no sea
+  # Amplify. Ver el comentario en `next.config.ts`.
+  #
+  # Deja de ser aceptable si: se agrega un `<Image>` que necesite
+  # optimización real y haya que volver a encender el optimizador. En ese
+  # caso hay que acotar `images.qualities` y `images.localPatterns`.
+  SNYK-JS-NEXT-15674556:
+    - "*":
+        reason: >-
+          Mitigado con images.unoptimized=true, que apaga el optimizador y
+          por lo tanto su cache de disco. Verificado con prueba y control.
+          Sin upgrade posible: el arreglo solo existe en la línea 16.x.
+        created: 2026-08-20T00:00:00.000Z
+        expires: 2026-11-20T00:00:00.000Z

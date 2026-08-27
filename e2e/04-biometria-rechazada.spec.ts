@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
-import { completarCapturasP5, completarP1, completarP2, completarP3, completarP4 } from "./support/flujo";
+import { completarCapturasP5, completarWhatsapp, completarPlan, completarPreparacion, declararCorreo } from "./support/flujo";
 
 /**
  * Escenario 4 — Rechazo de biometría en P5.
@@ -25,10 +25,10 @@ test("selfie que no coincide con la cédula no deja avanzar a P6", async ({ page
 
   await prepararEscenario(page, { personaId: persona.id });
 
-  await completarP1(page, persona);
-  await completarP2(page, persona);
-  await completarP3(page);
-  await completarP4(page, persona);
+  await completarPlan(page, persona);
+  await completarWhatsapp(page, persona);
+  await completarPreparacion(page);
+  await declararCorreo(page, persona);
 
   await completarCapturasP5(page);
 
@@ -52,5 +52,5 @@ test("selfie que no coincide con la cédula no deja avanzar a P6", async ({ page
     data: { datos: {}, declaraciones: {} },
   });
   expect(resumenP6.status()).not.toBe(200);
-  await expect(page).toHaveURL(/\/p5-identidad$/);
+  await expect(page).toHaveURL(/\/identidad$/);
 });

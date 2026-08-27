@@ -15,7 +15,7 @@ import {
 export default function DesignSystemPreview() {
   return (
     <div className="flex flex-1 flex-col gap-8 bg-fondo pb-16">
-      <HeaderInstitucional indicador={<StepperPasos pasoActual={4} />} />
+      <HeaderInstitucional indicador={<StepperPasos slug="/identidad" />} />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-10 px-4 sm:px-6">
         <section className="flex flex-col gap-3">
@@ -24,8 +24,8 @@ export default function DesignSystemPreview() {
           </h2>
           <div className="flex flex-col gap-3 overflow-hidden rounded-xl border border-borde-sutil bg-superficie">
             <HeaderInstitucional indicador={<StepperPasos variante="p0" />} />
-            <HeaderInstitucional indicador={<StepperPasos pasoActual={1} />} />
-            <HeaderInstitucional indicador={<StepperPasos pasoActual={9} />} />
+            <HeaderInstitucional indicador={<StepperPasos slug="/plan" />} />
+            <HeaderInstitucional indicador={<StepperPasos slug="/confirmacion" />} />
             <HeaderInstitucional
               indicador={<StepperPasos variante="pantalla-a" />}
             />

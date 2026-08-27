@@ -33,7 +33,13 @@
  */
 import type { RespuestaDeclaracion } from "./tipos";
 
-export const VERSION_TEXTOS_DECLARACIONES_P6 = "P6-DECLARACIONES-v1";
+/**
+ * v2 (19-ago-2026, CHG-22): se simplificó el literal de la declaración 4
+ * (vigencia y carencias). Las evidencias emitidas hasta hoy apuntan a
+ * `P6-DECLARACIONES-v1` y conservan su propio texto: no se reescriben nunca
+ * (regla inviolable #10).
+ */
+export const VERSION_TEXTOS_DECLARACIONES_P6 = "P6-DECLARACIONES-v2";
 
 export interface TextoDeclaracionP6 {
   readonly numero: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -67,9 +73,16 @@ export const TEXTOS_DECLARACIONES_P6: readonly TextoDeclaracionP6[] = [
   {
     numero: 4,
     titulo: "Vigencia y carencias",
+    // CHG-22 · simplificada a una sola afirmación (reunión 18-ago-2026,
+    // 00:21:59). La versión anterior encadenaba tres cosas —inicio de
+    // cobertura, emisión completada y "revisé todas las carencias"— y Andres
+    // señaló el problema en la reunión: quien no está seguro de haber
+    // revisado *todas* las carencias duda de responder que sí, y una duda
+    // frente a un toggle que decide la elegibilidad es una salida del flujo.
+    // Ahora declara únicamente el hecho que la persona puede afirmar sin
+    // riesgo; las carencias se muestran en la pantalla del plan.
     texto:
-      "Declaro que la cobertura comienza 24 horas después del pago confirmado, una vez completadas " +
-      "la contratación y la emisión; revisé todas las carencias aplicables.",
+      "Declaro que conozco y acepto que la cobertura comenzará 24 horas después del pago.",
   },
   {
     numero: 5,
@@ -99,6 +112,22 @@ export const TEXTOS_DECLARACIONES_P6: readonly TextoDeclaracionP6[] = [
   },
 ];
 
+/**
+ * Subtítulos que agrupan las declaraciones (CHG-20, reunión 00:18:13: "aquí
+ * hay que poner unos titulitos, seguramente declaraciones de salud,
+ * declaraciones…").
+ *
+ * La clave es el número de la declaración que **abre** el grupo; el resto de
+ * las declaraciones no lleva subtítulo. Se separa así, y no en dos listas
+ * distintas, porque la numeración 1-8 es continua y sale de la Solicitud: las
+ * tres primeras van a la declaración médica y el resto a las declaraciones
+ * generales, pero el documento las numera de corrido.
+ */
+export const SUBTITULOS_DECLARACIONES_P6: Readonly<Record<number, string>> = {
+  1: "Declaraciones de salud",
+  4: "Declaraciones",
+};
+
 /** Enlace `¿Qué significa PEP?` de la declaración 8 y su explicación. */
 export const ROTULO_AYUDA_PEP = "¿Qué significa PEP?";
 
@@ -111,6 +140,118 @@ export const AYUDA_PEP =
 export function rotuloRespuestaHabilitante(respuesta: RespuestaDeclaracion): string {
   return respuesta === "SI" ? "Habilita: Sí" : "Habilita: No";
 }
+
+/**
+ * Si se muestra el badge `Habilita: Sí/No` junto a cada declaración.
+ *
+ * CHG-21: la reunión (00:20:37) lo dejó como **guía provisional sujeta a
+ * testeo de usabilidad**, con el pedido explícito de que sea fácil de apagar
+ * ("luego lo podemos quitar, no hay problema"). De ahí el flag: quitarlo no
+ * debería ser una edición de código en medio de una demostración.
+ *
+ * Encendido por defecto. Se apaga con `GUIA_HABILITACION_P6=off`.
+ *
+ * Ojo con lo que el badge NO es: no evalúa nada ni condiciona el envío. Es
+ * una ayuda de lectura; la elegibilidad la decide `elegibilidad.ts` en el
+ * servidor, con el badge visible o sin él.
+ */
+export function guiaHabilitacionVisible(): boolean {
+  return process.env.NEXT_PUBLIC_GUIA_HABILITACION_P6 !== "off";
+}
+
+// ---------------------------------------------------------------------------
+// Declaración de origen lícito de fondos (checkbox obligatorio)
+// ---------------------------------------------------------------------------
+
+/**
+ * Declaración de **licitud y veracidad**, con el literal de la Matriz Legal V4
+ * §4 (bloque "Licitud y veracidad").
+ *
+ * ## Por qué ya no es una casilla
+ *
+ * La matriz es explícita en dos puntos: el efecto de este bloque es
+ * *"Integrada al PDF Solicitud + FIPF; **no casilla adicional**"*, y de la
+ * pantalla de datos dice *"No hay casillas innecesarias; declaraciones forman
+ * parte del PDF que se firma"*. La declaración no se marca aparte: se imprime
+ * en el documento y queda cubierta por el acto de firma único.
+ *
+ * En L4b fue una casilla bloqueante acá, y era un puente deliberado: la
+ * inversión de firma y pago (D-08) sacó la declaración de la pantalla de pago
+ * y el FIPF se habría cerrado sin ella. Con el PDF unificado (D-11) el literal
+ * viaja adentro del documento, que es donde la matriz lo quiere.
+ *
+ * ## Por qué sube la versión
+ *
+ * El texto cambió: el anterior hablaba solo del origen de los fondos, el de la
+ * matriz suma la veracidad de la información. **Las evidencias ya guardadas
+ * apuntan a `v1` y no se reescriben** (regla inviolable #10), así que la
+ * cadena nueva es `v2` y la vieja se conserva para poder leer lo que ya se
+ * aceptó.
+ */
+export const VERSION_DECLARACION_LICITUD_Y_VERACIDAD = "LICITUD-VERACIDAD-v2";
+
+/** Literal exacto de la Matriz V4 §4, bloque "Licitud y veracidad". */
+export const TEXTO_DECLARACION_LICITUD_Y_VERACIDAD =
+  "Declaro que los fondos utilizados provienen de actividades lícitas y que la información " +
+  "proporcionada es verdadera, completa y actual según mi leal saber y entender.";
+
+/**
+ * Versión y literal anteriores (L4b). **No se borran**: hay expedientes con
+ * evidencias que apuntan a esta cadena exacta y la consola tiene que poder
+ * leerlas (regla inviolable #10). Ningún expediente nuevo los usa.
+ */
+export const VERSION_DECLARACION_ORIGEN_LICITO_LEGADO = "P7-ORIGEN-LICITO-v1";
+
+export const TEXTO_DECLARACION_ORIGEN_LICITO_LEGADO =
+  "Declaro que los fondos utilizados para pagar el premio son de mi propiedad y tienen origen lícito.";
+
+/**
+ * Declaración de **cuenta propia**, literal de la Matriz V4 §4 (CMP-20).
+ *
+ * Su efecto según la matriz: *"Integra al FIPF. Si existe tercero, el flujo
+ * automático se detiene y se identifica al mandante."* Ese corte no hace falta
+ * implementarlo como rama: la regla inviolable #9 ya hace que no exista un
+ * flujo de contratación para terceros — no hay dónde declarar un mandante
+ * porque no hay campo, que es la forma fuerte de la misma regla.
+ */
+export const VERSION_DECLARACION_CUENTA_PROPIA = "CUENTA-PROPIA-v1";
+
+export const TEXTO_DECLARACION_CUENTA_PROPIA =
+  "Declaro que actúo por cuenta propia en esta contratación y en el pago, y que el tomador y el " +
+  "asegurado son la misma persona.";
+
+/**
+ * Advertencia del art. 1556 del Código Civil paraguayo (CMP-09).
+ *
+ * La Matriz V4 §4 la marca como **inclusión obligatoria** y precisa dónde: *"En
+ * la Solicitud y, en forma destacada, en el anverso de la póliza."* Lo que le
+ * toca a este sistema es la primera mitad — la póliza la emite Alianza y su
+ * anverso no se dibuja acá (CMP-18).
+ *
+ * El literal es el de la matriz, transcrito sin reescribir: es una cláusula
+ * legal y parafrasearla cambiaría lo que la persona firmó.
+ */
+export const VERSION_ADVERTENCIA_ART_1556 = "ART-1556-v1";
+
+export const TEXTO_ADVERTENCIA_ART_1556 =
+  "Cuando el texto de la póliza difiera del contenido de la propuesta, la diferencia se considerará " +
+  "aprobada por el tomador si no reclama dentro de un mes de haber recibido la póliza " +
+  "(Art. 1556 del Código Civil Paraguayo).";
+
+/**
+ * Declaración de acceso y revisión que el cliente acepta al firmar (Matriz V4
+ * §4, bloque "Firma del cliente").
+ *
+ * La matriz la describe como *"Casilla vacía + firma simple"*: es lo único que
+ * la persona marca en la pantalla de firma, y su efecto es que *"una firma del
+ * cliente cubre el PDF completo; el OTP previo respalda identificación y
+ * trazabilidad"*.
+ */
+export const VERSION_DECLARACION_ACCESO_Y_REVISION = "ACCESO-REVISION-v1";
+
+export const TEXTO_DECLARACION_ACCESO_Y_REVISION =
+  "Confirmo que tuve acceso al PDF único de Solicitud + FIPF, pude revisarlo y corregir mis datos, " +
+  "acepto su contenido y deseo firmarlo mediante Code100.";
 
 // ---------------------------------------------------------------------------
 // Textos fijos del resto de la pantalla
@@ -135,4 +276,4 @@ export const REGLA_ELEGIBILIDAD_P6 =
 /** Leyenda inferior de la pantalla. */
 export const LEYENDA_DOCUMENTOS_P6 =
   "Las declaraciones médicas integrarán la Solicitud y la condición PEP integrará el FIPF; ambos se " +
-  "firmarán en la Pantalla 8 mediante Code100.";
+  "cierran al salir de esta pantalla y se firman en el paso siguiente mediante Code100.";

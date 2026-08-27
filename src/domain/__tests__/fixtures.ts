@@ -1,18 +1,34 @@
 import type {
+  Beneficiario,
+  CertificadoCobertura,
   DatosComplementariosP6,
   DatosFacturacionP7,
   Declaraciones,
   EstadoExpediente,
   Expediente,
+  FirmaInstitucional,
   Identidad,
   PaqueteDocumental,
   Pago,
 } from "../tipos";
 import { crearExpedienteInicial } from "../tipos";
 import { PLANES } from "../catalogo";
-import { registrarPaqueteDocumental, transicionarExpediente } from "../expediente";
+import {
+  registrarFirmasInstitucionales,
+  registrarPaqueteDocumental,
+  transicionarExpediente,
+} from "../expediente";
+import { PASOS_FLUJO } from "../rutas-flujo";
+import { firmantesConjuntos } from "../firmantes-documento";
 import { codigoFipf, codigoSolicitud } from "../documentos";
-import { TEXTO_DECLARACION_ORIGEN_LICITO, VERSION_DECLARACION_ORIGEN_LICITO } from "../textos-p7";
+import {
+  VERSION_INICIAL_CERTIFICADO,
+  codigoCertificado,
+  finCoberturaDesde,
+  inicioCoberturaDesde,
+} from "../certificado-cobertura";
+import { firmantesDe } from "../firmantes-documento";
+import type { EmisorCertificadoCobertura } from "../pago-p7";
 
 export const declaracionesCompatibles: Declaraciones = {
   estadoDeSalud: "SI",
@@ -38,7 +54,16 @@ export const datosComplementariosFixture: DatosComplementariosP6 = {
   profesion: "Contador/a",
   empresa: "Estudio Contable SRL",
   ingresoMensualDeclaradoGs: 8_000_000,
-  beneficiario: { tipo: "HEREDEROS_LEGALES", nombreCompleto: null, parentesco: null, domicilio: null },
+  origenFondos: "Ingresos laborales (sueldo o salario)",
+};
+
+/** El beneficiario se declara en el paso 5, así que vive aparte. */
+export const beneficiarioFixture: Beneficiario = {
+  tipo: "HEREDEROS_LEGALES",
+  nombreCompleto: null,
+  parentesco: null,
+  domicilio: null,
+  numeroCedula: null,
 };
 
 /**
@@ -54,13 +79,14 @@ export function crearExpediente(id = "EXP-TEST-1"): Expediente {
 
 /** Avanza un expediente recién creado hasta IDENTIDAD_VERIFICADA siguiendo el camino feliz. */
 export function avanzarHastaIdentidadVerificada(expediente: Expediente): Expediente {
-  const secuencia: EstadoExpediente[] = [
-    "CANAL_WA_VERIFICADO",
-    "PLAN_SELECCIONADO",
-    "AUTORIZADO",
-    "CANAL_EMAIL_VERIFICADO",
-    "IDENTIDAD_VERIFICADA",
-  ];
+  // El orden es el del flujo nuevo (CHG-01): el plan primero, el WhatsApp
+  // después, y sin paso de correo (D-06). Sale de `PASOS_FLUJO`, que es donde
+  // vive el orden: si mañana se reordena el wizard, este helper acompaña solo
+  // en vez de quedar describiendo un camino que ya no existe.
+  const secuencia: EstadoExpediente[] = PASOS_FLUJO.map((paso) => paso.estadoAlCompletar).slice(
+    0,
+    PASOS_FLUJO.findIndex((paso) => paso.estadoAlCompletar === "IDENTIDAD_VERIFICADA") + 1,
+  );
 
   let actual = expediente;
   for (const estado of secuencia) {
@@ -89,6 +115,7 @@ export const identidadFixture: Identidad = {
   sexo: "Femenino",
   nacionalidad: "Paraguaya",
   paisNacimiento: "Paraguay",
+  paisResidencia: "Paraguay",
   estadoCivil: "Soltera",
   captura: {
     hashFrenteCedula: "a".repeat(64),
@@ -105,15 +132,8 @@ export const REFERENCIA_BANCARD_FIJA = "BCD-DEMO-000018425";
 export const facturacionFixture: DatosFacturacionP7 = {
   nombreAFacturar: "Mónica Mariana Gorena Tapia",
   ruc: null,
-  declaracionOrigenLicito: {
-    aceptadaEn: "2026-08-09T15:00:00.000Z",
-    ip: "203.0.113.10",
-    dispositivo: "test",
-    sesionId: "sesion-test",
-    versionTexto: VERSION_DECLARACION_ORIGEN_LICITO,
-    textoAceptado: TEXTO_DECLARACION_ORIGEN_LICITO,
-  },
 };
+
 
 export const pagoConfirmadoFixture: Pago = {
   medio: "QR_BANCARD",
@@ -136,6 +156,7 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
   const conDatos = transicionarExpediente(base, "DECLARACIONES_OK", {
     declaraciones: declaracionesCompatibles,
     datosComplementarios: datosComplementariosFixture,
+    beneficiario: beneficiarioFixture,
     identidad: identidadFixture,
     canalWhatsapp: { valor: "+595981000456", verificadoEn: "2026-08-09T14:00:00.000Z" },
     canalEmail: { valor: "monica.gorena@example.com", verificadoEn: "2026-08-09T14:30:00.000Z" },
@@ -151,58 +172,155 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
   return conDatos.expediente;
 }
 
-/**
- * Expediente del camino feliz, listo para que el servicio de generación de
- * documentos lo cierre: en PAGO_CONFIRMADO, con plan, identidad, datos
- * complementarios, declaraciones compatibles, canales verificados,
- * correlativo, facturación y pago acreditado.
- */
-export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
-  const confirmado = transicionarExpediente(
-    expedienteEnDeclaracionesOk(id),
-    "PAGO_CONFIRMADO",
-    {
-      numeroPropuesta: NUMERO_PROPUESTA_FIJO,
-      facturacion: facturacionFixture,
-      pago: pagoConfirmadoFixture,
-      plazoFirmaVenceEn: "2026-08-10T15:01:00.000Z",
-    },
-    "2026-08-09T15:01:00.000Z",
-  );
-  if (!confirmado.ok) throw new Error(confirmado.error);
-
-  return confirmado.expediente;
-}
-
 // ---------------------------------------------------------------------------
-// Expediente con el paquete documental ya cerrado (entrada de P8)
+// Expediente con el paquete documental ya cerrado (entrada de la firma)
 // ---------------------------------------------------------------------------
 
+/** D-11 · un solo documento con las dos secciones adentro. */
 export const PAQUETE_FIXTURE: PaqueteDocumental = {
-  solicitud: {
-    codigo: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
-    version: 1,
-    hashSha256: "a".repeat(64),
-    cerradoEn: "2026-08-09T15:02:00.000Z",
-  },
-  fipf: {
-    codigo: codigoFipf(NUMERO_PROPUESTA_FIJO),
-    version: 1,
-    hashSha256: "b".repeat(64),
-    cerradoEn: "2026-08-09T15:02:00.000Z",
-  },
+  codigo: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
+  codigoSeccionFipf: codigoFipf(NUMERO_PROPUESTA_FIJO),
+  version: 1,
+  hashSha256: "a".repeat(64),
+  cerradoEn: "2026-08-09T15:02:00.000Z",
 };
 
+export const PLAZO_PAGO_FIJO = "2026-08-10T15:03:00.000Z";
+
 /**
- * Expediente listo para P8: la Solicitud y el FIPF cerrados y hasheados, el
- * pago acreditado y el plazo de 24 horas corriendo.
+ * Expediente listo para firmar: la Solicitud y el FIPF cerrados y hasheados.
+ *
+ * **Sin pago** (D-08): con el orden invertido el paquete se cierra antes de
+ * que exista ninguna operación de cobro, y exigir uno acá haría imposible
+ * llegar a la firma.
  */
 export function expedienteEnPaqueteGenerado(id = "EXP-TEST-P8"): Expediente {
+  const conCorrelativo = {
+    ...expedienteEnDeclaracionesOk(id),
+    numeroPropuesta: NUMERO_PROPUESTA_FIJO,
+  };
   const conPaquete = registrarPaqueteDocumental(
-    expedienteEnPagoConfirmado(id),
+    conCorrelativo,
     PAQUETE_FIXTURE,
     "2026-08-09T15:02:00.000Z",
   );
   if (!conPaquete.ok) throw new Error(conPaquete.error);
   return conPaquete.expediente;
+}
+
+export const firmaFixture = {
+  idCode100: "C100-TEST-1",
+  canal: "WHATSAPP" as const,
+  firmadoEn: "2026-08-09T15:03:00.000Z",
+  hashDocumentoFirmado: "e".repeat(64),
+};
+
+/** Las firmas institucionales que la configuración de D-13 declara `CONJUNTO`. */
+export const firmasInstitucionalesFixture: readonly FirmaInstitucional[] = firmantesConjuntos(
+  "PAQUETE",
+).map((firmante) => ({
+  rol: firmante.rol,
+  nivel: firmante.nivel,
+  modalidad: firmante.modalidad,
+  certificado: `DEMO-CERT-${firmante.rol}-${NUMERO_PROPUESTA_FIJO}`,
+  aplicadaEn: "2026-08-09T15:03:00.000Z",
+}));
+
+/**
+ * Expediente firmado por todos los intervinientes y esperando el pago: la
+ * entrada del paso de pago bajo el orden nuevo (D-08), con el plazo de 24
+ * horas ya corriendo (D-10).
+ */
+export function expedienteFirmado(id = "EXP-TEST-P7"): Expediente {
+  const conActo = {
+    ...expedienteEnPaqueteGenerado(id),
+    actoDeFirma: {
+      idCode100: firmaFixture.idCode100,
+      canal: firmaFixture.canal,
+      destinoEnmascarado: "+5959•••••456",
+      enlaceEnviadoEn: "2026-08-09T15:02:30.000Z",
+      venceEn: PLAZO_PAGO_FIJO,
+    },
+  };
+  const firmado = transicionarExpediente(
+    conActo,
+    "FIRMADO_CLIENTE",
+    { firma: firmaFixture },
+    "2026-08-09T15:03:00.000Z",
+  );
+  if (!firmado.ok) throw new Error(firmado.error);
+
+  const institucionales = registrarFirmasInstitucionales(
+    firmado.expediente,
+    firmasInstitucionalesFixture,
+    PLAZO_PAGO_FIJO,
+    "2026-08-09T15:03:00.000Z",
+  );
+  if (!institucionales.ok) throw new Error(institucionales.error);
+  return institucionales.expediente;
+}
+
+/**
+ * Certificado de Cobertura Provisional del camino feliz (D-12).
+ *
+ * Las fechas de vigencia salen de las mismas funciones que usa el servicio, no
+ * de constantes escritas a mano: si alguien cambiara las 24 horas, este
+ * fixture cambiaría con él y los tests que fijan el número seguirían siendo
+ * los que hablan del número.
+ */
+export const certificadoFixture: CertificadoCobertura = (() => {
+  const inicioCobertura = inicioCoberturaDesde(pagoConfirmadoFixture.confirmadoEn ?? "");
+  return {
+    codigo: codigoCertificado(NUMERO_PROPUESTA_FIJO),
+    codigoPaquete: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
+    version: VERSION_INICIAL_CERTIFICADO,
+    hashSha256: "c".repeat(64),
+    emitidoEn: "2026-08-09T15:04:00.000Z",
+    inicioCobertura,
+    finCobertura: finCoberturaDesde(inicioCobertura),
+    referenciaBancard: REFERENCIA_BANCARD_FIJA,
+    firmas: firmantesDe("CPC").map((firmante) => ({
+      rol: firmante.rol,
+      nivel: firmante.nivel,
+      modalidad: firmante.modalidad,
+      certificado: `DEMO-CERT-${firmante.rol}-CPC-${NUMERO_PROPUESTA_FIJO}`,
+      aplicadaEn: "2026-08-09T15:04:00.000Z",
+    })),
+  };
+})();
+
+/**
+ * Emisor de certificado para los tests: devuelve la ficha del fixture con el
+ * instante de emisión que le pase el dominio, sin renderizar ningún PDF.
+ *
+ * Los tests que necesitan probar el PDF de verdad llaman a
+ * `emitirCertificadoCobertura`; los de P7 solo necesitan que la dependencia
+ * exista y responda, que es lo que el compilador ahora les exige.
+ */
+export function emisorCertificadoFalso(
+  opciones: { readonly falla?: boolean } = {},
+): EmisorCertificadoCobertura {
+  return async ({ emitidoEn }) => {
+    if (opciones.falla) return { ok: false, motivo: "ALMACENAMIENTO_INCONSISTENTE" };
+    return { ok: true, certificado: { ...certificadoFixture, emitidoEn } };
+  };
+}
+
+/**
+ * Expediente con el cobro acreditado: la entrada de la emisión. Con el orden
+ * nuevo llega firmado y con facturación, que se captura al pagar.
+ */
+export function expedienteEnPagoConfirmado(id = "EXP-TEST-DOCS"): Expediente {
+  const confirmado = transicionarExpediente(
+    expedienteFirmado(id),
+    "PAGO_CONFIRMADO",
+    {
+      facturacion: facturacionFixture,
+      pago: pagoConfirmadoFixture,
+      certificadoCobertura: certificadoFixture,
+    },
+    "2026-08-09T15:04:00.000Z",
+  );
+  if (!confirmado.ok) throw new Error(confirmado.error);
+  return confirmado.expediente;
 }

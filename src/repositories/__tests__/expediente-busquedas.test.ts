@@ -42,6 +42,7 @@ function identidadDe(numeroCedula: string, nombres = "Mónica Mariana"): Identid
     sexo: "Femenino",
     nacionalidad: "Paraguaya",
     paisNacimiento: "Paraguay",
+    paisResidencia: "Paraguay",
     estadoCivil: "Soltero/a",
     captura: CAPTURA,
   };
@@ -126,7 +127,7 @@ describe("buscarPorEstado", () => {
     let expediente = crearExpedienteInicial({ id: "EXP-M", ahora: "2026-08-01T10:00:00.000Z" });
     await repositorio.crear(expediente);
 
-    const paso = transicionarExpediente(expediente, "CANAL_WA_VERIFICADO", {}, "2026-08-01T11:00:00.000Z");
+    const paso = transicionarExpediente(expediente, "PLAN_SELECCIONADO", {}, "2026-08-01T11:00:00.000Z");
     if (!paso.ok) throw new Error(paso.error);
     expediente = paso.expediente;
     await repositorio.guardar(expediente);
@@ -139,7 +140,7 @@ describe("buscarPorEstado", () => {
     // Pero la búsqueda por INICIADO no lo devuelve, porque relee el
     // expediente y su estado actual ya no coincide.
     expect(await repositorio.buscarPorEstado("INICIADO")).toEqual([]);
-    expect((await repositorio.buscarPorEstado("CANAL_WA_VERIFICADO")).map((e) => e.id)).toEqual([
+    expect((await repositorio.buscarPorEstado("PLAN_SELECCIONADO")).map((e) => e.id)).toEqual([
       "EXP-M",
     ]);
   });

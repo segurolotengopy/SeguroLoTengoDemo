@@ -18,25 +18,45 @@
  * - `pdf.ts` + `tipografia.ts` — cómo se escriben los bytes del PDF.
  * - `qr.ts` — el QR de verificación que va impreso en cada carilla.
  * - `servicio.ts` — cerrar, hashear, guardar, transicionar y dejar evidencia.
+ *
+ * El motor produce **tres** documentos, y la diferencia entre ellos no es de
+ * formato sino de naturaleza:
+ *
+ * - **El paquete** (Solicitud + FIPF, D-11) se cierra, se hashea y se firma.
+ * - **El Certificado de Cobertura Provisional** (D-12) se cierra, se hashea y
+ *   lo firma Alianza; nace con el cobro acreditado.
+ * - **El comprobante de pago** (D-05) no se cierra, no se hashea y no se
+ *   firma: es una constancia de un hecho ya probado por los otros dos, y se
+ *   genera al vuelo cada vez que se lo pide.
+ *
+ * Los tres son deterministas y los dos primeros llevan QR de verificación.
  */
 export {
   CONTENT_TYPE_PDF,
   ESTADO_REQUERIDO_DOCUMENTOS,
+  PASO_EVIDENCIA_CERTIFICADO,
   PASO_EVIDENCIA_DOCUMENTOS,
   archivarDocumentosFirmados,
+  claveCertificado,
   claveDocumento,
   claveDocumentoFirmado,
+  emitirCertificadoCobertura,
+  generarComprobantePago,
   generarPaqueteDocumental,
 } from "./servicio";
 export type {
   DependenciasArchivadoFirmados,
+  DependenciasCertificado,
   DependenciasDocumentos,
   DocumentoGenerado,
+  MotivoRechazoCertificado,
   MotivoRechazoDocumentos,
   RepositorioArchivos,
   ResultadoArchivadoFirmados,
+  ResultadoComprobantePago,
+  ResultadoEmitirCertificado,
   ResultadoGenerarPaquete,
 } from "./servicio";
-export { renderizarFipf, renderizarSolicitud } from "./plantillas";
+export { renderizarCertificado, renderizarComprobante, renderizarPaquete } from "./plantillas";
 export { generarMatrizQr } from "./qr";
 export type { MatrizQr } from "./qr";

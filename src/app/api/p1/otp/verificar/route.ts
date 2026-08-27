@@ -17,6 +17,8 @@ import {
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
+import { admitirEvento } from "@/app/api/_http/limitador";
+import { LIMITE_OTP_VERIFICACION } from "@/domain/rate-limit";
 import { LONGITUD_CODIGO_OTP } from "@/domain/reglas-otp";
 import { verificarOtpWhatsapp } from "@/domain/verificacion-canal-whatsapp";
 
@@ -38,6 +40,25 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const { contexto, expedienteId, otpId } = resolverContextoHttp(request);
+
+  // L6 · límite de tasa por IP, antes de tocar el dominio: un pedido rechazado
+  // no llega al proveedor de mensajería ni al expediente. Los controles del
+  // OTP —vigencia, tres intentos, espera de reenvío— siguen intactos; esto
+  // impide repetirlos en masa tirando la cookie.
+  const limite = admitirEvento(LIMITE_OTP_VERIFICACION, contexto.ip);
+  if (!limite.permitido) {
+    return respuestaJson(
+      {
+        ok: false,
+        motivo: "DEMASIADOS_INTENTOS",
+        segundosRestantes: limite.reintentarEnSegundos,
+      },
+      {
+        status: 429,
+        cabeceras: { "retry-after": String(limite.reintentarEnSegundos) },
+      },
+    );
+  }
   if (!expedienteId || !otpId) {
     return respuestaJson({ ok: false, motivo: "SESION_INVALIDA" }, { status: 400 });
   }

@@ -37,20 +37,40 @@
  * persiste es siempre el literal completo (`TEXTO_AUTORIZACION_INICIAL_P3`),
  * que es la concatenación exacta de estas dos partes.
  */
+/**
+ * v2 — redacción de la maqueta (p.2, caja azul con candado), completada con la
+ * frase de derivación que la Pantalla A necesita poder citar ("conforme al
+ * consentimiento general inicial…"): la maqueta no la traía y sin ella la
+ * remisión a análisis quedaría sin autorización expresa.
+ */
 export const CUERPO_AUTORIZACION_INICIAL_P3 =
-  "Al presionar TENGO TODO LISTO, autorizo a Interseguros S.A. y a Alianza Garantía Seguros y " +
-  "Reaseguros S.A. a tratar y compartir mis datos personales, de identificación, biométricos, " +
-  "médicos y de condición PEP necesarios para validar mi identidad, evaluar el riesgo, gestionar " +
-  "la solicitud y cumplir obligaciones regulatorias. Si no fuera posible emitir automáticamente, " +
-  "autorizo el envío de mi caso a Interseguros y Alianza para su análisis y que puedan " +
-  "contactarme.";
+  "Al presionar el botón TENGO TODO LISTO Y CONTINUAR acepto que todos mis datos personales " +
+  "proporcionados, incluyendo información de salud, fotografías y demás información brindada, " +
+  "sean utilizados exclusivamente para verificar mi identidad, evaluar el riesgo y generar la " +
+  "documentación contractual vinculada a la contratación del seguro y al pago correspondiente.";
+
+/**
+ * La autorización a remitir el caso a análisis. Se muestra **en letra más
+ * chica** bajo el cuerpo (aprobación del 20-ago-2026): es una consecuencia
+ * posible, no la autorización principal, y así se lee sin competir con ella.
+ * Vive separada solo para poder maquetarla distinto.
+ */
+export const DERIVACION_AUTORIZACION_INICIAL_P3 =
+  "Si no fuera posible emitir automáticamente, autorizo el envío de mi caso a Interseguros y " +
+  "Alianza Garantía para su análisis y que puedan contactarme.";
 
 export const ADVERTENCIA_AUTORIZACION_INICIAL_P3 = "Esto no contrata ni autoriza un pago.";
 
+/**
+ * El literal que se persiste y se hashea en la evidencia: las tres partes en
+ * el orden en que se muestran. Partirlas para maquetar no cambia ni un
+ * carácter de lo aceptado, así que `VERSION_AVISO_P3` no se toca.
+ */
 export const TEXTO_AUTORIZACION_INICIAL_P3 =
-  `${CUERPO_AUTORIZACION_INICIAL_P3} ${ADVERTENCIA_AUTORIZACION_INICIAL_P3}`;
+  `${CUERPO_AUTORIZACION_INICIAL_P3} ${DERIVACION_AUTORIZACION_INICIAL_P3} ` +
+  `${ADVERTENCIA_AUTORIZACION_INICIAL_P3}`;
 
-export const VERSION_AVISO_P3 = "P3-AUTORIZACION-INICIAL-v1";
+export const VERSION_AVISO_P3 = "P3-AUTORIZACION-INICIAL-v2";
 
 /** Aclaración al pie del botón, tal como la pide la especificación. */
 export const NOTA_REGISTRO_P3 =

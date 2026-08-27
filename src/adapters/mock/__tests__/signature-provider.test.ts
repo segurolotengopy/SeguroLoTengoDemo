@@ -31,25 +31,18 @@ import {
 } from "../signature-provider";
 
 const PAQUETE: PaqueteDocumental = {
-  solicitud: {
-    codigo: "PROP-00018425",
-    version: 1,
-    hashSha256: "a".repeat(64),
-    cerradoEn: "2026-08-09T15:02:00.000Z",
-  },
-  fipf: {
-    codigo: "FIPF-00018425",
-    version: 1,
-    hashSha256: "b".repeat(64),
-    cerradoEn: "2026-08-09T15:02:00.000Z",
-  },
+  codigo: "PROP-00018425",
+  codigoSeccionFipf: "FIPF-00018425",
+  version: 1,
+  hashSha256: "a".repeat(64),
+  cerradoEn: "2026-08-09T15:02:00.000Z",
 };
 
 const ENTRADA = {
   expedienteId: "EXP-P8-1",
   canal: "WHATSAPP" as const,
   destino: "+595981000456",
-  paqueteDocumental: PAQUETE,
+  documento: PAQUETE,
 };
 
 /** Sin demora de red y reteniendo el código, como si `DEMO_MODE` estuviera on. */
@@ -58,7 +51,7 @@ function crearProveedor(ahora?: () => Date): SignatureProvider {
 }
 
 /** Abre el enlace, lee el código del canal de demo y firma. */
-async function completar(idCode100: string, opciones: { fallarAMitadDelSellado?: boolean } = {}) {
+async function completar(idCode100: string, opciones: { ahora?: () => Date } = {}) {
   const apertura = await abrirEnlaceDeFirmaMock(idCode100, { retenerCodigoParaPanelDemo: true });
   expect(apertura.ok).toBe(true);
   const codigo = (await obtenerCodigoFirmaDemo(idCode100))?.codigo;
@@ -82,17 +75,18 @@ runSignatureProviderContractTests({
   },
 });
 
-describe("MockSignatureProvider · un solo acto para los dos documentos", () => {
-  it("abre UNA sesión con la Solicitud y el FIPF adentro (fila 36 de la matriz)", async () => {
+describe("MockSignatureProvider · un solo acto sobre un solo documento", () => {
+  it("abre UNA sesión con el documento adentro (fila 36 de la matriz)", async () => {
     const proveedor = crearProveedor();
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
 
     const sesion = await obtenerSesionFirmaMock(iniciada.idCode100);
-    expect(sesion?.paquete.solicitud.codigo).toBe("PROP-00018425");
-    expect(sesion?.paquete.fipf.codigo).toBe("FIPF-00018425");
+    expect(sesion?.documento.codigo).toBe("PROP-00018425");
+    // La sección FIPF viaja adentro del mismo documento (D-11).
+    expect(sesion?.documento.codigoSeccionFipf).toBe("FIPF-00018425");
   });
 
-  it("firmar sella las dos huellas juntas y son distintas de las del PDF sin firmar", async () => {
+  it("firmar produce una huella distinta de la del PDF sin firmar", async () => {
     const proveedor = crearProveedor();
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
 
@@ -100,78 +94,36 @@ describe("MockSignatureProvider · un solo acto para los dos documentos", () => 
 
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
-    expect(resultado.firma.hashSolicitudFirmada).not.toBe(PAQUETE.solicitud.hashSha256);
-    expect(resultado.firma.hashFipfFirmado).not.toBe(PAQUETE.fipf.hashSha256);
-    expect(resultado.firma.hashSolicitudFirmada).not.toBe(resultado.firma.hashFipfFirmado);
+    expect(resultado.firma.hashDocumentoFirmado).toHaveLength(64);
+    expect(resultado.firma.hashDocumentoFirmado).not.toBe(PAQUETE.hashSha256);
   });
 
   /**
-   * El test que pide la regla inviolable #3: se corta el sellado con la primera
-   * huella ya calculada y la segunda no. Lo que tiene que quedar es **nada**.
+   * El test que antes pedía la regla inviolable #3 —cortar el sellado a mitad
+   * y verificar que no quedara ningún documento firmado— **desapareció con el
+   * problema que probaba**. Con el documento único (D-11) no existe la
+   * operación que podría dejar uno firmado y el otro no: hay un archivo y una
+   * huella. Lo que queda por fijar es lo contrario: que el tipo no tenga
+   * siquiera cómo representar una firma parcial.
    */
-  it("una falla a mitad del sellado no deja NINGÚN documento firmado", async () => {
+  it("no existe forma de representar una firma parcial", async () => {
     const proveedor = crearProveedor();
     const iniciada = await proveedor.iniciarFirma(ENTRADA);
+    const resultado = await completar(iniciada.idCode100);
 
-    const resultado = await completar(iniciada.idCode100, { fallarAMitadDelSellado: true });
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
 
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("FALLA_DEL_PROVEEDOR");
-
-    // Ni la Solicitud ni el FIPF: la sesión no tiene firma en absoluto.
-    const sesion = await obtenerSesionFirmaMock(iniciada.idCode100);
-    expect(sesion?.firma).toBeNull();
-
-    // Y los documentos siguen con su huella original, sin firmar.
-    expect(sesion?.paquete.solicitud.hashSha256).toBe(PAQUETE.solicitud.hashSha256);
-    expect(sesion?.paquete.fipf.hashSha256).toBe(PAQUETE.fipf.hashSha256);
-
-    // El puerto tampoco reporta nada firmado.
-    const consulta = await proveedor.confirmarResultado(iniciada.idCode100);
-    expect(consulta.estado).toBe("PENDIENTE");
-    expect(JSON.stringify(consulta)).not.toContain("hashSolicitudFirmada");
+    // Una sola huella firmada, y ningún campo por documento que pueda faltar.
+    const claves = Object.keys(resultado.firma).sort();
+    expect(claves).toEqual(["canal", "firmadoEn", "hashDocumentoFirmado", "idCode100"]);
   });
 
-  it("después de una falla a mitad, el mismo acto se puede completar entero", async () => {
-    const proveedor = crearProveedor();
-    const iniciada = await proveedor.iniciarFirma(ENTRADA);
-
-    const fallido = await completar(iniciada.idCode100, { fallarAMitadDelSellado: true });
-    expect(fallido.ok).toBe(false);
-
-    // El OTP no se consumió con el intento fallido: el mismo código sirve.
-    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
-    const reintento = await firmarEnCode100Mock(iniciada.idCode100, codigo);
-
-    expect(reintento.ok).toBe(true);
-    if (!reintento.ok) return;
-    expect(reintento.firma.hashSolicitudFirmada.length).toBe(64);
-    expect(reintento.firma.hashFipfFirmado.length).toBe(64);
-  });
-
-  it("rechaza un paquete con un documento sin huella (regla inviolable #4)", async () => {
+  it("rechaza un documento sin huella (regla inviolable #4)", async () => {
     const proveedor = crearProveedor();
 
     await expect(
-      proveedor.iniciarFirma({
-        ...ENTRADA,
-        paqueteDocumental: {
-          ...PAQUETE,
-          fipf: { ...PAQUETE.fipf, hashSha256: "" },
-        },
-      }),
-    ).rejects.toBeInstanceOf(ErrorCode100);
-  });
-
-  it("rechaza un paquete cuyos documentos tienen versiones distintas", async () => {
-    const proveedor = crearProveedor();
-
-    await expect(
-      proveedor.iniciarFirma({
-        ...ENTRADA,
-        paqueteDocumental: { ...PAQUETE, fipf: { ...PAQUETE.fipf, version: 2 } },
-      }),
+      proveedor.iniciarFirma({ ...ENTRADA, documento: { ...PAQUETE, hashSha256: "" } }),
     ).rejects.toBeInstanceOf(ErrorCode100);
   });
 });
@@ -391,8 +343,7 @@ describe("OTP de firma por canal remoto (WhatsApp-Modular, INTEGRATION_OTP=live)
 
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
-    expect(resultado.firma.hashSolicitudFirmada).toMatch(/^[0-9a-f]{64}$/);
-    expect(resultado.firma.hashFipfFirmado).toMatch(/^[0-9a-f]{64}$/);
+    expect(resultado.firma.hashDocumentoFirmado).toMatch(/^[0-9a-f]{64}$/);
     expect(delegado.verificaciones).toEqual([{ otpId: "otp-remoto-1", codigo: "123456" }]);
   });
 

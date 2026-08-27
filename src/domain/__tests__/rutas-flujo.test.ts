@@ -7,7 +7,15 @@
  */
 import { describe, expect, it } from "vitest";
 import { ESTADOS_EXPEDIENTE } from "../tipos";
-import { PANTALLA_POR_ESTADO, destinoDelExpediente } from "../rutas-flujo";
+import {
+  PANTALLA_POR_ESTADO,
+  PASOS_FLUJO,
+  REDIRECCIONES_RUTAS_VIEJAS,
+  TOTAL_PASOS,
+  destinoDelExpediente,
+  numeroDePaso,
+  pasoAnteriorDe,
+} from "../rutas-flujo";
 
 describe("PANTALLA_POR_ESTADO", () => {
   it("cubre todos los estados del expediente, sin excepción", () => {
@@ -21,17 +29,76 @@ describe("PANTALLA_POR_ESTADO", () => {
   });
 
   it("manda cada paso del flujo a su pantalla", () => {
-    expect(PANTALLA_POR_ESTADO.INICIADO).toBe("/p1-whatsapp");
-    expect(PANTALLA_POR_ESTADO.CANAL_WA_VERIFICADO).toBe("/p2-plan");
-    expect(PANTALLA_POR_ESTADO.CANAL_EMAIL_VERIFICADO).toBe("/p5-identidad");
-    expect(PANTALLA_POR_ESTADO.IDENTIDAD_VERIFICADA).toBe("/p6-declaraciones");
+    // Orden nuevo (CHG-01): el plan primero, el WhatsApp después.
+    expect(PANTALLA_POR_ESTADO.INICIADO).toBe("/plan");
+    expect(PANTALLA_POR_ESTADO.PLAN_SELECCIONADO).toBe("/whatsapp");
+    expect(PANTALLA_POR_ESTADO.CANAL_WA_VERIFICADO).toBe("/preparacion");
+    expect(PANTALLA_POR_ESTADO.AUTORIZADO).toBe("/identidad");
+    expect(PANTALLA_POR_ESTADO.IDENTIDAD_VERIFICADA).toBe("/declaraciones");
   });
 
-  it("los dos estados con el pago hecho apuntan a P8", () => {
-    // El paquete se cierra al entrar a P8, así que PAGO_CONFIRMADO y
-    // PAQUETE_GENERADO son la misma pantalla desde el lado de la persona.
-    expect(PANTALLA_POR_ESTADO.PAGO_CONFIRMADO).toBe("/p8-firma");
-    expect(PANTALLA_POR_ESTADO.PAQUETE_GENERADO).toBe("/p8-firma");
+  it("el estado legado del correo verificado sigue teniendo a dónde ir", () => {
+    // D-06 retiró el paso, pero los expedientes que quedaron ahí no se
+    // reescriben (regla #10): tienen que poder terminar su trámite.
+    expect(PANTALLA_POR_ESTADO.CANAL_EMAIL_VERIFICADO).toBe("/identidad");
+  });
+
+  it("el número de paso sale de la lista y no de cada pantalla", () => {
+    expect(numeroDePaso("/plan")).toBe(1);
+    expect(numeroDePaso("/whatsapp")).toBe(2);
+    expect(numeroDePaso("/confirmacion")).toBe(TOTAL_PASOS);
+    expect(numeroDePaso("/no-existe")).toBeNull();
+  });
+
+  it("toda ruta vieja redirige a una que existe", () => {
+    const slugs = new Set(PASOS_FLUJO.map((paso) => paso.slug));
+    for (const [vieja, nueva] of Object.entries(REDIRECCIONES_RUTAS_VIEJAS)) {
+      expect(slugs.has(nueva), `${vieja} redirige a ${nueva}, que no es un paso`).toBe(true);
+    }
+  });
+
+  it("D-08 · se firma en el paso 6 y se paga en el 7", () => {
+    // La inversión se hizo moviendo dos elementos de `PASOS_FLUJO`, y todo lo
+    // demás se deriva. Este test es lo que impide que alguien los devuelva de
+    // lugar sin darse cuenta de que cambia la secuencia entera.
+    expect(numeroDePaso("/firma")).toBe(6);
+    expect(numeroDePaso("/pago")).toBe(7);
+    expect(PANTALLA_POR_ESTADO.DECLARACIONES_OK).toBe("/firma");
+    expect(PANTALLA_POR_ESTADO.FIRMADO).toBe("/pago");
+    expect(PANTALLA_POR_ESTADO.PAGO_CONFIRMADO).toBe("/confirmacion");
+  });
+
+  it("los dos estados intermedios de la firma comparten su pantalla", () => {
+    // El paquete se cierra al entrar a firmar y la firma del cliente deja el
+    // expediente esperando las institucionales: desde el lado de la persona
+    // los tres momentos son la misma pantalla.
+    expect(PANTALLA_POR_ESTADO.PAQUETE_GENERADO).toBe("/firma");
+    expect(PANTALLA_POR_ESTADO.FIRMADO_CLIENTE).toBe("/firma");
+  });
+});
+
+describe("pasoAnteriorDe", () => {
+  it("nunca devuelve un paso posterior — el enlace de volver tiene que volver", () => {
+    // El caso que lo motivó: la pantalla de firma tenía escrito a mano "Volver
+    // a facturación y garantía de pago" apuntando a /pago. Era correcto cuando
+    // se pagaba antes de firmar; con D-08 el pago quedó DESPUÉS, así que el
+    // enlace mandaba a la persona hacia adelante, a un paso que todavía no
+    // podía completar. Esto lo vuelve imposible para cualquier pantalla.
+    for (const paso of PASOS_FLUJO) {
+      const anterior = pasoAnteriorDe(paso.slug);
+      if (anterior === null) continue;
+      expect(numeroDePaso(anterior.slug)!).toBeLessThan(numeroDePaso(paso.slug)!);
+    }
+  });
+
+  it("el paso anterior a la firma son las declaraciones, no el pago (D-08)", () => {
+    expect(pasoAnteriorDe("/firma")?.slug).toBe("/declaraciones");
+    expect(pasoAnteriorDe("/pago")?.slug).toBe("/firma");
+  });
+
+  it("el primer paso no tiene anterior, y una ruta ajena tampoco", () => {
+    expect(pasoAnteriorDe(PASOS_FLUJO[0]!.slug)).toBeNull();
+    expect(pasoAnteriorDe("/no-es-un-paso")).toBeNull();
   });
 });
 
@@ -40,7 +107,7 @@ describe("destinoDelExpediente", () => {
     const destino = destinoDelExpediente("CANAL_EMAIL_VERIFICADO");
     expect(destino.terminal).toBe(false);
     expect(destino.rotulo).toContain("Continuá");
-    expect(destino.ruta).toBe("/p5-identidad");
+    expect(destino.ruta).toBe("/identidad");
   });
 
   it("no promete continuar desde un estado terminal", () => {

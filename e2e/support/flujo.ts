@@ -9,11 +9,10 @@
  * (`demo-panel.ts`), que es el único lugar donde el código existe en claro
  * (regla inviolable #2).
  */
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { PersonaDemo } from "@/adapters/mock/personas";
 import { enmascararCelular } from "@/domain/telefono";
-import { enmascararCorreo } from "@/domain/correo";
 import { accionarFirmaPanel, leerCodigoOtpDelPanel, leerSesionFirmaDelPanel } from "./demo-panel";
 
 /** `+595981000123` → `981000123`, lo que se tipea en el campo de P1. */
@@ -38,30 +37,99 @@ async function tipearOtp(page: Page, idPrefijo: string, codigo: string): Promise
  * pierde en silencio. `page.goto()` no lo necesita (ya espera `load`); esto
  * es solo para las transiciones que arrancan con `<Link>`/`router.push`.
  */
-async function esperarHidratacion(page: Page): Promise<void> {
+export async function esperarHidratacion(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
+
+  // `networkidle` dice que dejó de haber pedidos, no que React ya montó. En esa
+  // ventana los controles existen —los pintó el SSR— pero todavía no tienen
+  // handler, y la interacción se pierde **en silencio**: el clic no hace nada,
+  // el radio no cambia de estado, y lo que se ve después es una aserción
+  // agotando su plazo con el dedo apuntando al código.
+  //
+  // La señal que se usa es exacta y no temporal: React 18 cuelga sus
+  // propiedades internas (`__reactProps$…`, `__reactFiber$…`) de los nodos al
+  // hidratarlos. Que alguna aparezca sobre un control de la pantalla significa
+  // que el árbol de cliente ya montó. No hace falta tocar código de producción
+  // para saberlo: la señal ya está ahí, solo hay que mirarla.
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll("button, input, select, a")].some((nodo) =>
+            Object.keys(nodo).some((clave) => clave.startsWith("__react")),
+          ),
+        ),
+      { timeout: 15_000, message: "la pantalla nunca terminó de hidratarse" },
+    )
+    .toBe(true);
 }
 
-/** P1 · Paso 1 de 9 — Verificación de WhatsApp. Deja a la persona en /p2-plan. */
-export async function completarP1(page: Page, persona: PersonaDemo): Promise<void> {
-  await page.goto("/p1-whatsapp");
+/**
+ * Espera a que **ese** elemento esté hidratado, y recién entonces lo clickea.
+ *
+ * `networkidle` dice que dejó de haber pedidos, no que React ya montó. En esa
+ * ventana el botón existe —lo pintó el SSR— pero todavía no tiene handler, y
+ * el clic se pierde **en silencio**: no falla nada, simplemente no pasa nada,
+ * y lo que se ve después es una aserción de navegación agotando su plazo a los
+ * quince segundos. Un margen fijo tapa el problema la mayoría de las veces y
+ * lo deja aparecer justo cuando la máquina está cargada, que es la peor forma
+ * de fallar: intermitente y con el dedo apuntando al código.
+ *
+ * La señal que se usa acá es exacta en lugar de temporal. React 18 cuelga sus
+ * propiedades internas (`__reactProps$…`, `__reactFiber$…`) del nodo del DOM
+ * al hidratarlo; que existan sobre este botón significa que este botón ya
+ * tiene su handler. No se toca código de producción para lograrlo: la señal
+ * ya está ahí, solo hay que mirarla.
+ *
+ * Se prefiere esperar antes que reintentar el clic: estos botones hacen un
+ * POST que transiciona el expediente, y un segundo clic mandaría una petición
+ * que el dominio rechazaría por estado inválido — cambiaría un test frágil por
+ * uno que ensucia el expediente.
+ */
+export async function clickearHidratado(boton: Locator): Promise<void> {
+  await boton.waitFor({ state: "visible" });
+  await expect
+    .poll(
+      // `evaluate` sobre el localizador y no `querySelector` con el selector:
+      // los selectores de Playwright (`:has-text`, `:text-is`) no son CSS
+      // válido y el navegador los rechaza. Acá el nodo ya viene resuelto.
+      async () => boton.evaluate((nodo) => Object.keys(nodo).some((c) => c.startsWith("__react"))),
+      { timeout: 15_000, message: "el botón nunca terminó de hidratarse" },
+    )
+    .toBe(true);
+  await boton.click();
+}
+
+
+/**
+ * Paso 2 (`Pv2-2`) — Verificación de WhatsApp. Deja a la persona en
+ * /preparacion.
+ *
+ * Los helpers se nombran por pantalla y no por número desde CHG-01: el número
+ * es una propiedad de la posición y ya cambió una vez. `completarWhatsapp`
+ * seguirá diciendo la verdad cuando el paso se mueva otra vez.
+ */
+export async function completarWhatsapp(page: Page, persona: PersonaDemo): Promise<void> {
+  await expect(page).toHaveURL(/\/whatsapp$/);
+  // Antes este paso empezaba con un `goto` propio; ahora se llega navegando
+  // desde el catálogo, así que hay que esperar la hidratación como en el resto
+  // de las pantallas: sin React montado, marcar la casilla no cambia el estado
+  // y el botón de enviar se queda deshabilitado para siempre.
+  await esperarHidratacion(page);
+  // Formato maqueta: sin casilla — la autorización es el acto de presionar el
+  // botón de enviar, con el literal a la vista.
   await page.locator("#p1-destino").fill(celularLocal(persona));
-  await page.getByRole("checkbox").check();
-  // `exact: true`: "Enviar código" es substring de "Reenviar código", que ya
-  // está en el DOM (deshabilitado) antes de enviar el primero.
-  await page.getByRole("button", { name: "Enviar código", exact: true }).click();
+  await clickearHidratado(page.getByRole("button", { name: "ENVIAR CÓDIGO POR WHATSAPP" }));
 
   const destinoEnmascarado = enmascararCelular(persona.celular);
-  await expect(page.getByText(`Código enviado al número ${destinoEnmascarado}`)).toBeVisible();
+  await expect(page.getByText(`Código enviado por WhatsApp a ${destinoEnmascarado}`)).toBeVisible();
 
+  // La pantalla no avanza sola al completarse la sexta casilla (decisión del
+  // 20-ago-2026): verificar es un acto de la persona.
   const codigo = await leerCodigoOtpDelPanel(page, persona.celular.slice(-3));
   await tipearOtp(page, "p1", codigo);
-  await expect(page.getByRole("button", { name: "Verificar WhatsApp", exact: true })).toBeDisabled();
-
-  const continuar = page.getByRole("link", { name: "Continuar →" });
-  await expect(continuar).not.toHaveAttribute("aria-disabled", "true");
-  await continuar.click();
-  await expect(page).toHaveURL(/\/p2-plan$/);
+  await page.getByRole("button", { name: "VERIFICAR WHATSAPP Y CONTINUAR" }).click();
+  await expect(page).toHaveURL(/\/preparacion$/);
 }
 
 /**
@@ -80,47 +148,46 @@ const ROTULO_PLAN: Readonly<Record<PersonaDemo["planElegido"], string>> = {
   CONFIO_TOTAL: "CONFÍO TOTAL",
 };
 
-export async function completarP2(page: Page, persona: PersonaDemo): Promise<void> {
-  await expect(page).toHaveURL(/\/p2-plan$/);
+export async function completarPlan(page: Page, persona: PersonaDemo): Promise<void> {
+  // Primer paso del flujo: acá empieza el recorrido y acá nace el expediente.
+  await page.goto("/plan");
   await esperarHidratacion(page);
   const indice = ORDEN_PLANES.indexOf(persona.planElegido);
   expect(indice, `Plan desconocido: ${persona.planElegido}`).toBeGreaterThanOrEqual(0);
   const rotulo = ROTULO_PLAN[persona.planElegido];
 
+  // Formato maqueta: cada tarjeta lleva un radio `Elegir esta opción` y el
+  // botón de continuar es único y fijo, deshabilitado hasta elegir.
   const tarjeta = page.getByRole("article").nth(indice);
   await expect(tarjeta.getByRole("heading", { name: rotulo, exact: true })).toBeVisible();
-  await tarjeta.getByRole("button", { name: /^(Seleccionar|Plan elegido)$/ }).click();
-  await expect(tarjeta.getByRole("button", { name: "Plan elegido", exact: true })).toBeVisible();
+  await tarjeta.getByRole("radio").click();
+  await expect(tarjeta.getByRole("radio")).toHaveAttribute("aria-checked", "true");
 
-  await page.getByRole("button", { name: `Seleccionar ${rotulo} y continuar →`, exact: true }).click();
-  await expect(page).toHaveURL(/\/p3-preparacion$/);
+  await page.getByRole("button", { name: "CONTINUAR CON EL PLAN SELECCIONADO →" }).click();
+  await expect(page).toHaveURL(/\/whatsapp$/);
 }
 
-/** P3 · Paso 3 de 9 — Preparación y autorización inicial. */
-export async function completarP3(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p3-preparacion$/);
+/** Paso 3 (`Pv2-3`) — Preparación y autorización inicial. */
+export async function completarPreparacion(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\/preparacion$/);
   await esperarHidratacion(page);
-  await page.getByRole("button", { name: "Tengo todo listo →" }).click();
-  await expect(page).toHaveURL(/\/p4-correo$/);
+  await clickearHidratado(page.getByRole("button", { name: "TENGO TODO LISTO Y CONTINUAR →" }));
+  await expect(page).toHaveURL(/\/identidad$/);
 }
 
-/** P4 · Paso 4 de 9 — Verificación de correo. Deja a la persona en /p5-identidad. */
-export async function completarP4(page: Page, persona: PersonaDemo): Promise<void> {
-  await expect(page).toHaveURL(/\/p4-correo$/);
+/**
+ * Declara el correo dentro de la pantalla de identidad (CHG-14/17, D-06).
+ *
+ * Reemplaza al viejo `completarP4`: el correo dejó de tener paso propio y de
+ * tener código. Lo que queda es escribirlo dos veces, que es el control que
+ * sustituye al OTP.
+ */
+export async function declararCorreo(page: Page, persona: PersonaDemo): Promise<void> {
+  await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
-  await page.locator("#p4-destino").fill(persona.correo);
-  await page.getByRole("button", { name: "Enviar código", exact: true }).click();
-
-  const destinoEnmascarado = enmascararCorreo(persona.correo);
-  await expect(page.getByText(`Código enviado a ${destinoEnmascarado}`)).toBeVisible();
-
-  const codigo = await leerCodigoOtpDelPanel(page, destinoEnmascarado);
-  await tipearOtp(page, "p4", codigo);
-
-  const continuar = page.getByRole("link", { name: "Continuar →" });
-  await expect(continuar).not.toHaveAttribute("aria-disabled", "true");
-  await continuar.click();
-  await expect(page).toHaveURL(/\/p5-identidad$/);
+  await page.locator("#p5-correo").fill(persona.correo);
+  await page.locator("#p5-correo-repetido").fill(persona.correo);
+  await expect(page.getByText("Las dos direcciones coinciden.")).toBeVisible();
 }
 
 /**
@@ -159,10 +226,45 @@ async function tomarCapturaP5(page: Page, toma: "FRENTE" | "DORSO" | "SELFIE"): 
 /**
  * P5 · Paso 5 de 9 — Verificación de identidad, camino que aprueba (frente,
  * dorso y selfie aprobadas, país y estado civil completos). Deja a la persona
- * en /p6-declaraciones.
+ * en /declaraciones.
  */
+/**
+ * Bloque laboral y económico, que desde la reformulación de pantallas vive en
+ * el paso 4 y no en el de declaraciones (maqueta p.4). Los valores salen de la
+ * persona de prueba para que el FIPF quede con datos coherentes.
+ */
+/**
+ * Valores por defecto para los escenarios que no dependen de una persona en
+ * particular: todos salen de los catálogos, que es lo único que el servidor
+ * valida.
+ */
+const DATOS_COMPLEMENTARIOS_POR_DEFECTO: PersonaDemo["datosComplementarios"] = {
+  domicilio: "Avda. España 123",
+  ciudad: "Asunción",
+  situacionLaboral: "Relación de dependencia",
+  actividad: "Servicios financieros",
+  profesion: "Contador/a",
+  empresa: "Estudio Contable SRL",
+  ingresoMensualDeclaradoGs: 8_000_000,
+  origenFondos: "Ingresos laborales (sueldo o salario)",
+};
+
+export async function completarDatosComplementarios(
+  page: Page,
+  datos: PersonaDemo["datosComplementarios"] = DATOS_COMPLEMENTARIOS_POR_DEFECTO,
+): Promise<void> {
+  await page.locator("#p5-domicilio").fill(datos.domicilio);
+  await page.locator("#p5-ciudad").selectOption(datos.ciudad);
+  await page.locator("#p5-situacion-laboral").selectOption(datos.situacionLaboral);
+  await page.locator("#p5-actividad").selectOption(datos.actividad);
+  await page.locator("#p5-profesion").selectOption(datos.profesion);
+  if (datos.empresa) await page.locator("#p5-empresa").fill(datos.empresa);
+  await page.locator("#p5-ingreso").fill(String(datos.ingresoMensualDeclaradoGs));
+  await page.locator("#p5-origen-fondos").selectOption(datos.origenFondos);
+}
+
 export async function completarP5Aprobado(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p5-identidad$/);
+  await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
 
   await tomarCapturaP5(page, "FRENTE");
@@ -179,12 +281,14 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
 
   await page.getByLabel(/Autorizo la captura y comparación/).check();
   await page.locator("#p5-pais").selectOption("Paraguay");
+  await page.locator("#p5-pais-residencia").selectOption("Paraguay");
   await page.locator("#p5-estado-civil").selectOption("Soltero/a");
+  await completarDatosComplementarios(page);
 
   const continuar = page.getByRole("button", { name: "Validar identidad y continuar →" });
   await expect(continuar).toBeEnabled();
   await continuar.click();
-  await expect(page).toHaveURL(/\/p6-declaraciones$/);
+  await expect(page).toHaveURL(/\/declaraciones$/);
 }
 
 /**
@@ -192,7 +296,7 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
  * A propósito **no** navega a P6 — es lo que el escenario 4 tiene que probar.
  */
 export async function completarCapturasP5(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p5-identidad$/);
+  await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
   await tomarCapturaP5(page, "FRENTE");
   await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(1);
@@ -206,7 +310,9 @@ export async function completarCapturasP5(page: Page): Promise<void> {
   ).toBeVisible();
   await page.getByLabel(/Autorizo la captura y comparación/).check();
   await page.locator("#p5-pais").selectOption("Paraguay");
+  await page.locator("#p5-pais-residencia").selectOption("Paraguay");
   await page.locator("#p5-estado-civil").selectOption("Soltero/a");
+  await completarDatosComplementarios(page);
 }
 
 interface DeclaracionesTexto {
@@ -238,29 +344,26 @@ const CAMPO_DECLARACION: readonly (keyof PersonaDemo["declaraciones"])[] = [
 ];
 
 /**
- * P6 · Paso 6 de 9 — Datos y declaraciones. Completa el bloque 1 con los
- * datos complementarios de la persona y responde las ocho declaraciones tal
- * como están en su fixture (`personas.ts`), sin decidir acá qué habilita o
- * bloquea: esa regla la aplica siempre el servidor.
+ * Paso 5 · Datos y declaraciones. Completa el bloque 1 con los datos
+ * complementarios de la persona y responde las ocho declaraciones tal como
+ * están en su fixture (`personas.ts`), sin decidir acá qué habilita o bloquea:
+ * esa regla la aplica siempre el servidor.
+ *
+ * **No marca ninguna declaración de origen lícito**: con el PDF unificado
+ * (D-11) el literal se imprime en el documento y lo cubre el acto de firma
+ * único. La Matriz V4 §4 es explícita —"no casilla adicional"— y L4c retiró la
+ * casilla que L4b había puesto acá como puente.
  */
 export async function completarP6(page: Page, persona: PersonaDemo): Promise<void> {
-  await expect(page).toHaveURL(/\/p6-declaraciones$/);
+  await expect(page).toHaveURL(/\/declaraciones$/);
   await esperarHidratacion(page);
-  const datos = persona.datosComplementarios;
-
-  await page.locator("#p6-domicilio").fill(datos.domicilio);
-  await page.locator("#p6-ciudad").selectOption(datos.ciudad);
-  await page.locator("#p6-situacion-laboral").selectOption(datos.situacionLaboral);
-  await page.locator("#p6-actividad").selectOption(datos.actividad);
-  await page.locator("#p6-profesion").selectOption(datos.profesion);
-  if (datos.empresa) await page.locator("#p6-empresa").fill(datos.empresa);
-  await page.locator("#p6-ingreso").fill(String(datos.ingresoMensualDeclaradoGs));
-
-  if (datos.beneficiario.tipo === "PERSONA_DESIGNADA") {
-    await page.getByRole("radio", { name: "Designar una persona — 100%" }).check();
-    await page.locator("#p6-benef-nombre").fill(datos.beneficiario.nombreCompleto ?? "");
-    await page.locator("#p6-benef-parentesco").selectOption(datos.beneficiario.parentesco ?? "");
-    await page.locator("#p6-benef-domicilio").fill(datos.beneficiario.domicilio ?? "");
+  if (persona.beneficiario.tipo === "PERSONA_DESIGNADA") {
+    const beneficiarioDesignado = page.getByRole("radio", { name: "Designar una persona — 100%" });
+    await beneficiarioDesignado.click();
+    await expect(beneficiarioDesignado).toBeChecked();
+    await page.locator("#p6-benef-nombre").fill(persona.beneficiario.nombreCompleto ?? "");
+    await page.locator("#p6-benef-parentesco").selectOption(persona.beneficiario.parentesco ?? "");
+    await page.locator("#p6-benef-domicilio").fill(persona.beneficiario.domicilio ?? "");
   }
 
   for (const [indice, campo] of CAMPO_DECLARACION.entries()) {
@@ -274,25 +377,43 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
     // recomienda para checkboxes/radios estilizados así: el estado marcado
     // se verifica igual (`.check()` espera `checked`), lo que se salta es el
     // chequeo de accionabilidad visual del <input> en sí, no la interacción.
-    await page.getByRole("radio", { name: `${numero}. ${titulo}: ${opcion}` }).check({ force: true });
+    // Clic y aserción en vez de `.check()`. El `checked` de estos radios lo
+    // controla React, y `.check()` verifica el estado **en el instante**: si
+    // la re-renderización llega un latido después, reporta "clicking the
+    // checkbox did not change its state" y falla algo que sí funcionó. El
+    // `expect` que sigue espera con el presupuesto de la suite, así que la
+    // garantía es la misma sin la carrera.
+    //
+    // Se clica la **etiqueta**, no el input: el input es `sr-only`, así que su
+    // caja mide un píxel y un clic forzado va a parar a las coordenadas de esa
+    // caja — que según cómo quede el layout puede caer debajo de otro
+    // elemento. La etiqueta es lo que toca una persona y lo que siempre está
+    // a la vista.
+    const radio = page.getByRole("radio", { name: `${numero}. ${titulo}: ${opcion}` });
+    await radio.locator("..").click();
+    await expect(radio).toBeChecked();
   }
+
 }
 
 /** Envía el formulario de P6 y espera terminar en el destino esperado. */
 export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<void> {
-  const continuar = page.getByRole("button", { name: "Guardar y continuar →" });
+  const continuar = page.getByRole("button", { name: "Declarar y continuar" });
   await expect(continuar).toBeEnabled();
   await continuar.click();
   await expect(page).toHaveURL(destinoEsperado, { timeout: 20_000 });
 }
 
 /**
- * P7 · Paso 7 de 9 — Facturación y garantía de pago, con QR Bancard. Deja a
- * la persona en /p7-pago, pago confirmado.
+ * Paso 7 · Realizá el pago, con QR Bancard. Deja a la persona en /pago, pago
+ * confirmado.
+ *
+ * D-08 · este paso ahora corre **después** de la firma, y la declaración de
+ * origen lícito se aceptó dos pasos antes, junto con las declaraciones.
  *
  * **No confía en el sondeo del propio cliente para confirmar el pago.**
  * Hallazgo al correr esta batería contra el stack real: `FormularioPagoP7`
- * (`src/app/(flujo)/p7-pago/FormularioPagoP7.tsx`, función `sondear`) deja de
+ * (`src/app/(flujo)/pago/FormularioPagoP7.tsx`, función `sondear`) deja de
  * sondear apenas `GET /api/p7/estado` responde una vez con `ok:false` —
  * incluida una respuesta transitoria de `PAGO_NO_INICIADO` (fila cerca del
  * borde de `DEMORA_ACREDITACION_MS`, `src/domain/pago-p7.ts:585-588`, cuando
@@ -308,9 +429,11 @@ export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<voi
  * el estado real ya asentado.
  */
 export async function completarP7Qr(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/p7-pago$/);
+  await expect(page).toHaveURL(/\/pago$/);
   await esperarHidratacion(page);
-  await page.getByLabel(/Declaro que los fondos utilizados/).check();
+  // CHG-37 · sin esta casilla el botón queda deshabilitado: es la que autoriza
+  // emitir el certificado y mandar la póliza a los canales verificados.
+  await page.locator("#p7-acepta-certificado").check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
   await expect(page.getByText("Escaneá el QR con tu app de banco")).toBeVisible();
 
@@ -327,27 +450,30 @@ let ultimaRespuestaDiagnostico = "";
   await expect(page.getByRole("heading", { name: "Pago acreditado" })).toBeVisible();
 }
 
-export async function continuarAFirma(page: Page): Promise<void> {
-  await page.getByRole("link", { name: "Continuar a firma →" }).click();
-  await expect(page).toHaveURL(/\/p8-firma$/);
+export async function continuarAConfirmacion(page: Page): Promise<void> {
+  await page.getByRole("link", { name: "Ver la confirmación →" }).click();
+  await expect(page).toHaveURL(/\/confirmacion$/);
 }
 
 /**
- * P8 · Paso 8 de 9 — envía el enlace de firma por WhatsApp y abre el "otro
- * lado" (el panel de demo haciendo de Code100). No firma: eso lo hacen
- * `firmarNormalmente` / `firmarConFallaAMitad` de abajo, según el escenario.
+ * Paso 6 · Revisá, aceptá y firmá — envía el enlace de firma por WhatsApp y
+ * abre el "otro lado" (el panel de demo haciendo de Code100). No firma: eso lo
+ * hacen `firmarNormalmente` / `firmarConFallaAMitad` de abajo, según el
+ * escenario.
  */
 export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
-  await expect(page).toHaveURL(/\/p8-firma$/);
+  await expect(page).toHaveURL(/\/firma$/);
   await esperarHidratacion(page);
-  await expect(page.getByRole("heading", { name: "GARANTÍA DE PAGO LISTA" })).toBeVisible();
+  // D-08 · acá todavía no se cobró nada; lo que la pantalla anuncia es que
+  // firmar es lo que habilita el pago.
+  await expect(page.getByRole("heading", { name: "DESPUÉS DE FIRMAR" })).toBeVisible();
 
   await page.getByRole("button", { name: "ENVIAR ENLACE SEGURO DE FIRMA" }).click();
   await expect(
     page.getByText("Enviamos el enlace de firma a tu canal verificado.", { exact: false }),
   ).toBeVisible();
 
-  const idMatch = await page.getByText(/^ID MOCK-CODE100-/).textContent();
+  const idMatch = await page.getByText(/^ID MOCK-FIRMA-/).textContent();
   const idCode100 = (idMatch ?? "").replace(/^ID\s*/, "").trim();
   expect(idCode100, "No se encontró el ID de Code100 en la pantalla de P8.").not.toBe("");
 
@@ -357,7 +483,7 @@ export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
   return idCode100;
 }
 
-/** Firma normalmente con el código real leído del panel; espera terminar en P9. */
+/** Firma normalmente con el código real leído del panel; espera pasar al pago. */
 export async function firmarNormalmente(page: Page, idCode100: string): Promise<void> {
   const sesion = await leerSesionFirmaDelPanel(page, idCode100);
   expect(sesion.codigo, "El panel no tiene código de firma para esta sesión.").not.toBeNull();
@@ -368,5 +494,5 @@ export async function firmarNormalmente(page: Page, idCode100: string): Promise<
   });
   expect(resultado.ok, `firmar: ${JSON.stringify(resultado.datos)}`).toBeTruthy();
 
-  await expect(page).toHaveURL(/\/p9-confirmacion$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/pago$/, { timeout: 20_000 });
 }

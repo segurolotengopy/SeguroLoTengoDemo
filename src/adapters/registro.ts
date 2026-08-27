@@ -20,6 +20,7 @@ import type { PaymentProvider } from "../ports/payment-provider";
 import type { RegistroCivilProvider } from "../ports/registro-civil";
 import type { PolicyIssuer } from "../ports/policy-issuer";
 import type { SignatureProvider } from "../ports/signature-provider";
+import type { MessagingProvider } from "../ports/messaging-provider";
 import type { OtpRepository } from "../repositories/otp-repository";
 import { SESv2Client } from "@aws-sdk/client-sesv2";
 import type { LectorMetadataOtp } from "../domain/verificacion-canal";
@@ -46,6 +47,7 @@ import { crearAlmacenEstadoDemo } from "../repositories";
 import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 import type { OtpFirmaRemoto } from "./mock/signature-provider";
+import { crearMessagingProviderMock } from "./mock/messaging-provider";
 import { crearPaymentProviderMock } from "./mock/payment-provider";
 import { crearPolicyIssuerMock } from "./mock/policy-issuer";
 import { crearRegistroCivilMock } from "./mock/registro-civil";
@@ -55,7 +57,7 @@ import {
   crearSignatureProviderMock,
 } from "./mock/signature-provider";
 import { consumirFallaDemo } from "./mock/fallas-demo";
-import { plazoFirmaMs } from "./mock/plazo-firma-demo";
+import { plazoPagoMs } from "./mock/plazo-pago-demo";
 
 /**
  * Persistencia del simulador de firma, configurada al importar este módulo.
@@ -274,8 +276,6 @@ export function obtenerPaymentProvider(): PaymentProvider {
     mock: () =>
       crearPaymentProviderMock({
         fallaForzada: () => (consumirFallaDemo("BANCARD_TIMEOUT") ? "TIMEOUT" : null),
-        fallaCapturaForzada: () =>
-          consumirFallaDemo("BANCARD_CAPTURA_FALLIDA") ? "CAPTURA_FALLIDA" : null,
       }),
     live: () => {
       throw new Error(
@@ -286,14 +286,50 @@ export function obtenerPaymentProvider(): PaymentProvider {
   });
 }
 
+/**
+ * Entrega de documentos por los canales verificados (CHG-44, CMP-05).
+ *
+ * Solo hay mock, y el `live` no es una tarea pendiente cualquiera: WhatsApp-
+ * Modular expone hoy un `otp-service` y ningún endpoint para mandar un
+ * documento, así que **no hay contrato que implementar**. Inventarlo sería
+ * inventar la integración, el mismo criterio con el que el webhook de Code100
+ * quedó declarado y sin implementar (PEN-02). El de correo sí es escribible
+ * sobre SES cuando la entrega salga del demo.
+ */
+export function obtenerMessagingProvider(): MessagingProvider {
+  return resolverAdaptador("MESSAGING", {
+    mock: () => crearMessagingProviderMock(),
+    live: () => {
+      throw new Error(
+        "INTEGRATION_MESSAGING=live pero todavía no existe el adaptador oficial de " +
+          "MessagingProvider. WhatsApp-Modular no expone hoy un endpoint de entrega de " +
+          "documentos; ver la cabecera de src/ports/messaging-provider.ts.",
+      );
+    },
+  });
+}
+
+/** Vigencia del enlace de firma de Code100: 24 horas (fila 41 de la matriz). */
+const VIGENCIA_ENLACE_FIRMA_MS = 24 * 60 * 60 * 1000;
+
 export function obtenerSignatureProvider(): SignatureProvider {
   return resolverAdaptador("SIGNATURE", {
-    // La vigencia del enlace acompaña al plazo para firmar: si el panel de
-    // demo comprime las 24 horas a segundos, un enlace que siguiera vivo un
-    // día entero mostraría un vencimiento que no vence.
+    // La vigencia del enlace de firma es **suya**, no la del expediente.
+    //
+    // Estaban atadas —`vigenciaEnlaceMs: plazoPagoMs()`— y tenía sentido
+    // mientras el plazo del panel fuera el de *firmar*: comprimirlo a segundos
+    // debía comprimir también el enlace, o el vencimiento no vencía. Con la
+    // inversión (D-08) ese plazo pasó a ser el de **pagar**, y la atadura
+    // quedó al revés: acortar el plazo de pago acortaba la ventana para
+    // firmar, que es un paso anterior. En la batería E2E el escenario del
+    // vencimiento quedaba con 30 segundos para completar todo el acto de
+    // Code100.
+    //
+    // Son dos caducidades distintas y ahora se las trata así: el enlace vive
+    // 24 horas (fila 41 de la matriz), y el plazo de pago lo fija D-10.
     mock: () =>
       crearSignatureProviderMock({
-        vigenciaEnlaceMs: plazoFirmaMs(),
+        vigenciaEnlaceMs: VIGENCIA_ENLACE_FIRMA_MS,
         fallaForzada: () => (consumirFallaDemo("CODE100_RECHAZO") ? "RECHAZADA" : null),
       }),
     live: () => {
@@ -356,13 +392,24 @@ export function obtenerPolicyIssuer(): PolicyIssuer {
 }
 
 /**
- * Plazo para firmar que rige en este proceso: 24 horas, o lo que haya fijado
- * el panel de demo con `DEMO_MODE=true` (`mock/plazo-firma-demo.ts`).
+ * Plazo para pagar que rige en este proceso: 24 horas, o lo que haya fijado
+ * el panel de demo con `DEMO_MODE=true` (`mock/plazo-pago-demo.ts`).
  *
  * Se expone desde el composition root —y no importando el módulo mock desde
  * `src/app/`— por la misma razón que los proveedores: los Route Handlers del
  * flujo no tienen por qué saber que existe un modo demo.
  */
-export function obtenerPlazoFirmaMs(): number {
-  return plazoFirmaMs();
+export function obtenerPlazoPagoMs(): number {
+  return plazoPagoMs();
+}
+
+/**
+ * `true` una sola vez si el panel armó la falla de firmas institucionales.
+ *
+ * Se expone desde el composition root por la misma razón que los proveedores:
+ * la pantalla de firma no tiene por qué saber que existe un modo demo, y en un
+ * despliegue normal `consumirFallaDemo` devuelve siempre `false`.
+ */
+export function firmasInstitucionalesCaidas(): boolean {
+  return consumirFallaDemo("FIRMAS_INSTITUCIONALES_FALLAN");
 }

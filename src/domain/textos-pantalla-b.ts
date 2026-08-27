@@ -1,5 +1,5 @@
 /**
- * Textos de la Pantalla B · QR pagado, firma no completada, transcritos de
+ * Textos de la Pantalla B · Solicitud vencida, transcritos de
  * docs/ESPECIFICACION_PANTALLAS.md → "Pantalla B · QR pagado, firma no
  * completada".
  *
@@ -27,29 +27,37 @@
  *
  * ## Divergencia declarada de la especificación
  *
- * El documento escribe la pantalla para **un solo caso**: el QR pagado. Pero
- * P7 ofrece tres medios y dos de ellos mueven el dinero antes de la firma (QR
- * y débito) mientras que el tercero solo lo reserva (crédito) — ver
- * `MedioDePago` en `src/domain/tipos.ts`. Con crédito no hay premio que
- * devolver: hay una reserva que liberar, y decirle a la persona que se inició
- * un procedimiento de devolución sería describirle algo que no está pasando con
- * su plata (misma fila 25 que motivó la divergencia de P7).
+ * El documento escribe la pantalla para **un solo caso**: el QR pagado y la
+ * firma que no llega. Con la inversión de firma y pago (D-08) ese caso dejó de
+ * poder ocurrir: ahora se firma primero y se cobra después, así que lo que
+ * caduca es un expediente **firmado y no pagado** y no hay premio que
+ * devolver. Vencer dejó de costar plata, que era exactamente el punto de
+ * invertir el orden.
  *
- * Por eso los literales están agrupados en dos variantes. Los del QR y el
- * débito son los del documento palabra por palabra; los del crédito se
- * escribieron para esta pantalla siguiendo el mismo registro.
+ * Por eso los literales están agrupados en dos variantes:
+ *
+ * - **Caducidad sin cobro** — la del flujo vigente. Nadie pagó nada, no hay
+ *   trámite que hacer y la persona puede empezar de nuevo.
+ * - **Devolución** — los literales del documento, palabra por palabra. Se
+ *   conservan porque hay expedientes que vencieron bajo el orden viejo **con
+ *   el pago hecho**, y esos siguen teniendo un trámite abierto que la pantalla
+ *   tiene que poder contar (regla inviolable #10: no se los reescribe).
+ *
+ * Cuál se muestra lo decide `hayPremioQueDevolver`, que mira si el dinero
+ * entró — no el medio de pago ni la fecha del expediente.
  */
 
-export const TITULO_PANTALLA_B = "Tu solicitud venció porque no completaste la firma";
+export const TITULO_PANTALLA_B = "Tu solicitud venció porque no completaste el pago";
 
+/** Variante legada: expedientes que vencieron pagados, bajo el orden viejo. */
 export const BAJADA_PANTALLA_B =
   "Se inició el procedimiento de devolución del premio pagado mediante QR Bancard. Te informamos " +
   "por WhatsApp y correo verificados.";
 
-/** Variante de crédito: no hay premio que devolver, hay reserva que liberar. */
-export const BAJADA_PANTALLA_B_CREDITO =
-  "No se completó ningún cobro: la reserva sobre tu tarjeta se libera y el importe vuelve a estar " +
-  "disponible. Te informamos por WhatsApp y correo verificados.";
+/** Variante del flujo vigente: se firmó, no se pagó, y por eso no hay nada que devolver. */
+export const BAJADA_PANTALLA_B_SIN_COBRO =
+  "No se realizó ningún cobro: firmaste la Solicitud pero el pago no llegó dentro de las 24 horas, " +
+  "así que no hay nada que devolverte. Te informamos por WhatsApp y correo verificados.";
 
 /** Rótulo del bloque derecho del encabezado. */
 export const ROTULO_PRODUCTO_PANTALLA_B = "Seguro de Vida Oncológico";
@@ -59,10 +67,10 @@ export const ROTULO_MODO_PANTALLA_B = "Solicitud vencida";
 // `SEGUIMIENTO DE FIRMA` — cuatro hitos
 // ---------------------------------------------------------------------------
 
-export const TITULO_SEGUIMIENTO_FIRMA = "SEGUIMIENTO DE FIRMA";
+export const TITULO_SEGUIMIENTO_FIRMA = "SEGUIMIENTO DEL PLAZO";
 
 export interface HitoSeguimiento {
-  /** Horas desde el pago confirmado. */
+  /** Horas desde que el expediente quedó firmado (D-10). */
   readonly horas: 1 | 5 | 12 | 24;
   readonly rotulo: string;
   readonly detalle: string;
@@ -88,7 +96,7 @@ export const HITOS_SEGUIMIENTO: readonly HitoSeguimiento[] = [
   {
     horas: 24,
     rotulo: "24 HORAS",
-    detalle: "Solicitud vencida, notificación y devolución.",
+    detalle: "Solicitud vencida y notificación a los dos canales.",
     esVencimiento: true,
   },
 ];
@@ -147,10 +155,10 @@ export const PASOS_DEVOLUCION: readonly PasoDevolucion[] = [
 export const AVISO_DEVOLUCION_SOLO_AL_ORIGEN =
   "No se devuelve en efectivo, a terceros ni a otra cuenta.";
 
-/** Variante de crédito: la liberación de la reserva no tiene trámite presencial. */
-export const TITULO_LIBERACION_RESERVA = "LIBERACIÓN DE LA RESERVA";
+/** Variante del flujo vigente: sin cobro no hay trámite de ningún tipo. */
+export const TITULO_CADUCIDAD_SIN_COBRO = "QUÉ PASA AHORA";
 
-export const PASOS_LIBERACION_RESERVA: readonly PasoDevolucion[] = [
+export const PASOS_CADUCIDAD_SIN_COBRO: readonly PasoDevolucion[] = [
   {
     numero: 1,
     titulo: "Notificación doble",
@@ -158,22 +166,22 @@ export const PASOS_LIBERACION_RESERVA: readonly PasoDevolucion[] = [
   },
   {
     numero: 2,
-    titulo: "Liberación en Bancard",
-    detalle: "Se cancela la preautorización: el importe nunca salió de tu cuenta.",
+    titulo: "Sin movimiento de dinero",
+    detalle: "No se generó ningún cobro: no salió ni se reservó nada de tu cuenta.",
   },
   {
     numero: 3,
-    titulo: "Disponibilidad",
-    detalle: "El límite vuelve a estar disponible en el plazo que fije tu banco emisor.",
-  },
-  {
-    numero: 4,
     titulo: "Sin trámite presencial",
     detalle: "No hay formulario que firmar ni que acudir a las oficinas: no hubo cobro.",
   },
+  {
+    numero: 4,
+    titulo: "Podés volver a empezar",
+    detalle: "Tu documentación firmada queda archivada y podés iniciar una solicitud nueva.",
+  },
 ];
 
-export const AVISO_LIBERACION_SIN_COBRO =
+export const AVISO_CADUCIDAD_SIN_COBRO =
   "No se realizó ningún cobro, así que no hay premio que devolver.";
 
 // ---------------------------------------------------------------------------

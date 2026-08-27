@@ -1,4 +1,42 @@
 import { defineConfig, devices } from "@playwright/test";
+import { nombreTablaDeLaCorrida } from "./e2e/support/tabla-efimera";
+
+/**
+ * Tabla de DynamoDB propia de esta corrida.
+ *
+ * Se decide **acá** y no en el `globalSetup` porque Playwright levanta el
+ * `webServer` antes de correr el setup: el nombre tiene que estar resuelto
+ * cuando se arma el entorno del servidor. El setup la crea y el teardown la
+ * borra; ambos la leen de `DYNAMODB_TABLE`, que es la misma variable que usa
+ * la app.
+ *
+ * Respetar `DYNAMODB_TABLE` si ya viene definida permite apuntar la batería a
+ * una tabla concreta a mano —para depurar contra datos existentes— sin tocar
+ * este archivo.
+ */
+const TABLA_DE_LA_CORRIDA = process.env.DYNAMODB_TABLE ?? nombreTablaDeLaCorrida();
+process.env.DYNAMODB_TABLE = TABLA_DE_LA_CORRIDA;
+
+/**
+ * Los mismos valores por defecto de AWS que recibe el `webServer`, pero puestos
+ * en **este** proceso.
+ *
+ * `webServer.env` solo alcanza al servidor de Next. `global-setup.ts` y
+ * `global-teardown.ts` corren acá, en el proceso de Playwright, y usaban lo que
+ * hubiera en el ambiente: con `AWS_PROFILE` sin definir caían al perfil
+ * `default`, que en esta máquina es una sesión de `aws login` que caduca. El
+ * síntoma era "Your session has expired. Please reauthenticate" al crear la
+ * tabla efímera, y llevaba a pensar que el perfil de QA estaba vencido cuando
+ * en realidad ni se lo estaba usando.
+ *
+ * Se respeta lo que venga del entorno, igual que la tabla: exportar
+ * `AWS_PROFILE` sigue mandando.
+ */
+process.env.AWS_PROFILE ??= "aab1-demo-qa";
+process.env.AWS_REGION ??= "us-east-1";
+process.env.S3_BUCKET ??= "slt-demo-evidencias-9e0e93f3";
+process.env.APP_SECRETS_ARN ??=
+  "arn:aws:secretsmanager:us-east-1:120005938663:secret:slt-demo-app-secrets-wX3mDq";
 
 /**
  * Configuración de Playwright para los escenarios E2E de SeguroLoTengo.
@@ -36,7 +74,21 @@ export default defineConfig({
   // verificaciones. El margen es deliberadamente holgado: acá un timeout no
   // detecta bugs, solo mata corridas lentas a medio camino.
   timeout: 180_000,
-  expect: { timeout: 15_000 },
+  /**
+   * 30 s por aserción, no 15.
+   *
+   * Esta batería no corre contra dobles: habla con DynamoDB, S3 y Secrets
+   * Manager **reales**. Los pasos que cierran un expediente —confirmar
+   * identidad, pagar, firmar— hacen varias idas y vueltas a AWS antes de
+   * navegar, y cuando los siete escenarios corren seguidos esas idas y vueltas
+   * se encolan. Con 15 s aparecían fallos que cambiaban de escenario en cada
+   * corrida y pasaban de a uno en aislamiento: el síntoma clásico de un
+   * presupuesto de espera más corto que la operación que se está esperando.
+   *
+   * El precio es enterarse más tarde de una regresión de verdad. Se paga: un
+   * rojo tardío es molesto, uno intermitente entrena a ignorar la batería.
+   */
+  expect: { timeout: 30_000 },
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -89,13 +141,14 @@ export default defineConfig({
       // el global-setup libera por consola administrativa lo que la corrida
       // anterior dejó bloqueante por regla #11.
       ADMIN_CONSOLE_ENABLED: "true",
-      AWS_PROFILE: process.env.AWS_PROFILE ?? "aab1-demo-qa",
-      AWS_REGION: process.env.AWS_REGION ?? "us-east-1",
-      DYNAMODB_TABLE: process.env.DYNAMODB_TABLE ?? "slt-demo-expedientes",
-      S3_BUCKET: process.env.S3_BUCKET ?? "slt-demo-evidencias-9e0e93f3",
-      APP_SECRETS_ARN:
-        process.env.APP_SECRETS_ARN ??
-        "arn:aws:secretsmanager:us-east-1:120005938663:secret:slt-demo-app-secrets-wX3mDq",
+      // Ya resueltos arriba, en este proceso: el servidor hereda exactamente lo
+      // mismo que usan el global-setup y el teardown, que era justamente lo que
+      // no pasaba.
+      AWS_PROFILE: process.env.AWS_PROFILE!,
+      AWS_REGION: process.env.AWS_REGION!,
+      DYNAMODB_TABLE: TABLA_DE_LA_CORRIDA,
+      S3_BUCKET: process.env.S3_BUCKET!,
+      APP_SECRETS_ARN: process.env.APP_SECRETS_ARN!,
     },
   },
 });

@@ -136,44 +136,35 @@ export function VisorEvidencia({
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-2 rounded-lg border border-borde-tenue bg-superficie-suave p-3">
+            <div className="flex flex-col gap-2 rounded-lg border border-borde-tenue bg-superficie-suave p-3 sm:col-span-2">
               <p className="text-sm font-semibold text-titulo">
-                Solicitud{" "}
-                <code className="font-mono text-xs">{paqueteDocumental.solicitud.codigo}</code> · v
-                {paqueteDocumental.solicitud.version}
+                Solicitud + FIPF{" "}
+                <code className="font-mono text-xs">{paqueteDocumental.codigo}</code> · v
+                {paqueteDocumental.version}
               </p>
-              <Hash rotulo="Hash al cierre" valor={paqueteDocumental.solicitud.hashSha256} />
+              <p className="text-xs text-etiqueta">
+                Un solo PDF con las dos secciones. La del FIPF conserva su código interno{" "}
+                <code className="font-mono">{paqueteDocumental.codigoSeccionFipf}</code>.
+              </p>
+              <Hash rotulo="Hash al cierre" valor={paqueteDocumental.hashSha256} />
               <p className="text-xs text-etiqueta tabular-nums">
-                Cerrada el {fechaLegible(paqueteDocumental.solicitud.cerradoEn)}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 rounded-lg border border-borde-tenue bg-superficie-suave p-3">
-              <p className="text-sm font-semibold text-titulo">
-                FIPF <code className="font-mono text-xs">{paqueteDocumental.fipf.codigo}</code> · v
-                {paqueteDocumental.fipf.version}
-              </p>
-              <Hash rotulo="Hash al cierre" valor={paqueteDocumental.fipf.hashSha256} />
-              <p className="text-xs text-etiqueta tabular-nums">
-                Cerrado el {fechaLegible(paqueteDocumental.fipf.cerradoEn)}
+                Cerrado el {fechaLegible(paqueteDocumental.cerradoEn)}
               </p>
             </div>
             {firma ? (
               <div className="flex flex-col gap-2 rounded-lg border border-verde-300 bg-verde-50 p-3 sm:col-span-2 dark:border-verde-800 dark:bg-verde-950">
                 <p className="text-sm font-semibold text-verde-900 dark:text-verde-100">
-                  Firmados en un solo acto (Code100{" "}
+                  Firmado (Code100{" "}
                   <code className="font-mono text-xs">{firma.idCode100}</code>) el{" "}
                   <span className="tabular-nums">{fechaLegible(firma.firmadoEn)}</span> · canal{" "}
                   {firma.canal}
                 </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Hash rotulo="Solicitud firmada" valor={firma.hashSolicitudFirmada} />
-                  <Hash rotulo="FIPF firmado" valor={firma.hashFipfFirmado} />
-                </div>
+                <Hash rotulo="Documento firmado" valor={firma.hashDocumentoFirmado} />
               </div>
             ) : (
               <p className="text-xs text-etiqueta sm:col-span-2">
-                Sin firma todavía: la Solicitud y el FIPF se firman juntos o ninguno (regla
-                atómica de firma).
+                Sin firma todavía. La Solicitud y el FIPF no pueden firmarse por separado: son
+                secciones del mismo PDF.
               </p>
             )}
           </div>

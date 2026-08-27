@@ -166,7 +166,7 @@ export const LEYENDA_CORRELATIVO_DISTINTO =
  * llamando a todos los casos de uso del flujo con un expediente derivado.
  */
 export const REGLA_DEL_SISTEMA_PANTALLA_A =
-  "Desde este estado el proceso digital no continúa a pago mediante Bancard, ni a firma mediante " +
-  "Code100, ni a emisión mediante SEBAOT.";
+  "Desde este estado el proceso digital no continúa a pago mediante Bancard, ni a la firma " +
+  "electrónica del paquete documental, ni a emisión mediante SEBAOT.";
 
 export const ROTULO_BOTON_FINALIZAR = "Finalizar / Volver al inicio";

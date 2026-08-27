@@ -3,50 +3,68 @@
  * del expediente"). Esta es la única función de transición: ningún Route
  * Handler ni componente debe cambiar `estado` directamente.
  *
- *   INICIADO → CANAL_WA_VERIFICADO → PLAN_SELECCIONADO → AUTORIZADO
- *     → CANAL_EMAIL_VERIFICADO → IDENTIDAD_VERIFICADA
+ *   INICIADO → PLAN_SELECCIONADO → CANAL_WA_VERIFICADO → AUTORIZADO
+ *     → IDENTIDAD_VERIFICADA
  *        ├─ DERIVADO_MANUAL (terminal) → Pantalla A
- *        └─ DECLARACIONES_OK → PAGO_CONFIRMADO → PAQUETE_GENERADO
- *               ├─ VENCIDO → DEVOLUCION_EN_TRAMITE → DEVUELTO (Pantalla B)
- *               └─ FIRMADO → EMITIDO → P9
+ *        └─ DECLARACIONES_OK → PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO
+ *               ├─ VENCIDO (24 h sin pagar; sin cobro, sin devolución)
+ *               └─ PAGO_CONFIRMADO → EMITIDO
+ *                      └─ DEVOLUCION_EN_TRAMITE → DEVUELTO (a pedido)
  *
- * Con una arista más que el diagrama de CLAUDE.md: PAGO_CONFIRMADO → VENCIDO.
- * El plazo de firma arranca con el pago, no con el cierre del paquete, así que
- * un expediente pagado que nunca llegó a P8 también tiene que poder vencer.
- * La justificación completa está junto a la entrada del grafo.
+ * **Se firma antes de pagar** (D-08, Matriz Legal V4 §7). Es la inversión del
+ * orden que tenía el flujo hasta el Lote 4: cobrar antes de la firma dejaba a
+ * la persona pagando por un contrato que todavía no había aceptado, y obligaba
+ * a devolver el premio cada vez que no firmaba. Con el orden nuevo el
+ * vencimiento ocurre **antes** de que haya dinero, así que caducar es gratis y
+ * la devolución queda reservada a lo que sí puede pedirse: un cobro con
+ * tarjeta ya acreditado (D-02).
  */
 import type {
   ActoDeFirmaEnCurso,
+  CertificadoCobertura,
   PolizaDelExpediente,
-  DatosComplementariosP6,
+  Beneficiario,
   DatosFacturacionP7,
   Declaraciones,
   EstadoExpediente,
   Expediente,
   Firma,
+  FirmaInstitucional,
   PaqueteDocumental,
   Pago,
 } from "./tipos";
-import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, garantiaDePagoLista } from "./tipos";
+import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, pagoAcreditado } from "./tipos";
 import { codigoFipf, codigoSolicitud } from "./documentos";
+import { codigoCertificado } from "./certificado-cobertura";
+import { firmantesConjuntos } from "./firmantes-documento";
 import { evaluarElegibilidad } from "./elegibilidad";
 
 /** Grafo de transiciones legales: única fuente de verdad de la máquina de estados. */
 const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
-  INICIADO: ["CANAL_WA_VERIFICADO"],
-  CANAL_WA_VERIFICADO: ["PLAN_SELECCIONADO"],
-  // El autobucle es el enlace `Cambiar plan` de la barra de plan seleccionado
-  // (docs/ESPECIFICACION_PANTALLAS.md → "Elementos comunes"): volver a P2 y
-  // elegir otro plan antes de la autorización de P3. No agrega ningún estado
-  // alcanzable nuevo —desde acá se sigue saliendo solo a AUTORIZADO— y cada
-  // re-selección queda como una entrada más del historial append-only.
-  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "AUTORIZADO"],
-  AUTORIZADO: ["CANAL_EMAIL_VERIFICADO"],
+  // CHG-01 · el plan se elige primero y el OTP de WhatsApp viene después.
+  // Todo lo anterior al OTP es información pública, así que ponerlo delante no
+  // protegía nada; puesto acá, el código funciona como elemento disuasivo y da
+  // trazabilidad temprana de quién está avanzando.
+  INICIADO: ["PLAN_SELECCIONADO"],
+  // El autobucle es el enlace `Cambiar plan` de la barra de plan seleccionado:
+  // volver al catálogo y elegir otro antes de verificar el canal. No agrega
+  // ningún estado alcanzable nuevo —desde acá se sigue saliendo solo a
+  // CANAL_WA_VERIFICADO— y cada re-selección queda como una entrada más del
+  // historial append-only.
+  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "CANAL_WA_VERIFICADO"],
+  CANAL_WA_VERIFICADO: ["AUTORIZADO"],
+  // D-06 · sin OTP de correo, la autorización lleva directo a identidad.
+  // `CANAL_EMAIL_VERIFICADO` sobrevive como estado legado —hay expedientes
+  // históricos ahí y la consola tiene que seguir leyéndolos (regla #10)—, pero
+  // ya nadie entra: quedó sin aristas de entrada.
+  AUTORIZADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
   // La segunda salida es P5 sin poder verificar la identidad tras tres
   // análisis fallidos: en vez de dejar a la persona repitiendo capturas que no
   // van a alcanzar, el caso pasa a asistencia humana. No es la derivación de
   // la regla #5 —esa sigue siendo exclusiva de las declaraciones de P6— y no
   // bloquea la cédula: ver `ASISTENCIA_IDENTIDAD` en `tipos.ts`.
+  // Legado (D-06): sin aristas de entrada desde el flujo nuevo. Conserva sus
+  // salidas para que un expediente viejo detenido acá pueda terminar.
   CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
   // Terminal: desde asistencia no se vuelve al flujo digital de este
   // expediente. La persona no queda bloqueada — puede empezar uno nuevo con la
@@ -56,20 +74,45 @@ const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExp
   // Terminal en el flujo digital (regla de negocio #5): no hay transición
   // posible desde acá hacia pago, firma ni emisión.
   DERIVADO_MANUAL: [],
-  DECLARACIONES_OK: ["PAGO_CONFIRMADO"],
-  // El diagrama de CLAUDE.md dibuja VENCIDO colgando solo de PAQUETE_GENERADO.
-  // Acá PAGO_CONFIRMADO también puede vencer, y es una corrección deliberada:
-  // el plazo de 24 horas arranca con el pago confirmado (`plazoFirmaVenceEn` se
-  // escribe en esa misma transición), así que un expediente pagado cuya persona
-  // nunca abrió P8 —y por lo tanto nunca cerró el paquete documental— tiene el
-  // plazo corriendo y, sin esta arista, no habría estado al que ir cuando se
-  // cumple. Sería un pago sin vencimiento posible, justo lo contrario de la
-  // fila 30 de la matriz de cumplimiento (*"Devolver el premio si el cliente no
-  // firma dentro del plazo comunicado"*, Ley 4868/13, arts. 7(f), 17 y 30(b)).
-  // No abre ningún camino nuevo hacia adelante: VENCIDO sigue saliendo solo a
-  // DEVOLUCION_EN_TRAMITE.
-  PAGO_CONFIRMADO: ["PAQUETE_GENERADO", "VENCIDO"],
-  PAQUETE_GENERADO: ["VENCIDO", "FIRMADO"],
+  // D-08 · el expediente elegible cierra su paquete documental y lo firma; el
+  // cobro llega después. Ya no hay arista DECLARACIONES_OK → PAGO_CONFIRMADO:
+  // el pago dejó de ser alcanzable sin firma, que es exactamente la garantía
+  // que pide la Matriz V4 §7 (*el QR de Bancard solo se habilita con firma
+  // válida*) y la que el código tiene que hacer imposible de violar.
+  DECLARACIONES_OK: ["PAQUETE_GENERADO"],
+  // El paquete cerrado sin firmar **no caduca**, y es deliberado: el reloj de
+  // D-10 mide un expediente firmado que no pagó, y acá todavía no hay ni firma
+  // ni dinero. Un expediente abandonado en este punto no le cuesta nada a
+  // nadie ni bloquea la cédula (regla inviolable #11 no lo incluye), así que
+  // inventarle un vencimiento sería agregar un estado terminal sin motivo.
+  // La caducidad de la *sesión* de firma es otra cosa y la fija Code100 con su
+  // `fecha_expiracion` (D-10).
+  PAQUETE_GENERADO: ["FIRMADO_CLIENTE"],
+  // Entre la firma del cliente y las institucionales. Existe como estado
+  // propio para que un sellado a medio hacer sea distinguible de un expediente
+  // sin firmar (regla inviolable #3): si Code100 confirma la firma del cliente
+  // y las de Interseguros y Alianza fallan, el expediente queda acá y no en
+  // FIRMADO, así que el cobro sigue inhabilitado.
+  FIRMADO_CLIENTE: ["FIRMADO"],
+  // Firmado por todos los intervinientes previstos y esperando el pago. Caduca
+  // a las 24 horas (D-10) **sin devolución que tramitar**: bajo este orden el
+  // vencimiento ocurre antes del cobro, así que no hay premio que devolver.
+  // La fila 30 de la matriz (*"Devolver el premio si el cliente no firma
+  // dentro del plazo comunicado"*, Ley 4868/13, arts. 7(f), 17 y 30(b)) queda
+  // satisfecha de la única manera que no puede fallar: no cobrando antes.
+  FIRMADO: ["PAGO_CONFIRMADO", "VENCIDO"],
+  // El pago acreditado habilita la emisión. La salida a devolución existe
+  // porque un cobro con tarjeta sí puede devolverse **a pedido** (D-02), que
+  // es un hecho distinto del vencimiento.
+  PAGO_CONFIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE"],
+  // Bajo el orden nuevo, vencer es gratis: no hubo cobro, así que no hay
+  // premio que devolver y el expediente termina acá. La arista hacia
+  // DEVOLUCION_EN_TRAMITE **se conserva y queda como legado**, no porque el
+  // flujo la use, sino porque hay expedientes que vencieron bajo el orden
+  // viejo con el pago hecho y no se los reescribe (regla inviolable #10):
+  // sin esta salida quedarían con dinero adentro y sin trámite al que ir.
+  // Quien la guarda es `iniciarDevolucionPantallaB`, que exige un pago
+  // acreditado — condición que un vencimiento nuevo nunca cumple.
   VENCIDO: ["DEVOLUCION_EN_TRAMITE"],
   // El trámite de devolución termina cuando Alianza devolvió el premio al medio
   // de origen. Es un hecho que ocurre fuera del flujo digital —presencial, en
@@ -78,8 +121,9 @@ const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExp
   // `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`.
   DEVOLUCION_EN_TRAMITE: ["DEVUELTO"],
   DEVUELTO: [],
-  FIRMADO: ["EMITIDO"],
-  EMITIDO: [],
+  // La emisión también puede derivar en devolución si el titular la pide
+  // (D-02): el dinero ya entró y el trámite lo lleva Alianza fuera del flujo.
+  EMITIDO: ["DEVOLUCION_EN_TRAMITE"],
 };
 
 export type ResultadoTransicion =
@@ -151,7 +195,7 @@ export function transicionarExpediente(
 export function registrarDeclaracionesP6(
   expediente: Expediente,
   declaraciones: Declaraciones,
-  datosComplementarios: DatosComplementariosP6,
+  beneficiario: Beneficiario,
   numeroCasoDerivacion: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
@@ -161,7 +205,12 @@ export function registrarDeclaracionesP6(
     return transicionarExpediente(
       expediente,
       "DECLARACIONES_OK",
-      { declaraciones, datosComplementarios, motivoDerivacionManual: null, numeroCasoDerivacion: null },
+      {
+        declaraciones,
+        beneficiario,
+        motivoDerivacionManual: null,
+        numeroCasoDerivacion: null,
+      },
       ahora,
     );
   }
@@ -175,7 +224,7 @@ export function registrarDeclaracionesP6(
     "DERIVADO_MANUAL",
     {
       declaraciones,
-      datosComplementarios,
+      beneficiario,
       motivoDerivacionManual: resultado.declaracionesQueBloquean,
       numeroCasoDerivacion,
     },
@@ -188,8 +237,13 @@ export function registrarDeclaracionesP6(
 // ---------------------------------------------------------------------------
 
 /**
- * Asienta el intento de pago de P7 **sin mover el estado**: el expediente se
- * queda en DECLARACIONES_OK hasta que Bancard confirme.
+ * Asienta el intento de pago **sin mover el estado**: el expediente se queda
+ * en FIRMADO hasta que Bancard confirme (D-08).
+ *
+ * **Ya no acuña el correlativo.** Con el orden invertido lo acuña el cierre
+ * del paquete documental, que ahora ocurre antes: acá el número ya existe y
+ * este intento solo lo cita. No hay ninguna rama por la que este paso pueda
+ * darle a una misma persona un segundo número de propuesta.
  *
  * Existe como función del dominio —y no como un `guardar` armado en el Route
  * Handler— porque lo que se persiste acá es lo que hace idempotente al cobro:
@@ -206,23 +260,22 @@ export function registrarDeclaracionesP6(
 export function registrarIntentoPagoP7(
   expediente: Expediente,
   intento: {
-    readonly numeroPropuesta: string;
     readonly facturacion: DatosFacturacionP7;
     readonly pago: Pago;
   },
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
-  if (expediente.estado !== "DECLARACIONES_OK") {
+  if (expediente.estado !== "FIRMADO") {
     return {
       ok: false,
-      error: `Solo se puede preparar el pago desde DECLARACIONES_OK; el expediente está en ${expediente.estado}.`,
+      error: `Solo se puede preparar el pago desde FIRMADO; el expediente está en ${expediente.estado}.`,
     };
   }
 
-  if (garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
+  if (pagoAcreditado(expediente.pago?.estado ?? "PENDIENTE")) {
     return {
       ok: false,
-      error: "El expediente ya tiene una garantía de pago vigente; no se puede abrir otro intento.",
+      error: "El expediente ya tiene un pago acreditado; no se puede abrir otro intento.",
     };
   }
 
@@ -230,9 +283,6 @@ export function registrarIntentoPagoP7(
     ok: true,
     expediente: {
       ...expediente,
-      // El correlativo se acuña una sola vez: cambiar de medio de pago o
-      // reintentar no puede darle a la misma persona dos números de propuesta.
-      numeroPropuesta: expediente.numeroPropuesta ?? intento.numeroPropuesta,
       facturacion: intento.facturacion,
       pago: intento.pago,
       actualizadoEn: ahora,
@@ -241,34 +291,68 @@ export function registrarIntentoPagoP7(
 }
 
 /**
- * DECLARACIONES_OK → PAGO_CONFIRMADO. Es el único punto por el que P7 mueve
- * el estado, y solo lo hace con una garantía de pago efectivamente lista:
- * QR o débito acreditados, o crédito preautorizado.
+ * FIRMADO → PAGO_CONFIRMADO. Es el único punto por el que el paso de pago
+ * mueve el estado, y ahora ocurre **después** de la firma (D-08).
  *
- * `PAGO_CONFIRMADO` significa *"garantía de pago lista"*, no *"cobrado"* —
- * con crédito todavía no se cobró nada; la captura la ordena la firma en P8
- * (P8, bloque 2: `GARANTÍA DE PAGO LISTA`; filas 26 y 27 de la matriz).
+ * `PAGO_CONFIRMADO` significa *"el dinero entró"*, sin matices: los tres
+ * medios de Bancard cobran directo desde que se retiró la preautorización
+ * (D-02), así que la distinción entre garantía y cobro dejó de existir.
  *
- * `plazoFirmaVenceEn` entra en la misma transición a propósito: el plazo de
- * 24 horas arranca con el pago confirmado, y dejarlo para una escritura
- * posterior abriría una ventana en la que existe un pago sin vencimiento.
+ * **No hay cobro sin firma.** El único estado de origen legal es FIRMADO, al
+ * que solo se llega con el paquete cerrado, la firma del cliente y las
+ * institucionales aplicadas. Es la garantía que pide la Matriz Legal V4 §7 —
+ * el medio de cobro solo se habilita con firma válida— y la razón por la que
+ * ya no existe la arista DECLARACIONES_OK → PAGO_CONFIRMADO.
+ *
+ * El vencimiento no entra acá: bajo el orden nuevo el plazo se abre al firmar
+ * (`abrirPlazoDePago`, D-10) y lo que hace esta transición es cerrarlo.
+ *
+ * **El Certificado de Cobertura Provisional entra en esta misma transición**
+ * (D-12), y es obligatorio: no existe la forma de asentar un cobro sin la
+ * constancia de desde cuándo corre la cobertura que ese cobro compró. Es la
+ * atomicidad que pide CMP-07 hecha estructura — una sola escritura lleva el
+ * estado y el documento, así que ninguna de las dos mitades puede quedar sin
+ * la otra. El certificado ya viene cerrado y hasheado desde
+ * `src/documentos/servicio.ts`; acá solo se lo valida contra el correlativo y
+ * se lo asienta.
  */
-export function confirmarGarantiaDePagoP7(
+export function registrarPagoConfirmadoP7(
   expediente: Expediente,
-  confirmacion: { readonly pago: Pago; readonly plazoFirmaVenceEn: string },
+  confirmacion: { readonly pago: Pago; readonly certificado: CertificadoCobertura },
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
-  if (!garantiaDePagoLista(confirmacion.pago.estado)) {
+  if (!pagoAcreditado(confirmacion.pago.estado)) {
     return {
       ok: false,
-      error: `No se puede confirmar la garantía de pago con el pago en estado ${confirmacion.pago.estado}.`,
+      error: `No se puede confirmar el pago con la operación en estado ${confirmacion.pago.estado}.`,
+    };
+  }
+
+  // Mismo control que en el cierre del paquete: los códigos del certificado
+  // tienen que derivar del correlativo del expediente. Un CPC que citara otro
+  // número rompería el vínculo de la fila 47 (Res. SS SG. 215/15, punto 14).
+  const correlativo = expediente.numeroPropuesta;
+  if (!correlativo) {
+    return { ok: false, error: "No se puede confirmar el pago sin correlativo de propuesta." };
+  }
+  const certificado = confirmacion.certificado;
+  if (certificado.codigo !== codigoCertificado(correlativo)) {
+    return {
+      ok: false,
+      error: `El certificado ${certificado.codigo} no deriva del correlativo ${correlativo}.`,
+    };
+  }
+  if (certificado.codigoPaquete !== codigoSolicitud(correlativo)) {
+    return {
+      ok: false,
+      error: `El certificado ${certificado.codigo} no cuelga del paquete ${codigoSolicitud(correlativo)}.`,
     };
   }
 
   return transicionarExpediente(
     expediente,
     "PAGO_CONFIRMADO",
-    { pago: confirmacion.pago, plazoFirmaVenceEn: confirmacion.plazoFirmaVenceEn },
+    { pago: confirmacion.pago, certificadoCobertura: certificado },
     ahora,
   );
 }
@@ -278,25 +362,28 @@ export function confirmarGarantiaDePagoP7(
 // ---------------------------------------------------------------------------
 
 /**
- * PAGO_CONFIRMADO → PAQUETE_GENERADO: asienta la Solicitud y el FIPF ya
+ * DECLARACIONES_OK → PAQUETE_GENERADO: asienta la Solicitud y el FIPF ya
  * cerrados y hasheados, antes de habilitar la firma.
  *
  * Las tres reglas que esta función hace imposibles de violar:
  *
- * **Los documentos entran juntos o no entra ninguno** (regla inviolable #3).
- * `PaqueteDocumental` no tiene campos opcionales y esta es la única escritura
- * de `expediente.paqueteDocumental`, así que no existe un estado en el que la
- * Solicitud esté cerrada y el FIPF no.
+ * **Los documentos entran juntos porque son uno** (regla inviolable #3, ahora
+ * estructural). Desde D-11 el paquete es un solo PDF con la Solicitud y el
+ * FIPF como secciones: no hay dos cosas que puedan separarse, así que la regla
+ * dejó de necesitar una validación que la vigile.
  *
- * **Un solo correlativo, dos prefijos.** Los códigos se validan contra
- * `expediente.numeroPropuesta`: un paquete cuyo FIPF no derive del mismo
- * número que la Solicitud se rechaza acá y nunca llega a persistirse
+ * **Un solo correlativo, dos códigos internos.** Los dos se validan contra
+ * `expediente.numeroPropuesta`: un paquete cuya sección FIPF no derive del
+ * mismo número que la Solicitud se rechaza acá y nunca llega a persistirse
  * (CLAUDE.md → "Reglas transversales de integraciones"; fila 47 de la matriz
  * de cumplimiento, Res. SS SG. 215/15, punto 14; Ley 6822/21, arts. 44-46).
  *
- * **No hay paquete sin garantía de pago.** El único estado de origen legal es
- * PAGO_CONFIRMADO, y encima se verifica el estado del pago: los documentos se
- * cierran después de que Bancard confirmó, nunca antes.
+ * **Ya no exige ninguna garantía de pago** (D-08). Esa condición tenía sentido
+ * cuando se cobraba antes de firmar: el paquete se cerraba con el pago hecho.
+ * Con el orden invertido el documento se cierra justamente para poder
+ * firmarlo, y el cobro llega después — exigirlo acá haría imposible llegar a
+ * la firma. Lo que sí sigue exigiendo es lo que hace válido al paquete:
+ * correlativo, códigos derivados de él, misma versión y huella en los dos.
  *
  * No existe transición PAQUETE_GENERADO → PAQUETE_GENERADO, y es a propósito:
  * regenerar un documento ya cerrado exigiría versión y huellas nuevas (regla
@@ -312,36 +399,22 @@ export function registrarPaqueteDocumental(
     return { ok: false, error: "No se puede cerrar el paquete documental sin correlativo de propuesta." };
   }
 
-  if (!garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
-    return {
-      ok: false,
-      error: "No se puede cerrar el paquete documental sin una garantía de pago lista.",
-    };
-  }
-
   const esperados = {
     solicitud: codigoSolicitud(expediente.numeroPropuesta),
     fipf: codigoFipf(expediente.numeroPropuesta),
   };
-  if (paquete.solicitud.codigo !== esperados.solicitud || paquete.fipf.codigo !== esperados.fipf) {
+  if (paquete.codigo !== esperados.solicitud || paquete.codigoSeccionFipf !== esperados.fipf) {
     return {
       ok: false,
       error:
         `Los códigos del paquete no derivan del correlativo ${expediente.numeroPropuesta}: ` +
         `se esperaba ${esperados.solicitud} y ${esperados.fipf}, ` +
-        `llegó ${paquete.solicitud.codigo} y ${paquete.fipf.codigo}.`,
+        `llegó ${paquete.codigo} y ${paquete.codigoSeccionFipf}.`,
     };
   }
 
-  if (paquete.solicitud.version !== paquete.fipf.version) {
-    return {
-      ok: false,
-      error: "La Solicitud y el FIPF deben cerrarse con la misma versión: se firman en un solo acto.",
-    };
-  }
-
-  if (paquete.solicitud.hashSha256 === "" || paquete.fipf.hashSha256 === "") {
-    return { ok: false, error: "Ningún documento puede quedar cerrado sin su huella digital SHA-256." };
+  if (paquete.hashSha256 === "") {
+    return { ok: false, error: "El documento no puede quedar cerrado sin su huella digital SHA-256." };
   }
 
   return transicionarExpediente(expediente, "PAQUETE_GENERADO", { paqueteDocumental: paquete }, ahora);
@@ -384,16 +457,16 @@ export function registrarEnvioEnlaceFirmaP8(
 }
 
 /**
- * PAQUETE_GENERADO → FIRMADO. Es la única escritura de `expediente.firma`.
+ * PAQUETE_GENERADO → FIRMADO_CLIENTE. Es la única escritura de
+ * `expediente.firma`.
  *
  * Las cuatro cosas que hace imposibles de violar:
  *
- * **Los dos documentos o ninguno** (regla inviolable #3). `Firma` no tiene
- * campos opcionales —`hashSolicitudFirmada` y `hashFipfFirmado` son
- * obligatorios— y esta es una sola escritura, así que no existe un expediente
- * con la Solicitud firmada y el FIPF no. Además se rechaza acá cualquier firma
- * que llegue con una huella vacía: un `""` pasaría el chequeo del tipo pero no
- * probaría nada.
+ * **Un documento, una huella** (regla inviolable #3, ahora estructural). Con
+ * el PDF único (D-11) no existe un expediente con la Solicitud firmada y el
+ * FIPF no, porque no existen dos archivos. Lo que sí se sigue rechazando acá
+ * es una firma que llegue con la huella vacía: un `""` pasaría el chequeo del
+ * tipo pero no probaría nada.
  *
  * **La firma es del acto que este expediente abrió.** El `idCode100` tiene que
  * coincidir con el de `actoDeFirma`: una confirmación de otra sesión —o un
@@ -405,8 +478,14 @@ export function registrarEnvioEnlaceFirmaP8(
  * de origen legal es PAQUETE_GENERADO, y encima se verifica que el paquete
  * esté.
  *
- * **No hay firma sin garantía de pago** (P7 → P8: la firma se habilita después
- * del QR pagado o de la preautorización).
+ * **Ya no exige garantía de pago** (D-08). Esa condición era del orden viejo,
+ * donde se cobraba antes de firmar; ahora el cobro llega después y exigirlo
+ * acá haría imposible llegar a firmar.
+ *
+ * **Deja el expediente en `FIRMADO_CLIENTE`, no en `FIRMADO`**: faltan las
+ * firmas institucionales (D-13). Que sean dos estados y no uno es lo que
+ * permite distinguir un sellado a medio hacer de un expediente sin firmar, y
+ * lo que mantiene el cobro inhabilitado mientras el acto no cerró.
  */
 export function registrarFirmaP8(
   expediente: Expediente,
@@ -415,10 +494,6 @@ export function registrarFirmaP8(
 ): ResultadoTransicion {
   if (!expediente.paqueteDocumental) {
     return { ok: false, error: "No se puede registrar una firma sin paquete documental cerrado." };
-  }
-
-  if (!garantiaDePagoLista(expediente.pago?.estado ?? "PENDIENTE")) {
-    return { ok: false, error: "No se puede registrar una firma sin una garantía de pago lista." };
   }
 
   if (!expediente.actoDeFirma) {
@@ -434,78 +509,94 @@ export function registrarFirmaP8(
     };
   }
 
-  if (firma.hashSolicitudFirmada.trim() === "" || firma.hashFipfFirmado.trim() === "") {
-    return {
-      ok: false,
-      error: "La firma tiene que traer la huella de los dos documentos firmados: se firman en un solo acto.",
-    };
+  if (firma.hashDocumentoFirmado.trim() === "") {
+    return { ok: false, error: "La firma tiene que traer la huella del documento firmado." };
   }
 
-  return transicionarExpediente(expediente, "FIRMADO", { firma }, ahora);
+  return transicionarExpediente(expediente, "FIRMADO_CLIENTE", { firma }, ahora);
 }
 
 /**
- * Vencimiento del plazo para firmar → VENCIDO, de ahí a Pantalla B.
+ * FIRMADO_CLIENTE → FIRMADO: las firmas institucionales sobre el mismo
+ * documento que ya firmó el cliente (D-13).
+ *
+ * Interseguros y Alianza firman con certificado cualificado, y recién con eso
+ * el expediente queda `FIRMADO` — que es lo único que habilita el cobro. En el
+ * demo las aplica el adaptador simulado apenas vuelve la firma del cliente;
+ * el orden de firmantes, sus certificados y la modalidad (`PREFIRMADO` o
+ * `CONJUNTO`) se vuelven configurables en L4c.
+ *
+ * **Abre el plazo de pago en la misma transición** (D-10): el reloj de 24
+ * horas arranca cuando el expediente queda firmado y esperando plata, y
+ * dejarlo para una escritura posterior abriría una ventana en la que existe un
+ * expediente firmado sin vencimiento posible. Es la misma razón por la que el
+ * plazo entraba antes junto al pago, aplicada al hito que ahora corresponde.
+ */
+export function registrarFirmasInstitucionales(
+  expediente: Expediente,
+  firmas: readonly FirmaInstitucional[],
+  plazoPagoVenceEn: string,
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  if (!expediente.firma) {
+    return { ok: false, error: "No hay firma del cliente sobre la que aplicar las institucionales." };
+  }
+
+  // La lista tiene que traer exactamente los firmantes que la configuración
+  // declara como `CONJUNTO` para este documento (D-13). Si falta uno, el acto
+  // no está completo y el expediente no puede quedar habilitado para el cobro.
+  const esperados = firmantesConjuntos("PAQUETE").map((firmante) => firmante.rol);
+  const aplicados = firmas.map((firma) => firma.rol);
+  const faltantes = esperados.filter((rol) => !aplicados.includes(rol));
+  if (faltantes.length > 0) {
+    return {
+      ok: false,
+      error: `Faltan firmas institucionales previstas para este documento: ${faltantes.join(", ")}.`,
+    };
+  }
+
+  return transicionarExpediente(
+    expediente,
+    "FIRMADO",
+    { firmasInstitucionales: firmas, plazoPagoVenceEn },
+    ahora,
+  );
+}
+
+/**
+ * Vencimiento del plazo para pagar → VENCIDO (D-10).
+ *
+ * Bajo el orden nuevo lo que caduca es un expediente **firmado y no pagado**:
+ * el reloj arranca con las firmas institucionales y se apaga con el cobro. La
+ * consecuencia es que vencer ya no cuesta plata — no hubo cobro, así que no
+ * hay premio que devolver— y por eso VENCIDO es terminal en el flujo nuevo.
+ *
+ * Solo caduca `FIRMADO`. Un expediente que cerró su paquete y nunca firmó no
+ * vence: no hay firma ni dinero de por medio, no bloquea la cédula y ponerle
+ * un estado terminal no protegería nada. La caducidad de la *sesión* de firma
+ * es un hecho distinto y lo fija Code100 con su `fecha_expiracion` (D-10).
  *
  * No hay ningún proceso en segundo plano que dispare esto: el plazo se evalúa
- * contra `plazoFirmaVenceEn` cada vez que alguien toca el expediente (el sondeo
- * de P8, la consola administrativa). Es lo que corresponde en una app sin
- * demonios propios, y además hace que el vencimiento sea una consecuencia del
- * reloj y no de que un job haya corrido.
+ * contra `plazoPagoVenceEn` cada vez que alguien toca el expediente (el sondeo
+ * de la pantalla de pago, la consola administrativa). Es lo que corresponde en
+ * una app sin demonios propios, y además hace que el vencimiento sea una
+ * consecuencia del reloj y no de que un job haya corrido.
  *
  * Devuelve el expediente **sin cambios** —no un error— si el plazo todavía no
- * se cumplió o si el expediente ya no está esperando una firma: quien llama
- * puede aplicarlo siempre y quedarse con lo que salga.
+ * se cumplió o si el expediente ya no está en la ventana que puede caducar:
+ * quien llama puede aplicarlo siempre y quedarse con lo que salga.
  */
-export function vencerPlazoFirmaSiCorresponde(
+export function vencerPlazoSiCorresponde(
   expediente: Expediente,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
-  const esperandoFirma = expediente.estado === "PAGO_CONFIRMADO" || expediente.estado === "PAQUETE_GENERADO";
-  if (!esperandoFirma) return { ok: true, expediente };
+  if (expediente.estado !== "FIRMADO") return { ok: true, expediente };
 
-  if (!expediente.plazoFirmaVenceEn || ahora < expediente.plazoFirmaVenceEn) {
+  if (!expediente.plazoPagoVenceEn || ahora < expediente.plazoPagoVenceEn) {
     return { ok: true, expediente };
   }
 
   return transicionarExpediente(expediente, "VENCIDO", {}, ahora);
-}
-
-/**
- * Actualiza el `Pago` **sin mover el estado**: la captura de la
- * preautorización que ordena la firma del cliente (fila 27 de la matriz —
- * *"Ordenar la captura definitiva inmediatamente después de la firma del
- * cliente"*, Código Civil, arts. 1348, 1373 y 1374) y la liberación de la
- * reserva cuando el plazo vence sin firma.
- *
- * Solo admite avanzar el `Pago` dentro de la misma operación: no puede cambiar
- * el medio, ni el importe, ni la referencia de Bancard. Cambiar cualquiera de
- * esas tres sería otro cobro, no una actualización de este.
- */
-export function registrarEstadoDePagoP8(
-  expediente: Expediente,
-  pago: Pago,
-  ahora: string = new Date().toISOString(),
-): ResultadoTransicion {
-  const anterior = expediente.pago;
-  if (!anterior) {
-    return { ok: false, error: "No hay ningún pago sobre el que registrar un cambio de estado." };
-  }
-
-  const mismaOperacion =
-    anterior.medio === pago.medio &&
-    anterior.montoGs === pago.montoGs &&
-    anterior.referenciaBancard === pago.referenciaBancard &&
-    anterior.idempotencyKey === pago.idempotencyKey;
-
-  if (!mismaOperacion) {
-    return {
-      ok: false,
-      error: "El pago recibido no es la misma operación de Bancard que tiene el expediente.",
-    };
-  }
-
-  return { ok: true, expediente: { ...expediente, pago, actualizadoEn: ahora } };
 }
 
 // ---------------------------------------------------------------------------
@@ -513,8 +604,8 @@ export function registrarEstadoDePagoP8(
 // ---------------------------------------------------------------------------
 
 /**
- * FIRMADO → EMITIDO: SeguroLoTengo remitió el expediente y Alianza aceptó la
- * solicitud. Es la única escritura de `expediente.poliza`.
+ * PAGO_CONFIRMADO → EMITIDO: SeguroLoTengo remitió el expediente y Alianza
+ * aceptó la solicitud. Es la única escritura de `expediente.poliza`.
  *
  * **EMITIDO significa "solicitud aceptada y emisión ordenada", no "póliza en
  * mano".** P9 lo muestra exactamente así: `Solicitud aceptada ✓` junto a
@@ -524,19 +615,19 @@ export function registrarEstadoDePagoP8(
  *
  * Las tres cosas que hace imposibles de violar:
  *
- * **No hay emisión sin firma completa** (regla inviolable #3): el único estado
- * de origen legal es FIRMADO, al que solo se llega con los dos documentos
- * firmados en un mismo acto, y encima se verifica que `firma` esté.
+ * **No hay emisión sin firma completa** (regla inviolable #3): se verifica que
+ * `firma` esté, y llegar a PAGO_CONFIRMADO ya exigió pasar por FIRMADO, al que
+ * solo se llega con los dos documentos firmados en un mismo acto y con las
+ * firmas institucionales aplicadas.
  *
  * **No hay emisión sin cobro efectivo** (fila 44 de la matriz: *"Si falla el
  * cobro, no solicitar la emisión automática"*, Código Civil, art. 1373; Ley
- * 4868/13, arts. 7(e) y 7(p)). Ojo con la diferencia respecto de P8: para
- * *firmar* alcanza con la garantía lista —una preautorización de crédito
- * sirve—, pero para *emitir* hace falta que el dinero haya entrado. Con crédito
- * eso significa CAPTURADO, no PREAUTORIZADO: la captura la ordena la firma del
- * cliente, y si no se completó no hay cobro que respalde la emisión. Es el
- * orden que fija la fila 43 (firma → cobro → envío a Alianza → validación →
- * emisión) y el que describe el bloque `DESPUÉS DE LA FIRMA DEL CLIENTE` de P8.
+ * 4868/13, arts. 7(e) y 7(p)). Con la firma adelantada, el único estado de
+ * origen legal es PAGO_CONFIRMADO, que ya significa *"el dinero entró"*: la
+ * comprobación explícita del `Pago` queda igual porque una condición de la
+ * que depende una obligación legal no se sostiene sola en el grafo. Es el
+ * orden de la fila 43 —firma → cobro → envío a Alianza → validación →
+ * emisión—, que con D-08 pasó a ser también el orden de las pantallas.
  *
  * **La póliza conserva el correlativo de la propuesta**: se valida que
  * `numeroPoliza` sea el mismo `numeroPropuesta` del expediente. Una póliza con

@@ -1,5 +1,6 @@
 /**
- * `GET /api/p7/resumen` — lo que P7 necesita para dibujar el bloque 1.
+ * `GET /api/p7/resumen` — lo que el paso de pago necesita para dibujar el
+ * bloque 1 y su cuenta regresiva.
  *
  * Solo lectura: no transiciona, no llama a Bancard, no deja evidencia. El
  * nombre a facturar sale del OCR de la cédula (regla inviolable #9: la factura
@@ -7,9 +8,9 @@
  * catálogo de hoy — si mañana sube el tarifario, la persona tiene que seguir
  * viendo el premio que eligió.
  *
- * No devuelve ni el RUC ni la declaración de origen lícito de un intento
- * anterior: son campos del formulario en curso, no estado que la pantalla
- * necesite recuperar.
+ * No devuelve el RUC de un intento anterior: es un campo del formulario en
+ * curso, no estado que la pantalla necesite recuperar. La declaración de
+ * origen lícito dejó de ser cosa de este paso: se firma con el FIPF (D-08).
  */
 import { COOKIE_SESION, resolverContextoHttp, respuestaJson } from "@/app/api/_http/contexto-peticion";
 import { leerResumenPagoP7 } from "@/domain/pago-p7";

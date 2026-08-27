@@ -19,9 +19,16 @@ import { createHash, randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
 import { ID_VERSION_OFERTA, OFERTA_VIGENTE, PLANES, esPlanId, serializarOfertaCanonica } from "./catalogo";
 import type { OfertaVersionada } from "./catalogo";
-import { transicionarExpediente } from "./expediente";
+import { esTransicionLegal, transicionarExpediente } from "./expediente";
+import { crearExpedienteInicial } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal-whatsapp";
-import type { Expediente, PlanId, PlanSeleccionado, RegistroEvidencia } from "./tipos";
+import type {
+  EstadoExpediente,
+  Expediente,
+  PlanId,
+  PlanSeleccionado,
+  RegistroEvidencia,
+} from "./tipos";
 
 export const PASO_EVIDENCIA_SELECCION_PLAN = "P2_SELECCION_PLAN";
 
@@ -65,10 +72,36 @@ export type ResultadoSeleccionPlan =
   | {
       readonly ok: false;
       readonly motivo: MotivoRechazoSeleccion;
+      /**
+       * Estado en que quedó el expediente cuando el rechazo es
+       * `ESTADO_INVALIDO`.
+       *
+       * Va en el resultado —y no solo en la evidencia— para que la pantalla
+       * pueda **reencaminar** en vez de limitarse a avisar. El servidor sabe
+       * dónde quedó el trámite; sin este dato la persona queda leyendo "este
+       * proceso ya no está en el paso de selección de plan", que es cierto e
+       * inútil (mismo criterio que `verificacion-canal.ts`, ver
+       * `rutas-flujo.ts`).
+       */
+      readonly estado?: EstadoExpediente;
     };
 
+/**
+ * `true` si un expediente en ese estado todavía puede elegir plan.
+ *
+ * Se deriva del grafo de transiciones en vez de repetir la lista de estados:
+ * si mañana se agrega una arista hacia `PLAN_SELECCIONADO`, la pantalla se
+ * entera sola. Existe para que `/plan` pueda **preguntar antes** de dibujar
+ * el selector, en lugar de dejar elegir y rechazar con `ESTADO_INVALIDO`
+ * después de que la persona ya eligió.
+ */
+export function puedeElegirPlan(estado: EstadoExpediente): boolean {
+  return esTransicionLegal(estado, "PLAN_SELECCIONADO");
+}
+
 export interface EntradaSeleccionPlan {
-  readonly expedienteId: string;
+  /** `null` en la primera visita: el expediente todavía no existe. */
+  readonly expedienteId: string | null;
   /** Llega como texto desde HTTP: se valida contra el catálogo antes de usarlo. */
   readonly planId: string;
   readonly contexto: ContextoPeticion;
@@ -141,9 +174,25 @@ export async function seleccionarPlan(
   }
   const planId: PlanId = entrada.planId;
 
-  const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
-  if (!expediente) {
-    return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+  // CHG-01 · elegir plan es ahora el primer paso, así que acá **nace** el
+  // expediente si todavía no existe. Antes lo creaba la verificación de
+  // WhatsApp, que era el paso 1; moverlo sin mover esto habría dejado el
+  // catálogo sin poder guardar nada.
+  //
+  // `entrada.expedienteId` puede llegar nulo (visita nueva) o apuntar a un
+  // expediente real (volver por `Cambiar plan`). Un id que no existe **no** se
+  // trata como visita nueva: sería crear un expediente con el id que mandó el
+  // cliente, y esos ids son la llave de todo el trámite.
+  let expediente: Expediente;
+  if (entrada.expedienteId === null) {
+    expediente = crearExpedienteInicial({ id: nuevoId(), ahora: fecha });
+    await deps.expedientes.crear(expediente);
+  } else {
+    const existente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+    if (!existente) {
+      return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+    }
+    expediente = existente;
   }
 
   const plan: PlanSeleccionado = {
@@ -165,7 +214,7 @@ export async function seleccionarPlan(
       detalle: { planId, motivo: "ESTADO_INVALIDO", estado: expediente.estado },
       nuevoId,
     });
-    return { ok: false, motivo: "ESTADO_INVALIDO" };
+    return { ok: false, motivo: "ESTADO_INVALIDO", estado: expediente.estado };
   }
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);

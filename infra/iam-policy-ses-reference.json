@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SesEstadoDeCuentaSoloLectura",
+      "Effect": "Allow",
+      "Action": ["ses:GetAccount", "ses:ListEmailIdentities"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SesIdentidadesDeCorreo",
+      "Effect": "Allow",
+      "Action": [
+        "ses:GetEmailIdentity",
+        "ses:CreateEmailIdentity",
+        "ses:DeleteEmailIdentity",
+        "ses:TagResource",
+        "ses:UntagResource",
+        "ses:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:ses:us-east-1:120005938663:identity/*"
+    },
+    {
+      "Sid": "SesEnvioDePrueba",
+      "Effect": "Allow",
+      "Action": ["ses:SendEmail"],
+      "Resource": "arn:aws:ses:us-east-1:120005938663:identity/*"
+    }
+  ]
+}

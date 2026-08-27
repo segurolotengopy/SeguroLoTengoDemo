@@ -17,6 +17,7 @@ import {
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
 import { dependenciasP2 } from "@/app/api/p2/_dependencias";
+import { destinoDelExpediente } from "@/domain/rutas-flujo";
 import { seleccionarPlan } from "@/domain/seleccion-plan";
 
 export const dynamic = "force-dynamic";
@@ -30,12 +31,15 @@ export async function POST(request: Request): Promise<Response> {
   const planId = typeof cuerpo.planId === "string" ? cuerpo.planId.trim() : "";
 
   const { contexto, expedienteId } = resolverContextoHttp(request);
-  if (!expedienteId) {
-    // Sin expediente no hubo P1: el WhatsApp todavía no está verificado.
-    return respuestaJson({ ok: false, motivo: "SESION_INVALIDA" }, { status: 400 });
-  }
 
-  const resultado = await seleccionarPlan(dependenciasP2(), { expedienteId, planId, contexto });
+  // Sin cookie de expediente no es un error: elegir plan es el primer paso del
+  // flujo (CHG-01) y acá nace el trámite. La respuesta devuelve la cookie con
+  // el id que acuñó el dominio.
+  const resultado = await seleccionarPlan(dependenciasP2(), {
+    expedienteId: expedienteId ?? null,
+    planId,
+    contexto,
+  });
 
   if (!resultado.ok) {
     const status =
@@ -45,7 +49,19 @@ export async function POST(request: Request): Promise<Response> {
           ? 404
           : 409;
 
-    return respuestaJson({ ok: false, motivo: resultado.motivo }, { status });
+    return respuestaJson(
+      {
+        ok: false,
+        motivo: resultado.motivo,
+        // El expediente ya avanzó más allá del paso 1: se devuelve a dónde ir,
+        // para que la pantalla reencamine en vez de solo avisar
+        // (`rutas-flujo.ts`). La pantalla ya hace la misma pregunta al
+        // renderizar; esto cubre el caso en que el estado cambió después —otra
+        // pestaña, o el reinicio del panel de demo.
+        ...(resultado.estado ? { destino: destinoDelExpediente(resultado.estado) } : {}),
+      },
+      { status },
+    );
   }
 
   return respuestaJson(

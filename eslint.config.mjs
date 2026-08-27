@@ -25,6 +25,13 @@ const eslintConfig = defineConfig([
     // Artefactos de Playwright (reportes y trazas incluyen JS empaquetado).
     "playwright-report/**",
     "test-results/**",
+    // Worktrees de git: son **otras copias del repo**, con su propio ciclo de
+    // vida y su propio lint. Sin esto, cualquier worktree con un build hecho
+    // adentro rompe `npm run lint` del repo principal —los ignores de arriba
+    // son relativos a la raíz, así que `next-env.d.ts` y `.next/**` no tapan
+    // los del worktree— y el error aparece en un archivo generado que nadie
+    // tocó, lo cual manda a buscar el problema al lugar equivocado.
+    ".claude/worktrees/**",
   ]),
   // Regla dura de CLAUDE.md: "nada llama al SDK de DynamoDB o S3 fuera de
   // src/repositories/" (y, por extensión, ningún SDK de AWS en general —

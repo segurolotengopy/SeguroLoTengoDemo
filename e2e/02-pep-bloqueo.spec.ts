@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarP1,
-  completarP2,
-  completarP3,
-  completarP4,
+  completarWhatsapp,
+  completarPlan,
+  completarPreparacion,
+  declararCorreo,
   completarP5Aprobado,
   completarP6,
   enviarP6,
@@ -30,10 +30,10 @@ test("declaración PEP = Sí deriva a Pantalla A, sin pago ni firma", async ({ p
 
   await prepararEscenario(page, { personaId: persona.id });
 
-  await completarP1(page, persona);
-  await completarP2(page, persona);
-  await completarP3(page);
-  await completarP4(page, persona);
+  await completarPlan(page, persona);
+  await completarWhatsapp(page, persona);
+  await completarPreparacion(page);
+  await declararCorreo(page, persona);
   await completarP5Aprobado(page);
   await completarP6(page, persona);
   await enviarP6(page, /\/revision-manual$/);
@@ -58,8 +58,8 @@ test("declaración PEP = Sí deriva a Pantalla A, sin pago ni firma", async ({ p
   // Regla del sistema: no hay camino de vuelta a pago, firma ni emisión.
   await expect(
     page.getByText(
-      "Desde este estado el proceso digital no continúa a pago mediante Bancard, ni a firma mediante " +
-        "Code100, ni a emisión mediante SEBAOT.",
+      "Desde este estado el proceso digital no continúa a pago mediante Bancard, ni a la firma " +
+        "electrónica del paquete documental, ni a emisión mediante SEBAOT.",
     ),
   ).toBeVisible();
 
@@ -75,4 +75,16 @@ test("declaración PEP = Sí deriva a Pantalla A, sin pago ni firma", async ({ p
     expect(cuerpo.ok).toBe(false);
     expect(cuerpo.motivo).toBe("ESTADO_INVALIDO");
   }
+
+  // CHG-47 · el caso se remitió a Alianza **solo**, al derivarse. Antes esto
+  // dependía de que alguien lo empujara desde la consola. Se comprueba en el
+  // visor de evidencia del panel, que es donde el registro se puede leer.
+  await page.goto("/demo-panel");
+  const remision = page.locator("li", { hasText: "ADMIN_ENVIO_CASO_ALIANZA" }).first();
+  await expect(remision, "la derivación no remitió el caso a Alianza").toBeVisible();
+  await expect(remision).toContainText("origen=AUTOMATICA");
+  await expect(remision).toContainText(numeroCaso?.trim() ?? "@@");
+  // Regla inviolable #7: la remisión es una comunicación saliente y no lleva
+  // el motivo de la derivación ni nada de la persona.
+  await expect(remision).not.toContainText("PEP");
 });

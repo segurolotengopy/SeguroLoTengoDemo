@@ -1,6 +1,12 @@
 # Especificación de pantallas — SeguroLoTengo (fuente de verdad)
 
-Extraída de `Pantallas_Sistema_Demo.pdf`. **Este documento manda sobre cualquier otro.** Si una decisión de implementación contradice algo de acá, gana este documento.
+Extraída de `Pantallas_Sistema_Demo.pdf` y **reescrita el 20-ago-2026 al cerrarse el Lote 4 del Plan de Cambios v2**. Este documento manda sobre cualquier otro en cuanto a qué muestra cada pantalla; donde el Plan v2 o la Matriz Legal V4 lo contradigan, mandan ellos y acá queda anotado.
+
+> **Qué cambió respecto de la versión original.** El wizard pasó de **9 pasos a 8**. El plan subió al paso 1 y el OTP de WhatsApp al 2 (CHG-01); el OTP de correo **desapareció como paso** y el correo se declara con doble tipeo dentro de identidad (D-06); **la firma se adelantó al paso 6 y el pago pasó al 7** (D-08), con lo cual el cobro ya no se garantiza antes de firmar sino que se realiza después; la Solicitud y el FIPF se unificaron en **un solo PDF** con un solo hash y un solo acto de firma (D-11); y el plazo de 24 horas dejó de medir "tiempo para firmar lo ya pagado" para medir **tiempo para pagar lo ya firmado** (D-10).
+>
+> **El orden vigente no vive en este documento**, vive en `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`), que es de donde la aplicación deriva el número de paso y el stepper. Si este texto y esa lista discrepan, gana la lista: escribir un número de paso a mano fue exactamente cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".
+>
+> Las rutas son slugs semánticos sin número (D-22): `/plan`, `/whatsapp`, `/preparacion`, `/identidad`, `/declaraciones`, `/firma`, `/pago`, `/confirmacion`. Las rutas viejas (`/p1-whatsapp`, `/p7-pago`, …) responden **308** hacia la nueva.
 
 ## Elementos comunes a todas las pantallas
 
@@ -12,12 +18,12 @@ Extraída de `Pantallas_Sistema_Demo.pdf`. **Este documento manda sobre cualquie
 
 **Indicador de paso (derecha de la cabecera):**
 
-- P0: `P0 · INFORMACIÓN` / `FUERA DEL CONTADOR 1-9`  
-- P1 a P9: `PASO N DE 9` \+ 9 puntos, los completados en naranja.  
+- P0: `P0 · INFORMACIÓN` / `FUERA DEL CONTADOR 1-8`  
+- Pasos 1 a 8: `PASO N DE 8` \+ 8 puntos, los completados en naranja. **El stepper recibe el slug de la pantalla, nunca un número:** el orden se deriva de `PASOS_FLUJO`.  
 - Pantalla A: `PANTALLA A` / `SEGUROLOTENGO` / `EMISIÓN NO AUTOMÁTICA`  
-- Pantalla B: `PANTALLA B` / `QR PAGADO · FIRMA NO COMPLETADA`
+- Pantalla B: `PANTALLA B` / `FIRMADA · PAGO NO COMPLETADO`
 
-**Barra de plan seleccionado** (presente desde P3 hasta P8): ícono de check, `PLAN SELECCIONADO`, `Seguro de Vida Oncológico · CONFÍO+`, `Gs. 475.000 al año · IVA incluido`, y enlace `Cambiar plan` a la derecha. En P7 y P8 el texto dice `premio anual · IVA incluido`. En P8 el enlace es `Volver al pago`.
+**Barra de plan seleccionado** (presente desde el paso 3 hasta el 7): ícono de check, `PLAN SELECCIONADO`, `Seguro de Vida Oncológico · CONFÍO+`, `Gs. 475.000 al año · IVA incluido`, y enlace `Cambiar plan` a la derecha. En los pasos de firma y pago el texto dice `premio anual · IVA incluido`.
 
 **Paleta:** azul institucional para títulos y etiquetas, naranja para acciones primarias y alertas, verde para confirmaciones y textos de seguridad, rojo para bloqueos, fondo hueso claro, tarjetas blancas con borde negro fino y esquinas redondeadas.
 
@@ -30,7 +36,7 @@ Extraída de `Pantallas_Sistema_Demo.pdf`. **Este documento manda sobre cualquie
 Página pública informativa. **No solicita datos médicos ni PEP, no genera propuesta, no cobra, no emite póliza.**
 
 - Encabezado: `SEGUROLOTENGO.COM` y a la derecha `Marca y canal digital de Interseguros S.A.`  
-- Bloque principal: título `Protegé hoy lo que más importa mañana`, bajada sobre el Seguro de Vida Oncológico CONFÍO (respaldo económico ante diagnóstico de cáncer, cobertura por fallecimiento, renta hospitalaria y gastos médicos por accidente), botón `VERIFICAR WHATSAPP Y COTIZAR →`, y leyenda verde `La contratación comienza recién en la Pantalla 1.`  
+- Bloque principal: título `Protegé hoy lo que más importa mañana`, bajada sobre el Seguro de Vida Oncológico CONFÍO (respaldo económico ante diagnóstico de cáncer, cobertura por fallecimiento, renta hospitalaria y gastos médicos por accidente), botón `Elegí tu plan y cotizá →` —el catálogo es ahora el paso 1 (CHG-01)—, y leyenda verde `La contratación comienza recién en el paso 1.`  
 - Panel derecho: `VIDEO INFORMATIVO` con reproductor y pie `Qué cubre · Cómo funciona · Cómo contratar`.  
 - `PRODUCTOS DISPONIBLES`: cuatro tarjetas. Solo `CONFÍO` (Seguro de Vida Oncológico) está `Disponible` con botón `CONOCER`; Seguro de Vida, Accidentes Personales y Responsabilidad Civil dicen `Próximamente`.  
 - `ANTES DE CONTRATAR`: cuatro ítems — Coberturas y sumas / Exclusiones y carencias (revisá 180, 30 y 1 día según cobertura) / Siniestros y beneficios / Privacidad y seguridad.  
@@ -40,38 +46,7 @@ Página pública informativa. **No solicita datos médicos ni PEP, no genera pro
 
 ---
 
-## P1 · Paso 1 de 9 — Verificación de WhatsApp
-
-Banda superior: `INICIO SEGURO / Verificación inicial de tu WhatsApp personal` y a la derecha `TODAVÍA NO ES UNA CONTRATACIÓN — No se selecciona plan, no se firma y no se realiza ningún cobro.`
-
-Título: `Verificá tu WhatsApp personal`. Subtítulo azul: será el primer canal verificado y deberá permanecer activo. Nota: el código solo valida el canal, no contrata, no firma, no autoriza cobro.
-
-**Panel izquierdo (ilustrativo):** teléfono con `Código de verificación`, seis casillas, `Uso único · No lo compartas`, y `WHATSAPP PERSONAL — El mensaje contendrá un código de uso único para esta verificación.`
-
-**Paso 1 — Ingresá tu número:**
-
-- Selector de país y campo de número, placeholder con el ejemplo del país elegido (`Ej.: 981 000 000` para Paraguay). *Actualización 2026-08-14 (decisión de producto, pruebas del demo con celulares del exterior): el selector ofrece los países de la región — Paraguay por defecto, Bolivia y vecinos — con validación estricta para Paraguay y Bolivia. La versión original contemplaba solo Paraguay (`+595`). El envío real por WhatsApp-Modular cubre hoy `+595` y `+591`; el resto opera en modo simulado.*  
-- Botón `ENVIAR CÓDIGO` (contorno verde).  
-- Checkbox obligatorio: *Autorizo usar este número para verificar el canal, proteger el acceso y continuar el proceso. No autoriza publicidad.*
-
-**Paso 2 — Ingresá el código recibido:**
-
-- Leyenda verde con el número enmascarado: `Código enviado al número +595 ••• ••• 000`.  
-- Seis casillas de un dígito.  
-- Botón `VERIFICAR WHATSAPP`, más enlaces `Reenviar código` y `Editar número`.  
-- Advertencias: no compartir el código; SeguroLoTengo, Interseguros y Alianza no lo piden por llamada. Si es incorrecto o deja de ser válido, se muestra el motivo y se puede pedir otro.
-
-**Bloque `TRES VALIDACIONES INDEPENDIENTES`:** OTP 1 · Pantalla 1 (verifica WhatsApp) — OTP 2 · Pantalla 4 (código diferente para el correo) — FIRMA · más adelante (Code100 validará y registrará la firma).
-
-**Registro de seguridad:** fecha, hora, IP, número enmascarado, referencia del envío y resultado; el código no se conserva visible.
-
-**Botón `CONTINUAR →`** deshabilitado; se habilita únicamente después de verificar el WhatsApp.
-
-**Reglas:** OTP de 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. En base se guarda solo el hash.
-
----
-
-## P2 · Paso 2 de 9 — Selección de plan
+## Paso 1 · Selección de plan — `/plan`
 
 Encabezado: `SEGUROLOTENGO.COM` y a la derecha `WhatsApp verificado · Marca y canal digital de Interseguros S.A.`
 
@@ -104,9 +79,55 @@ Cada tarjeta lleva enlace `Ver coberturas, exclusiones y condiciones` y botón `
 
 **Regla técnica:** al seleccionar plan se guarda el ID de versión de la oferta y su hash SHA-256.
 
+**Trámite ya empezado (agregado 2026-08-20).** La pantalla mira el estado del
+expediente **antes** de dibujar el catálogo. Elegir plan es legal solo desde
+`INICIADO` y desde `PLAN_SELECCIONADO` —este último es el enlace `Cambiar
+plan`—; con el trámite más adelante, en lugar del selector se muestra `Ya tenés
+un trámite empezado` con el botón que devuelve al paso donde quedó (o, si el
+expediente está en un estado terminal, a la pantalla que explica qué pasó). El
+destino y el rótulo del botón salen de `destinoDelExpediente`
+(`src/domain/rutas-flujo.ts`), no de esta pantalla.
+
+Antes de este cambio el catálogo se dibujaba siempre y el rechazo llegaba al
+enviar, como `ESTADO_INVALIDO`: cierto, pero sin salida. La validación del
+Route Handler no se movió —sigue siendo la que garantiza la regla— y ahora
+además devuelve el destino, para el caso en que el estado cambie después de
+dibujada la pantalla (otra pestaña, el panel de demo).
+
 ---
 
-## P3 · Paso 3 de 9 — Preparación y autorización inicial
+## Paso 2 · Verificación de WhatsApp — `/whatsapp`
+
+Banda superior: `INICIO SEGURO / Verificación inicial de tu WhatsApp personal` y a la derecha `TODAVÍA NO ES UNA CONTRATACIÓN — No se selecciona plan, no se firma y no se realiza ningún cobro.`
+
+Título: `Verificá tu WhatsApp personal`. Subtítulo azul: será el primer canal verificado y deberá permanecer activo. Nota: el código solo valida el canal, no contrata, no firma, no autoriza cobro.
+
+**Panel izquierdo (ilustrativo):** teléfono con `Código de verificación`, seis casillas, `Uso único · No lo compartas`, y `WHATSAPP PERSONAL — El mensaje contendrá un código de uso único para esta verificación.`
+
+**Paso 1 — Ingresá tu número:**
+
+- Selector de país y campo de número, placeholder con el ejemplo del país elegido (`Ej.: 981 000 000` para Paraguay). *Actualización 2026-08-14 (decisión de producto, pruebas del demo con celulares del exterior): el selector ofrece los países de la región — Paraguay por defecto, Bolivia y vecinos — con validación estricta para Paraguay y Bolivia. La versión original contemplaba solo Paraguay (`+595`). El envío real por WhatsApp-Modular cubre hoy `+595` y `+591`; el resto opera en modo simulado.*  
+- Botón `ENVIAR CÓDIGO` (contorno verde).  
+- Checkbox obligatorio: *Autorizo usar este número para verificar el canal, proteger el acceso y continuar el proceso. No autoriza publicidad.*
+
+**Paso 2 — Ingresá el código recibido:**
+
+- Leyenda verde con el número enmascarado: `Código enviado al número +595 ••• ••• 000`.  
+- Seis casillas de un dígito.  
+- Botón `VERIFICAR WHATSAPP`, más enlaces `Reenviar código` y `Editar número`.  
+- Advertencias: no compartir el código; SeguroLoTengo, Interseguros y Alianza no lo piden por llamada. Si es incorrecto o deja de ser válido, se muestra el motivo y se puede pedir otro.
+
+**Bloque `DOS VALIDACIONES INDEPENDIENTES`:** OTP de canal · este paso (verifica WhatsApp) — FIRMA · más adelante (Code100 validará y registrará la firma). Eran tres: el OTP de correo se retiró (D-06) y el correo pasó a declararse con doble tipeo en el paso de identidad.
+
+**Registro de seguridad:** fecha, hora, IP, número enmascarado, referencia del envío y resultado; el código no se conserva visible.
+
+**Botón `CONTINUAR →`** deshabilitado; se habilita únicamente después de verificar el WhatsApp.
+
+**Reglas:** OTP de 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. En base se guarda solo el hash.
+
+---
+
+## Paso 3 · Preparación y autorización inicial — `/preparacion`
 
 Título: `Prepará lo necesario` — `Antes de empezar, asegurate de tener estos cinco elementos a mano.` — `Esta pantalla no solicita datos, no realiza ningún cobro y no firma documentos.`
 
@@ -133,27 +154,25 @@ Título: `Prepará lo necesario` — `Antes de empezar, asegurate de tener estos
 
 ---
 
-## P4 · Paso 4 de 9 — Verificación de correo
+## El paso de correo ya no existe (D-06)
 
-Estructura idéntica a P1 pero para correo electrónico.
+Había una pantalla propia de verificación de correo, con su propio OTP —el segundo de tres—. **Se retiró.** El correo se declara ahora con **doble tipeo** dentro de la pantalla de identidad y se respalda con la declaración de veracidad que integra el documento firmado, que es el reemplazo probatorio del código.
 
-Título: `Verificá tu correo electrónico` — se usará para avisos del proceso y entrega de documentos electrónicos. Nota: **este código es diferente al de WhatsApp**; no contrata, no firma, no autoriza cobro.
+Queda **un solo OTP de canal**, el de WhatsApp, más el del acto de firma que vive del lado de Code100. La regla inviolable #1 se re-redactó sobre eso.
 
-**Panel izquierdo:** ilustración de correo, `CORREO PERSONAL — Debe ser una dirección activa a la que tengas acceso directo`, y tarjeta verde `✓ WhatsApp verificado · +595 ••• ••• 000`.
-
-**Paso 1:** campo de correo (placeholder `Ej.: nombre@correo.com`) y botón `ENVIAR CÓDIGO`. Nota: a esa dirección se enviarán comunicaciones y, después de la emisión, los documentos electrónicos.
-
-**Paso 2:** `Código enviado a m••••••@correo.com`, seis casillas, botón `VERIFICAR CORREO`, enlaces `Reenviar código` y `Editar correo`.
-
-**Bloque `VALIDACIONES DEL PROCESO`:** OTP 1 · COMPLETADO (WhatsApp personal verificado) — OTP 2 · AHORA (verificación independiente del correo) — FIRMA · MÁS ADELANTE (Code100).
-
-Mismas reglas de OTP que P1, con un código **criptográficamente distinto**.
+El estado `CANAL_EMAIL_VERIFICADO` **sobrevive sin aristas de entrada**: hay expedientes históricos ahí y la consola tiene que seguir leyéndolos (regla inviolable #10). La ruta vieja `/p4-correo` redirige a `/identidad`.
 
 ---
 
-## P5 · Paso 5 de 9 — Verificación de identidad
+## Paso 4 · Identidad y correo — `/identidad`
 
-Título: `Verificá tu identidad` — fotografiar la cédula paraguaya vigente y realizar una selfie en vivo. **No se admite pasaporte ni documento extranjero. Esta pantalla no contiene declaraciones, pago ni firma.**
+Título: `Verificá tu identidad` — declarar el correo, fotografiar la cédula paraguaya vigente y realizar una selfie en vivo. **No se admite pasaporte ni documento extranjero. Esta pantalla no contiene declaraciones médicas, pago ni firma.**
+
+**Bloque 0 — Tu correo electrónico** (CHG-14/17, D-06). Va **arriba de la captura**: es lo primero que se pide en esta pantalla.
+
+- Dos campos, `Correo electrónico` y `Repetí tu correo electrónico`, que deben coincidir. El doble tipeo reemplaza al OTP que el correo tenía como paso propio.  
+- Nota: se usará para avisos del proceso y para la entrega de documentos electrónicos. **No se envía ningún código**: la veracidad del correo queda respaldada por la declaración que integra el documento que se firma en el paso 6.  
+- El correo declarado deja evidencia propia con la versión del texto aceptado, que es lo que reemplaza al código como respaldo probatorio.
 
 **Bloque 1 — Captura documental y biométrica:** tres tarjetas, cada una con estado `Pendiente`:
 
@@ -172,7 +191,7 @@ Banda: *Las tres capturas deben aprobar calidad, prueba de vida y coincidencia f
 - Bloque azul `EDAD CALCULADA AUTOMÁTICAMENTE`: se calcula desde la fecha de nacimiento y se incorpora al FIPF. A la derecha, en rojo: *Debe estar entre 18 y 64 años.*  
 - Bloque rojo `¿LOS DATOS NO COINCIDEN?`: los campos extraídos **no se editan manualmente**; hay que volver a fotografiar la cédula. Enlace `Repetir captura`. Si persiste el error, el proceso no podrá continuar digitalmente.
 
-**`REQUISITOS PARA CONTINUAR`** (cinco indicadores): cédula vigente y legible · frente y dorso aprobados · prueba de vida aprobada · coincidencia facial · país y estado civil completos.
+**`REQUISITOS PARA CONTINUAR`** (seis indicadores): correo declarado dos veces y coincidente · cédula vigente y legible · frente y dorso aprobados · prueba de vida aprobada · coincidencia facial · país y estado civil completos.
 
 **Registro de seguridad:** fecha, hora, IP, referencias de captura, hashes de las evidencias, resultado de prueba de vida y coincidencia biométrica.
 
@@ -180,7 +199,7 @@ Banda: *Las tres capturas deben aprobar calidad, prueba de vida y coincidencia f
 
 ---
 
-## P6 · Paso 6 de 9 — Datos y declaraciones
+## Paso 5 · Datos y declaraciones — `/declaraciones`
 
 Título: `Datos y declaraciones` — completá la información requerida para preparar la Solicitud y el FIPF. **Todavía no estás firmando, pagando ni autorizando un cobro.**
 
@@ -211,60 +230,136 @@ Título: `Datos y declaraciones` — completá la información requerida para pr
 
 **`REGLA AUTOMÁTICA DE ELEGIBILIDAD`:** una respuesta incompatible de salud, antecedentes, enfermedades diagnosticadas o PEP impide la emisión automática: **no se prepara el pago ni la firma.** SeguroLoTengo genera un número de caso distinto, envía la información a Interseguros y Alianza y, conforme a la autorización inicial, podrán contactar al solicitante → **Pantalla A**.
 
-Leyenda inferior: las declaraciones médicas integrarán la Solicitud y la condición PEP integrará el FIPF; ambos se firmarán en la Pantalla 8 mediante Code100.
+Leyenda inferior: las declaraciones médicas integrarán la Solicitud y la condición PEP integrará el FIPF; **ambas secciones se cierran al salir de esta pantalla** y se firman en el paso siguiente mediante Code100.
 
 **Botón `GUARDAR Y CONTINUAR →`**, habilitado al completar datos y respuestas compatibles.
 
 ---
 
-## P7 · Paso 7 de 9 — Facturación y garantía de pago
+## Paso 6 · Revisá, aceptá y firmá — `/firma`
 
-Título: `Facturación y garantía de pago` — prepará el pago antes de firmar. **La póliza todavía no se emite en esta pantalla.** Bancard procesa la operación directamente a favor de Alianza Garantía.
+Título: `Revisá, aceptá y firmá` — revisá el documento cerrado y firmalo en un único proceso seguro de Code100. **La aceptación contractual ocurre al firmar en Code100, no al presionar un botón del portal.**
+
+> **Este paso se adelantó** (D-08): ahora va **antes** del pago. Al entrar, el expediente viene de declaraciones y todavía no se cobró nada; firmar es justamente lo que habilita el cobro.
+
+**Bloque 1 — Revisá el documento** (badge `DATOS E IDENTIDAD VERIFICADOS`):
+
+- **Solicitud de Seguro de Vida Oncológico y FIPF** · Código `PROP-00018425`, con la sección FIPF identificada como `FIPF-00018425`. **Un solo PDF** (D-11): plan, coberturas, premio y beneficiario; declaraciones médicas, de licitud y veracidad y de cuenta propia; datos personales, laborales y económicos, condición PEP y evidencias.  
+- Marca `PDF cerrado · hash registrado` con **un** SHA-256, y la advertencia del **art. 1556 del Código Civil** con el sello de tiempo de la solicitud (CMP-09).  
+- Botón `VER PDF`. **No hay botón de descarga** (CHG-29): se puede revisar el documento entero, pero no llevárselo antes de firmarlo, porque todavía no lo firmó nadie. La descarga se habilita después del pago, cuando el documento ya es el instrumento definitivo. El texto lo dice en vez de dejar que la ausencia del botón parezca un olvido, y **no promete que el archivo sea inaccesible**: quien arme la petición recibe el mismo PDF cerrado.  
+- `ACCESO PREVIO A LA INFORMACIÓN`: enlaces a Coberturas, exclusiones y carencias · Condiciones del seguro · Aviso de privacidad.
+
+**Bloque 2 — Elegí el canal** (Code100 enviará el enlace al canal elegido): `WhatsApp verificado` (por defecto) o `Correo verificado`, ambos enmascarados. El destino sale del expediente, nunca de un campo que la persona escriba (reglas inviolables #1 y #9).
+
+- `DESPUÉS DE FIRMAR`: **todavía no se cobró nada.** Al firmar se habilita el pago, y hay 24 horas para completarlo. Este bloque reemplaza al de `GARANTÍA DE PAGO LISTA`, que describía el orden viejo.  
+- `UN SOLO ACTO DE FIRMA`: la Solicitud y el FIPF no pueden firmarse por separado porque **son secciones del mismo PDF**. La regla inviolable #3 dejó de ser una validación y pasó a ser una propiedad de la estructura.
+
+**Bloque 3 — Firmá mediante Code100:**
+
+- `DECLARACIÓN QUE SE ACEPTARÁ AL FIRMAR` (Matriz §4, bloque *Firma del cliente*): confirmo que tuve acceso al PDF único de Solicitud + FIPF, pude revisarlo y corregir mis datos, acepto su contenido y deseo firmarlo mediante Code100. Casilla vacía + firma simple; el OTP previo de WhatsApp respalda identificación y trazabilidad.  
+- Botón `ENVIAR ENLACE SEGURO DE FIRMA`.  
+- Progreso de tres pasos: `1. Recibí el enlace → 2. Abrí y firmá → 3. Volvé al portal`, con estado `Esperando confirmación verificable de Code100`.
+
+**Cómo se entera el portal de que se firmó** (CHG-33): por **dos vías**, y las dos pueden llegar por el mismo acto — el sondeo cada dos segundos, y el retorno del navegador al volver de la ventana de Code100. La que llega primero transiciona; la segunda encuentra el expediente firmado, responde lo mismo y queda registrada como duplicada. La idempotencia es por `session_id`. **No hay webhook**: el contrato de Code100 no expone ninguno (PEN-02).
+
+**Firmantes** (D-13), configurables en `firmantes-documento.ts`: cliente (simple, Code100) → Interseguros (cualificada) → Alianza Garantía (cualificada). El cliente firma primero y firma simple; toda institucional es cualificada. Entre la firma del cliente y las institucionales el expediente pasa por `FIRMADO_CLIENTE`, que existe para que **un sellado a medio hacer sea distinguible de un expediente sin firmar**: si las institucionales no llegan, el cobro sigue inhabilitado y el sondeo siguiente retoma ese tramo.
+
+> **Divergencia registrada (ALR-07).** La Matriz V4 §2 dice que *"Alianza no firma la propuesta salvo exigencia del modelo"*. D-13 establece lo contrario y manda D-13; Rodrigo y Legal deben actualizar la matriz.
+
+Leyendas: **no se genera Nota de Cobertura**; la póliza conserva el correlativo de la Solicitud. Se registran PDF, hash, aceptación, canal, `session_id`, firmantes con su nivel y modalidad, fecha, hora, IP y el origen de cada confirmación.
+
+---
+
+## Paso 7 · Realizá el pago — `/pago`
+
+Título: `Realizá el pago` (CHG-39, D-16) — **ya firmaste la Solicitud: falta el pago para contratar el seguro.** La póliza la emite Alianza Garantía después del pago. Bancard procesa la operación directamente a favor de Alianza.
+
+> **Este paso se movió, y con él cambió lo que significa** (D-08, Matriz Legal V4 §7). Antes iba **antes** de la firma y su trabajo era dejar una garantía de cobro para poder firmar; ahora va **después** y su trabajo es cobrar lo que ya se firmó. La razón es la que da la matriz: cobrar antes de la firma deja a la persona pagando por un contrato que todavía no aceptó, y obliga a devolver el premio cada vez que no firma.
+>
+> El corolario está en el código, no en un texto: **no existe la transición `DECLARACIONES_OK → PAGO_CONFIRMADO`**. El único estado desde el que se abre una operación en Bancard es `FIRMADO`.
 
 **Bloque 1 — Datos para la factura** (siempre a nombre del asegurado):
 
-- `Nombre a quien facturar`: autocompletado con el nombre del asegurado.  
-- `RUC`: manual, si corresponde. Nota: si queda vacío, SeguroLoTengo enviará automáticamente a Alianza el nombre y la cédula del asegurado.  
-- `LIQUIDACIÓN DEL PREMIO`: Prima neta anual y IVA con `Valor oficial de Alianza`; `Premio total anual: Gs. 475.000`.  
-- Checkbox **obligatorio**: *Declaro que los fondos utilizados para pagar el premio son de mi propiedad y tienen origen lícito.* (marcado en rojo como obligatorio para continuar).  
-- `REFERENCIAS DE LA OPERACIÓN`: Propuesta / futura póliza `00018425`; Identificador Bancard `Se genera al confirmar` (se incorporará a la póliza).
+- `Nombre a quien facturar`: autocompletado con el nombre del asegurado, bloqueado (regla inviolable #9).  
+- `RUC`: manual y opcional. Si queda vacío, la pantalla **muestra cuál es la identificación que va a viajar** a Alianza: la cédula del asegurado, enmascarada (CHG-34). Antes esa caída existía y no se decía.  
+- `LIQUIDACIÓN DEL PREMIO`: Prima neta anual e IVA, con la nota de que la apertura es provisional hasta el desglose oficial de Alianza (D-04); `Premio total anual: Gs. 475.000`. Todos los importes en guaraníes.  
+- **No hay casilla de origen lícito.** La declaración de licitud y veracidad se integró al PDF que la persona firmó dos pasos antes (Matriz §4: *"no casilla adicional"*).  
+- `REFERENCIAS DE LA OPERACIÓN`: Propuesta / futura póliza `00018425` —acuñada al cerrarse el documento, no acá— e Identificador Bancard `Se genera al confirmar`.
 
-**Bloque 2 — Elegí el medio de pago** (las modalidades tienen momentos de confirmación diferentes):
+**Bloque 2 — Elegí el medio de pago.** Los tres cobran el premio total en el momento (D-02): cambia por dónde entra el dinero, no cuándo. La preautorización se retiró del flujo.
 
-**QR BANCARD — pago definitivo antes de la firma** (opción por defecto):
+- **QR Bancard** (por defecto) — Bancard genera un QR por el premio total; se acredita directamente a Alianza. Botón `GENERAR QR BANCARD`.  
+- **Tarjeta de débito** — formulario seguro de Bancard; el importe se debita y acredita en el momento. Botón `PAGAR CON DÉBITO`.  
+- **Tarjeta de crédito** — formulario seguro de Bancard; cobro directo. Botón `PAGAR CON TARJETA DE CRÉDITO`.
 
-- Bancard genera un QR por Gs. 475.000.  
-- El pago se acredita directamente a Alianza.  
-- Solo después del pago se habilita la firma.  
-- Botón `GENERAR QR BANCARD`.  
-- `PLAZO PARA FIRMAR: 24 HORAS` — si no se completa la firma dentro de 24 horas, la solicitud vence; se avisa por WhatsApp y correo y habrá que firmar la solicitud de devolución en las oficinas de Alianza Garantía.
+En los tres, la viñeta dice lo mismo: **el medio de cobro se habilitó porque la Solicitud ya está firmada.**
 
-**TARJETA DE CRÉDITO O DÉBITO — preautorización antes de la firma:**
+**`PLAZO PARA PAGAR: 24 HORAS`** (D-10), con cuenta regresiva. Si el pago no se completa, la solicitud vence y se avisa por WhatsApp y correo. **No hubo cobro, así que no hay nada que devolver**: se puede iniciar una solicitud nueva. Esto invierte el aviso anterior, que prometía una devolución presencial en las oficinas de Alianza.
 
-- Bancard abre su formulario seguro.  
-- Se reserva el importe; todavía no se cobra.  
-- La firma del cliente ordena la captura.  
-- Botón `PREAUTORIZAR TARJETA`.  
-- `DEPENDENCIA DE BANCARD`: se habilitará cuando Bancard confirme la modalidad de preautorización y captura para el vPOS de Alianza. Si no se firma, se cancelará o liberará la reserva según Bancard.
+**El medio de cobro se emite contra el documento firmado** (CMP-08): cada emisión —y cada regeneración— queda asentada junto con la huella SHA-256 del PDF. Si esa huella no estuviera, no se abre ninguna operación: cobrar sin poder probar qué se firmó rompería el vínculo de la fila 47.
 
-> **Nota de implementación (divergencia vigente).** Bancard confirmó que la **preautorización aplica únicamente a tarjeta de crédito**. Con tarjeta de débito la preautorización ya mueve el dinero — *"al enviar la misma ya se realiza el movimiento de dinero, es decir, se acredita el monto preautorizado en la cuenta del comercio"* (`Integraciones/Preaut y promociones 14.pdf`) —, así que describirla como reserva sería informarle al cliente algo distinto de lo que ocurre con su plata (fila 25 de la matriz de cumplimiento).
->
-> Por eso la pantalla implementada ofrece **tres** medios y no dos: el débito se separa del crédito y se agrupa con el QR como pago definitivo antes de la firma, resuelto por **compra simple de vPOS** (`Integraciones/eCommerce_bancard_compra_simple_version_1.23.1 (1).pdf`). El crédito conserva exactamente el texto y el comportamiento descritos arriba. Ver `MedioDePago` en `src/domain/tipos.ts`.
+**Botón `REALIZAR EL PAGO Y CONTRATAR EL SEGURO`** (CHG-38). Con el pago antes de la firma este texto habría mentido —el pago garantizaba, no contrataba—; con el orden nuevo es lo que efectivamente ocurre.
 
-**`DESPUÉS DE ESTA PANTALLA`** (dos secuencias distintas):
+**Seguridad y trazabilidad:** Alianza es el comercio adherido y titular de la cuenta. SeguroLoTengo e Interseguros no reciben el dinero ni almacenan el número completo de tarjeta o CVV (regla inviolable #6). **El pago no equivale a la emisión de la póliza.**
 
-- QR: `QR pagado → Firma Code100 → Solicitud de emisión`  
-- Tarjeta: `Tarjeta preautorizada → Firma → Captura → Emisión`
+Confirmado el cobro, `VER LA CONFIRMACIÓN →`.
 
-**Seguridad y trazabilidad:** Alianza es el comercio adherido y titular de la cuenta. SeguroLoTengo e Interseguros no reciben el dinero ni almacenan el número completo de tarjeta o CVV. Se registrarán referencia, importe, estado, fecha, hora, respuesta e identificador Bancard. **El pago no equivale a firma ni emisión.**
+---
 
-**Botón `CONTINUAR A FIRMA →`**, habilitado al confirmar el pago QR o la preautorización.
+## Paso 8 · Contratación aceptada — `/confirmacion`
+
+Encabezado verde: `¡Tu solicitud de seguro fue aceptada!` — Alianza Garantía emitirá tu póliza y la recibirás en breves momentos en tu correo y WhatsApp verificados. A la derecha: `SEGURO DE VIDA ONCOLÓGICO / CONFÍO+ · Gs. 475.000`.
+
+**Banda verde de cobro** (CHG-40): `Pago confirmado por Bancard` — Premio total pagado, Operación N.º y fecha y hora del cobro.
+
+**`ESTADO DE LA CONTRATACIÓN`** (cuatro hitos con fecha y hora registradas): 1\. Firma electrónica confirmada ✓ (documento único firmado por cliente, Interseguros y Alianza) · 2\. Pago confirmado ✓ (cobro acreditado e identificado por Bancard) · 3\. Certificado de Cobertura Provisional ✓ (emitido y firmado por Alianza Garantía) · 4\. Emisión de la póliza y la factura ⋯ (en proceso en el sistema de Alianza Garantía). **El orden de los dos primeros hitos se invirtió con D-08:** primero se firma, después se cobra. El tercero era `Solicitud aceptada` y cambió con D-12: nombra el documento que la persona recibe, no una validación interna.
+
+**Bloque `Inicio de la cobertura`** (CHG-41): la fecha y hora concretas, **24 horas exactas después de la confirmación del pago**, con la vigencia hasta el aniversario. La fecha sale del certificado, que la fijó al acreditarse el cobro; la pantalla no la recalcula. *(La frase del wireframe decía "48 horas" y es incorrecta: son 24, que es lo que la persona firmó en la declaración 4.)*
+
+**`RESUMEN DE LA CONTRATACIÓN`:** Número de propuesta `PROP-00018425` · Estado de la solicitud `ACEPTADA` · Referencia Bancard `[ID confirmado]`. Asegurado, documento, medio de pago (`QR Bancard / tarjeta terminada en ••••`), Estado de la póliza `EN PROCESO DE EMISIÓN`. Bloque `IMPORTANTE`: la póliza será emitida por Alianza Garantía y entregada en breves momentos; correo y WhatsApp verificados; el Certificado de Cobertura Provisional ya está disponible para descargar.
+
+**Documentos:**
+
+- `DOCUMENTOS DISPONIBLES PARA DESCARGAR` — **tres** (D-05, CHG-42/43), en este orden: `Certificado de Cobertura Provisional` (`CPC-…`, firmado por Alianza), `Solicitud de Seguro de Vida Oncológico y FIPF (firmado)` (`PROP-…`, firmado por cliente, Interseguros y Alianza) y `Comprobante de pago del premio` (`REC-…`). Los dos primeros muestran su SHA-256; el comprobante no tiene, porque se genera al pedirlo y no es un instrumento con huella registrada. Es acá donde la descarga se habilita: antes de firmar el visor no la ofrece (CHG-29).  
+- Leyenda: **No se genera Nota de Cobertura.**  
+- `DOCUMENTOS QUE RECIBIRÁS EN BREVES MOMENTOS` — Póliza electrónica y Factura electrónica, ambas con badge `EN EMISIÓN` (las emite y envía Alianza por correo y WhatsApp).  
+- `RECIBIRÁS LOS DOCUMENTOS EN` — correo y WhatsApp verificados, **enmascarados**.
+
+**`¿QUÉ OCURRIRÁ AHORA?`:** 1\. Emitir la póliza (Alianza mediante SEBAOT) → 2\. Firmar la póliza (Alianza, con firma electrónica cualificada) → 3\. Enviar al correo verificado → 4\. Enviar al WhatsApp verificado.
+
+**`¿NECESITÁS AYUDA?`** (CHG-45): botón `ESCRIBIR POR WHATSAPP` —solo en esta pantalla (D-17), y solo si hay número configurado— más las fichas de Alianza (emisión, cobertura y reclamos) e Interseguros (asistencia y seguimiento) con razón social, domicilio, teléfono, correo y sitio. Los datos salen de `src/domain/entidades.ts`; **lo que D-19 todavía no cerró no se muestra**, ni siquiera como marcador.
+
+**Pie:** bloque `COMUNICACIONES COMERCIALES · OPCIONAL` con checkbox **desmarcado por defecto** para recibir por WhatsApp y correo ofertas de otros seguros comercializados por Interseguros, revocable en cualquier momento. Botón `FINALIZAR / Volver al inicio` y leyenda de asesoramiento continuo (CHG-46).
+
+---
+
+## Verificación pública de documentos — `/verificar/<código>` (agregado 2026-08-20)
+
+**No forma parte de las 12 pantallas ni del contador de 8 pasos.** Es el destino del código QR que imprime cada documento con huella registrada —el paquete `PROP-…`/`FIPF-…` y el certificado `CPC-…`— y responde a CMP-06 (*verificación de autenticidad del certificado*).
+
+Es la única pantalla del producto que **se abre sin sesión**, y la única que casi nunca mira quien contrató: la abre un hospital, un empleador, alguien de Alianza, cualquiera a quien le reenviaron el PDF.
+
+**Encabezado:** `Verificación de documentos` con la bajada, y el alcance dicho de frente y arriba: *confirma la autenticidad y la integridad del documento; no informa el estado de la cobertura ni el de la póliza, que se consultan con la aseguradora.* Sin eso, "documento auténtico" se lee como "cobertura vigente".
+
+**Con código válido y documento encontrado** — bloque verde `DOCUMENTO VERIFICADO` con: código, tipo de documento, correlativo, versión, sello de tiempo, código vinculado y **huella SHA-256** completa. Después el bloque `FIRMAS`, con una ficha por firmante: rótulo, nivel (*no cualificada* / *cualificada*), modalidad (*prefirmado* / *en el mismo acto*), cuándo se aplicó y la referencia del certificado. Una firma declarada por la configuración pero todavía no aplicada figura como pendiente, no se inventa la fecha.
+
+**Solo el certificado** agrega `COBERTURA QUE DECLARA EL CERTIFICADO` con el desde y el hasta, más la aclaración de que la vigencia efectiva la confirma la aseguradora.
+
+**`COMPROBÁ TU ARCHIVO`:** se elige el PDF y el navegador calcula su SHA-256 con `crypto.subtle` para compararlo con el registrado. **El archivo no se sube a ningún lado.** Si el navegador no puede calcularlo, la pantalla lo dice y queda la comparación a mano.
+
+**Cuando no hay nada que verificar** — bloque naranja `NO PUDIMOS VERIFICAR ESTE CÓDIGO` con el código a la vista, el motivo, y el buscador de nuevo con el valor cargado para corregirlo sin volver atrás. Tres motivos: código con forma inválida, documento no encontrado, y el comprobante de pago —que **no se verifica por sí solo** y lo explica, porque un "no encontrado" haría pensar que es falso—.
+
+**Reglas del sistema:**
+
+- **No muestra ningún dato de la persona**: ni nombre, ni cédula, ni canales, ni plan, ni importes (regla inviolable #7). Quien tiene el PDF ya ve esos datos en el PDF; quien solo tiene el código no debería poder deducirlos.
+- **No registra evidencia por visita.** Es un GET público: un registro por carga sería una escritura no autenticada amplificable. Se reevalúa cuando exista el rate limiting.
+- `/verificar` sin código muestra el buscador, para tipear a mano lo que no se pudo escanear.
 
 ---
 
 ## Pantalla A · Emisión no automática (derivación a revisión manual)
 
-Se llega desde P6 cuando una declaración es incompatible o PEP \= Sí. **No lleva contador de pasos.**
+Se llega desde el paso de declaraciones cuando una declaración es incompatible o PEP \= Sí. **No lleva contador de pasos.**
 
 Encabezado rojo: `Tu solicitud requiere una revisión adicional` — por la información declarada, la póliza no puede emitirse automáticamente. Interseguros y Alianza Garantía analizarán el caso y podrán contactar por los canales verificados. A la derecha: `SEGURO DE VIDA ONCOLÓGICO / REVISIÓN MANUAL`.
 
@@ -276,21 +371,21 @@ Encabezado rojo: `Tu solicitud requiere una revisión adicional` — por la info
 
 **`¿QUÉ OCURRIRÁ AHORA?`:** 1\. Remisión segura → 2\. Análisis → 3\. Contacto → 4\. Resultado.
 
-**Pie:** datos de contacto de Alianza (análisis del riesgo) e Interseguros (asistencia y seguimiento), botón `FINALIZAR / Volver al inicio`. Leyendas: la derivación no significa un rechazo definitivo. **Regla del sistema: no continuar a pago Bancard, firma Code100 ni emisión mediante SEBAOT.** El número de caso de revisión es distinto del correlativo de una propuesta o póliza.
+**Pie:** datos de contacto de Alianza (análisis del riesgo) e Interseguros (asistencia y seguimiento), botón `FINALIZAR / Volver al inicio`. Leyendas: la derivación no significa un rechazo definitivo. **Regla del sistema: no continuar a pago Bancard, ni a la firma electrónica del paquete documental, ni a emisión mediante SEBAOT.** El número de caso de revisión es distinto del correlativo de una propuesta o póliza.
 
 ---
 
 ## Pantalla de asistencia de identidad (agregado 2026-08-14)
 
-**No forma parte de las 12 pantallas originales.** Es una decisión de producto posterior, sin fila en la matriz de cumplimiento, y nace de un callejón sin salida real: quien no logra verificar su identidad en P5 —documento gastado, formato anterior sin MRZ, cámara pobre— repetía capturas indefinidamente. P5 decía *"si persiste el error, el proceso no podrá continuar digitalmente"*, y eso en la práctica era una pared sin puerta.
+**No forma parte de las 12 pantallas originales.** Es una decisión de producto posterior, sin fila en la matriz de cumplimiento, y nace de un callejón sin salida real: quien no logra verificar su identidad en el paso 4 —documento gastado, formato anterior sin MRZ, cámara pobre— repetía capturas indefinidamente. Ese paso decía *"si persiste el error, el proceso no podrá continuar digitalmente"*, y eso en la práctica era una pared sin puerta.
 
-Se llega **desde P5** tras **tres análisis fallidos**. **No lleva contador de pasos.**
+Se llega **desde el paso de identidad** tras **tres análisis fallidos**. **No lleva contador de pasos.**
 
 **No es la Pantalla A y no debe confundirse con ella:**
 
 | | Pantalla A | Asistencia de identidad |
 | :---- | :---- | :---- |
-| Se llega desde | P6, declaración incompatible o PEP | P5, identidad no verificable |
+| Se llega desde | Paso 5, declaración incompatible o PEP | Paso 4, identidad no verificable |
 | Estado | `DERIVADO_MANUAL` | `ASISTENCIA_IDENTIDAD` |
 | Motivo | Salud / PEP / vínculo PEP | Falla técnica de lectura o comparación |
 | ¿Bloquea la cédula? | **Sí** (regla inviolable #11) | **No** — puede reintentar |
@@ -300,7 +395,7 @@ Encabezado naranja: `No pudimos verificar tu identidad automáticamente` — no 
 
 **`ESTADO DEL CASO`** (cuatro hitos, veraces para este camino): 1. Canales verificados ✓ WhatsApp y correo · 2. Verificación de identidad ⚠ No se pudo completar automáticamente · 3. Asistencia de un asesor ⋯ Pendiente de contacto · 4. Continuar la contratación ⋯ Se retoma cuando la identidad quede verificada.
 
-*(Ojo: los hitos de la Pantalla A dicen `Declaraciones recibidas ✓`. Acá sería falso — la persona nunca llegó a P6.)*
+*(Ojo: los hitos de la Pantalla A dicen `Declaraciones recibidas ✓`. Acá sería falso — la persona nunca llegó a declarar nada.)*
 
 **`CASO DE ASISTENCIA`:** número de caso `ASIS-…`, WhatsApp y correo verificados **enmascarados**. **No muestra identidad**, porque en este camino no la hay: el expediente llegó acá justamente porque no se pudo verificar.
 
@@ -312,72 +407,34 @@ Encabezado naranja: `No pudimos verificar tu identidad automáticamente` — no 
 
 **`TE PODEMOS AYUDAR`:** contacto de Interseguros (asistencia y seguimiento). No se muestra el de Alianza: no hay riesgo que analizar, hay una captura que resolver.
 
-**Pie:** botones `VOLVER A INTENTAR` (a P1) y `Volver al inicio`. Leyendas: no poder verificar automáticamente no significa que no se pueda contratar; y el número de caso de asistencia es distinto del correlativo de una propuesta y del caso de una revisión por elegibilidad.
+**Pie:** botones `VOLVER A INTENTAR` (al inicio del flujo) y `Volver al inicio`. Leyendas: no poder verificar automáticamente no significa que no se pueda contratar; y el número de caso de asistencia es distinto del correlativo de una propuesta y del caso de una revisión por elegibilidad.
 
 **Regla del sistema:** `ASISTENCIA_IDENTIDAD` es terminal en ese expediente —no continúa a pago, firma ni emisión— pero **no bloquea la cédula**: la persona puede iniciar un expediente nuevo. Es la diferencia central con `DERIVADO_MANUAL`.
 
 ---
 
-## P8 · Paso 8 de 9 — Revisión y firma final
+## Pantalla B · Solicitud vencida sin cobro
 
-Título: `Revisión y firma final` — revisá los documentos cerrados y firmalos en un único proceso seguro de Code100. **La aceptación contractual ocurre al firmar en Code100, no al presionar un botón del portal.**
+> **Esta pantalla cambió de caso** (D-08/D-10). Describía un QR pagado y una firma que no llegaba, con su procedimiento de devolución. Con el orden invertido eso **ya no puede ocurrir**: se firma primero y se cobra después, así que lo que caduca es un expediente **firmado y no pagado** y no hay premio que devolver. Vencer dejó de costar plata, que era el punto de invertir el orden.
 
-**Bloque 1 — Revisá los documentos** (badge `DATOS E IDENTIDAD VERIFICADOS`):
+Encabezado rojo: `Tu solicitud venció porque no completaste el pago` — **no se realizó ningún cobro**: firmaste la Solicitud pero el pago no llegó dentro de las 24 horas, así que no hay nada que devolverte. Se informa por WhatsApp y correo verificados.
 
-- **Solicitud de Seguro de Vida Oncológico** · Código `PROP-00018425` — plan, coberturas, premio y beneficiario; declaraciones médicas y autorizaciones; versión definitiva preparada para firma. Botones `VER PDF` y `DESCARGAR`. Marca: `PDF cerrado · hash registrado`.  
-- **Formulario de Identificación de Persona Física** · Código `FIPF-00018425` — datos personales, laborales y económicos; identificación, PEP, origen de fondos y evidencias; vinculado al mismo correlativo de la Solicitud. Mismos botones y marca.  
-- `ACCESO PREVIO A LA INFORMACIÓN`: enlaces a Coberturas, exclusiones y carencias · Condiciones del seguro · Aviso de privacidad. Nota: después de enviar, los documentos no podrán modificarse sin generar una nueva versión y nuevas huellas digitales.
+Indicador: `PANTALLA B` / `FIRMADA · PAGO NO COMPLETADO`.
 
-**Bloque 2 — Elegí el canal** (Code100 enviará el enlace al canal elegido): `WhatsApp verificado +595 ••• ••• 000` (por defecto) o `Correo verificado m••••••@correo.com`.
+**`SEGUIMIENTO DEL PLAZO`** (cuatro hitos, contados desde que el expediente quedó firmado): 1 HORA — alerta manual, recordatorio por WhatsApp · 5 HORAS — segundo recordatorio · 12 HORAS — último recordatorio · 24 HORAS — solicitud vencida y notificación a los dos canales. Los tres primeros los hace Interseguros a mano, no el sistema.
 
-- `GARANTÍA DE PAGO LISTA`: modalidad elegida en la Pantalla 7 — QR pagado o tarjeta preautorizada. *Esta firma no solicita nuevos datos de pago.*  
-- `UN SOLO ACTO DE FIRMA`: la firma electrónica no cualificada del cliente quedará vinculada simultáneamente a la Solicitud y al FIPF mediante sus huellas digitales.
+**`RESUMEN DEL CASO`:** Propuesta `PROP-00018425` · Premio `Gs. 475.000` · Asegurado, documento, WhatsApp y correo enmascarados. Sin referencia de Bancard, porque no hubo operación. Bloque rojo: **No existe póliza emitida ni cobertura iniciada.**
 
-**Bloque 3 — Firmá mediante Code100:**
+**`QUÉ PASA AHORA`:** 1\. Notificación doble (SeguroLoTengo informa por WhatsApp y correo verificados) → 2\. Sin movimiento de dinero (no se generó ningún cobro: no salió ni se reservó nada de tu cuenta) → 3\. Sin trámite presencial (no hay formulario que firmar ni que acudir a las oficinas) → 4\. Podés volver a empezar (tu documentación firmada queda archivada y podés iniciar una solicitud nueva). Bloque rojo: **No se realizó ningún cobro, así que no hay premio que devolver.**
 
-- `DECLARACIÓN QUE SE ACEPTARÁ AL FIRMAR`: declaro haber tenido acceso y haber revisado la Solicitud, el FIPF, las condiciones, coberturas, exclusiones, carencias, premio y forma de entrega; confirmo la veracidad de los datos; acepto el contenido de ambos documentos y solicito la emisión de la póliza electrónica de Seguro de Vida Oncológico. La aceptación queda registrada por Code100 junto con la firma.  
-- Botón `ENVIAR ENLACE SEGURO DE FIRMA`. Nota: Code100 enviará el enlace al canal verificado seleccionado.  
-- Progreso de tres pasos: `1. Recibí el enlace → 2. Abrí y firmá → 3. Volvé al portal`, con estado `Esperando confirmación verificable de Code100`.  
-- Nota inferior: QR — seguimiento manual de firma a 1, 5 y 12 horas; vencimiento a las 24 horas.
+**Estado final: `VENCIDO`.** Es el final del camino en el flujo vigente.
 
-**`DESPUÉS DE LA FIRMA DEL CLIENTE`** (cuatro pasos): 1\. Confirmación Code100 (cliente firmó Solicitud \+ FIPF; se verifican hashes y transacción) → 2\. Firmas y cobro (Interseguros y Alianza firman ambos PDF; Bancard confirma el cobro e identificador) → 3\. Envío y validación (SeguroLoTengo remite el expediente a Alianza; Alianza valida automáticamente mediante SEBAOT) → 4\. Emisión y entrega (Alianza emite y firma la póliza electrónica; envía póliza y factura a canales verificados).
+### Variante legada · devolución (Pv1-B)
 
-Leyendas: **no se genera Nota de Cobertura**; la póliza conserva el correlativo de la Solicitud y el identificador de Bancard. Se registrarán PDFs, hashes, aceptación, canal, ID de Code100, firmantes, fecha, hora, IP, estados y callbacks.
+Los expedientes que vencieron **bajo el orden viejo** —con el pago hecho y sin firmar— no se reescriben (regla inviolable #10) y su trámite sigue abierto. Para ellos la pantalla conserva los literales originales: `PROCEDIMIENTO DE DEVOLUCIÓN` en cuatro pasos —notificación doble → presentación en Alianza con la cédula → formulario presencial firmado → devolución **únicamente** al medio o cuenta de origen—, con el bloque rojo `No se devuelve en efectivo, a terceros ni a otra cuenta`, y el pie `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`.
 
----
+Cuál de las dos se muestra lo decide si el dinero efectivamente entró, no el medio de pago ni la fecha del expediente.
 
-## P9 · Paso 9 de 9 — Contratación aceptada
+**`ACTORES Y REGISTRO`:** SeguroLoTengo controla el plazo, registra el estado y genera las comunicaciones · Interseguros realiza los recordatorios de 1, 5 y 12 horas · Alianza Garantía, solo en la variante legada, obtiene el formulario firmado y ejecuta la devolución al origen.
 
-Encabezado verde: `¡Tu solicitud de seguro fue aceptada!` — Alianza Garantía emitirá tu póliza y la recibirás en breves momentos en tu correo y WhatsApp verificados. A la derecha: `SEGURO DE VIDA ONCOLÓGICO / CONFÍO+ · Gs. 475.000`.
-
-**`ESTADO DE LA CONTRATACIÓN`** (cuatro hitos con fecha y hora registradas): 1\. Firmas Code100 ✓ (Solicitud y FIPF completamente firmados) · 2\. Pago Bancard ✓ (pago confirmado e identificado) · 3\. Solicitud aceptada ✓ (validación automática de Alianza Garantía) · 4\. Póliza en preparación ⋯ (emisión y envío en breves momentos, a cargo de Alianza Garantía).
-
-**`RESUMEN DE LA CONTRATACIÓN`:** Número de propuesta `PROP-00018425` · Estado de la solicitud `ACEPTADA` · Referencia Bancard `[ID confirmado]`. Asegurado, documento, medio de pago (`QR Bancard / tarjeta terminada en ••••`), Estado de la póliza `EN PROCESO DE EMISIÓN`. Bloque `IMPORTANTE`: la póliza será emitida por Alianza Garantía y entregada en breves momentos; correo y WhatsApp verificados. El inicio de cobertura será informado en la póliza electrónica emitida por Alianza Garantía.
-
-**Documentos:**
-
-- `DOCUMENTOS QUE RECIBIRÁS EN BREVES MOMENTOS` — Póliza electrónica y Factura electrónica, ambas con badge `EN EMISIÓN` (las emite y envía Alianza por correo y WhatsApp).  
-- `DOCUMENTOS DISPONIBLES PARA DESCARGAR` — Solicitud de Seguro de Vida Oncológico y Formulario de Identificación de Persona Física, ambos firmados por cliente, Interseguros y Alianza Garantía, con botón `DESCARGAR`.  
-- Leyenda: **No se genera Nota de Cobertura.**
-
-**`¿QUÉ OCURRIRÁ AHORA?`:** 1\. Emitir la póliza (Alianza mediante SEBAOT) → 2\. Firmar la póliza (Alianza mediante Code100) → 3\. Enviar al correo verificado → 4\. Enviar al WhatsApp verificado.
-
-**Pie:** contactos de Alianza (emisión, cobertura y reclamos) e Interseguros (asistencia y seguimiento). Bloque `COMUNICACIONES COMERCIALES · OPCIONAL`: checkbox **desmarcado por defecto** para recibir por WhatsApp y correo ofertas de otros seguros comercializados por Interseguros, revocable en cualquier momento. Botón `FINALIZAR / Volver al inicio`.
-
----
-
-## Pantalla B · QR pagado, firma no completada
-
-Encabezado rojo: `Tu solicitud venció porque no completaste la firma` — se inició el procedimiento de devolución del premio pagado mediante QR Bancard. Se informa por WhatsApp y correo verificados.
-
-**`SEGUIMIENTO DE FIRMA`** (cuatro hitos): 1 HORA — alerta manual, recordatorio por WhatsApp · 5 HORAS — segundo recordatorio · 12 HORAS — último recordatorio · 24 HORAS — solicitud vencida, notificación y devolución.
-
-**`RESUMEN DEL CASO`:** Propuesta `PROP-00018425` · Pago Bancard `[Referencia confirmada]` · Premio `Gs. 475.000`. Asegurado, documento, WhatsApp y correo enmascarados. Bloque rojo: **No existe póliza emitida ni cobertura iniciada.**
-
-**`PROCEDIMIENTO DE DEVOLUCIÓN`:** 1\. Notificación doble (SeguroLoTengo informa por WhatsApp y correo verificados) → 2\. Presentación en Alianza (acudir a las oficinas con la cédula) → 3\. Formulario firmado (firmar la solicitud presencial de devolución del premio) → 4\. Devolución al origen (Alianza devuelve únicamente al medio o cuenta de origen). Bloque rojo: **No se devuelve en efectivo, a terceros ni a otra cuenta.**
-
-**`ACTORES Y REGISTRO`:** SeguroLoTengo controla el plazo, registra el estado y genera las comunicaciones · Interseguros verifica manualmente la firma y realiza los recordatorios de 1, 5 y 12 horas · Alianza Garantía recibe el caso, obtiene el formulario firmado y ejecuta la devolución al origen · Bancard identifica el pago y procesa la devolución conforme al procedimiento habilitado.
-
-**`EVIDENCIA CONSERVADA`:** pago y referencia Bancard · fecha y hora · avisos a WhatsApp y correo · alertas de seguimiento · vencimiento · formulario de devolución · aprobación · devolución y cuenta de origen.
-
-**Pie:** `Estado final del expediente: VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`  
+**`EVIDENCIA CONSERVADA`:** firma y su huella · fecha y hora · avisos a WhatsApp y correo · alertas de seguimiento · vencimiento. En la variante legada, además: pago y referencia Bancard, formulario de devolución, aprobación y devolución al origen.

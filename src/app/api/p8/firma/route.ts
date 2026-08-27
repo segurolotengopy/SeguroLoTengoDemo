@@ -29,9 +29,7 @@ function estadoHttp(motivo: MotivoRechazoP8): number {
     case "EXPEDIENTE_NO_ENCONTRADO":
       return 404;
     case "ESTADO_INVALIDO":
-    case "PLAZO_VENCIDO":
     case "PAQUETE_NO_GENERADO":
-    case "GARANTIA_PAGO_NO_LISTA":
     case "CANAL_NO_VERIFICADO":
     // Perdió la carrera de escritura contra el sondeo de estado. Nada quedó
     // abierto de más: si el acto de firma llegó a registrarse, volver a tocar
@@ -68,11 +66,7 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!resultado.ok) {
     return respuestaJson(
-      {
-        ok: false,
-        motivo: resultado.motivo,
-        ...(resultado.siguientePantalla ? { siguientePantalla: resultado.siguientePantalla } : {}),
-      },
+      { ok: false, motivo: resultado.motivo },
       { status: estadoHttp(resultado.motivo), cookies },
     );
   }

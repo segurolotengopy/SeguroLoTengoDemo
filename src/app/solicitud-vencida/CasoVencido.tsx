@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { formatearGuaranies } from "@/domain/catalogo";
 import {
   AVISO_DEVOLUCION_SOLO_AL_ORIGEN,
-  AVISO_LIBERACION_SIN_COBRO,
+  AVISO_CADUCIDAD_SIN_COBRO,
   AVISO_SIN_POLIZA_NI_COBERTURA,
   BAJADA_PANTALLA_B,
-  BAJADA_PANTALLA_B_CREDITO,
+  BAJADA_PANTALLA_B_SIN_COBRO,
   PASOS_DEVOLUCION,
-  PASOS_LIBERACION_RESERVA,
+  PASOS_CADUCIDAD_SIN_COBRO,
   ROTULO_ASEGURADO_B,
   ROTULO_CORREO_B,
   ROTULO_DOCUMENTO_B,
@@ -19,7 +19,7 @@ import {
   ROTULO_PREMIO_B,
   ROTULO_PROPUESTA_B,
   ROTULO_WHATSAPP_B,
-  TITULO_LIBERACION_RESERVA,
+  TITULO_CADUCIDAD_SIN_COBRO,
   TITULO_PROCEDIMIENTO_DEVOLUCION,
   TITULO_RESUMEN_CASO,
   TITULO_SEGUIMIENTO_FIRMA,
@@ -58,7 +58,7 @@ interface Caso {
   readonly whatsappEnmascarado: string | null;
   readonly correoEnmascarado: string | null;
   readonly pagoConfirmadoEn: string | null;
-  readonly plazoFirmaVenceEn: string | null;
+  readonly plazoPagoVenceEn: string | null;
   readonly hitos: readonly HitoCalculado[];
 }
 
@@ -120,7 +120,7 @@ export function CasoVencido() {
   }
 
   const conDevolucion = caso?.hayPremioQueDevolver !== false;
-  const pasos = conDevolucion ? PASOS_DEVOLUCION : PASOS_LIBERACION_RESERVA;
+  const pasos = conDevolucion ? PASOS_DEVOLUCION : PASOS_CADUCIDAD_SIN_COBRO;
 
   return (
     <div className="flex flex-col gap-4">
@@ -129,7 +129,7 @@ export function CasoVencido() {
           ? BAJADA_PANTALLA_B
           : conDevolucion
             ? BAJADA_PANTALLA_B
-            : BAJADA_PANTALLA_B_CREDITO}
+            : BAJADA_PANTALLA_B_SIN_COBRO}
       </p>
 
       {/* En pantallas anchas: seguimiento y resumen lado a lado. */}
@@ -218,7 +218,7 @@ export function CasoVencido() {
           id="b-procedimiento"
           className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
         >
-          {conDevolucion ? TITULO_PROCEDIMIENTO_DEVOLUCION : TITULO_LIBERACION_RESERVA}
+          {conDevolucion ? TITULO_PROCEDIMIENTO_DEVOLUCION : TITULO_CADUCIDAD_SIN_COBRO}
         </h2>
 
         <ol className="flex flex-col gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
@@ -235,7 +235,7 @@ export function CasoVencido() {
         </ol>
 
         <p className="rounded-lg border border-rojo-300 bg-rojo-50 px-4 py-3 text-sm font-bold text-rojo-900 dark:border-rojo-700 dark:bg-rojo-950 dark:text-rojo-100">
-          {conDevolucion ? AVISO_DEVOLUCION_SOLO_AL_ORIGEN : AVISO_LIBERACION_SIN_COBRO}
+          {conDevolucion ? AVISO_DEVOLUCION_SOLO_AL_ORIGEN : AVISO_CADUCIDAD_SIN_COBRO}
         </p>
       </section>
 

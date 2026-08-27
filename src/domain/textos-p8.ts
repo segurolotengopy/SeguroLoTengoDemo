@@ -42,10 +42,10 @@ import type { CanalFirma } from "./tipos";
 export const TITULO_P8 = "Revisión y firma final";
 
 export const SUBTITULO_P8 =
-  "Revisá los documentos cerrados y firmalos en un único proceso seguro de Code100.";
+  "Revisá los documentos cerrados y solicitá el enlace seguro de firma.";
 
 export const ADVERTENCIA_ACEPTACION_P8 =
-  "La aceptación contractual ocurre al firmar en Code100, no al presionar un botón del portal.";
+  "La aceptación contractual ocurre al firmar en el enlace seguro, no al presionar un botón del portal.";
 
 // ---------------------------------------------------------------------------
 // Bloque 1 — Revisá los documentos
@@ -55,21 +55,37 @@ export const TITULO_BLOQUE_DOCUMENTOS_P8 = "Revisá los documentos";
 
 export const BADGE_DATOS_VERIFICADOS_P8 = "DATOS E IDENTIDAD VERIFICADOS";
 
-export const NOMBRE_SOLICITUD_P8 = "Solicitud de Seguro de Vida Oncológico";
+/** D-11 · un solo documento con las dos secciones adentro. */
+export const NOMBRE_DOCUMENTO_P8 = "Solicitud de Seguro de Vida Oncológico y FIPF";
 
-export const DESCRIPCION_SOLICITUD_P8 =
-  "Plan, coberturas, premio y beneficiario; declaraciones médicas y autorizaciones; versión definitiva preparada para firma.";
-
-export const NOMBRE_FIPF_P8 = "Formulario de Identificación de Persona Física";
-
-export const DESCRIPCION_FIPF_P8 =
-  "Datos personales, laborales y económicos; identificación, PEP, origen de fondos y evidencias; vinculado al mismo correlativo de la Solicitud.";
+export const DESCRIPCION_DOCUMENTO_P8 =
+  "Un solo PDF: plan, coberturas, premio y beneficiario; declaraciones médicas, de licitud y " +
+  "veracidad, y de cuenta propia; datos personales, laborales y económicos, condición PEP y " +
+  "evidencias. Versión definitiva preparada para firma.";
 
 /** Regla inviolable #4: el PDF se cierra y se hashea antes de habilitar la firma. */
 export const MARCA_PDF_CERRADO_P8 = "PDF cerrado · hash registrado";
 
-export const BOTON_VER_PDF_P8 = "VER PDF";
-export const BOTON_DESCARGAR_P8 = "DESCARGAR";
+export const BOTON_VER_PDF_P8 = "VER PDF COMPLETO · SOLO LECTURA";
+
+/** Título del visor modal que abre ese botón, sin salir de la pantalla. */
+export const TITULO_VISOR_PDF_P8 = "Solicitud y FIPF · solo lectura";
+
+export const BOTON_CERRAR_VISOR_P8 = "CERRAR";
+
+/**
+ * CHG-29 · por qué acá no hay botón de descarga.
+ *
+ * Se puede leer el documento entero antes de firmarlo; lo que no se ofrece es
+ * llevárselo, porque todavía no lo firmó nadie y un PDF sin firma circulando
+ * como si fuera el instrumento confunde más de lo que ayuda. El texto lo dice
+ * en vez de dejar que la ausencia del botón parezca un olvido — y no promete
+ * que el archivo sea inaccesible, porque no lo es.
+ */
+export const NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8 =
+  "El visor abre el documento para leerlo: no permite descargarlo ni imprimirlo. La descarga se " +
+  "habilita después del pago, cuando el documento ya está firmado y es el instrumento definitivo. " +
+  "El contenido no podrá modificarse después de solicitar la firma.";
 
 export const TITULO_ACCESO_PREVIO_P8 = "ACCESO PREVIO A LA INFORMACIÓN";
 
@@ -88,7 +104,8 @@ export const NOTA_SIN_MODIFICACION_P8 =
 
 export const TITULO_BLOQUE_CANAL_P8 = "Elegí el canal";
 
-export const SUBTITULO_BLOQUE_CANAL_P8 = "Code100 enviará el enlace al canal elegido.";
+export const SUBTITULO_BLOQUE_CANAL_P8 =
+  "Te enviaremos un enlace seguro al canal elegido para realizar la firma electrónica.";
 
 /** El canal por defecto de la especificación es el WhatsApp verificado. */
 export const CANAL_FIRMA_POR_DEFECTO: CanalFirma = "WHATSAPP";
@@ -98,21 +115,29 @@ export const ROTULO_CANAL_P8: Readonly<Record<CanalFirma, string>> = {
   EMAIL: "Correo verificado",
 };
 
-export const TITULO_GARANTIA_PAGO_P8 = "GARANTÍA DE PAGO LISTA";
+/**
+ * D-08 · lo que sigue después de firmar.
+ *
+ * Reemplaza al bloque `GARANTÍA DE PAGO LISTA` de la especificación, que
+ * describía el orden viejo: se llegaba a firmar con el premio ya cobrado. Con
+ * el orden invertido lo que hay que decir es lo contrario — todavía no se
+ * cobró nada, y firmar es lo que habilita el cobro.
+ */
+export const TITULO_QUE_SIGUE_P8 = "DESPUÉS DE FIRMAR";
 
-export const NOTA_GARANTIA_SIN_DATOS_NUEVOS_P8 =
-  "Esta firma no solicita nuevos datos de pago.";
+export const NOTA_PAGO_DESPUES_DE_FIRMAR_P8 =
+  "Todavía no se cobró nada. Al firmar se habilita el pago, y tenés 24 horas para completarlo.";
 
 export const TITULO_UN_SOLO_ACTO_P8 = "UN SOLO ACTO DE FIRMA";
 
 export const TEXTO_UN_SOLO_ACTO_P8 =
-  "La firma electrónica no cualificada del cliente quedará vinculada simultáneamente a la Solicitud y al FIPF mediante sus huellas digitales.";
+  "La firma electrónica del cliente quedará vinculada simultáneamente a la Solicitud y al FIPF mediante sus huellas digitales.";
 
 // ---------------------------------------------------------------------------
-// Bloque 3 — Firmá mediante Code100
+// Bloque 3 — Aceptá y solicitá el enlace de firma
 // ---------------------------------------------------------------------------
 
-export const TITULO_BLOQUE_FIRMA_P8 = "Firmá mediante Code100";
+export const TITULO_BLOQUE_FIRMA_P8 = "Aceptá y solicitá el enlace de firma";
 
 export const TITULO_DECLARACION_FIRMA_P8 = "DECLARACIÓN QUE SE ACEPTARÁ AL FIRMAR";
 
@@ -125,29 +150,42 @@ export const TITULO_DECLARACION_FIRMA_P8 = "DECLARACIÓN QUE SE ACEPTARÁ AL FIR
 export const TEXTO_DECLARACION_FIRMA_P8 =
   "Declaro haber tenido acceso y haber revisado la Solicitud, el FIPF, las condiciones, coberturas, " +
   "exclusiones, carencias, premio y forma de entrega; confirmo la veracidad de los datos; acepto el " +
-  "contenido de ambos documentos y solicito la emisión de la póliza electrónica de Seguro de Vida " +
-  "Oncológico.";
+  "contenido de ambos documentos y solicito firmarlos electrónicamente con firma electrónica no " +
+  "cualificada, y solicito la emisión de la póliza electrónica de Seguro de Vida Oncológico.";
 
-export const VERSION_DECLARACION_FIRMA_P8 = "2026-01-P8-v1";
+/**
+ * v2 (19-ago-2026, CHG-31): la declaración explicita ahora que la firma del
+ * cliente es **no cualificada**.
+ *
+ * Lo pidió Rodrigo en la reunión (00:25:12: "habría que aumentarle tal vez con
+ * firma no cualificada"). No es una precisión cosmética: es el nivel de firma
+ * que la persona está solicitando, y la Ley 6822/2021 le asigna efectos
+ * distintos que a la cualificada. Que el texto lo diga cierra la distancia
+ * entre lo que la pantalla anuncia y lo que Code100 aplica (NC-06).
+ *
+ * Las evidencias emitidas hasta hoy apuntan a `2026-01-P8-v1` y conservan su
+ * propio literal: no se reescriben nunca (regla inviolable #10).
+ */
+export const VERSION_DECLARACION_FIRMA_P8 = "2026-08-P8-v2";
 
 export const NOTA_ACEPTACION_REGISTRADA_P8 =
-  "La aceptación queda registrada por Code100 junto con la firma.";
+  "La aceptación queda registrada junto con la firma.";
 
 export const BOTON_ENVIAR_ENLACE_P8 = "ENVIAR ENLACE SEGURO DE FIRMA";
 
 export const NOTA_ENVIO_ENLACE_P8 =
-  "Code100 enviará el enlace al canal verificado seleccionado.";
+  "El enlace seguro llega al canal verificado que elijas.";
 
 export const PASOS_PROGRESO_FIRMA_P8: readonly string[] = [
   "Recibí el enlace",
   "Abrí y firmá",
-  "Volvé al portal",
+  "Te confirmamos y volvés al portal",
 ];
 
-export const ESTADO_ESPERANDO_CODE100_P8 = "Esperando confirmación verificable de Code100";
+export const ESTADO_ESPERANDO_FIRMA_P8 = "Esperando la confirmación verificable de la firma";
 
 export const NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8 =
-  "QR — seguimiento manual de firma a 1, 5 y 12 horas; vencimiento a las 24 horas.";
+  "Firmada la Solicitud, el pago tiene seguimiento a 1, 5 y 12 horas y vence a las 24 horas.";
 
 // ---------------------------------------------------------------------------
 // Después de la firma del cliente
@@ -162,13 +200,17 @@ export interface PasoPosteriorP8 {
 
 export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
   {
-    titulo: "Confirmación Code100",
+    titulo: "Confirmación de la firma",
     detalle: "El cliente firmó la Solicitud y el FIPF; se verifican los hashes y la transacción.",
   },
   {
-    titulo: "Firmas y cobro",
+    titulo: "Firmas institucionales",
+    detalle: "Interseguros y Alianza firman ambos PDF con certificado cualificado.",
+  },
+  {
+    titulo: "Pago del premio",
     detalle:
-      "Interseguros y Alianza firman ambos PDF; Bancard confirma el cobro y el identificador.",
+      "Con la firma válida se habilita el cobro por Bancard; tenés 24 horas para completarlo.",
   },
   {
     titulo: "Envío y validación",
@@ -185,7 +227,7 @@ export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
 export const LEYENDAS_FINALES_P8: readonly string[] = [
   "No se genera Nota de Cobertura.",
   "La póliza conserva el correlativo de la Solicitud y el identificador de Bancard.",
-  "Se registrarán PDFs, hashes, aceptación, canal, ID de Code100, firmantes, fecha, hora, IP, estados y callbacks.",
+  "Se registrarán PDFs, hashes, aceptación, canal, identificador del acto de firma, firmantes, fecha, hora, IP, estados y callbacks.",
 ];
 
 // ---------------------------------------------------------------------------
@@ -197,22 +239,8 @@ export const LEYENDAS_FINALES_P8: readonly string[] = [
 // rechazado, el plazo cumplido) y se escribieron para esta pantalla siguiendo
 // el mismo registro. No son literales citables de la especificación.
 
-export const AVISO_PLAZO_RESTANTE_P8 = "Tiempo restante para firmar";
-
-export const AVISO_PLAZO_VENCIDO_P8 =
-  "Se cumplió el plazo para firmar. Tu solicitud venció y se inició el procedimiento correspondiente.";
-
 export const AVISO_FIRMA_RECHAZADA_P8 =
-  "Code100 informó que el acto de firma no se completó. Podés pedir un enlace nuevo mientras siga vigente el plazo.";
-
-/**
- * La firma ya está registrada, pero Bancard todavía no confirmó la captura de
- * la preautorización. No se avanza a P9 hasta que el cobro esté confirmado
- * (fila 44 de la matriz: *"Si falla el cobro, no solicitar la emisión
- * automática"*).
- */
-export const AVISO_CAPTURA_PENDIENTE_P8 =
-  "Firmaste correctamente. Estamos confirmando el cobro con Bancard antes de solicitar la emisión.";
+  "El acto de firma no se completó. Podés pedir un enlace nuevo cuando quieras.";
 
 export const AVISO_ENLACE_ENVIADO_P8 =
   "Enviamos el enlace de firma a tu canal verificado. Abrilo, firmá y volvé a esta pantalla.";

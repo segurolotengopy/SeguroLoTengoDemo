@@ -27,7 +27,7 @@
  * obligación legal, y están armadas para cubrir a las personas de prueba de
  * `src/adapters/mock/personas.ts` sin inventar datos nuevos.
  */
-import type { DatosComplementariosP6 } from "./tipos";
+import type { Beneficiario, DatosComplementariosP6 } from "./tipos";
 
 // ---------------------------------------------------------------------------
 // Opciones de los cinco selectores
@@ -92,6 +92,30 @@ export const PROFESIONES: readonly string[] = [
 ];
 
 /** Solo se usa cuando el beneficiario es una persona designada. */
+/**
+ * Origen principal de los fondos con los que se paga el premio. Campo del
+ * bloque 2 del FIPF (Res. SEPRELAD 71/19), que lo pide como dato abierto; acá
+ * se ofrece como lista para que el dato sea comparable entre expedientes y no
+ * dependa de cómo lo escriba cada persona.
+ *
+ * **Lista propuesta, no cerrada.** El FIPF de referencia solo trae un ejemplo
+ * ("Ingresos laborales"), así que estas ocho opciones las propone el equipo
+ * técnico cubriendo las fuentes de ingreso corrientes en el mercado local.
+ * Cumplimiento de Alianza tiene que confirmarlas o reemplazarlas antes de la
+ * salida a producción — es una de las compuertas del §7.3 del plan, igual que
+ * los códigos `CDXXXXX`.
+ */
+export const ORIGENES_FONDOS: readonly string[] = [
+  "Ingresos laborales (sueldo o salario)",
+  "Actividad comercial o empresarial",
+  "Ejercicio de profesión independiente",
+  "Jubilación o pensión",
+  "Rentas o inversiones",
+  "Venta de bienes",
+  "Herencia o donación",
+  "Remesas del exterior",
+];
+
 export const PARENTESCOS: readonly string[] = [
   "Cónyuge",
   "Concubino/a",
@@ -116,6 +140,10 @@ export function esActividad(valor: unknown): valor is string {
 
 export function esProfesion(valor: unknown): valor is string {
   return typeof valor === "string" && PROFESIONES.includes(valor);
+}
+
+export function esOrigenFondos(valor: unknown): valor is string {
+  return typeof valor === "string" && ORIGENES_FONDOS.includes(valor);
 }
 
 export function esParentesco(valor: unknown): valor is string {
@@ -174,36 +202,47 @@ export function interpretarMontoGuaranies(valor: unknown): number | null {
  * cinco primeros y `ingresoMensualDeclaradoGs` son los obligatorios del bloque
  * 1; `empresa` no está porque es opcional según la especificación.
  */
-export type CampoP6 =
+/** Campos del bloque laboral y económico, que se piden en el paso 4. */
+export type CampoComplementarioP6 =
   | "domicilio"
   | "ciudad"
   | "situacionLaboral"
   | "actividad"
   | "profesion"
   | "ingresoMensualDeclaradoGs"
+  | "origenFondos";
+
+/** Campos del beneficiario, que se declaran en el paso 5. */
+export type CampoBeneficiarioP6 =
   | "beneficiarioTipo"
   | "beneficiarioNombreCompleto"
   | "beneficiarioParentesco"
   | "beneficiarioDomicilio";
 
+/**
+ * Unión de los dos bloques. Se conserva porque los mensajes de error de las
+ * pantallas se indexan por nombre de campo sin distinguir de qué bloque viene.
+ */
+export type CampoP6 = CampoComplementarioP6 | CampoBeneficiarioP6;
+
 export type ResultadoDatosComplementariosP6 =
   | { readonly ok: true; readonly datos: DatosComplementariosP6 }
-  | { readonly ok: false; readonly camposInvalidos: readonly CampoP6[] };
+  | { readonly ok: false; readonly camposInvalidos: readonly CampoComplementarioP6[] };
 
 /**
  * Toma el cuerpo crudo de la petición (o el estado del formulario) y devuelve
- * los datos ya tipados, o la lista de campos que faltan. Vive en el dominio y
- * no en el Route Handler para que la pantalla y el servidor apliquen
- * exactamente la misma regla de "cuándo se habilita el botón".
+ * los datos laborales y económicos ya tipados, o la lista de campos que
+ * faltan. Vive en el dominio y no en el Route Handler para que la pantalla y
+ * el servidor apliquen exactamente la misma regla de "cuándo se habilita el
+ * botón".
  *
- * El beneficiario es excluyente: `HEREDEROS_LEGALES` (por defecto) fuerza los
- * tres campos de la persona designada a `null`, así no puede quedar en el
- * expediente un nombre huérfano de una opción que después se cambió.
+ * **El beneficiario ya no entra acá**: se declara en el paso 5 y lo interpreta
+ * `interpretarBeneficiarioP6`.
  */
 export function interpretarDatosComplementariosP6(
   bruto: Readonly<Record<string, unknown>>,
 ): ResultadoDatosComplementariosP6 {
-  const camposInvalidos: CampoP6[] = [];
+  const camposInvalidos: CampoComplementarioP6[] = [];
 
   const domicilio = normalizarTextoP6(bruto.domicilio);
   if (domicilio === "") camposInvalidos.push("domicilio");
@@ -220,7 +259,7 @@ export function interpretarDatosComplementariosP6(
   const profesion = normalizarTextoP6(bruto.profesion);
   if (!esProfesion(profesion)) camposInvalidos.push("profesion");
 
-  // Único campo opcional del bloque 1: vacío se persiste como `null`.
+  // Único campo opcional del bloque: vacío se persiste como `null`.
   const empresaTexto = normalizarTextoP6(bruto.empresa);
   const empresa = empresaTexto === "" ? null : empresaTexto;
 
@@ -229,25 +268,8 @@ export function interpretarDatosComplementariosP6(
     camposInvalidos.push("ingresoMensualDeclaradoGs");
   }
 
-  const tipo = bruto.beneficiarioTipo;
-  const esDesignada = tipo === "PERSONA_DESIGNADA";
-  if (tipo !== "HEREDEROS_LEGALES" && !esDesignada) camposInvalidos.push("beneficiarioTipo");
-
-  let nombreCompleto: string | null = null;
-  let parentesco: string | null = null;
-  let domicilioBeneficiario: string | null = null;
-
-  if (esDesignada) {
-    nombreCompleto = normalizarTextoP6(bruto.beneficiarioNombreCompleto);
-    if (nombreCompleto === "") camposInvalidos.push("beneficiarioNombreCompleto");
-
-    const parentescoTexto = normalizarTextoP6(bruto.beneficiarioParentesco);
-    if (!esParentesco(parentescoTexto)) camposInvalidos.push("beneficiarioParentesco");
-    parentesco = parentescoTexto;
-
-    domicilioBeneficiario = normalizarTextoP6(bruto.beneficiarioDomicilio);
-    if (domicilioBeneficiario === "") camposInvalidos.push("beneficiarioDomicilio");
-  }
+  const origenFondos = normalizarTextoP6(bruto.origenFondos);
+  if (!esOrigenFondos(origenFondos)) camposInvalidos.push("origenFondos");
 
   if (camposInvalidos.length > 0 || ingresoMensualDeclaradoGs === null) {
     return { ok: false, camposInvalidos };
@@ -263,14 +285,67 @@ export function interpretarDatosComplementariosP6(
       profesion,
       empresa,
       ingresoMensualDeclaradoGs,
-      beneficiario: esDesignada
-        ? {
-            tipo: "PERSONA_DESIGNADA",
-            nombreCompleto,
-            parentesco,
-            domicilio: domicilioBeneficiario,
-          }
-        : { tipo: "HEREDEROS_LEGALES", nombreCompleto: null, parentesco: null, domicilio: null },
+      origenFondos,
     },
+  };
+}
+
+export type ResultadoBeneficiarioP6 =
+  | { readonly ok: true; readonly beneficiario: Beneficiario }
+  | { readonly ok: false; readonly camposInvalidos: readonly CampoBeneficiarioP6[] };
+
+/**
+ * Beneficiario por fallecimiento, declarado en el paso 5.
+ *
+ * Es excluyente: `HEREDEROS_LEGALES` fuerza los campos de la persona
+ * designada a `null`, así no puede quedar en el expediente un nombre huérfano
+ * de una opción que después se cambió.
+ */
+export function interpretarBeneficiarioP6(
+  bruto: Readonly<Record<string, unknown>>,
+): ResultadoBeneficiarioP6 {
+  const camposInvalidos: CampoBeneficiarioP6[] = [];
+
+  const tipo = bruto.beneficiarioTipo;
+  const esDesignada = tipo === "PERSONA_DESIGNADA";
+  if (tipo !== "HEREDEROS_LEGALES" && !esDesignada) camposInvalidos.push("beneficiarioTipo");
+
+  let nombreCompleto: string | null = null;
+  let parentesco: string | null = null;
+  let domicilio: string | null = null;
+  let numeroCedula: string | null = null;
+
+  if (esDesignada) {
+    nombreCompleto = normalizarTextoP6(bruto.beneficiarioNombreCompleto);
+    if (nombreCompleto === "") camposInvalidos.push("beneficiarioNombreCompleto");
+
+    const parentescoTexto = normalizarTextoP6(bruto.beneficiarioParentesco);
+    if (!esParentesco(parentescoTexto)) camposInvalidos.push("beneficiarioParentesco");
+    parentesco = parentescoTexto;
+
+    domicilio = normalizarTextoP6(bruto.beneficiarioDomicilio);
+    if (domicilio === "") camposInvalidos.push("beneficiarioDomicilio");
+
+    // CHG-24 · la cédula del beneficiario es opcional y **no bloqueante**: si
+    // viene vacía se guarda como ausente y el trámite sigue. No se valida el
+    // formato por la misma razón — exigir una forma a un dato que la norma no
+    // pide sería inventar un requisito (CMP-21).
+    const cedulaTexto = normalizarTextoP6(bruto.beneficiarioCedula);
+    numeroCedula = cedulaTexto === "" ? null : cedulaTexto;
+  }
+
+  if (camposInvalidos.length > 0) return { ok: false, camposInvalidos };
+
+  return {
+    ok: true,
+    beneficiario: esDesignada
+      ? { tipo: "PERSONA_DESIGNADA", nombreCompleto, parentesco, domicilio, numeroCedula }
+      : {
+          tipo: "HEREDEROS_LEGALES",
+          nombreCompleto: null,
+          parentesco: null,
+          domicilio: null,
+          numeroCedula: null,
+        },
   };
 }

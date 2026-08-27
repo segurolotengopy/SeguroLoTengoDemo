@@ -1,6 +1,8 @@
+import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import { BandaDemo } from "@/components/shared/BandaDemo";
+import { AvisoCookies } from "@/components/shared/AvisoCookies";
 import { SCRIPT_TEMA_INICIAL } from "@/components/shared/tema";
 import "./globals.css";
 
@@ -17,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SeguroLoTengo",
+  title: sufijoTitulo(),
   description:
     "Marca y canal digital de Interseguros S.A. — Seguro de Vida Oncológico CONFÍO.",
 };
@@ -42,6 +44,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col">
         {process.env.DEMO_MODE === "true" ? <BandaDemo /> : null}
+        {/* Fila 85 · informa el uso de cookies. No es un panel de opciones:
+            las tres del portal son necesarias y no hay ninguna que se pueda
+            rechazar. Va arriba y dentro del flujo, no flotando: una barra fija
+            tapaba los botones (ver `AvisoCookies`). */}
+        <AvisoCookies />
         {children}
       </body>
     </html>

@@ -5,6 +5,7 @@
  * estado y el contenido de la evidencia— sin pasar por HTTP ni por DynamoDB.
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import { datosComplementariosFixture } from "./fixtures";
 import {
   crearIdentityProviderMock,
   limpiarSesionesIdentidadMock,
@@ -70,10 +71,9 @@ function crearEvidenciasEnMemoria(): EvidenceStore & { registros: RegistroEviden
 
 function expedienteEn(estado: EstadoExpediente): Expediente {
   const secuencia: EstadoExpediente[] = [
-    "CANAL_WA_VERIFICADO",
     "PLAN_SELECCIONADO",
+    "CANAL_WA_VERIFICADO",
     "AUTORIZADO",
-    "CANAL_EMAIL_VERIFICADO",
   ];
 
   let actual = crearExpedienteInicial({ id: EXPEDIENTE_ID, ahora: AHORA });
@@ -93,7 +93,7 @@ interface Banco {
 }
 
 function crearBanco(
-  estadoInicial: EstadoExpediente = "CANAL_EMAIL_VERIFICADO",
+  estadoInicial: EstadoExpediente = "AUTORIZADO",
   /**
    * Expedientes previos de la misma cédula, para ejercitar la regla de bloqueo
    * de nuevo registro (`docs/CONSOLA_ADMINISTRATIVA.md` §5). Por defecto no hay
@@ -123,12 +123,27 @@ function conEscenario(escenario: EscenarioIdentidadDemo | null) {
   fijarSeleccionDemo({ personaId: "camino-feliz", escenarioIdentidadForzado: escenario });
 }
 
+/** Bloque económico crudo, tal como lo manda la pantalla del paso 4. */
+const COMPLEMENTARIOS_CRUDOS = {
+  domicilio: datosComplementariosFixture.domicilio,
+  ciudad: datosComplementariosFixture.ciudad,
+  situacionLaboral: datosComplementariosFixture.situacionLaboral,
+  actividad: datosComplementariosFixture.actividad,
+  profesion: datosComplementariosFixture.profesion,
+  empresa: datosComplementariosFixture.empresa,
+  ingresoMensualDeclaradoGs: "8.000.000",
+  origenFondos: datosComplementariosFixture.origenFondos,
+};
+
 async function confirmar(banco: Banco, cambios: Partial<Parameters<typeof confirmarIdentidadP5>[1]> = {}) {
   return confirmarIdentidadP5(banco.deps, {
     expedienteId: EXPEDIENTE_ID,
     imagenes: IMAGENES,
     paisNacimiento: PAIS,
+    paisResidencia: PAIS,
     estadoCivil: ESTADO_CIVIL,
+    correo: "monica.gorena@example.com",
+    datosComplementarios: COMPLEMENTARIOS_CRUDOS,
     autorizacionBiometrica: true,
     contexto: CONTEXTO,
     ...cambios,
@@ -191,7 +206,7 @@ describe("P5 · camino feliz", () => {
     // Todavía no eligió país ni estado civil.
     expect(resultado.requisitos.paisYEstadoCivilCompletos).toBe(false);
     // El análisis no transiciona nada.
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("confirma la identidad, transiciona a IDENTIDAD_VERIFICADA y persiste la Identidad completa", async () => {
@@ -252,7 +267,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     expect(resultado.motivo).toBe("EDAD_FUERA_DE_RANGO");
     expect(resultado.datos?.edadEnRango).toBe(false);
     // No deriva a Pantalla A: eso es exclusivo de las declaraciones de P6.
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("bloquea si la cédula ya tiene un expediente terminal sin póliza sin superar", async () => {
@@ -273,7 +288,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("CEDULA_BLOQUEADA");
     // El expediente en curso no avanza, y el viejo no se tocó.
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("deja pasar si el expediente terminal ya fue superado por un sucesor", async () => {
@@ -304,7 +319,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("REQUISITOS_INCOMPLETOS");
     expect(resultado.pendientes).toEqual(["coincidenciaFacial"]);
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("rechaza la captura por calidad insuficiente y deja el OCR sin datos", async () => {
@@ -336,7 +351,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("REQUISITOS_INCOMPLETOS");
     expect(resultado.pendientes).toContain("frenteYDorsoAprobados");
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_EMAIL_VERIFICADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
   });
 
   it("exige la autorización biométrica antes de tocar al proveedor", async () => {
@@ -364,9 +379,11 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     expect(!inventado.ok && inventado.motivo).toBe("PAIS_O_ESTADO_CIVIL_INVALIDO");
   });
 
-  it("no opera si el expediente no está en CANAL_EMAIL_VERIFICADO", async () => {
+  it("no opera si el expediente todavía no dio la autorización inicial", async () => {
+    // El estado de entrada pasó a ser AUTORIZADO al retirarse el paso de
+    // correo (D-06); el que ya no habilita es el anterior.
     conEscenario("APROBADO");
-    const banco = crearBanco("AUTORIZADO");
+    const banco = crearBanco("CANAL_WA_VERIFICADO");
 
     const captura = await registrarCapturaP5(banco.deps, {
       expedienteId: EXPEDIENTE_ID,
@@ -380,7 +397,7 @@ describe("P5 · desenlaces que no dejan continuar", () => {
     expect(!captura.ok && captura.motivo).toBe("ESTADO_INVALIDO");
     expect(resultado.ok).toBe(false);
     expect(!resultado.ok && resultado.motivo).toBe("ESTADO_INVALIDO");
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("AUTORIZADO");
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.estado).toBe("CANAL_WA_VERIFICADO");
   });
 });
 
@@ -398,7 +415,10 @@ describe("P5 · los datos extraídos no se editan a mano", () => {
         expedienteId: EXPEDIENTE_ID,
         imagenes: IMAGENES,
         paisNacimiento: PAIS,
+        paisResidencia: PAIS,
         estadoCivil: ESTADO_CIVIL,
+        correo: "monica.gorena@example.com",
+        datosComplementarios: COMPLEMENTARIOS_CRUDOS,
         autorizacionBiometrica: true,
         contexto: CONTEXTO,
       },
@@ -411,5 +431,28 @@ describe("P5 · los datos extraídos no se editan a mano", () => {
     const guardado = banco.expedientes.todos.get(EXPEDIENTE_ID);
     expect(guardado?.identidad?.nombres).toBe(persona?.identidad.nombres);
     expect(guardado?.identidad?.fechaNacimiento).toBe(persona?.identidad.fechaNacimiento);
+  });
+
+  it("una corrección de nacionalidad que arregla la lectura se guarda", async () => {
+    conEscenario("APROBADO");
+    const banco = crearBanco();
+    const persona = obtenerPersonaDemo("camino-feliz");
+    // Misma nacionalidad con la tilde que el OCR se comió: es un arreglo, no
+    // un reemplazo, así que el cotejo lo acepta.
+    const conTilde = persona!.identidad.nacionalidad.replace("Paraguaya", "Paraguáya");
+
+    const resultado = await confirmar(banco, { correcciones: { nacionalidad: conTilde } });
+
+    expect(resultado.ok).toBe(true);
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.identidad?.nacionalidad).toBe(conTilde);
+  });
+
+  it("una nacionalidad distinta se rechaza: corregir no es reemplazar", async () => {
+    conEscenario("APROBADO");
+    const banco = crearBanco();
+
+    const resultado = await confirmar(banco, { correcciones: { nacionalidad: "Boliviana" } });
+
+    expect(resultado).toEqual({ ok: false, motivo: "CORRECCION_NO_COINCIDE" });
   });
 });

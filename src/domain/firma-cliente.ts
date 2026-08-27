@@ -13,29 +13,34 @@
  * idóneo— que garantice la identificación del firmante, el origen e
  * integridad de sus datos y la trazabilidad de la operación**. Las tres cosas
  * que exige ese artículo son las tres que este módulo produce: identificación
- * (la de P5, ya verificada, más el OTP), integridad (las huellas de los dos
- * documentos cerrados) y trazabilidad (el registro de evidencia).
+ * (la de P5, ya verificada, más el OTP), integridad (la huella del documento
+ * cerrado) y trazabilidad (el registro de evidencia).
  *
  * Su art. 9 agrega qué hay que conservar: metadatos, dirección IP, fecha y
  * hora y códigos de validación. Por eso el acto se construye con el contexto
  * de la petición adentro y no como un dato accesorio.
  *
+ * **Un documento, una huella** (D-11). Desde que la Solicitud y el FIPF son
+ * dos secciones de un mismo PDF, la regla inviolable #3 es estructural: no
+ * existe la operación que podría firmar una y no la otra. El acto conserva
+ * igual los dos códigos internos, porque son dos formularios con vida
+ * normativa distinta y un auditor de cualquiera de los dos tiene que poder
+ * citar el suyo.
+ *
  * **Lo que este módulo no hace todavía, y por qué.** No transiciona el
- * expediente ni escribe los PDF firmados. La transición
- * `PAQUETE_GENERADO → FIRMADO` de `expediente.ts` exige hoy garantía de pago
- * lista, y esa condición desaparece con el orden nuevo —el cobro pasó a ir
- * después de las firmas—; reordenar la máquina de estados espera tres
- * definiciones de Alianza (`docs/ORDEN_FIRMA_PAGO_Y_CPC.md` §2.3). Hasta
- * entonces, esto **decide y produce el acto**, y quien lo persista vendrá
- * después. Sellar los bytes es igual de posterior: si el dictamen legal elige
- * la variante criptográfica, se agrega encima sin tocar nada de acá
+ * expediente ni sella los bytes. `registrarFirmaP8` —la única escritura de
+ * `expediente.firma`— exige hoy un `actoDeFirma` abierto con su `idCode100`,
+ * que es identidad del proveedor y el acto interno no tiene: cablearlo pide
+ * una arista propia en `expediente.ts`, no un parche acá. Sellar es igual de
+ * posterior: si el dictamen legal elige la variante criptográfica, se agrega
+ * encima sin tocar nada de este módulo
  * (`docs/VALIDACION_LEGAL_FIRMA_INTERNA.md` §1).
  */
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { OtpProvider } from "../ports/otp-provider";
-import type { CanalFirma, Expediente, PaqueteDocumental, RegistroEvidencia } from "./tipos";
+import type { CanalFirma, DocumentoCerrado, Expediente, RegistroEvidencia } from "./tipos";
 import type {
   ContextoPeticion,
   LectorMetadataOtp,
@@ -86,12 +91,10 @@ function resolverReloj(deps: DependenciasFirmaCliente): Reloj {
 // ---------------------------------------------------------------------------
 
 /**
- * Lo que queda registrado cuando el cliente firma. **Los dos documentos o
- * ninguno** (regla inviolable #3): las dos huellas son obligatorias, así que
- * no existe forma de representar "la Solicitud firmada y el FIPF no".
+ * Lo que queda registrado cuando el cliente firma.
  *
- * Las huellas son las del documento **tal como se firmó**, con su versión al
- * lado: sin la versión, una huella suelta no dice contra qué comparar.
+ * La huella es la del documento **tal como se firmó**, con su versión al lado:
+ * sin la versión, una huella suelta no dice contra qué comparar.
  */
 export interface ActoDeFirmaCliente {
   readonly expedienteId: string;
@@ -101,12 +104,12 @@ export interface ActoDeFirmaCliente {
   /** Identificador del OTP consumido. Nunca el código (regla inviolable #2). */
   readonly otpId: string;
   readonly firmadoEn: string;
-  readonly codigoSolicitud: string;
-  readonly versionSolicitud: number;
-  readonly hashSolicitud: string;
+  /** Identidad del PDF único (`PROP-<correlativo>`). */
+  readonly codigoDocumento: string;
+  /** Código interno de la sección FIPF, impreso en el mismo PDF (D-11). */
   readonly codigoFipf: string;
-  readonly versionFipf: number;
-  readonly hashFipf: string;
+  readonly versionDocumento: number;
+  readonly hashDocumento: string;
   /** Qué aceptó exactamente, y qué versión de ese texto. */
   readonly textoAceptado: string;
   readonly versionTextoAceptado: string;
@@ -134,7 +137,7 @@ export type MotivoRechazoFirmaCliente =
 // ---------------------------------------------------------------------------
 
 export type ResultadoElegibilidad =
-  | { readonly ok: true; readonly paquete: PaqueteDocumental }
+  | { readonly ok: true; readonly documento: DocumentoCerrado }
   | { readonly ok: false; readonly motivo: MotivoRechazoFirmaCliente };
 
 /**
@@ -143,15 +146,15 @@ export type ResultadoElegibilidad =
  * tipo y no probaría nada.
  */
 export function evaluarElegibilidadFirmaCliente(expediente: Expediente): ResultadoElegibilidad {
-  const paquete = expediente.paqueteDocumental;
-  if (!paquete) return { ok: false, motivo: "PAQUETE_NO_CERRADO" };
+  const documento = expediente.paqueteDocumental;
+  if (!documento) return { ok: false, motivo: "PAQUETE_NO_CERRADO" };
 
-  const huellas = [paquete.solicitud.hashSha256, paquete.fipf.hashSha256];
-  if (huellas.some((hash) => hash.trim() === "")) {
+  // Una huella vacía pasaría el chequeo del tipo y no probaría nada.
+  if (documento.hashSha256.trim() === "") {
     return { ok: false, motivo: "PAQUETE_NO_CERRADO" };
   }
 
-  return { ok: true, paquete };
+  return { ok: true, documento };
 }
 
 /**
@@ -372,7 +375,7 @@ export async function registrarActoDeFirmaCliente(
   });
 
   const fecha = reloj.ahora();
-  const { paquete } = elegibilidad;
+  const { documento } = elegibilidad;
 
   if (!verificacion.ok) {
     await registrarEvidencia(deps, reloj, {
@@ -408,12 +411,10 @@ export async function registrarActoDeFirmaCliente(
     destinoEnmascarado: destino.enmascarado,
     otpId: entrada.otpId,
     firmadoEn: fecha,
-    codigoSolicitud: paquete.solicitud.codigo,
-    versionSolicitud: paquete.solicitud.version,
-    hashSolicitud: paquete.solicitud.hashSha256,
-    codigoFipf: paquete.fipf.codigo,
-    versionFipf: paquete.fipf.version,
-    hashFipf: paquete.fipf.hashSha256,
+    codigoDocumento: documento.codigo,
+    codigoFipf: documento.codigoSeccionFipf,
+    versionDocumento: documento.version,
+    hashDocumento: documento.hashSha256,
     textoAceptado: entrada.textoAceptado,
     versionTextoAceptado: entrada.versionTextoAceptado,
     ip: entrada.contexto.ip,
@@ -431,10 +432,9 @@ export async function registrarActoDeFirmaCliente(
       canal: entrada.canal,
       destino: destino.enmascarado,
       otpId: entrada.otpId,
-      solicitud: `${acto.codigoSolicitud} v${acto.versionSolicitud}`,
-      hashSolicitud: acto.hashSolicitud,
-      fipf: `${acto.codigoFipf} v${acto.versionFipf}`,
-      hashFipf: acto.hashFipf,
+      documento: `${acto.codigoDocumento} v${acto.versionDocumento}`,
+      seccionFipf: acto.codigoFipf,
+      hashDocumento: acto.hashDocumento,
     },
     aceptacion: {
       versionTexto: entrada.versionTextoAceptado,

@@ -15,10 +15,14 @@ import {
   limpiarSesionesFirmaMock,
   obtenerCodigoFirmaDemo,
 } from "../../adapters/mock/signature-provider";
-import { transicionarExpediente } from "../../domain/expediente";
+import { registrarFirmasInstitucionales, transicionarExpediente } from "../../domain/expediente";
 import type { Expediente } from "../../domain/tipos";
 import type { SignatureProvider } from "../../ports/signature-provider";
-import { expedienteEnPaqueteGenerado } from "../../domain/__tests__/fixtures";
+import {
+  PLAZO_PAGO_FIJO,
+  expedienteEnPaqueteGenerado,
+  firmasInstitucionalesFixture,
+} from "../../domain/__tests__/fixtures";
 import { archivarDocumentosFirmados, claveDocumentoFirmado } from "../servicio";
 
 /** Repositorio de archivos en memoria que cuenta las escrituras. */
@@ -48,7 +52,7 @@ async function expedienteFirmado(): Promise<{ expediente: Expediente; firmas: Si
     expedienteId: base.id,
     canal: "WHATSAPP",
     destino: "+595981000456",
-    paqueteDocumental: base.paqueteDocumental!,
+    documento: base.paqueteDocumental!,
   });
 
   await abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: true });
@@ -66,7 +70,16 @@ async function expedienteFirmado(): Promise<{ expediente: Expediente; firmas: Si
       venceEn: iniciada.venceEn,
     },
   };
-  const transicion = transicionarExpediente(conActo, "FIRMADO", { firma: firmado.firma });
+  // D-08 · dos transiciones: el cliente firma y después entran las
+  // institucionales, que abren el plazo de pago.
+  const delCliente = transicionarExpediente(conActo, "FIRMADO_CLIENTE", { firma: firmado.firma });
+  if (!delCliente.ok) throw new Error(delCliente.error);
+
+  const transicion = registrarFirmasInstitucionales(
+    delCliente.expediente,
+    firmasInstitucionalesFixture,
+    PLAZO_PAGO_FIJO,
+  );
   if (!transicion.ok) throw new Error(transicion.error);
 
   return { expediente: transicion.expediente, firmas };
@@ -81,7 +94,7 @@ afterEach(() => {
 });
 
 describe("archivarDocumentosFirmados", () => {
-  it("guarda los dos PDF firmados con la huella que quedó registrada", async () => {
+  it("guarda el PDF firmado con la huella que quedó registrada", async () => {
     const { expediente, firmas } = await expedienteFirmado();
     const archivos = archivosEnMemoria();
 
@@ -90,15 +103,14 @@ describe("archivarDocumentosFirmados", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
 
-    // Los dos archivos, cada uno bajo su clave `-firmado`.
-    expect(archivos.guardados.size).toBe(2);
-    expect(resultado.claveSolicitud).toContain("-firmado.pdf");
-    expect(resultado.claveFipf).toContain("-firmado.pdf");
+    // D-11 · un solo archivo, bajo su clave `-firmado`.
+    expect(archivos.guardados.size).toBe(1);
+    expect(resultado.clave).toContain("-firmado.pdf");
 
     // Y el SHA-256 de lo guardado es el que el expediente dice que es.
-    const bytes = archivos.guardados.get(resultado.claveSolicitud)!;
+    const bytes = archivos.guardados.get(resultado.clave)!;
     const hash = createHash("sha256").update(bytes).digest("hex");
-    expect(hash).toBe(expediente.firma!.hashSolicitudFirmada);
+    expect(hash).toBe(expediente.firma!.hashDocumentoFirmado);
   });
 
   it("no pisa el PDF cerrado: son claves distintas", async () => {
@@ -107,8 +119,8 @@ describe("archivarDocumentosFirmados", () => {
 
     await archivarDocumentosFirmados({ archivos, firmas }, expediente);
 
-    const solicitud = expediente.paqueteDocumental!.solicitud;
-    const claveFirmada = claveDocumentoFirmado(expediente.id, solicitud.codigo, solicitud.version);
+    const documento = expediente.paqueteDocumental!;
+    const claveFirmada = claveDocumentoFirmado(expediente.id, documento.codigo, documento.version);
     expect(claveFirmada).not.toContain("-v1.pdf");
     expect([...archivos.guardados.keys()].every((clave) => clave.endsWith("-firmado.pdf"))).toBe(true);
   });
@@ -130,11 +142,8 @@ describe("archivarDocumentosFirmados", () => {
 
     // La huella firmada nunca puede coincidir con la del documento cerrado: si
     // coincidiera, el archivo no tendría ninguna firma incrustada.
-    expect(expediente.firma!.hashSolicitudFirmada).not.toBe(
-      expediente.paqueteDocumental!.solicitud.hashSha256,
-    );
-    expect(expediente.firma!.hashFipfFirmado).not.toBe(
-      expediente.paqueteDocumental!.fipf.hashSha256,
+    expect(expediente.firma!.hashDocumentoFirmado).not.toBe(
+      expediente.paqueteDocumental!.hashSha256,
     );
     expect(firmas).toBeDefined();
   });
@@ -161,7 +170,7 @@ describe("archivarDocumentosFirmados", () => {
       async iniciarFirma() {
         throw new Error("no usado");
       },
-      async descargarDocumentosFirmados() {
+      async descargarDocumentoFirmado() {
         return null;
       },
       async confirmarResultado() {
@@ -187,11 +196,8 @@ describe("archivarDocumentosFirmados", () => {
       async iniciarFirma() {
         throw new Error("no usado");
       },
-      async descargarDocumentosFirmados() {
-        return {
-          solicitud: new TextEncoder().encode("no es el PDF firmado"),
-          fipf: new TextEncoder().encode("tampoco"),
-        };
+      async descargarDocumentoFirmado() {
+        return new TextEncoder().encode("no es el PDF firmado");
       },
       async confirmarResultado() {
         throw new Error("no usado");
@@ -206,38 +212,10 @@ describe("archivarDocumentosFirmados", () => {
   });
 
   /**
-   * El caso que encontró la auditoría: si el segundo documento no coincide, el
-   * primero tampoco se guarda. Si no, `GET /api/p8/documento?firmado=1` podría
-   * servir una Solicitud firmada mientras el FIPF nunca llegó a archivarse.
+   * El test que había acá —*"si el FIPF no coincide, la Solicitud tampoco
+   * queda guardada"*— probaba que el archivado no dejara medio paquete
+   * escrito. Con el documento único (D-11) desapareció junto con el segundo
+   * archivo: hay uno, y su huella coincide o no se guarda nada. Lo verifica
+   * el test de arriba.
    */
-  it("si el FIPF no coincide, la Solicitud tampoco queda guardada", async () => {
-    const { expediente, firmas } = await expedienteFirmado();
-    const archivos = archivosEnMemoria();
-    const reales = await firmas.descargarDocumentosFirmados(expediente.firma!.idCode100);
-
-    const soloElFipfMal: SignatureProvider = {
-      async iniciarFirma() {
-        throw new Error("no usado");
-      },
-      async descargarDocumentosFirmados() {
-        // La Solicitud es la buena; el FIPF, no.
-        return { solicitud: reales!.solicitud, fipf: new TextEncoder().encode("FIPF adulterado") };
-      },
-      async confirmarResultado() {
-        throw new Error("no usado");
-      },
-    };
-
-    const resultado = await archivarDocumentosFirmados(
-      { archivos, firmas: soloElFipfMal },
-      expediente,
-    );
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("HUELLA_NO_COINCIDE");
-    // Lo importante: ni un solo archivo escrito.
-    expect(archivos.escrituras).toEqual([]);
-    expect(archivos.guardados.size).toBe(0);
-  });
 });

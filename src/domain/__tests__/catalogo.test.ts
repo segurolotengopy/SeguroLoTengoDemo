@@ -26,7 +26,7 @@ describe("tabla de planes", () => {
       rentaHospitalariaTotalGs: 7_500_000,
       rentaHospitalariaPorDiaGs: 500_000,
       gastosMedicosAccidenteGs: 7_000_000,
-      premioAnualGs: 290_000,
+      premioAnualGs: 319_000,
     });
 
     expect(PLANES.CONFIO_PLUS).toEqual({
@@ -37,7 +37,7 @@ describe("tabla de planes", () => {
       rentaHospitalariaTotalGs: 11_250_000,
       rentaHospitalariaPorDiaGs: 750_000,
       gastosMedicosAccidenteGs: 10_000_000,
-      premioAnualGs: 475_000,
+      premioAnualGs: 522_500,
     });
 
     expect(PLANES.CONFIO_TOTAL).toEqual({
@@ -48,7 +48,7 @@ describe("tabla de planes", () => {
       rentaHospitalariaTotalGs: 15_000_000,
       rentaHospitalariaPorDiaGs: 1_000_000,
       gastosMedicosAccidenteGs: 14_000_000,
-      premioAnualGs: 660_000,
+      premioAnualGs: 726_000,
     });
   });
 
@@ -56,7 +56,7 @@ describe("tabla de planes", () => {
     expect(ORDEN_PLANES).toEqual(["CONFIO", "CONFIO_PLUS", "CONFIO_TOTAL"]);
     expect(OFERTA_VIGENTE.planes).toHaveLength(3);
     expect(OFERTA_VIGENTE.planes.map((plan) => plan.premioAnualGs)).toEqual([
-      290_000, 475_000, 660_000,
+      319_000, 522_500, 726_000,
     ]);
   });
 
@@ -86,7 +86,7 @@ describe("serialización canónica de la oferta", () => {
 
     expect(canonico).toContain(`oferta=${ID_VERSION_OFERTA}`);
     expect(canonico).toContain("plan=CONFIO_PLUS");
-    expect(canonico).toContain("premioAnual=475000");
+    expect(canonico).toContain("premioAnual=522500");
     // Una línea de cabecera por dato de la oferta y una por plan.
     expect(canonico.split("\n")).toHaveLength(4 + 3);
   });
@@ -105,7 +105,7 @@ describe("serialización canónica de la oferta", () => {
 
 describe("utilidades", () => {
   it("formatea guaraníes con punto como separador de miles", () => {
-    expect(formatearGuaranies(475_000)).toBe("Gs. 475.000");
+    expect(formatearGuaranies(522_500)).toBe("Gs. 522.500");
     expect(formatearGuaranies(100_000_000)).toBe("Gs. 100.000.000");
   });
 

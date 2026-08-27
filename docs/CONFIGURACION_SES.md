@@ -202,10 +202,47 @@ verificar a alguien, y conviene reconocerlo.
 | :---- | :---- |
 | Remitente verificado | ✅ `segurolotengo.py@gmail.com` |
 | Permiso del usuario local `aab1-demo-qa` | ✅ `SLTDemoQaSesEnvioOtp` |
-| Permiso del rol de cómputo de Amplify | ⬜ `terraform apply -target=…amplify_ses_envio_otp` |
-| Destinatarios de la demo verificados | ⬜ uno por casilla de gerencia |
+| Permiso del rol de cómputo de Amplify | ✅ `aab1-demo-ses-envio-otp` (rol de Amplify) |
+| Permiso de diagnóstico del deployer | ✅ `SesIdentidadesSltDemo`, aplicado el 21/08/2026 |
+| Destinatarios de la demo verificados | ✅ **las cinco identidades** (ver abajo) |
 | Salida del sandbox | ⬜ para el piloto |
 | Dominio propio con DKIM | ⬜ para el piloto |
 
-Los dos primeros pendientes son los que bloquean el correo real desde el
-despliegue. Los dos últimos son del piloto y no corren para la demostración.
+Los dos pendientes son del piloto y no corren para la demostración.
+
+### Identidades verificadas
+
+Comprobado el **21/08/2026** con `aws sesv2 get-email-identity` sobre cada una
+—`VerificationStatus: SUCCESS` y `VerifiedForSendingStatus: true` en las cinco—:
+
+| Identidad | Para qué |
+| :---- | :---- |
+| `segurolotengo.py@gmail.com` | remitente (`OTP_EMAIL_FROM`) y destinatario de prueba |
+| `alberdi.andres@gmail.com` | casilla personal |
+| `andresalberdik@gmail.com` | casilla personal |
+| `silsaki@gmail.com` | casilla de prueba |
+| `rfernandez@interseguros360.com` | Interseguros |
+
+> La de Interseguros estuvo en **`FAILED`** hasta el 21/08: la verificación se
+> había enviado y no se confirmó dentro de la ventana. `FAILED` **no es
+> "pendiente"** —SES marca así lo que caducó sin confirmarse— y hay que
+> **reenviar** la verificación, no esperar.
+
+**La cuenta sigue en sandbox** (`ProductionAccessEnabled: false`), con cuota de
+200 envíos por día. Con las cinco verificadas eso no molesta para la
+demostración: el sandbox solo restringe **a quién** se le puede escribir.
+
+### Cómo comprobar el estado sin entrar a la consola
+
+Desde el 21/08/2026 el deployer tiene permisos de lectura de SES:
+
+```bash
+AWS_PROFILE=aab1-demo-deployer aws sesv2 get-account --region us-east-1 \
+  --query '{sandbox:(!ProductionAccessEnabled),cuota:SendQuota.Max24HourSend,enviados24h:SendQuota.SentLast24Hours}'
+
+AWS_PROFILE=aab1-demo-deployer aws sesv2 get-email-identity --region us-east-1 \
+  --email-identity <casilla> --query '[VerificationStatus,VerifiedForSendingStatus]' --output text
+```
+
+`SentLast24Hours` sirve de prueba dura cuando alguien reporta que "no llegó el
+correo": si está en 0, **no se intentó enviar nada** y el problema no es SES.

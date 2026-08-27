@@ -9,7 +9,7 @@
  *   intento de usarlo ni siquiera consume el OTP de firma.
  * - **Reglas #1 y #9** — el código sale hacia el canal verificado del
  *   expediente, nunca hacia un destino que venga en la petición.
- * - **Regla #3** — el acto lleva las dos huellas o no hay acto.
+ * - **Regla #3** — el acto lleva la huella del documento único (D-11).
  * - **Regla #4** — sin paquete cerrado y hasheado no se emite el código.
  * - **Res. 210/2025, art. 9** — la evidencia conserva IP, dispositivo,
  *   sesión, fecha, el texto aceptado y su versión.
@@ -188,14 +188,14 @@ describe("solicitud del código de firma", () => {
     expect(resultado).toEqual({ ok: false, motivo: "PAQUETE_NO_CERRADO" });
   });
 
-  it("un paquete con una huella vacía no habilita la firma", () => {
+  it("un documento con la huella vacía no habilita la firma", () => {
     const expediente = expedienteEnPaqueteGenerado();
     const paquete = expediente.paqueteDocumental;
     if (!paquete) throw new Error("el fixture debería traer paquete");
 
     const conHuellaVacia: Expediente = {
       ...expediente,
-      paqueteDocumental: { ...paquete, fipf: { ...paquete.fipf, hashSha256: "  " } },
+      paqueteDocumental: { ...paquete, hashSha256: "  " },
     };
 
     expect(evaluarElegibilidadFirmaCliente(conHuellaVacia)).toEqual({
@@ -220,7 +220,7 @@ describe("solicitud del código de firma", () => {
 });
 
 describe("acto de firma", () => {
-  it("con el código correcto produce el acto con las dos huellas y sus versiones", async () => {
+  it("con el código correcto produce el acto con la huella del documento y su versión", async () => {
     const { deps, expediente } = armar();
     const envio = await solicitarOtpDeFirmaCliente(deps, {
       expedienteId: expediente.id,
@@ -242,14 +242,15 @@ describe("acto de firma", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
 
-    const paquete = expediente.paqueteDocumental;
-    if (!paquete) throw new Error("el fixture debería traer paquete");
+    const documento = expediente.paqueteDocumental;
+    if (!documento) throw new Error("el fixture debería traer documento");
 
-    // Regla #3: las dos huellas, en un solo acto.
-    expect(resultado.acto.hashSolicitud).toBe(paquete.solicitud.hashSha256);
-    expect(resultado.acto.hashFipf).toBe(paquete.fipf.hashSha256);
-    expect(resultado.acto.versionSolicitud).toBe(paquete.solicitud.version);
-    expect(resultado.acto.versionFipf).toBe(paquete.fipf.version);
+    // Regla #3, ahora estructural (D-11): un documento, una huella, y las dos
+    // secciones citables por su código propio.
+    expect(resultado.acto.hashDocumento).toBe(documento.hashSha256);
+    expect(resultado.acto.versionDocumento).toBe(documento.version);
+    expect(resultado.acto.codigoDocumento).toBe(documento.codigo);
+    expect(resultado.acto.codigoFipf).toBe(documento.codigoSeccionFipf);
     expect(resultado.acto.firmadoEn).toBe("2026-08-27T12:00:00.000Z");
     expect(resultado.acto.ip).toBe(CONTEXTO.ip);
   });

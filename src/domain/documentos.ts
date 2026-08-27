@@ -50,9 +50,17 @@
 import { ORDEN_PLANES, PLANES, formatearGuaranies } from "./catalogo";
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
-import { TEXTOS_DECLARACIONES_P6, VERSION_TEXTOS_DECLARACIONES_P6 } from "./textos-p6";
+import { firmantesDe } from "./firmantes-documento";
+import type { DocumentoFirmable } from "./firmantes-documento";
+import {
+  TEXTOS_DECLARACIONES_P6,
+  TEXTO_ADVERTENCIA_ART_1556,
+  TEXTO_DECLARACION_CUENTA_PROPIA,
+  TEXTO_DECLARACION_LICITUD_Y_VERACIDAD,
+  VERSION_TEXTOS_DECLARACIONES_P6,
+} from "./textos-p6";
 import { calcularEdadDesde } from "./tipos";
-import type { Expediente, MedioDePago, RespuestaDeclaracion } from "./tipos";
+import type { Expediente, RespuestaDeclaracion } from "./tipos";
 
 // ---------------------------------------------------------------------------
 // Códigos: un correlativo, dos prefijos
@@ -66,8 +74,9 @@ export const PREFIJO_FIPF = "FIPF";
  *
  * **Un solo correlativo para los dos documentos** (CLAUDE.md → "Reglas
  * transversales de integraciones": *"Solicitud y FIPF: mismo correlativo,
- * prefijos distintos"*). El correlativo lo acuña P7 al abrir la operación de
- * pago (`Expediente.numeroPropuesta`); acá solo se le pone el prefijo. Que
+ * prefijos distintos"*). El correlativo lo acuña `generarNumeroPropuesta` al
+ * cerrarse el paquete (`Expediente.numeroPropuesta`); acá solo se le pone el
+ * prefijo. Que
  * sean funciones y no dos campos independientes del expediente es lo que hace
  * imposible que los documentos se separen: no hay ningún lugar donde escribir
  * un código de FIPF que no derive del mismo número que la Solicitud.
@@ -181,15 +190,32 @@ export function origenDeFondos(situacionLaboral: string): string {
 // ---------------------------------------------------------------------------
 
 export interface EncabezadoDocumento {
-  /** `PROP-00018425` o `FIPF-00018425`. */
+  /** Identidad del documento único: `PROP-00018425` (D-11). */
   readonly codigo: string;
-  /** El código del otro documento del mismo acto de firma. */
+  /** Código interno de la sección FIPF, impreso en su propia sección. */
   readonly codigoVinculado: string;
   readonly correlativo: string;
   readonly version: number;
   readonly cerradoEn: string;
   readonly titulo: string;
-  readonly urlVerificacion: string;
+  /**
+   * Enlace que codifica el QR de verificación, o `null` en los documentos que
+   * **no se verifican**.
+   *
+   * El comprobante de pago es el único caso: no es un instrumento con huella
+   * registrada sino una constancia de una operación que ya está probada por el
+   * certificado y por la Solicitud firmada. Dibujarle un QR sugeriría que se
+   * puede verificar por sí solo, y no se puede.
+   */
+  readonly urlVerificacion: string | null;
+  /**
+   * Fecha de la solicitud con sello de tiempo (CMP-09).
+   *
+   * Es `cerradoEn` presentado para leer, y va en el encabezado y no en una
+   * sección porque aplica al documento entero: es el instante que fija qué
+   * decía la propuesta, y del que corre el mes del art. 1556.
+   */
+  readonly selloDeTiempo: string;
 }
 
 export interface CampoDocumento {
@@ -219,7 +245,6 @@ export interface DeclaracionDocumento {
 }
 
 export interface ContenidoSolicitud {
-  readonly encabezado: EncabezadoDocumento;
   /** Bloque 1 — Datos del proponente / asegurado. */
   readonly proponente: readonly CampoDocumento[];
   /** Bloque 2 — Planes y coberturas solicitadas. */
@@ -234,14 +259,12 @@ export interface ContenidoSolicitud {
   /** Bloque 5 — Declaraciones finales, pago y entrega. */
   readonly declaracionesFinales: readonly string[];
   readonly referencias: readonly CampoDocumento[];
-  /** Bloque 6 — Aceptación, firma y trazabilidad. */
-  readonly firmantes: readonly CampoDocumento[];
-  readonly leyendaFirma: string;
   readonly leyendaNoEsPoliza: string;
 }
 
 export interface ContenidoFipf {
-  readonly encabezado: EncabezadoDocumento;
+  /** Código interno de esta sección: `FIPF-<correlativo>` (D-11). */
+  readonly codigoSeccion: string;
   readonly leyendaNorma: string;
   /** Bloque 1 — Datos personales y canales verificados. */
   readonly personales: readonly CampoDocumento[];
@@ -254,17 +277,29 @@ export interface ContenidoFipf {
   readonly declaraciones: readonly string[];
   /** Bloque 5 — Evidencias digitales vinculadas. */
   readonly evidencias: readonly string[];
-  /** Bloque 6 — Firma electrónica y trazabilidad. */
-  readonly firmantes: readonly CampoDocumento[];
-  readonly leyendaFirma: string;
 }
 
+/**
+ * El documento único (D-11): un encabezado, y las dos secciones adentro.
+ *
+ * `solicitud` y `fipf` dejaron de ser dos documentos y pasaron a ser dos
+ * **secciones** del mismo archivo. Conservan su nombre porque siguen siendo
+ * dos formularios con vida normativa propia —Res. SS SG. 215/15 y Res.
+ * SEPRELAD 71/19— y cada uno imprime su código interno; lo que ya no tienen es
+ * archivo, huella ni acto de firma separados.
+ */
 export interface ContenidoPaquete {
+  readonly encabezado: EncabezadoDocumento;
   readonly correlativo: string;
   readonly version: number;
   readonly cerradoEn: string;
   readonly solicitud: ContenidoSolicitud;
   readonly fipf: ContenidoFipf;
+  /** Advertencia del art. 1556 CC (CMP-09), impresa en la sección de la Solicitud. */
+  readonly advertenciaArt1556: string;
+  /** Bloque de firmas del documento, derivado de `firmantes-documento.ts` (D-13). */
+  readonly firmantes: readonly CampoDocumento[];
+  readonly leyendaFirma: string;
   /** Versión de los literales de declaraciones que quedaron impresos. */
   readonly versionTextos: string;
 }
@@ -278,11 +313,10 @@ export type CampoFaltante =
   | "plan"
   | "identidad"
   | "datosComplementarios"
+  | "beneficiario"
   | "declaraciones"
   | "canalWhatsapp"
-  | "canalEmail"
-  | "pago"
-  | "facturacion";
+  | "canalEmail";
 
 export type ResultadoContenidoPaquete =
   | { readonly ok: true; readonly contenido: ContenidoPaquete }
@@ -340,11 +374,10 @@ export function armarContenidoPaquete(
     plan,
     identidad,
     datosComplementarios: datos,
+    beneficiario,
     declaraciones,
     canalWhatsapp,
     canalEmail,
-    pago,
-    facturacion,
   } = expediente;
 
   const faltantes: CampoFaltante[] = [];
@@ -352,22 +385,20 @@ export function armarContenidoPaquete(
   if (!plan) faltantes.push("plan");
   if (!identidad) faltantes.push("identidad");
   if (!datos) faltantes.push("datosComplementarios");
+  if (!beneficiario) faltantes.push("beneficiario");
   if (!declaraciones) faltantes.push("declaraciones");
   if (!canalWhatsapp) faltantes.push("canalWhatsapp");
   if (!canalEmail) faltantes.push("canalEmail");
-  if (!pago) faltantes.push("pago");
-  if (!facturacion) faltantes.push("facturacion");
 
   if (
     !numeroPropuesta ||
     !plan ||
     !identidad ||
     !datos ||
+    !beneficiario ||
     !declaraciones ||
     !canalWhatsapp ||
-    !canalEmail ||
-    !pago ||
-    !facturacion
+    !canalEmail
   ) {
     return { ok: false, faltantes };
   }
@@ -404,15 +435,6 @@ export function armarContenidoPaquete(
   // --- Solicitud -----------------------------------------------------------
 
   const solicitud: ContenidoSolicitud = {
-    encabezado: {
-      codigo: codigoProp,
-      codigoVinculado: codigoFip,
-      correlativo,
-      version,
-      cerradoEn,
-      titulo: "Solicitud de Seguro de Vida Oncológico",
-      urlVerificacion: urlDeVerificacion(codigoProp, base),
-    },
     proponente: [
       { etiqueta: "Nombres", valor: identidad.nombres },
       { etiqueta: "Apellidos", valor: identidad.apellidos },
@@ -454,14 +476,14 @@ export function armarContenidoPaquete(
     notaRentaHospitalaria:
       "Renta fija por cada 24 horas continuas; 15 días acumulables entre hospitalizaciones por año de vigencia.",
     beneficiario:
-      datos.beneficiario.tipo === "HEREDEROS_LEGALES"
+      beneficiario.tipo === "HEREDEROS_LEGALES"
         ? [{ etiqueta: "Beneficiario", valor: "Herederos legales — 100%" }]
         : [
             { etiqueta: "Beneficiario", valor: "Una persona designada — 100%" },
-            { etiqueta: "Nombre completo", valor: datos.beneficiario.nombreCompleto ?? "" },
+            { etiqueta: "Nombre completo", valor: beneficiario.nombreCompleto ?? "" },
             {
               etiqueta: "Parentesco y domicilio",
-              valor: `${datos.beneficiario.parentesco ?? ""} · ${datos.beneficiario.domicilio ?? ""}`,
+              valor: `${beneficiario.parentesco ?? ""} · ${beneficiario.domicilio ?? ""}`,
             },
           ],
     declaracionesMedicas: [
@@ -471,24 +493,24 @@ export function armarContenidoPaquete(
     ],
     advertenciaElegibilidad:
       "Una respuesta incompatible deriva el caso a análisis y detiene pago, firma y emisión automática.",
-    // Las cuatro casillas del bloque 5 de `docs/Solicitud.pdf`. Las tres
-    // primeras son las declaraciones 5, 4 y 6 de P6; la cuarta es la
-    // declaración de origen lícito que se aceptó en P7.
+    // Bloque 5 de `docs/Solicitud.pdf` más las declaraciones que la Matriz V4
+    // §4 manda integrar al documento en vez de pedirlas como casilla
+    // ("no casilla adicional"): licitud y veracidad, y cuenta propia (CMP-20).
     declaracionesFinales: [
       literalDeclaracion(5).texto,
       literalDeclaracion(4).texto,
       literalDeclaracion(6).texto,
-      facturacion.declaracionOrigenLicito.textoAceptado,
+      TEXTO_DECLARACION_LICITUD_Y_VERACIDAD,
+      TEXTO_DECLARACION_CUENTA_PROPIA,
     ],
+    // D-08 · el documento se cierra **antes** de que exista ninguna operación
+    // de pago, así que no puede citar una referencia de Bancard ni un medio:
+    // todavía no se eligieron. Lo que sí se imprime es el premio, que es el
+    // importe que la persona está aceptando pagar al firmar.
     referencias: [
       { etiqueta: "Correlativo / futura póliza", valor: correlativo },
-      { etiqueta: "Bancard", valor: pago.referenciaBancard ?? "—" },
-      { etiqueta: "Medio", valor: etiquetaMedio(pago.medio) },
       { etiqueta: "Premio final", valor: formatearGuaranies(plan.premioAnualGs) },
     ],
-    firmantes: FIRMANTES,
-    leyendaFirma:
-      "Cliente primero; Interseguros y Alianza firman después en paralelo. No se genera Nota de Cobertura.",
     leyendaNoEsPoliza:
       "La presente Solicitud no constituye póliza emitida. Alianza Garantía emitirá la póliza mediante SEBAOT.",
   };
@@ -496,15 +518,7 @@ export function armarContenidoPaquete(
   // --- FIPF ----------------------------------------------------------------
 
   const fipf: ContenidoFipf = {
-    encabezado: {
-      codigo: codigoFip,
-      codigoVinculado: codigoProp,
-      correlativo,
-      version,
-      cerradoEn,
-      titulo: "Formulario de Identificación para Personas Físicas (FIPF)",
-      urlVerificacion: urlDeVerificacion(codigoFip, base),
-    },
+    codigoSeccion: codigoFip,
     leyendaNorma: "En base a la Resolución N.º 71/19 de la SEPRELAD",
     personales: [
       { etiqueta: "Nombres", valor: identidad.nombres },
@@ -531,8 +545,6 @@ export function armarContenidoPaquete(
       { etiqueta: "Ingreso mensual declarado", valor: formatearGuaranies(datos.ingresoMensualDeclaradoGs) },
       { etiqueta: "Origen de fondos", valor: origenDeFondos(datos.situacionLaboral) },
       { etiqueta: "Propósito", valor: PROPOSITO_OPERACION },
-      { etiqueta: "Nombre a facturar", valor: facturacion.nombreAFacturar },
-      { etiqueta: "Identificación fiscal", valor: facturacion.ruc ?? `Cédula ${identidad.numeroCedula}` },
     ],
     pep: declaracionPorNumero(8, declaraciones.condicionPep, "NO"),
     advertenciaPep:
@@ -543,7 +555,7 @@ export function armarContenidoPaquete(
     declaraciones: [
       literalDeclaracion(5).texto,
       "Declaro que el WhatsApp y el correo verificados son de mi propiedad y están bajo mi control.",
-      facturacion.declaracionOrigenLicito.textoAceptado,
+      TEXTO_DECLARACION_LICITUD_Y_VERACIDAD,
       "Autorizo a Alianza Garantía e Interseguros a verificar la información y conservar las evidencias del proceso.",
       literalDeclaracion(7).texto,
     ],
@@ -555,56 +567,65 @@ export function armarContenidoPaquete(
       "Fecha, hora, IP, sesión, versión, PDF y huellas digitales",
       `Prueba de vida: ${marca(identidad.captura.pruebaDeVidaAprobada)} · Coincidencia facial: ${marca(identidad.captura.coincidenciaFacialAprobada)}`,
     ],
-    firmantes: FIRMANTES,
-    leyendaFirma:
-      "Cliente primero; Alianza Garantía e Interseguros firman después en paralelo. La Solicitud y el FIPF se firman conjuntamente mediante el mismo enlace seguro de Code100.",
   };
 
   return {
     ok: true,
     contenido: {
+      encabezado: {
+        codigo: codigoProp,
+        codigoVinculado: codigoFip,
+        correlativo,
+        version,
+        cerradoEn,
+        titulo: "Solicitud de Seguro de Vida Oncológico y FIPF",
+        urlVerificacion: urlDeVerificacion(codigoProp, base),
+        selloDeTiempo: formatearSelloDeTiempo(cerradoEn),
+      },
       correlativo,
       version,
       cerradoEn,
       solicitud,
       fipf,
+      advertenciaArt1556: TEXTO_ADVERTENCIA_ART_1556,
+      firmantes: bloqueDeFirmantes("PAQUETE"),
+      leyendaFirma:
+        "Un solo acto de firma cubre este documento completo: la Solicitud y el FIPF ya no son " +
+        "dos archivos que puedan firmarse por separado. No se genera Nota de Cobertura.",
       versionTextos: VERSION_TEXTOS_DECLARACIONES_P6,
     },
   };
 }
 
 /**
- * Bloque de firmantes, idéntico en los dos documentos (bloque 6 de
- * `docs/Solicitud.pdf` y de `docs/FIPF.pdf`). El orden es el de la
- * integración con Code100: cliente primero, Interseguros y Alianza después en
- * paralelo — nunca al revés (CLAUDE.md → "Contrato oficial de
- * `SignatureProvider`").
+ * Bloque de firmas del PDF, derivado de la configuración de D-13.
+ *
+ * No es una lista escrita a mano: sale de `firmantes-documento.ts`, que es la
+ * misma fuente de la que salen el orden en que el adaptador aplica las firmas
+ * y lo que la consola muestra de cada una. Cuando eran tres listas separadas,
+ * el PDF podía anunciar un firmante que el proveedor no aplicaba.
  */
-const FIRMANTES: readonly CampoDocumento[] = [
-  {
-    etiqueta: "Proponente / asegurado",
-    valor: "Firma electrónica no cualificada mediante enlace seguro de Code100; firma conjuntamente esta Solicitud y el FIPF.",
-  },
-  {
-    etiqueta: "Alianza Garantía",
-    valor: "Firma electrónica cualificada posterior a la firma del cliente.",
-  },
-  {
-    etiqueta: "Interseguros",
-    valor: "Firma electrónica cualificada posterior a la firma del cliente.",
-  },
-];
+function bloqueDeFirmantes(documento: DocumentoFirmable): readonly CampoDocumento[] {
+  return firmantesDe(documento).map((firmante) => ({
+    etiqueta: firmante.rotulo,
+    valor:
+      firmante.modalidad === "PREFIRMADO"
+        ? `${firmante.leyenda} Aplicada antes de la entrega al cliente.`
+        : firmante.leyenda,
+  }));
+}
 
 /**
- * Etiqueta legible del medio de pago para el bloque `REFERENCIAS DE LA
- * OPERACIÓN`. Nunca imprime datos de tarjeta —no los hay en el expediente
- * (regla inviolable #6)—: solo cuál de los tres medios se usó.
+ * Sello de tiempo del documento (CMP-09): la fecha de la solicitud, presentada
+ * para leer y con la hora, porque del instante exacto cuelga el plazo del art.
+ * 1556 y el orden respecto de la firma.
  */
-function etiquetaMedio(medio: MedioDePago): string {
-  const etiquetas: Readonly<Record<MedioDePago, string>> = {
-    QR_BANCARD: "QR Bancard",
-    TARJETA_DEBITO: "Tarjeta de débito",
-    TARJETA_CREDITO: "Tarjeta de crédito",
-  };
-  return etiquetas[medio];
+function formatearSelloDeTiempo(iso: string): string {
+  const fecha = new Date(iso);
+  const dosDigitos = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${dosDigitos(fecha.getUTCDate())}/${dosDigitos(fecha.getUTCMonth() + 1)}/${fecha.getUTCFullYear()} ` +
+    `${dosDigitos(fecha.getUTCHours())}:${dosDigitos(fecha.getUTCMinutes())} UTC`
+  );
 }
+

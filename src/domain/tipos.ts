@@ -5,6 +5,8 @@
  * y las "Reglas de negocio inviolables" de CLAUDE.md. No se modela ningún
  * campo, paso o valor que no esté en esos documentos.
  */
+import type { ModalidadFirma, NivelFirma, RolFirmante } from "./firmantes-documento";
+
 
 // ---------------------------------------------------------------------------
 // Máquina de estados
@@ -38,8 +40,18 @@ export type EstadoExpediente =
    */
   | "ASISTENCIA_IDENTIDAD"
   | "DECLARACIONES_OK"
-  | "PAGO_CONFIRMADO"
   | "PAQUETE_GENERADO"
+  /**
+   * El cliente firmó y faltan las firmas institucionales (D-13).
+   *
+   * Existe como estado propio y no como un campo del expediente porque un
+   * fallo a mitad del sellado tiene que ser distinguible de un expediente sin
+   * firmar: la regla inviolable #3 exige que Solicitud y FIPF entren juntos o
+   * no entre ninguno, y para hacerla cumplir hay que poder nombrar el momento
+   * en que la firma del cliente ya existe y el acto todavía no cerró.
+   */
+  | "FIRMADO_CLIENTE"
+  | "PAGO_CONFIRMADO"
   | "VENCIDO"
   | "DEVOLUCION_EN_TRAMITE"
   | "DEVUELTO"
@@ -71,21 +83,22 @@ export type EstadoExpediente =
  */
 const TODOS_LOS_ESTADOS: Readonly<Record<EstadoExpediente, true>> = {
   INICIADO: true,
-  CANAL_WA_VERIFICADO: true,
   PLAN_SELECCIONADO: true,
+  CANAL_WA_VERIFICADO: true,
   AUTORIZADO: true,
   CANAL_EMAIL_VERIFICADO: true,
   IDENTIDAD_VERIFICADA: true,
   ASISTENCIA_IDENTIDAD: true,
   DERIVADO_MANUAL: true,
   DECLARACIONES_OK: true,
-  PAGO_CONFIRMADO: true,
   PAQUETE_GENERADO: true,
+  FIRMADO_CLIENTE: true,
+  FIRMADO: true,
   VENCIDO: true,
+  PAGO_CONFIRMADO: true,
+  EMITIDO: true,
   DEVOLUCION_EN_TRAMITE: true,
   DEVUELTO: true,
-  FIRMADO: true,
-  EMITIDO: true,
 };
 
 export const ESTADOS_EXPEDIENTE: readonly EstadoExpediente[] = Object.keys(
@@ -113,8 +126,21 @@ export interface EntradaHistorialEstado {
 // ---------------------------------------------------------------------------
 
 export interface CanalVerificado {
-  readonly valor: string; // número o correo, ya verificado
+  readonly valor: string; // número o correo
   readonly verificadoEn: string;
+  /**
+   * Cómo quedó establecido el canal.
+   *
+   * `OTP` es el celular, y era también el correo hasta que se retiró su código
+   * (D-06). `DOBLE_TIPEO` es el correo desde entonces: la persona lo escribe
+   * dos veces y lo declara al firmar, que es el respaldo que reemplaza al
+   * código.
+   *
+   * Opcional porque los expedientes anteriores no lo traen y **no se los
+   * reescribe** (regla inviolable #10): ausente significa `OTP`, que es lo que
+   * eran todos.
+   */
+  readonly origen?: "OTP" | "DOBLE_TIPEO";
 }
 
 export type PlanId = "CONFIO" | "CONFIO_PLUS" | "CONFIO_TOTAL";
@@ -178,6 +204,13 @@ export interface Identidad {
   readonly fechaNacimiento: string; // ISO 8601 (YYYY-MM-DD)
   readonly sexo: string;
   readonly nacionalidad: string;
+  /**
+   * País de residencia. Campo del bloque 1 del FIPF, distinto de la
+   * nacionalidad y del país de nacimiento: una cédula paraguaya puede ser de
+   * alguien con nacionalidad boliviana que reside en Paraguay, y los tres
+   * datos se piden por separado. Lo declara la persona; no sale del documento.
+   */
+  readonly paisResidencia: string;
   readonly paisNacimiento: string;
   readonly estadoCivil: string;
   readonly captura: CapturaBiometrica;
@@ -227,8 +260,34 @@ export interface Beneficiario {
   readonly nombreCompleto: string | null; // requerido solo si PERSONA_DESIGNADA
   readonly parentesco: string | null;
   readonly domicilio: string | null;
+  /**
+   * Cédula del beneficiario designado (CHG-24). **Opcional y no bloqueante.**
+   *
+   * La Res. SIS 215/17 (num. 11.4) exige nombre y domicilio cuando se designa
+   * expresamente a alguien; la cédula no la pide nadie. Se ofrece porque
+   * facilita el cobro el día del siniestro, y se deja vacía sin consecuencia
+   * porque quien contrata no siempre tiene a mano el documento de un tercero
+   * —y frenarlo ahí sería exigirle más que la norma (CMP-21)—.
+   *
+   * Si el área de cumplimiento de Alianza llegara a exigirla en algún caso,
+   * eso sería una regla de riesgo documentada y no un requisito legal general.
+   */
+  readonly numeroCedula: string | null;
 }
 
+/**
+ * Bloque 2 del FIPF: datos laborales, económicos y fiscales.
+ *
+ * **Se capturan en el paso 4, junto a la identidad**, desde la reformulación
+ * de pantallas (maqueta p.4, aprobada el 20-ago-2026). El nombre conserva el
+ * sufijo `P6` porque el modelo no cambió de forma —solo cambió qué pantalla lo
+ * envía—, y renombrarlo obligaría a tocar la evidencia ya guardada.
+ *
+ * **El beneficiario no está acá**, y no es un olvido: se declara en el paso 5
+ * y vive en `Expediente.beneficiario`. Compartir un solo campo obligaría a que
+ * el paso 4 lo escribiera vacío y el paso 5 lo completara por encima, que es
+ * justo la clase de escritura a medias que el resto del modelo evita.
+ */
 export interface DatosComplementariosP6 {
   readonly domicilio: string;
   readonly ciudad: string;
@@ -237,7 +296,13 @@ export interface DatosComplementariosP6 {
   readonly profesion: string;
   readonly empresa: string | null;
   readonly ingresoMensualDeclaradoGs: number;
-  readonly beneficiario: Beneficiario;
+  /**
+   * Origen principal de los fondos con los que se paga el premio. Campo del
+   * FIPF (Res. SEPRELAD 71/19) que hasta la maqueta del paso 4 no existía en
+   * el modelo. Su lista de opciones vive en `catalogo-p6.ts` y está **rotulada
+   * como propuesta** hasta que cumplimiento de Alianza la cierre.
+   */
+  readonly origenFondos: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -285,34 +350,39 @@ export function esMedioDePago(valor: unknown): valor is MedioDePago {
 }
 
 /**
- * `true` si el dinero sale de la cuenta de la persona **antes** de la firma
- * (QR y débito) y por lo tanto una firma que no llega obliga a devolver el
- * premio; `false` para crédito, donde el importe queda reservado y lo único
- * que hay que hacer es liberar la reserva.
+ * Estados de un pago.
  *
- * Es la distinción que separa las dos secuencias del bloque `DESPUÉS DE ESTA
- * PANTALLA` de P7 y las dos consecuencias del vencimiento (fila 30 de la
- * matriz: *"Devolver el premio si el cliente no firma dentro del plazo
- * comunicado"*, Ley 4868/13, arts. 7(f), 17 y 30(b)).
+ * **Sin preautorización** (D-02). Los tres medios cobran directo: el importe
+ * sale de la cuenta cuando la operación se confirma, y no hay reserva que
+ * capturar después. Los estados `PREAUTORIZADO` y `CAPTURADO` desaparecieron
+ * con ella.
+ *
+ * La preautorización tenía sentido cuando se cobraba antes de firmar: reservar
+ * en lugar de cobrar evitaba tener que devolver si la firma no llegaba. Con la
+ * firma primero (D-08) el problema no existe — cuando se cobra, el contrato ya
+ * está firmado— y la reserva solo agregaba un estado intermedio y una
+ * operación de captura que podían fallar por su cuenta.
+ *
+ * `DEVUELTO` es el final del flujo de seguimiento de devoluciones que pidió
+ * D-02: la devolución la ejecuta Bancard o Alianza fuera del portal, y el
+ * expediente la asienta.
  */
-export function esPagoDefinitivoAntesDeFirma(medio: MedioDePago): boolean {
-  return medio === "QR_BANCARD" || medio === "TARJETA_DEBITO";
-}
-
 export type EstadoPago =
   | "PENDIENTE"
-  | "CONFIRMADO" // QR pagado o débito cobrado: definitivo, antes de la firma
-  | "PREAUTORIZADO" // crédito: importe reservado, no cobrado
-  | "CAPTURADO" // crédito: cobro ordenado por la firma del cliente
-  | "CANCELADO";
+  | "CONFIRMADO" // el importe entró
+  | "CANCELADO"
+  | "DEVUELTO";
 
 /**
- * Estados en los que la garantía de pago de P7 ya está lista y se puede
- * habilitar la firma: el QR o el débito acreditados, o el crédito reservado.
- * Es lo que P8 muestra como `GARANTÍA DE PAGO LISTA`.
+ * `true` cuando el pago está confirmado y por lo tanto el expediente puede
+ * avanzar a la emisión.
+ *
+ * Reemplaza a `garantiaDePagoLista`, que distinguía entre dinero acreditado y
+ * dinero reservado. Sin preautorización esa distinción no existe: o entró o no
+ * entró.
  */
-export function garantiaDePagoLista(estado: EstadoPago): boolean {
-  return estado === "CONFIRMADO" || estado === "PREAUTORIZADO" || estado === "CAPTURADO";
+export function pagoAcreditado(estado: EstadoPago): boolean {
+  return estado === "CONFIRMADO";
 }
 
 /**
@@ -332,9 +402,7 @@ export function garantiaDePagoLista(estado: EstadoPago): boolean {
  * operación.
  */
 export function cobroConfirmadoParaEmision(pago: Pago): boolean {
-  return esPagoDefinitivoAntesDeFirma(pago.medio)
-    ? pago.estado === "CONFIRMADO"
-    : pago.estado === "CAPTURADO";
+  return pagoAcreditado(pago.estado);
 }
 
 export interface Pago {
@@ -358,26 +426,6 @@ export interface Pago {
   readonly confirmadoEn: string | null;
 }
 
-/**
- * Checkbox obligatorio del bloque 1 de P7: *"Declaro que los fondos utilizados
- * para pagar el premio son de mi propiedad y tienen origen lícito."*
- *
- * Se modela como consentimiento versionado —igual que `AutorizacionInicial`—
- * y no como un booleano: es un dato de origen de fondos que integra el FIPF
- * (fila 16 de la matriz — "R2 - CONSENTIMIENTO, IDENTIFICACIÓN Y REPUDIO",
- * *"Generar el FIPF con datos personales, laborales, económicos y origen de
- * fondos"*, Res. SEPRELAD 71/19, art. 26(1)(a-j)), así que tiene que quedar
- * probado qué texto exacto tuvo a la vista la persona y cuándo lo aceptó.
- */
-export interface DeclaracionOrigenLicito {
-  readonly aceptadaEn: string; // ISO 8601
-  readonly ip: string;
-  readonly dispositivo: string;
-  readonly sesionId: string;
-  readonly versionTexto: string;
-  /** Literal íntegro que la persona tuvo a la vista al marcar el checkbox. */
-  readonly textoAceptado: string;
-}
 
 /**
  * Bloque 1 de P7 — `Datos para la factura`. La factura es **siempre a nombre
@@ -388,7 +436,6 @@ export interface DatosFacturacionP7 {
   readonly nombreAFacturar: string;
   /** Manual y opcional. Si queda vacío, a Alianza se le envían nombre y cédula. */
   readonly ruc: string | null;
-  readonly declaracionOrigenLicito: DeclaracionOrigenLicito;
 }
 
 // ---------------------------------------------------------------------------
@@ -401,12 +448,33 @@ export interface DocumentoCerrado {
   /** Regla #4: se calcula al cerrar el PDF, antes de habilitar la firma. */
   readonly hashSha256: string;
   readonly cerradoEn: string;
+  /**
+   * Código interno de la sección FIPF, impreso dentro del mismo PDF (D-11).
+   *
+   * El documento es uno solo y su identidad es `codigo` (`PROP-<correlativo>`),
+   * pero las dos secciones conservan su código propio porque son dos
+   * formularios con vida normativa distinta: la Solicitud responde a la Res.
+   * SS SG. 215/15 y el FIPF a la Res. SEPRELAD 71/19, y un auditor de
+   * cualquiera de los dos tiene que poder citar el suyo. Un solo correlativo,
+   * dos códigos internos visibles en sus secciones.
+   */
+  readonly codigoSeccionFipf: string;
 }
 
-export interface PaqueteDocumental {
-  readonly solicitud: DocumentoCerrado;
-  readonly fipf: DocumentoCerrado;
-}
+/**
+ * El paquete documental **es un solo documento** desde D-11.
+ *
+ * Era `{ solicitud, fipf }`: dos PDF, dos huellas, y una regla —la inviolable
+ * #3, *los dos o ninguno*— que había que hacer cumplir con validaciones en
+ * cada punto por el que pasaban. Ahora la Solicitud y el FIPF son dos
+ * secciones de un mismo archivo con un solo SHA-256, así que **no existe la
+ * forma de tener uno sin el otro**: la regla dejó de necesitar quien la
+ * vigile y pasó a ser una propiedad de la estructura.
+ *
+ * El alias se conserva porque el nombre "paquete documental" sigue siendo el
+ * que usan la especificación, la matriz y las evidencias ya guardadas.
+ */
+export type PaqueteDocumental = DocumentoCerrado;
 
 export type CanalFirma = "WHATSAPP" | "EMAIL";
 
@@ -433,16 +501,146 @@ export interface ActoDeFirmaEnCurso {
 }
 
 /**
- * Regla #3 (atómica de firma): este tipo solo puede existir si AMBOS
- * documentos quedaron firmados en el mismo acto. No hay forma de
- * representar "uno firmado, el otro no" — no hay campos opcionales.
+ * Firma del cliente sobre el paquete documental.
+ *
+ * **Un solo hash** (D-11): el documento es uno, así que la regla inviolable #3
+ * ya no se sostiene con dos campos obligatorios sino con la estructura — no
+ * hay dos cosas que puedan separarse. Los dos hashes anteriores
+ * (`hashSolicitudFirmada` y `hashFipfFirmado`) desaparecen con los dos
+ * archivos que describían.
  */
 export interface Firma {
   readonly canal: CanalFirma;
   readonly idCode100: string;
   readonly firmadoEn: string;
-  readonly hashSolicitudFirmada: string;
-  readonly hashFipfFirmado: string;
+  /** Huella del PDF único ya firmado por el cliente. */
+  readonly hashDocumentoFirmado: string;
+}
+
+/**
+ * Una firma institucional aplicada sobre el documento (D-13).
+ *
+ * Se guarda una por firmante, con su modalidad y su certificado, porque la
+ * consola administrativa tiene que poder mostrar **quién firmó qué y cómo** —
+ * no alcanza con saber que el expediente está `FIRMADO`. El certificado es
+ * simulado mientras Code100 sea un mock, y el campo lo dice para que la
+ * evidencia no afirme haber verificado algo que nadie verificó.
+ */
+export interface FirmaInstitucional {
+  readonly rol: RolFirmante;
+  readonly nivel: NivelFirma;
+  readonly modalidad: ModalidadFirma;
+  /** Referencia del certificado con el que se firmó. `DEMO-…` mientras sea simulado. */
+  readonly certificado: string;
+  readonly aplicadaEn: string; // ISO 8601
+}
+
+// ---------------------------------------------------------------------------
+// Devolución del premio (D-02)
+// ---------------------------------------------------------------------------
+
+/** Quién pidió la devolución. Es una categoría, no un nombre. */
+export type SolicitanteDevolucion = "TITULAR" | "INTERSEGUROS" | "ALIANZA";
+
+/**
+ * Por qué se devuelve. Categorías cerradas y no texto libre: el motivo va a la
+ * evidencia y a la consola, y un campo abierto ahí terminaría con datos de
+ * salud escritos a mano por alguien que quiso ser claro.
+ *
+ * `VENCIMIENTO_LEGADO` es el único que no nace de un pedido: son los
+ * expedientes que vencieron bajo el orden anterior **con el pago hecho**. Bajo
+ * el orden nuevo no puede volver a ocurrir —se firma antes de cobrar— pero
+ * esos expedientes existen y no se reescriben (regla inviolable #10).
+ */
+export type MotivoDevolucion =
+  | "PEDIDO_DEL_TITULAR"
+  | "ERROR_DE_COBRO"
+  | "COBRO_DUPLICADO"
+  | "VENCIMIENTO_LEGADO";
+
+/**
+ * El trámite de devolución, tal como el expediente lo asienta y lo sigue
+ * (D-02).
+ *
+ * **El expediente no ejecuta la devolución**: la hacen Bancard y Alianza fuera
+ * del flujo digital. Lo que vive acá es el seguimiento — quién la pidió, por
+ * qué, cuánto, sobre qué cobro, y con qué referencia se acreditó el reintegro.
+ *
+ * No hay ningún campo de cuenta de destino, y es deliberado: la devolución va
+ * al medio de origen y a ningún otro lado (fila 30 de la matriz). No existe
+ * dónde escribir un tercero.
+ */
+export interface DevolucionDelExpediente {
+  readonly estado: "EN_TRAMITE" | "ACREDITADA";
+  readonly solicitante: SolicitanteDevolucion;
+  readonly motivo: MotivoDevolucion;
+  readonly solicitadaEn: string; // ISO 8601
+  /** Importe y medio congelados al abrir el trámite: son los del cobro que se devuelve. */
+  readonly montoGs: number;
+  readonly medio: MedioDePago;
+  readonly referenciaBancard: string | null;
+  readonly acreditadaEn: string | null;
+  /** Referencia del reintegro. Es lo que hace auditable el cierre del trámite. */
+  readonly referenciaReintegro: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Certificado de Cobertura Provisional (D-12)
+// ---------------------------------------------------------------------------
+
+/**
+ * El Certificado de Cobertura Provisional: el documento que le queda a la
+ * persona en la mano mientras Alianza emite la póliza (D-12, CHG-42).
+ *
+ * **No es la póliza y no la reemplaza.** Es lo que el producto sí puede
+ * entregar en el acto: la constancia de que el premio se cobró, de cuándo
+ * empieza a correr la cobertura y de qué la respalda. La póliza la emite
+ * Alianza por SEBAOT a su ritmo (`PolizaDelExpediente`), y este documento no
+ * presume su número: el correlativo que lleva es el de la propuesta, y el
+ * número oficial de diez dígitos de la SIS solo existe cuando Alianza lo
+ * acuña (CMP-18).
+ *
+ * **Tampoco es una Nota de Cobertura**, que el producto sigue sin contemplar:
+ * la Nota de Cobertura es un instrumento de cobertura inmediata que compromete
+ * a la aseguradora antes de la emisión, y acá no hay nada de eso — hay un
+ * cobro acreditado, una fecha de inicio calculada y una firma de Alianza sobre
+ * lo que ya ocurrió.
+ *
+ * **Solo existe con el pago confirmado**, y no por convención: se emite dentro
+ * de la misma escritura que lleva el expediente a `PAGO_CONFIRMADO`
+ * (`registrarPagoConfirmadoP7`). No hay camino por el que un expediente tenga
+ * certificado sin cobro, ni cobro sin certificado — que es la atomicidad que
+ * pide CMP-07.
+ *
+ * Los expedientes que llegaron a `PAGO_CONFIRMADO` **antes** de D-12 traen
+ * este campo en `null` y no se reescriben (regla inviolable #10): quien los
+ * lea tiene que contemplar la ausencia, no completarla.
+ */
+export interface CertificadoCobertura {
+  /** Identidad del documento: `CPC-<correlativo>`. */
+  readonly codigo: string;
+  /** Documento del que cuelga: `PROP-<correlativo>`, el paquete firmado. */
+  readonly codigoPaquete: string;
+  readonly version: number;
+  /** Regla #4: huella del PDF cerrado, calculada sobre los bytes definitivos. */
+  readonly hashSha256: string;
+  readonly emitidoEn: string; // ISO 8601
+  /**
+   * Inicio de la cobertura: **el instante del pago acreditado más 24 horas
+   * exactas** (CHG-41). Se persiste calculado y no se recalcula al leerlo: es
+   * un dato del contrato, no una función del reloj de quien lo consulta.
+   */
+  readonly inicioCobertura: string; // ISO 8601
+  /** Fin de la vigencia anual contratada, un año después del inicio. */
+  readonly finCobertura: string; // ISO 8601
+  /** Referencia de la operación de Bancard que respalda la cobertura. */
+  readonly referenciaBancard: string;
+  /**
+   * Firmas del documento, según `firmantes-documento.ts` (D-13): solo Alianza,
+   * en modalidad `PREFIRMADO`. El cliente no firma el CPC —no se le pide que
+   * acepte nada nuevo— y por eso acá no hay ningún acto de Code100.
+   */
+  readonly firmas: readonly FirmaInstitucional[];
 }
 
 // ---------------------------------------------------------------------------
@@ -522,6 +720,11 @@ export interface Expediente {
   readonly canalEmail: CanalVerificado | null;
   readonly identidad: Identidad | null;
   readonly datosComplementarios: DatosComplementariosP6 | null;
+  /**
+   * Beneficiario por fallecimiento. Se declara en el paso 5 y por eso vive
+   * aparte de `datosComplementarios`, que se capturan en el 4.
+   */
+  readonly beneficiario: Beneficiario | null;
   readonly declaraciones: Declaraciones | null;
   /** Números de declaración (subconjunto de 1, 2, 3, 8) que causaron DERIVADO_MANUAL. */
   readonly motivoDerivacionManual: readonly number[] | null;
@@ -563,21 +766,41 @@ export interface Expediente {
   readonly facturacion: DatosFacturacionP7 | null;
   readonly pago: Pago | null;
   /**
-   * Vencimiento del plazo para firmar, calculado al confirmarse la garantía de
-   * pago en P7 (`PLAZO PARA FIRMAR: 24 HORAS`). Pasada esa hora sin firma el
-   * expediente va a VENCIDO y de ahí a Pantalla B.
+   * Vencimiento del plazo para **pagar**, calculado al quedar el expediente
+   * firmado por todos (D-10: 24 horas). Pasada esa hora sin cobro el
+   * expediente va a VENCIDO, que bajo este orden es el final del camino: no
+   * hubo cobro, así que no hay devolución que tramitar.
    *
-   * La consecuencia depende del medio (`esPagoDefinitivoAntesDeFirma`): con QR
-   * o débito hay que devolver el premio; con crédito alcanza con liberar la
-   * reserva, porque no se cobró nada.
+   * Se llamaba `plazoFirmaVenceEn` mientras se cobraba antes de firmar, y
+   * medía lo contrario: el tiempo que tenía la persona para firmar algo que ya
+   * había pagado. Invertido el orden (D-08), vencer dejó de costar plata —no
+   * hay premio que devolver— y por eso el nombre cambió con la semántica.
+   * Los expedientes anteriores traen la clave vieja y **no se reescriben**
+   * (regla inviolable #10): el repositorio la lee y la mapea acá, porque el
+   * dato que guardan sigue siendo el instante en que caducaron.
    */
-  readonly plazoFirmaVenceEn: string | null;
+  readonly plazoPagoVenceEn: string | null;
   readonly paqueteDocumental: PaqueteDocumental | null;
   /** Enlace de firma enviado y esperando confirmación de Code100 (P8). */
   readonly actoDeFirma: ActoDeFirmaEnCurso | null;
   readonly firma: Firma | null;
+  /** Firmas institucionales aplicadas sobre el paquete, en orden (D-13). */
+  readonly firmasInstitucionales: readonly FirmaInstitucional[];
+  /**
+   * Certificado de Cobertura Provisional (D-12), emitido en la misma escritura
+   * que confirma el pago. `null` mientras no haya cobro — y también en los
+   * expedientes que cobraron antes de que este documento existiera, que no se
+   * reescriben (regla inviolable #10).
+   */
+  readonly certificadoCobertura: CertificadoCobertura | null;
   /** Estado de la emisión en Alianza (P9). No contiene la póliza, solo su estado. */
   readonly poliza: PolizaDelExpediente | null;
+  /**
+   * Trámite de devolución del premio (D-02), o `null` mientras no haya ninguno
+   * —que es el caso normal—. Lo escriben `solicitarDevolucion` y
+   * `acreditarDevolucion`; el expediente lo asienta y lo sigue, no lo ejecuta.
+   */
+  readonly devolucion: DevolucionDelExpediente | null;
 
   /** Consola administrativa: reinicio que crea un expediente nuevo enlazado al anterior. */
   readonly expedienteAnteriorId: string | null;
@@ -601,6 +824,7 @@ export function crearExpedienteInicial(input: {
     canalEmail: null,
     identidad: null,
     datosComplementarios: null,
+    beneficiario: null,
     declaraciones: null,
     motivoDerivacionManual: null,
     numeroCasoDerivacion: null,
@@ -609,11 +833,14 @@ export function crearExpedienteInicial(input: {
     numeroPropuesta: null,
     facturacion: null,
     pago: null,
-    plazoFirmaVenceEn: null,
+    plazoPagoVenceEn: null,
     paqueteDocumental: null,
     actoDeFirma: null,
     firma: null,
+    firmasInstitucionales: [],
+    certificadoCobertura: null,
     poliza: null,
+    devolucion: null,
     expedienteAnteriorId: input.expedienteAnteriorId ?? null,
     creadoEn: input.ahora,
     actualizadoEn: input.ahora,

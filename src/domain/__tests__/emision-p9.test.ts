@@ -35,7 +35,16 @@ import {
 import { registrarEmisionP9, transicionarExpediente } from "../expediente";
 import type { Expediente, PolizaDelExpediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
-import { expedienteEnPaqueteGenerado } from "./fixtures";
+import {
+  NUMERO_PROPUESTA_FIJO,
+  certificadoFixture,
+  expedienteEnPaqueteGenerado,
+  expedienteFirmado,
+  facturacionFixture,
+  firmaFixture,
+  pagoConfirmadoFixture,
+} from "./fixtures";
+import { codigoComprobante } from "../comprobante-pago";
 
 const AHORA = "2026-08-09T15:20:00.000Z";
 
@@ -45,13 +54,8 @@ const CONTEXTO: ContextoPeticion = {
   sesionId: "sesion-p9",
 };
 
-const FIRMA = {
-  canal: "WHATSAPP" as const,
-  idCode100: "MOCK-CODE100-P9",
-  firmadoEn: "2026-08-09T15:15:00.000Z",
-  hashSolicitudFirmada: "c".repeat(64),
-  hashFipfFirmado: "d".repeat(64),
-};
+/** La firma que trae el fixture compartido: acá solo se la cita. */
+const FIRMA = firmaFixture;
 
 function repositorioFalso(inicial: Expediente): RepositorioExpediente & { actual: () => Expediente } {
   let guardado = inicial;
@@ -82,25 +86,31 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
   };
 }
 
-/** Expediente firmado, listo para que P9 lo remita a Alianza. */
-function expedienteFirmado(id = "EXP-TEST-P9"): Expediente {
-  const base = expedienteEnPaqueteGenerado(id);
-  const conActo: Expediente = {
-    ...base,
-    actoDeFirma: {
-      idCode100: FIRMA.idCode100,
-      canal: "WHATSAPP",
-      destinoEnmascarado: "+595 ••• ••• 456",
-      enlaceEnviadoEn: "2026-08-09T15:10:00.000Z",
-      venceEn: "2026-08-10T15:01:00.000Z",
+/**
+ * Expediente firmado y cobrado, listo para que P9 lo remita a Alianza.
+ *
+ * D-08 · con el orden invertido la entrada de la emisión es PAGO_CONFIRMADO,
+ * no FIRMADO: primero se firma y después entra la plata.
+ */
+function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
+  const firmado = expedienteFirmado(id);
+  const cobrado = transicionarExpediente(
+    firmado,
+    "PAGO_CONFIRMADO",
+    {
+      facturacion: facturacionFixture,
+      pago: pagoConfirmadoFixture,
+      // D-12 · el certificado nace en la misma escritura que el cobro, así que
+      // un expediente cobrado que no lo tuviera sería un estado imposible.
+      certificadoCobertura: certificadoFixture,
     },
-  };
-  const firmado = transicionarExpediente(conActo, "FIRMADO", { firma: FIRMA }, FIRMA.firmadoEn);
-  if (!firmado.ok) throw new Error(firmado.error);
-  return firmado.expediente;
+    "2026-08-09T15:04:00.000Z",
+  );
+  if (!cobrado.ok) throw new Error(cobrado.error);
+  return cobrado.expediente;
 }
 
-function armar(expediente: Expediente = expedienteFirmado(), sebaot?: PolicyIssuer) {
+function armar(expediente: Expediente = expedienteListoParaEmitir(), sebaot?: PolicyIssuer) {
   const repositorio = repositorioFalso(expediente);
   const evidencias = evidenciasFalsas();
   let reloj = AHORA;
@@ -163,7 +173,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
   });
 
   it("la máquina de estados rechaza una póliza con numeración propia", () => {
-    const expediente = expedienteFirmado();
+    const expediente = expedienteListoParaEmitir();
     const ajena: PolizaDelExpediente = {
       numeroPoliza: "99999999",
       estado: "EN_PROCESO_DE_EMISION",
@@ -196,7 +206,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
   });
 
   it("no se emite sin cobro (fila 44)", async () => {
-    const base = expedienteFirmado();
+    const base = expedienteListoParaEmitir();
     const pago = base.pago;
     if (!pago) throw new Error("el fixture debería tener pago");
     const entorno = armar({ ...base, pago: { ...pago, estado: "CANCELADO" } });
@@ -211,45 +221,13 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(resultado.motivo).toBe("COBRO_NO_CONFIRMADO");
   });
 
-  /**
-   * Lo que encontró la auditoría de cumplimiento: una preautorización de
-   * crédito **habilita la firma** (P8) pero **no la emisión** (P9). Si la
-   * captura no se completó, el dinero no entró y la fila 44 es explícita:
-   * *"Si falla el cobro, no solicitar la emisión automática"*.
-   */
-  it("crédito PREAUTORIZADO sin capturar NO emite: la reserva no es un cobro", async () => {
-    const base = expedienteFirmado();
-    const pago = base.pago;
-    if (!pago) throw new Error("el fixture debería tener pago");
-    const entorno = armar({
-      ...base,
-      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "PREAUTORIZADO" },
-    });
-
-    const resultado = await emitirPolizaP9(entorno.deps, {
-      expedienteId: "EXP-TEST-P9",
-      contexto: CONTEXTO,
-    });
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("COBRO_NO_CONFIRMADO");
-    // No se le pidió nada a Alianza y el expediente no se movió.
-    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
-    expect(
-      entorno.evidencias.registros.some((evidencia) =>
-        evidencia.detalle?.includes("motivo=COBRO_NO_CONFIRMADO"),
-      ),
-    ).toBe(true);
-  });
-
   it("crédito CAPTURADO sí emite: ahí el dinero entró", async () => {
-    const base = expedienteFirmado();
+    const base = expedienteListoParaEmitir();
     const pago = base.pago;
     if (!pago) throw new Error("el fixture debería tener pago");
     const entorno = armar({
       ...base,
-      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "CAPTURADO" },
+      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "CONFIRMADO" },
     });
 
     const resultado = await emitirPolizaP9(entorno.deps, {
@@ -259,33 +237,6 @@ describe("P9 · remitir el expediente a Alianza", () => {
 
     expect(resultado.ok).toBe(true);
     expect(entorno.repositorio.actual().estado).toBe("EMITIDO");
-  });
-
-  it("la máquina de estados rechaza la emisión con crédito sin capturar", () => {
-    const base = expedienteFirmado();
-    const pago = base.pago;
-    if (!pago) throw new Error("el fixture debería tener pago");
-    const conReserva: Expediente = {
-      ...base,
-      pago: { ...pago, medio: "TARJETA_CREDITO", estado: "PREAUTORIZADO" },
-    };
-
-    const resultado = registrarEmisionP9(
-      conReserva,
-      {
-        numeroPoliza: "00018425",
-        estado: "EN_PROCESO_DE_EMISION",
-        emitidaEn: null,
-        estadoFactura: "PENDIENTE",
-        referenciaFactura: null,
-        solicitadaEn: AHORA,
-      },
-      AHORA,
-    );
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.error).toContain("cobro confirmado");
   });
 
   it("es idempotente: entrar de nuevo no emite una segunda póliza", async () => {
@@ -304,7 +255,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(entorno.repositorio.actual().historial.length).toBe(historial);
   });
 
-  it("si SEBAOT falla, el expediente se queda en FIRMADO y queda la evidencia", async () => {
+  it("si SEBAOT falla, el expediente se queda en PAGO_CONFIRMADO y queda la evidencia", async () => {
     const roto: PolicyIssuer = {
       async emitirPoliza() {
         throw new Error("SEBAOT no responde (simulado).");
@@ -316,7 +267,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
         throw new Error("no usado");
       },
     };
-    const entorno = armar(expedienteFirmado(), roto);
+    const entorno = armar(expedienteListoParaEmitir(), roto);
 
     const resultado = await emitirPolizaP9(entorno.deps, {
       expedienteId: "EXP-TEST-P9",
@@ -326,7 +277,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("SEBAOT_NO_DISPONIBLE");
-    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
+    expect(entorno.repositorio.actual().estado).toBe("PAGO_CONFIRMADO");
     expect(
       entorno.evidencias.registros.some(
         (evidencia) => evidencia.paso === PASO_EVIDENCIA_EMISION_P9 && evidencia.resultado === "FALLIDO",
@@ -343,8 +294,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
       (evidencia) => evidencia.paso === PASO_EVIDENCIA_EMISION_P9 && evidencia.resultado === "EXITOSO",
     );
     expect(registro?.detalle).toContain("numeroPoliza=00018425");
-    expect(registro?.detalle).toContain(FIRMA.hashSolicitudFirmada);
-    expect(registro?.detalle).toContain(FIRMA.hashFipfFirmado);
+    expect(registro?.detalle).toContain(FIRMA.hashDocumentoFirmado);
     expect(registro?.detalle).toContain("emisorPoliza=ALIANZA_GARANTIA_SEBAOT");
     // Constancia explícita de que no existe.
     expect(registro?.detalle).toContain("notaDeCobertura=NO_SE_GENERA");
@@ -429,14 +379,50 @@ describe("P9 · resumen para la pantalla", () => {
     return { entorno, resumen: leerResumenP9(entorno.repositorio.actual()) };
   }
 
-  it("trae los dos documentos con la huella del PDF firmado", async () => {
+  it("trae el documento único con la huella del PDF firmado", async () => {
+    const { entorno, resumen } = await resumenDe();
+
+    // La huella que se muestra es la del firmado, no la del cerrado.
+    expect(resumen?.documento.hashFirmado).toBe(FIRMA.hashDocumentoFirmado);
+    expect(resumen?.documento.hashFirmado).not.toBe(
+      entorno.repositorio.actual().paqueteDocumental?.hashSha256,
+    );
+    // Los dos códigos internos siguen visibles (D-11).
+    expect(resumen?.documento.codigo).toContain("PROP-");
+    expect(resumen?.documento.codigoSeccionFipf).toContain("FIPF-");
+  });
+
+  /**
+   * D-12/D-05 · los otros dos descargables. El certificado viaja con sus
+   * fechas ya calculadas —no se recalculan al leer— y el comprobante solo con
+   * su código, porque se genera cuando alguien lo pide.
+   */
+  it("trae el certificado con su vigencia y el código del comprobante", async () => {
     const { resumen } = await resumenDe();
 
-    expect(resumen?.solicitud.codigo).toBe("PROP-00018425");
-    expect(resumen?.fipf.codigo).toBe("FIPF-00018425");
-    // La huella que se muestra es la del firmado, no la del cerrado.
-    expect(resumen?.solicitud.hashFirmado).toBe(FIRMA.hashSolicitudFirmada);
-    expect(resumen?.fipf.hashFirmado).toBe(FIRMA.hashFipfFirmado);
+    expect(resumen?.certificado?.codigo).toBe(certificadoFixture.codigo);
+    expect(resumen?.certificado?.hashSha256).toBe(certificadoFixture.hashSha256);
+    expect(resumen?.certificado?.inicioCobertura).toBe(certificadoFixture.inicioCobertura);
+    expect(resumen?.certificado?.finCobertura).toBe(certificadoFixture.finCobertura);
+    expect(resumen?.codigoComprobante).toBe(codigoComprobante(NUMERO_PROPUESTA_FIJO));
+  });
+
+  /**
+   * Un expediente que cobró antes de D-12 no tiene certificado y **no se
+   * reescribe** (regla inviolable #10). La pantalla tiene que poder dibujarse
+   * igual: el resumen devuelve `null` en vez de inventar una fecha de inicio.
+   */
+  it("un expediente legado sin certificado se lee igual, con el certificado en null", async () => {
+    const legado: Expediente = {
+      ...expedienteListoParaEmitir(),
+      certificadoCobertura: null,
+    };
+    const entorno = armar(legado);
+    await emitirPolizaP9(entorno.deps, { expedienteId: "EXP-TEST-P9", contexto: CONTEXTO });
+
+    const resumen = leerResumenP9(entorno.repositorio.actual());
+    expect(resumen).not.toBeNull();
+    expect(resumen?.certificado).toBeNull();
   });
 
   it("no expone la cédula completa ni ningún canal sin enmascarar", async () => {
@@ -452,15 +438,21 @@ describe("P9 · resumen para la pantalla", () => {
   it("no hay ningún campo de póliza descargable ni de Nota de Cobertura", async () => {
     const { resumen } = await resumenDe();
 
-    // Del portal solo se descargan la Solicitud y el FIPF firmados: la póliza y
-    // la factura las envía Alianza a los canales verificados.
+    // Del portal salen tres documentos —paquete firmado, certificado y
+    // comprobante—; la póliza y la factura las envía Alianza a los canales
+    // verificados y no tienen aquí ni bytes ni URL.
     const serializado = JSON.stringify(resumen).toLowerCase();
-    expect(serializado).not.toContain("cobertura");
+    // La palabra "cobertura" sí aparece ahora, en las fechas de vigencia del
+    // certificado (D-12). Lo que no puede aparecer es la Nota de Cobertura,
+    // que es otro instrumento y que el producto no contempla.
+    expect(serializado).not.toContain("nota de cobertura");
+    expect(serializado).not.toContain("notacobertura");
     expect(serializado).not.toContain("urlpoliza");
     expect(serializado).not.toContain("pdfpoliza");
+    expect(serializado).not.toContain("descargapoliza");
   });
 
   it("no hay resumen antes de llegar a EMITIDO", () => {
-    expect(leerResumenP9(expedienteFirmado())).toBeNull();
+    expect(leerResumenP9(expedienteListoParaEmitir())).toBeNull();
   });
 });

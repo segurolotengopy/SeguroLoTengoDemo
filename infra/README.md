@@ -141,7 +141,17 @@ Esa salida —ningún servicio fuera de `optOut`— **es la evidencia de cumplim
 ## Otros pasos manuales que Terraform no puede hacer
 - **Aplicar el JSON de `iam-policy-deployer-reference.json` sobre `SLTDemoDeployerPolicy` en AWS.** El archivo es la referencia versionada, no la fuente. **Hecho el 13/08/2026** (versión `v5`, con el bloque `BudgetsSltDemo`): hay que repetirlo cada vez que el archivo cambie, y el deployer **no puede hacerlo solo** —sus permisos de IAM llegan hasta `role/aab1-demo-*`— así que requiere credenciales de administración. **Cuidado: la política ya está en 5 versiones, que es el máximo de IAM.** El próximo cambio falla con `LimitExceeded` hasta que se borre una vieja (`aws iam delete-policy-version --version-id v1`).
 
-  **Pendiente al 16/08/2026 — tres bloques nuevos sin aplicar**, agregados tras una demostración que se diagnosticó a ciegas:
+  **APLICADO el 21/08/2026.** Los tres bloques de abajo —que estuvieron declarados en el archivo y sin aplicar en AWS desde el 16/08/2026— ya están activos, verificados uno por uno contra la cuenta:
+
+  | Bloque | Cómo se verificó | Resultado |
+  | :---- | :---- | :---- |
+  | `CloudWatchLogsLecturaAmplifyDemo` | `aws logs filter-log-events` sobre `/aws/amplify/slt-demo-segurolotengo` | responde (lista vacía, no `AccessDenied`) |
+  | `SesIdentidadesSltDemo` | `get-account`, `list-email-identities`, `get-email-identity` | los tres responden |
+  | `IamSimularPoliticasAab1Demo` | que `aws iam simulate-principal-policy` corra | corre |
+
+  > **`simulate-principal-policy` engaña si se lo llama sin `--resource-arns`.** Evalúa contra `*`, y todo statement acotado a un ARN devuelve `implicitDeny` aunque el permiso exista: pasó con `logs:FilterLogEvents`, que da `implicitDeny` sin recurso y `allowed` pasándole el ARN del grupo de logs. Con SES es peor —las decisiones no se corresponden con la realidad ni pasando el ARN de la identidad—, así que **para SES hay que verificar funcionalmente**, llamando a la API. La simulación es una ayuda, no la fuente de verdad.
+
+  Lo que decía el archivo cuando estaban pendientes, que explica para qué sirve cada uno:
 
   | Sid | Para qué | Qué costó no tenerlo |
   | :---- | :---- | :---- |
@@ -149,14 +159,63 @@ Esa salida —ningún servicio fuera de `optOut`— **es la evidencia de cumplim
   | `SesIdentidadesSltDemo` | ver y gestionar identidades de SES | no se podía verificar si un destinatario estaba verificado, ni importar la identidad del remitente al state |
   | `IamSimularPoliticasAab1Demo` | `iam:SimulatePrincipalPolicy` | un `AccessDenied` del rol de cómputo se resolvió por comparación manual de políticas; con esto era un comando |
 
-  Los tres son de **lectura y diagnóstico**, salvo la gestión de identidades de SES. Aplicarlos requiere administración y **borrar antes una versión vieja** de la política:
+  Los tres son de **lectura y diagnóstico**, salvo la gestión de identidades de SES. Aplicarlos requiere administración y **borrar antes una versión vieja** de la política. Esta es la secuencia que se usó, y la que hay que repetir en el próximo cambio del archivo:
 
   ```bash
+  # 1. Ver cuál es la default: IAM NO deja borrarla, así que no se borra "v1" a ciegas.
+  aws iam list-policy-versions --policy-arn arn:aws:iam::120005938663:policy/SLTDemoDeployerPolicy --query 'Versions[].{version:VersionId,default:IsDefaultVersion,creada:CreateDate}' --output table
+
+  # 2. Borrar la más vieja que NO sea la default.
   aws iam delete-policy-version --policy-arn arn:aws:iam::120005938663:policy/SLTDemoDeployerPolicy --version-id v1
+
+  # 3. Crear la nueva. Sin --set-as-default la versión queda creada pero INERTE.
   aws iam create-policy-version --policy-arn arn:aws:iam::120005938663:policy/SLTDemoDeployerPolicy --policy-document file://infra/iam-policy-deployer-reference.json --set-as-default
   ```
 
+  Aplicar la política **vuelve a dejarla en 5 versiones**, así que el próximo cambio exige borrar otra. Y el deployer sigue sin poder auditarla: no se concede permisos de lectura sobre IAM, así que `list-policy-versions` y `list-attached-group-policies` siguen necesitando el perfil de administración. Es correcto, pero conviene saberlo antes de intentarlo.
+
   Con `SesIdentidadesSltDemo` aplicado se puede además cerrar el pendiente de `ses-correo-otp.tf`: volver a declarar `aws_sesv2_email_identity` e importar la identidad creada a mano, en vez de construir el ARN.
+
+#### Atajo solo para SES: `iam-policy-ses-reference.json`
+
+`infra/iam-policy-ses-reference.json` es una política **independiente** con los mismos permisos de SES, pensada para adjuntarse por separado en vez de consumir una versión de `SLTDemoDeployerPolicy`.
+
+Existe porque el tope de 5 versiones convierte "quiero ver si una casilla está verificada" en "borrá una versión histórica de la política principal", que es un precio alto para una consulta. Adjuntar una política aparte no toca la principal ni su historial.
+
+**Nombre sugerido:** `SLTDemoSesPolicy`. **Se adjunta al grupo `aab1-demo-deployers`** —no al usuario suelto— que es como ya está adjunta `SLTDemoDeployerPolicy`.
+
+```bash
+aws iam create-policy \
+  --policy-name SLTDemoSesPolicy \
+  --policy-document file://infra/iam-policy-ses-reference.json \
+  --description "Diagnóstico y gestión de identidades de SES para la demo SeguroLoTengo"
+
+aws iam attach-group-policy \
+  --group-name aab1-demo-deployers \
+  --policy-arn arn:aws:iam::120005938663:policy/SLTDemoSesPolicy
+```
+
+Ambos comandos requieren **credenciales de administración**: el deployer no puede crear ni adjuntar políticas.
+
+**Elegí uno de los dos caminos, no los dos.** La política principal es el camino más completo —aplica también la lectura de logs de CloudWatch y `iam:SimulatePrincipalPolicy`—; esta es el atajo cuando solo se necesita SES.
+
+> **Estado al 21/08/2026: se tomó el camino de la política principal**, así que el statement `SesIdentidadesSltDemo` ya cubre SES y **`SLTDemoSesPolicy` quedó redundante**. Este archivo se conserva como el atajo documentado para una cuenta nueva o un entorno donde solo haga falta SES.
+>
+> Si `SLTDemoSesPolicy` sigue adjunta, conviene sacarla para no tener el mismo permiso en dos lugares. Comprobarlo necesita el perfil de administración:
+>
+> ```bash
+> aws iam list-attached-group-policies --group-name aab1-demo-deployers --query 'AttachedPolicies[].PolicyName' --output json
+> aws iam detach-group-policy --group-name aab1-demo-deployers --policy-arn arn:aws:iam::120005938663:policy/SLTDemoSesPolicy
+> aws iam delete-policy --policy-arn arn:aws:iam::120005938663:policy/SLTDemoSesPolicy
+> ```
+>
+> Ojo con una diferencia entre las dos: `SLTDemoSesPolicy` incluye `ses:SendEmail` y `SesIdentidadesSltDemo` **no**. Si se la desadjunta, el deployer pierde la posibilidad de mandar un correo de prueba desde la CLI —el envío de la aplicación no se ve afectado, ese lo hace el rol de Amplify—. Si esa prueba manual se considera necesaria, hay que sumar el `ses:SendEmail` al archivo de la principal antes de borrar esta.
+
+**Tres decisiones del JSON, para que no se "corrijan" a algo roto:**
+
+- **`ses:GetAccount` y `ses:ListEmailIdentities` van con `Resource: "*"`.** Son operaciones de nivel de cuenta y **no admiten permisos por recurso**: acotarlas a un ARN de identidad da `AccessDenied`. Es la misma trampa que ya mordió con `logs:DescribeLogGroups`.
+- **`ses:SendEmail` apunta a `identity/*` y no a la casilla exacta.** Está probado contra esta cuenta: acotarlo a `identity/segurolotengo.py@gmail.com` **no funciona**. El razonamiento completo está en `ses-correo-otp.tf`, y la lección también: una política más estricta que la que se sabe que anda no es más segura, está rota.
+- **No incluye `ses:PutAccountDetails`**, que es la API para pedir la salida del sandbox. Es un cambio de alcance de cuenta, se hace una sola vez y lleva un formulario: va por consola, no por una política de trabajo diario.
 
 ### `TF_VAR_presupuesto_correo_alerta` es obligatoria
 

@@ -30,22 +30,18 @@
  *    log plano, que es la vía por la que un dato así se escapa sin que nadie
  *    lo note.
  */
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { crearPaymentProviderMock, limpiarOperacionesMock } from "@/adapters/mock/payment-provider";
-import { transicionarExpediente } from "@/domain/expediente";
 import { confirmarPagoP7, iniciarPagoP7 } from "@/domain/pago-p7";
-import { PLANES } from "@/domain/catalogo";
 import type { Expediente, MedioDePago, RegistroEvidencia } from "@/domain/tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "@/domain/verificacion-canal";
 import type { EvidenceStore } from "@/ports/evidence-store";
-import {
-  avanzarHastaIdentidadVerificada,
-  crearExpediente,
-  datosComplementariosFixture,
-  declaracionesCompatibles,
-} from "@/domain/__tests__/fixtures";
+import { expedienteFirmado } from "@/domain/__tests__/fixtures";
+import { emitirCertificadoCobertura } from "@/documentos";
+import type { EmisorCertificadoCobertura } from "@/domain/pago-p7";
 
 // ---------------------------------------------------------------------------
 // Lo que se considera "dato de tarjeta"
@@ -156,41 +152,12 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
   };
 }
 
+/**
+ * D-08 · la entrada de este paso es un expediente **firmado**: paquete cerrado,
+ * correlativo acuñado y plazo de pago corriendo.
+ */
 function expedienteListoParaPagar(): Expediente {
-  const base = avanzarHastaIdentidadVerificada(crearExpediente(EXPEDIENTE_ID));
-  const transicion = transicionarExpediente(
-    {
-      ...base,
-      plan: {
-        planId: "CONFIO_PLUS",
-        premioAnualGs: PLANES.CONFIO_PLUS.premioAnualGs,
-        idVersionOferta: "OFERTA-CONFIO-v1",
-        hashOfertaSha256: "hash-de-prueba",
-        seleccionadoEn: AHORA,
-      },
-      identidad: {
-        numeroCedula: "9323336",
-        nombres: "Mónica Mariana",
-        apellidos: "Gorena Tapia",
-        fechaNacimiento: "1990-04-17",
-        sexo: "F",
-        nacionalidad: "Paraguaya",
-        paisNacimiento: "Paraguay",
-        estadoCivil: "Soltera",
-        captura: {
-          hashFrenteCedula: "a",
-          hashDorsoCedula: "b",
-          hashSelfie: "c",
-          pruebaDeVidaAprobada: true,
-          coincidenciaFacialAprobada: true,
-        },
-      },
-    },
-    "DECLARACIONES_OK",
-    { declaraciones: declaracionesCompatibles, datosComplementarios: datosComplementariosFixture },
-  );
-  if (!transicion.ok) throw new Error(transicion.error);
-  return transicion.expediente;
+  return expedienteFirmado(EXPEDIENTE_ID);
 }
 
 /**
@@ -205,6 +172,11 @@ async function recorrerP7(medio: MedioDePago) {
     pagos: crearPaymentProviderMock({ demoraGeneracionMs: 0, demoraAcreditacionMs: 0 }),
     expedientes,
     evidencias,
+    // El emisor **real** del certificado, sobre un almacén en memoria: el CPC
+    // es una salida más del paso de pago (D-12) y el barrido de abajo tiene
+    // que poder mirar adentro. Con un doble que devolviera una ficha inventada
+    // este test dejaría de cubrir el documento nuevo.
+    emitirCertificado: emisorCertificadoReal(),
     ahora: () => AHORA,
   };
 
@@ -214,7 +186,7 @@ async function recorrerP7(medio: MedioDePago) {
     // Un RUC legítimo de 8 dígitos: es el único número largo que P7 acepta y
     // sirve para comprobar que el detector de PAN no lo confunde.
     ruc: "80012345-6",
-    origenLicitoDeFondos: true,
+    aceptaCertificadoYEntrega: true,
     contexto: CONTEXTO,
     // Datos de tarjeta inyectados en el cuerpo, como los mandaría un cliente
     // manipulado o un formulario que alguien agregue mañana sin pensarlo. El
@@ -227,6 +199,25 @@ async function recorrerP7(medio: MedioDePago) {
   const confirmacion = await confirmarPagoP7(deps, { expedienteId: EXPEDIENTE_ID, contexto: CONTEXTO });
 
   return { inicio, confirmacion, expediente: expedientes.actual(), evidencias: evidencias.registros };
+}
+
+/**
+ * Emisor de CPC de verdad, guardando el PDF en memoria. El hash lo calcula el
+ * "repositorio" igual que S3, que es lo que el servicio compara antes de dar
+ * el certificado por cerrado.
+ */
+function emisorCertificadoReal(): EmisorCertificadoCobertura {
+  const archivos = {
+    async guardarArchivo(clave: string, contenido: Uint8Array) {
+      return { clave, hashSha256: createHash("sha256").update(contenido).digest("hex") };
+    },
+  };
+  return async ({ expediente, emitidoEn }) => {
+    const resultado = await emitirCertificadoCobertura({ archivos }, { expediente, emitidoEn });
+    return resultado.ok
+      ? { ok: true, certificado: resultado.certificado }
+      : { ok: false, motivo: resultado.motivo, detalle: resultado.detalle };
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -278,7 +269,7 @@ describe("P7 · ningún dato de tarjeta se persiste (runtime)", () => {
       expedienteId: EXPEDIENTE_ID,
       propuestaId: "00018425",
       montoGs: 475_000,
-      urlRetorno: "https://segurolotengo.com/p7-pago/retorno",
+      urlRetorno: "https://segurolotengo.com/pago/retorno",
       idempotencyKey: "IDEMP-ULTIMOS4",
     });
     const consulta = await proveedor.consultarEstadoPago(operacion.referenciaBancard);
@@ -315,8 +306,8 @@ const ARCHIVOS_DE_P7: readonly string[] = [
   "src/app/api/p7/pago/route.ts",
   "src/app/api/p7/estado/route.ts",
   "src/app/api/p7/resumen/route.ts",
-  "src/app/(flujo)/p7-pago/page.tsx",
-  "src/app/(flujo)/p7-pago/FormularioPagoP7.tsx",
+  "src/app/(flujo)/pago/page.tsx",
+  "src/app/(flujo)/pago/FormularioPagoP7.tsx",
 ];
 
 /** Quita comentarios: la prosa explica por qué NO se guarda el CVV. */
@@ -358,7 +349,7 @@ describe("P7 · ningún campo de tarjeta en la superficie de entrada", () => {
 
   it("el formulario de P7 no tiene ningún input que pueda recibir una tarjeta", () => {
     const fuente = readFileSync(
-      join(process.cwd(), "src/app/(flujo)/p7-pago/FormularioPagoP7.tsx"),
+      join(process.cwd(), "src/app/(flujo)/pago/FormularioPagoP7.tsx"),
       "utf8",
     );
 
@@ -367,7 +358,7 @@ describe("P7 · ningún campo de tarjeta en la superficie de entrada", () => {
     const inputs = [...fuente.matchAll(/<input[\s\S]*?\/>/g)].map((m) => m[0]);
     const ids = inputs.flatMap((input) => [...input.matchAll(/(?:id|name)="([^"]+)"/g)].map((m) => m[1]));
 
-    expect(ids.sort()).toEqual(["p7-medio", "p7-nombre", "p7-ruc"]);
+    expect(ids.sort()).toEqual(["p7-acepta-certificado", "p7-medio", "p7-nombre", "p7-ruc"]);
     for (const input of inputs) {
       expect(input).not.toMatch(/autoComplete="cc-/i);
     }
