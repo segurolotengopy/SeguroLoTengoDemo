@@ -145,3 +145,52 @@ Consecuencias sobre este análisis:
 3. **La devolución pasa a ser el camino crítico.** Lo que documenta Bancard: el rollback de vPOS solo opera **el mismo día** de la transacción (antes del cuponado); la reversa del QR está pensada para la ventana inmediata (callback ausente ~5 min, cancelación). **No hay API documentada de devolución posterior al cuponado**: es un trámite manual por el portal de comercios (soporte/anulaciones). Como el vencimiento de firma es a 24 h del pago, un expediente `VENCIDO` cae en general fuera de la ventana de reversa automática → **toda Pantalla B implica devolución por el canal manual**, lo cual es consistente con el dominio actual (`DEVOLUCION_EN_TRAMITE` → `DEVUELTO`, ejecutada por Alianza fuera del flujo digital). Las preguntas B1–B4 del correo a Bancard piden precisar ventanas, SLA y constancias de ese trámite.
 4. **Refactor interno pendiente (tarea aparte, no hecha):** quitar `iniciarPreautorizacionTarjeta` y `capturarPreautorizacion` de `src/ports/payment-provider.ts` (y del mock, sus tests de contrato y la palanca "fallo de captura de Bancard" del panel de demo), y actualizar los documentos que describen crédito = preautorización: `docs/ESPECIFICACION_PANTALLAS.md` (P7), `CLAUDE.md` (checklist #7) y la nota de `MedioDePago` en `src/domain/tipos.ts`. Hasta que esos documentos se actualicen, siguen siendo la fuente de verdad formal: este cambio debe bajarse a la especificación antes de tocar código.
 5. **Los correos de consulta a ambos proveedores** (con las preguntas abiertas de la sección 4 reformuladas tras esta decisión, más las nuevas sobre devoluciones y firma no cualificada) están en `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md`.
+
+---
+
+## 7. Adenda (2026-08-27) — llegaron las respuestas de ambos proveedores
+
+Los dos correos de `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` fueron
+respondidos. Este documento queda como **el análisis de los PDF**; el análisis de lo
+que los proveedores contestaron vive aparte:
+
+| Proveedor | Respuestas | Análisis |
+| :---- | :---- | :---- |
+| Code100 | `docs/Integraciones/Code100 - Respuestas C1 a C12.md` | Resumido en `CLAUDE.md` → "Contrato oficial de `SignatureProvider`" |
+| Bancard | `docs/Integraciones/Bancard - Respuestas B1 a B13 (parte 1).md` | **`docs/ANALISIS_RESPUESTAS_BANCARD.md`** |
+
+### 7.1 Preguntas abiertas de la §4 que quedaron cerradas
+
+| # | Estado |
+| :---- | :---- |
+| 1, 2, 3 (Code100) | Cerradas. Lo esencial: Api Flow **solo firma con certificado cualificado preexistente**, así que **no puede firmar el cliente**; no hay webhooks; las tres firmas van en serie |
+| 4 (producto) | Sin efecto desde la adenda §6 (se descartó la preautorización) |
+| **5** (TTL del QR) | **Cerrada: 3 días** (B5). Abre el hueco G1 — ver §3.1 del análisis nuevo |
+| **6** (consulta por `hook_alias`) | **Cerrada: el endpoint no existe.** Fue un error del control de cambios del documento QR (B6). Abre el hueco G3 |
+
+### 7.2 Corrección a §2.2.5 — el bloqueo antifraude es peor de lo que dice este documento
+
+Donde §2.2.5 dice que 7 rechazos en 24 h *"bloquean la tarjeta **en el comercio** por
+30 días"*, la respuesta B12 corrige: los umbrales son **mandatos de las marcas**, el
+bloqueo se aplica **a la tarjeta con independencia del comercio**, lo ejecuta el
+emisor o la marca, y **el comercio no puede consultarlo ni levantarlo** — el titular
+tiene que llamar a su banco. Bancard recomienda **no superar 5 intentos por tarjeta en
+24 h**. Ver §4.2 del análisis nuevo.
+
+### 7.3 Ajustes menores confirmados por las respuestas
+
+- **§2.2.5 — presupuestos de respuesta:** confirmados literalmente (30 s vPOS, 5 s QR).
+- **§2.2.5 — `shop_process_id`:** además de único, es de **un solo uso de por vida**,
+  aun cuando el intento de pago haya fallado (B10). Ver hueco G2.
+- **§2.2.1 / §5.2 — `payment_card_type`:** disponible en el `single_buy` de pago
+  ocasional **y** en el POST de confirmación (B9). La razón original para pedirlo
+  (detectar el cruce débito/crédito de la preautorización) caducó con la adenda §6; se
+  mantiene la recomendación de enviarlo siempre, ahora para asentar el **medio de pago
+  realmente usado**.
+- **§5.5 — onboarding:** el alta de QR es **independiente** de la de vPOS (B13). La URL
+  de confirmación de vPOS la configura el comercio en el portal; **la de QR la
+  parametriza Bancard** de su lado. Single Buy v1.23 sigue vigente.
+- **§3.2.2 / §5.3 — autenticidad de los callbacks:** Bancard **no firma** el mensaje y
+  **no ofrece mTLS** (B8). El mecanismo es Basic sobre HTTPS más whitelist de IP.
+  Divergencia declarada con las reglas transversales de `CLAUDE.md` — ver §5 del
+  análisis nuevo.
