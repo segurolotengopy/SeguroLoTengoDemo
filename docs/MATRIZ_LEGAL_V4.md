@@ -120,13 +120,13 @@ Este es el contraste, no parte del documento original.
 
 | Tema | Proyecto hoy (`CLAUDE.md` + CSV) | Matriz V4 | Peso |
 | :---- | :---- | :---- | :---- |
-| **Orden pago/firma** | Se cobra en P7 **antes** de firmar, y de ahí cuelgan `VENCIDO`, `DEVOLUCION_EN_TRAMITE`, `DEVUELTO` y toda la Pantalla B | **El pago ocurre después de la firma** (orden 6), contra CPC preemitido o en operación atómica con reverso automático | **Altísimo.** Elimina la causa de una rama entera del dominio |
-| **Medios de pago** | QR, débito y crédito | **Solo QR** | Alto |
-| **CPC** | `CLAUDE.md` prohíbe expresamente generar Nota de Cobertura | El **Certificado Provisional de Cobertura** es el documento central de la pantalla 6, firmado por Alianza | **Alto y contradictorio** con una regla vigente del proyecto |
-| **Documentos** | Dos PDF, un correlativo, dos prefijos (`PROP-`/`FIPF-`) | **Un PDF único** Solicitud + FIPF + declaraciones, con versión y hash congelados | Alto |
+| **Orden pago/firma** | Se cobra en P7 **antes** de firmar, y de ahí cuelgan `VENCIDO`, `DEVOLUCION_EN_TRAMITE`, `DEVUELTO` y toda la Pantalla B | **El pago ocurre después de la firma** (orden 6), contra CPC preemitido o en operación atómica con reverso automático | **DECIDIDO (27-ago-2026): se adopta.** Consecuencias en `docs/ORDEN_FIRMA_PAGO_Y_CPC.md` |
+| **Medios de pago** | QR, débito y crédito | **Solo QR** | **DECIDIDO: se mantienen los tres** (QR, crédito y débito). Prevalece la decisión de producto sobre la V4; el detalle va en la sesión de Bancard |
+| **CPC** | `CLAUDE.md` prohíbe expresamente generar Nota de Cobertura | El **Certificado Provisional de Cobertura** es el documento central de la pantalla 6, firmado por Alianza | **DECIDIDO: se emite el CPC.** Queda revertida la prohibición de `CLAUDE.md`; falta confirmar si CPC y Nota de Cobertura son el mismo instrumento |
+| **Documentos** | Dos PDF, un correlativo, dos prefijos (`PROP-`/`FIPF-`) | **Un PDF único** Solicitud + FIPF + declaraciones, con versión y hash congelados | **CONDICIONADO** a que el prestador firme dos documentos en un solo evento. Code100 ya respondió que sí (C8d), así que unificar es decisión de producto, no restricción técnica |
 | **Firmas institucionales** | Cliente → Interseguros **y Alianza** sobre ambos PDF | Cliente → **solo Interseguros** sobre el expediente. Alianza firma CPC y póliza, no la propuesta | Medio: **elimina una firma** del pipeline |
 | **Firma del cliente** | Firma simple con OTP | Igual | Coincide con el modelo decidido |
-| **Pantallas** | 9 pasos + pantallas A/B | Seis pantallas | Alto (y el usuario está probando además un flujo de tres) |
+| **Pantallas** | 9 pasos + pantallas A/B | Seis pantallas | **En curso**: rediseño de tres pantallas. La evidencia se ancla al acto, no a la pantalla (`ORDEN_FIRMA_PAGO_Y_CPC.md` §4) |
 | **Conservación** | Sin política declarada | 2 / 5 / 10 años según categoría, siempre el plazo más largo | Medio |
 | **Renovación** | Fuera de alcance | Reglas completas de renovación anual | Medio |
 | **Numeración oficial** | `PROP-00018425` | 10 dígitos numéricos sin letras para instrumentos de cobertura | Medio (afecta a Alianza) |
@@ -135,4 +135,4 @@ Este es el contraste, no parte del documento original.
 
 **Qué hacer con el CSV.** La V4 es posterior, se declara prevalente y corrige errores verificables del CSV, así que **pasa a ser la matriz de referencia**. El CSV **no se borra**: sus 84 filas numeradas están citadas por número en el código y en los comentarios del dominio (`fila 34`, `fila 42`, `fila 47`…), y perderlas rompería la trazabilidad de decisiones ya tomadas. Queda como antecedente numerado; ante conflicto, manda la V4.
 
-**Lo que la V4 no resuelve y sigue abierto:** las tres contradicciones de arriba —pago después de la firma, CPC, y PDF único— no son ajustes de redacción, son cambios de producto que tocan la máquina de estados, las reglas inviolables y la mitad de las pantallas. Necesitan decisión explícita antes de tocar código.
+**Las tres contradicciones quedaron decididas el 27-ago-2026** (pago después de la firma, CPC y PDF único condicionado). Sus consecuencias sobre el dominio están en `docs/ORDEN_FIRMA_PAGO_Y_CPC.md`. Los demás puntos de la norma se implementan conforme necesidad.

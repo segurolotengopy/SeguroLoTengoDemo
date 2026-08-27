@@ -28,7 +28,7 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 | `Integraciones/Documentacion Firmador - API FLOW.pdf` | Contrato técnico exacto de la API de Code100 (`POST /signature/auth`, `GET /signature/session-start`, `POST /signature/getSessionId`, `POST /signature/sign-pdf`). Gobierna el futuro adaptador oficial de `SignatureProvider` en `src/adapters/live/`. No inventar parámetros ni endpoints distintos a los documentados ahí. |
 | `Integraciones/eCommerce_bancard_compra_simple_version_1.23.1 (1).pdf`, `Integraciones/Preaut y promociones 14.pdf`, `Integraciones/Qr en API de Comercios v1.2 16 (1).pdf` | Contrato técnico exacto de las APIs de Bancard: compra simple de eCommerce, preautorización y captura, y QR de comercios. Gobiernan el futuro adaptador oficial de `PaymentProvider` (P7). Mismo criterio que con Code100: no inventar parámetros ni endpoints. |
 | `RECOMENDACIONES_ONBOARDING_IDENTIDAD.md` | Estrategia de P5 (Rekognition/Textract para demo y piloto, brecha de autenticidad documental, RFP para producción) y **§7: los parámetros internacionales de calidad de rostro, prueba de vida y coincidencia facial**, con su procedencia. Los números viven implementados en `src/domain/identidad-parametros.ts`; ese documento explica por qué son esos. |
-| `MATRIZ_LEGAL_V4.md` + `MATRIZ_LEGAL_V4_2026-08-16.pdf` | **Matriz de referencia regulatoria (V4, corte 16-ago-2026).** Se declara prevalente sobre la versión anterior y corrige errores de cita verificables del CSV. Ante conflicto entre el CSV y la V4, manda la V4. Sus tres cambios de producto —pago después de la firma, CPC, PDF único— están sin decidir: ver §10. |
+| `MATRIZ_LEGAL_V4.md` + `MATRIZ_LEGAL_V4_2026-08-16.pdf` | **Matriz de referencia regulatoria (V4, corte 16-ago-2026).** Se declara prevalente sobre la versión anterior y corrige errores de cita verificables del CSV. Ante conflicto entre el CSV y la V4, manda la V4. Sus tres cambios de producto —pago después de la firma, CPC, PDF único— fueron **decididos el 27-ago-2026**: ver `docs/ORDEN_FIRMA_PAGO_Y_CPC.md`. El "solo QR" de la V4 no se adopta: siguen QR, crédito y débito. |
 | `Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` | Matriz numerada (Número, Categoría R1–R8, Título, Norma y Artículo). **Antecedente de la V4**, no se borra: sus filas están citadas por número en el código y en los comentarios del dominio. Ojo: cita `Res. SS SG. 215/15` 35 veces y la correcta es la **215/2017** (`docs/normativa/CATALOGO.md` §3). |
 | `normativa/` + `normativa/CATALOGO.md` | Las normas mismas, en PDF, con el nombre derivado de su contenido. Antes de citar un artículo, verificá que la norma esté acá y leída; el catálogo dice cuáles se leyeron de primera mano y cuáles no. |
 | `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf` | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable. |
@@ -132,6 +132,8 @@ Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley
 ---
 
 ## Máquina de estados del expediente
+
+> **Decidido el 27-ago-2026, todavía no implementado:** el cobro pasa a ocurrir **después de las firmas**, y se emite el CPC. El grafo de abajo describe lo que hay hoy en `src/domain/expediente.ts` y sigue siendo cierto hasta que se toque el código, pero el orden va a reordenarse y la rama `VENCIDO → DEVOLUCION_EN_TRAMITE → DEVUELTO` deja de ser el desenlace ordinario del abandono: sin pago previo no hay nada que devolver. Consecuencias completas en `docs/ORDEN_FIRMA_PAGO_Y_CPC.md`.
 
 INICIADO → CANAL\_WA\_VERIFICADO → PLAN\_SELECCIONADO → AUTORIZADO
 
@@ -344,7 +346,7 @@ Además de `npm run typecheck && npm run lint && npm test`:
 4. Si usa una integración externa: ¿está descrita en `docs/Tabla de Integraciones externas - Tabla.csv`? ¿Respeta las "Reglas transversales de integraciones" de arriba?
 5. ¿Se generan y persisten las evidencias probatorias correspondientes (hash, timestamp, IP, canal, resultado) vía `EvidenceStore`?
 6. ¿La firma, si aplica, sigue la regla atómica de Code100 (Solicitud + FIPF en un solo acto)?
-7. ¿El pago, si aplica, respeta el flujo Bancard (QR-antes-de-firma o preautorización-antes/captura-después) y es idempotente? ¿La emisión exige el cobro **confirmado** y no solo garantizado (fila 44: una preautorización sin capturar habilita la firma, no la póliza)?
+7. ¿El pago, si aplica, ocurre **después de las firmas** (decisión del 27-ago-2026) y es idempotente? Medios: QR, crédito y débito. ¿La emisión exige el cobro **confirmado**? Si el pago entra y la emisión falla, ¿hay reverso? Ver `docs/ORDEN_FIRMA_PAGO_Y_CPC.md`.
 8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica, o (a futuro) al asistente IA?
 
 ---
@@ -357,6 +359,6 @@ Además de `npm run typecheck && npm run lint && npm test`:
 - No hagas commits que dejen tests en rojo.  
 - No implementes más de una pantalla por sesión: pedime que abramos una sesión nueva.
 - No inventes artículos de ley, endpoints, campos de API o pasos del flujo que no figuren en los documentos fuente.
-- No generes Nota de Cobertura — el producto no la contempla.
+- **El producto sí emite CPC** (Certificado Provisional de Cobertura), decidido el 27-ago-2026: lo firma con firma cualificada el suscriptor autorizado de Alianza y es un instrumento de cobertura registrado. Queda revertida la prohibición anterior de generar Nota de Cobertura — falta confirmar si son el mismo instrumento con otro nombre. Ver `docs/ORDEN_FIRMA_PAGO_Y_CPC.md`. La leyenda "No se genera Nota de Cobertura" sigue impresa en pantallas y **dentro de los PDF**: quitarla exige subir versión documental.
 - No introduzcas un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`, ni dejes su documentación técnica suelta en la raíz de `docs/`: va en `docs/Integraciones/`.
 
