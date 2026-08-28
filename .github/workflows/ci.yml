@@ -27,9 +27,9 @@ jobs:
     name: Typecheck, lint y tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -52,7 +52,7 @@ jobs:
     name: Gitleaks (secret scanning)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Historial completo: un secreto commiteado y luego borrado sigue
           # estando en el historial, y sigue estando filtrado.
@@ -79,7 +79,7 @@ jobs:
     name: Trivy (dependencias e IaC)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Dos cosas que rompieron este job y conviene no repetir:
       #
@@ -91,7 +91,7 @@ jobs:
       #    permanente, aunque la tag de trivy-action sí exista. Desde v0.31.0
       #    la referencia interna es por SHA de commit, que nadie puede borrar.
       - name: Dependencias (CVEs en package-lock.json)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -108,7 +108,7 @@ jobs:
       # Con el baseline conocido, este job pasa a bloquear: exit-code "1".
       # Cualquier configuración insegura NUEVA en infra/ frena el build.
       - name: Terraform (configuración insegura en infra/)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: infra
@@ -125,7 +125,7 @@ jobs:
     container:
       image: semgrep/semgrep:1.99.0
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Reglas propias del proyecto (reglas inviolables)
         run: semgrep --config .semgrep/segurolotengo.yml --error --skip-unknown-extensions .
