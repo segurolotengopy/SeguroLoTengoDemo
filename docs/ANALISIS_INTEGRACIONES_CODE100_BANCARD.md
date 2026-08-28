@@ -157,7 +157,7 @@ que los proveedores contestaron vive aparte:
 | Proveedor | Respuestas | Análisis |
 | :---- | :---- | :---- |
 | Code100 | `docs/Integraciones/Code100 - Respuestas C1 a C12.md` | Resumido en `CLAUDE.md` → "Contrato oficial de `SignatureProvider`" |
-| Bancard | `docs/Integraciones/Bancard - Respuestas B1 a B13 (parte 1).md` | **`docs/ANALISIS_RESPUESTAS_BANCARD.md`** |
+| Bancard | `docs/Integraciones/Bancard - Respuestas B1 a B13.md` | **`docs/ANALISIS_RESPUESTAS_BANCARD.md`** |
 
 ### 7.1 Preguntas abiertas de la §4 que quedaron cerradas
 

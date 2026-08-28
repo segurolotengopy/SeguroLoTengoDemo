@@ -1,7 +1,7 @@
 # Análisis de las respuestas de Bancard (B1–B13, parte 1)
 
-**Fecha:** 2026-08-27
-**Fuente:** `docs/Integraciones/Bancard - Respuestas B1 a B13 (parte 1).md`
+**Fecha:** 2026-08-27 · **actualizado el 2026-08-28** con las respuestas B2 y B3 del equipo comercial
+**Fuente:** `docs/Integraciones/Bancard - Respuestas B1 a B13.md`
 **Consultas de origen:** `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` → "Correo 2 — Bancard" (2026-08-12)
 **Análisis previo que este documento corrige y extiende:** `docs/ANALISIS_INTEGRACIONES_CODE100_BANCARD.md` (2026-08-12)
 **Contrastado contra:** `src/ports/payment-provider.ts`, `src/domain/pago-p7.ts`, `src/domain/tipos.ts`, `src/adapters/mock/payment-provider.ts`
@@ -37,7 +37,9 @@ Nada de esto bloquea el modo demo; todo precede al adaptador `live/`.
 | **B1** | Rollback TC hasta el cuponado (20:00 / 00:00); TD solo el mismo día | **Bajo** — confirma que la devolución real es manual. Valida D-02 |
 | **B4** | La reversa QR **no es una devolución**; devolver un QR confirmado es ticket manual | **Bajo** — confirma D-02. Pero define el uso legítimo de la reversa (→ G1) |
 | **B9** | `payment_card_type` disponible en `single_buy` y en el POST de confirmación | **Bajo** — oportunidad de evidencia (§4.3) |
-| **B7 · B11 · B2 · B3** | Derivadas al equipo comercial / ejecutiva de cuenta | Pendientes (§6) |
+| **B2** | La devolución **no genera constancia documental**: el respaldo es el estado en el Portal de Comercios | **Medio** — cambia cómo se arma el respaldo del expediente (§2.9) |
+| **B3** | Vuelve al mismo plástico (tarjeta) o a la cuenta (**QR A2A**). SLA solo para crédito: 48-72 h | **Medio** — desbloquea el texto de Pantalla B, ya implementado (§2.9) |
+| **B7 · B11** | Derivadas a la ejecutiva de cuenta | Pendientes (§6) |
 
 ---
 
@@ -189,6 +191,32 @@ conforma con HTTP 200; QR exige un cuerpo JSON con `status` y `messages[]`) **y 
 presupuestos de tiempo** (30 s contra 5 s). Es implementable —se discrimina por la
 forma del cuerpo— pero es un punto único de falla para los dos medios de cobro, y
 conviene saberlo antes de diseñarlo, no después.
+
+### 2.9 B2 y B3 — la devolución se puede explicar, pero no se puede documentar
+
+Las dos consultas que faltaban llegaron el 28-ago. Dan tres cosas útiles y quitan una que dábamos por descontada.
+
+**Lo que se gana: la pantalla ya puede decir algo cierto.** Hasta ahora Pantalla B describía el procedimiento —cuatro pasos, actores, "al medio o cuenta de origen"— y no podía decir ni adónde exactamente ni en cuánto tiempo, porque no lo sabíamos. Ahora sí:
+
+| Medio | Destino | Plazo |
+| :---- | :---- | :---- |
+| Tarjeta de crédito | Al mismo plástico | **48 a 72 h**, condicionado a la carga correcta del pedido y a la disponibilidad de saldos a retener |
+| Tarjeta de débito | Al mismo plástico | **Sin SLA.** Bancard acredita en línea; depende de cuándo el banco pagador autorice el movimiento |
+| QR | A la cuenta de origen (**QR A2A**) | **No respondido** — ver abajo |
+
+Implementado en `devolucionPorMedio` (`src/domain/textos-devolucion.ts`) y mostrado en Pantalla B. El campo `plazoLoFijaElBanco` distingue el plazo comprometido del que nadie controla, y hay un test que **rechaza cualquier cantidad de tiempo** en el texto de un medio sin SLA: un retoque de redacción que ponga "unas 48 horas" en el débito pone la suite en rojo. Es la fila 65 de la matriz cumplida completa, y es también la forma de que no se cumpla mal.
+
+**El plazo del QR es una inferencia nuestra, no una respuesta de Bancard.** La respuesta remite a *"más arriba, los plazos"*, y arriba solo están TC y TD. El QR A2A no es ninguno de los dos. Lo tratamos como al débito —sin plazo propio, dependiente del banco— porque es el mismo mecanismo de acreditación en cuenta, y el texto que ve la persona **no le atribuye a Bancard un plazo que no dio**. Queda como consulta **B3-bis**.
+
+**Lo que se pierde: no hay constancia documental.** Esta era la pregunta que marcamos como la más importante de las cuatro, y la respuesta es que *"el comprobante disponible es desde el portal de comercios de Bancard, en donde queda reflejada el estado de la transacción"*. Es decir: **Bancard no emite ni envía ningún documento de devolución.** No hay PDF, no hay comprobante, no hay nada que recibir y archivar.
+
+Habíamos supuesto que llegaría un documento y que el trabajo sería decidir dónde guardarlo. El trabajo real es otro: **producir nosotros el respaldo**, porque el proveedor no lo produce. La forma que tiene que tomar —quién consulta el portal, qué captura, con qué sello de tiempo, quién lo firma— es una decisión de Cumplimiento y de Alianza, no técnica, y hay que tomarla antes de que exista la primera devolución. Lo que el portal sí da es el **estado de la transacción**, consultable; lo que no da es un instrumento oponible.
+
+Conviene no dramatizarlo: `DevolucionDelExpediente` ya exige una `referenciaReintegro` para cerrar el trámite (*"un trámite cerrado sin ella no se puede auditar: sería 'alguien dijo que devolvió'"*), así que el modelo ya pedía un identificador verificable. Lo que cambia es qué es ese identificador: no el número de un comprobante que llega, sino la referencia de la transacción tal como el portal la muestra.
+
+**Dos condiciones más, ninguna urgente.** El plazo máximo para pedir una devolución es de **un año** desde la transacción original (B2c) — holgado para cualquier caso de CONFÍO. Y la **devolución parcial existe solo con crédito** (B2d): hoy devolvemos siempre el total de un premio único, así que no aplica, pero está escrito para el día que alguien proponga una parcial y descubra que con débito y con QR no se puede. Los dos viven como constantes documentadas en `textos-devolucion.ts`, sin validación bloqueante: qué hacer con un pedido fuera de plazo lo decide Alianza, y un bloqueo automático impediría asentar un caso que quizá se resuelva por otra vía.
+
+**Un hallazgo de paso.** Al cablear el bloque apareció que la bajada legada de Pantalla B decía *"del premio pagado mediante QR Bancard"* — literal de cuando el QR era el único caso. Bajo el orden viejo también se pagaba con débito y con crédito, así que a un expediente legado de tarjeta la pantalla le afirmaba un medio que no era el suyo. Corregido, con la divergencia declarada en el módulo y bajada a `ESPECIFICACION_PANTALLAS.md`.
 
 ---
 
@@ -454,7 +482,10 @@ intención se cubre por otros medios.
 
 ---
 
-## 6. Preguntas abiertas — insumo para la parte 2
+## 6. Preguntas abiertas
+
+Al 28-ago quedan **nueve**: las siete técnicas de la segunda ronda, más **B7** y **B11**
+del hilo comercial. **B2 y B3 ya están respondidas** (§2.9), y de B3 nació **B3-bis**.
 
 **Redactadas y listas para reenviar**, un archivo por correo —van separados porque tienen
 destinatarios distintos—:
@@ -467,8 +498,9 @@ El porqué de cada consulta y la trazabilidad B1…B13 siguen en
 
 | # | Destinatario | Pregunta | Por qué bloquea |
 | :---- | :---- | :---- | :---- |
-| **B2** (repreguntar) | Equipo comercial Bancard | Devolución posterior al cuponado: ¿único canal el ticket manual? SLA, **constancia/comprobante emitido**, plazo máximo, ¿admite parcial? | La constancia se incorpora al expediente en Pantalla B (D-02). Sin saber qué documento emite Bancard, no se puede diseñar ese asiento |
-| **B3** (repreguntar) | Equipo comercial Bancard | ¿La devolución aplica igual a TC, TD, QR y débito en cuenta? ¿Por qué vía y en qué plazo vuelve el dinero en cada uno? | El texto de Pantalla B le informa a la persona un plazo. Hoy no tenemos ninguno que sea cierto |
+| ~~B2~~ | — | **Respondida el 28-ago.** Ver §2.9 | Deja como tarea de Cumplimiento definir el respaldo documental, ya que Bancard no emite ninguno |
+| ~~B3~~ | — | **Respondida el 28-ago**, salvo el plazo del QR. Ver §2.9 | — |
+| **B3-bis** (nueva) | Bancard comercial | Al dar los plazos, la respuesta remite a los de tarjeta, y el **QR A2A** no es TC ni TD. ¿Qué plazo tiene la devolución de un pago por QR? | Hoy la pantalla dice, por inferencia nuestra, que depende del banco. Es lo único que no puede estar mal, pero sigue siendo una inferencia |
 | **B7** (en curso) | Ejecutiva de cuenta | Hosts de staging/producción del API de Comercios, credenciales, lista de casos de prueba y certificación de QR | Precondición del adaptador `live/` de la rama QR |
 | **B11** (en curso) | Ejecutiva de cuenta | Montos mínimos y máximos para vPOS pago ocasional y para QR | El premio anual de CONFÍO debe caer dentro del rango en los tres medios. Hay que verificarlo, no suponerlo |
 | **B4-bis** (nueva) | Bancard técnico | ¿La reversa por `hook_alias` **invalida un QR generado y no pagado**, o solo revierte un pago ocurrido? Si es lo segundo, ¿hay alguna operación para **desactivar un QR emitido y no usado**? | **Es la que decide si G1 tiene arreglo.** Toda la mitigación del §3.1 supone que reversar al vencer apaga el QR. Si no lo apaga, hay que buscar otra cosa |
@@ -515,6 +547,12 @@ respuestas dejan planteado, en orden de importancia:
    política nuestra, y con G1 pasan a ser política **exigible**.
 7. **§5 · Registrar la divergencia** de callbacks no firmados donde
    `CLAUDE.md` enuncia la regla transversal, con la mitigación de cuatro puntos.
+8. **§2.9 · Definir el respaldo documental de una devolución.** Bancard no emite
+   comprobante, así que lo tiene que producir el trámite: quién consulta el
+   Portal de Comercios, qué captura, con qué sello de tiempo y quién lo firma.
+   **No es una tarea técnica** —la decide Cumplimiento con Alianza— pero hay que
+   tomarla antes de la primera devolución, no durante. El modelo ya reserva
+   dónde ponerlo (`DevolucionDelExpediente.referenciaReintegro`).
 
 Ninguno de los siete afecta al modo demo actual ni al Lote 6, que sigue siendo el
 único lote pendiente del Plan v2. El punto 4 se solapa con el rate limiting de L6 y

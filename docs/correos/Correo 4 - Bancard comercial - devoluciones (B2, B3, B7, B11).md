@@ -2,6 +2,11 @@
 **CC:** soporte de integraciones de Bancard
 **Asunto:** Interseguros S.A. (SeguroLoTengo) — Consultas B2 y B3 pendientes (devoluciones) y recordatorio de B7 y B11
 
+> **Estado:** enviado el 27-ago-2026. **B2 y B3 respondidas el 28-ago-2026**
+> (ver `docs/Integraciones/Bancard - Respuestas B1 a B13.md`). Siguen abiertas
+> **B7** y **B11**. De B3 quedó pendiente el plazo del QR A2A, que se repregunta
+> como **B3-bis** en la tanda siguiente.
+
 ---
 
 Estimada Laura, estimado equipo comercial:

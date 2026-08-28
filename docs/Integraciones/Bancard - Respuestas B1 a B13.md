@@ -1,11 +1,13 @@
-# **Bancard — Respuestas a las consultas B1 a B13 (parte 1)**
+# **Bancard — Respuestas a las consultas B1 a B13**
 
 **Destinatario:** Equipo técnico de Interseguros (SeguroLoTengo · operador tecnológico AAB1)
-**Recibido:** 2026-08-27
+**Recibido en dos tandas:** 2026-08-27 (equipo técnico, B1 y B4 a B13) · 2026-08-28 (equipo comercial, B2 y B3)
 **Consultas de origen:** `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` → "Correo 2 — Bancard" (2026-08-12)
 **Referencia documental:** Especificaciones Técnicas Single Buy v1.23 (vPOS) y QR en API de Comercios v1.2
 **Análisis derivado:** `docs/ANALISIS_RESPUESTAS_BANCARD.md`
-**Original recibido, sin editar:** `docs/Integraciones/Bancard - Respuestas B1 a B13 (parte 1) - original recibido.txt`
+**Originales recibidos, sin editar:**
+`docs/Integraciones/Bancard - Respuestas B1 a B13 - original 27-ago (tecnico).txt`
+`docs/Integraciones/Bancard - Respuestas B1 a B13 - original 28-ago (comercial, B2 y B3).txt`
 
 > Este documento **reordena** las respuestas siguiendo la numeración de las consultas —el
 > original las trae agrupadas por tema y fuera de orden— y no cambia una palabra de su
@@ -20,10 +22,10 @@
 > resultara ser una entidad distinta —y no un error de tipeo del remitente—, hay
 > que registrarla en esa tabla **antes** de escribir una sola línea de adaptador.
 
-**Estado:** parcial. **B2** y **B3** —las dos consultas sobre devolución posterior
-al cuponado— quedaron sin responder: Bancard las derivó a su equipo comercial.
-**B7** y **B11** se derivaron a la ejecutiva de cuenta (Laura Vera) y se
-responderán en un hilo aparte. Este documento se completa cuando llegue la parte 2.
+**Estado:** **11 de 13 respondidas.** Quedan **B7** y **B11**, derivadas a la
+ejecutiva de cuenta (Laura Vera) y prometidas en un hilo aparte. Este documento se
+actualiza a medida que llegan las tandas; el nombre no lleva número de parte
+justamente por eso.
 
 ---
 
@@ -42,13 +44,33 @@ La operación de rollback vía API para el servicio vPOS: **el horario de cierre
 
 **Consulta.** Para una transacción ya cuponada: ¿existe alguna operación por API para gestionar la anulación/devolución, o el único canal es el pedido manual por el portal de comercios? SLA típico, constancia emitida, plazo máximo y posibilidad de devolución parcial.
 
-**Pendiente.** Bancard indicó que responde el equipo comercial. Ver §6 de `docs/ANALISIS_RESPUESTAS_BANCARD.md`.
+*(Respondida el 28-ago-2026 por el equipo comercial.)*
+
+**(a) SLA de resolución.**
+
+- **Tarjeta de crédito: de 48 a 72 horas**, siempre y cuando se cumplan todos los requisitos: (i) **correcta carga del pedido de anulación** y (ii) **disponibilidad de saldos a ser retenidos**.
+- **Tarjeta de débito: no hay un SLA establecido.** Como Bancard acredita las transacciones **en línea**, la resolución depende del tiempo en que **el banco pagador autorice el débito en la cuenta del cliente**.
+
+**(b) Constancia.** *"El comprobante disponible es desde el portal de comercios de Bancard, en donde queda reflejada el estado de la transacción."*
+
+> Es decir: **Bancard no emite ni envía un documento de devolución.** El único respaldo es el estado de la transacción consultable en el Portal de Comercios. Ver §2.9 del análisis: cambia cómo se arma el respaldo documental del expediente.
+
+**(c) Plazo máximo para solicitarla.** **Un año** desde la transacción original.
+
+**(d) Devolución parcial.** **Solo se acepta para tarjetas de crédito**, no para débito.
 
 ### **B3**
 
 **Consulta.** ¿El procedimiento de devolución aplica por igual a pagos con TC, TD y QR (incluido el débito en cuenta)? ¿Por qué vía y en qué plazos vuelve el dinero al cliente en cada medio?
 
-**Pendiente.** Bancard indicó que responde el equipo comercial. Ver §6 de `docs/ANALISIS_RESPUESTAS_BANCARD.md`.
+*(Respondida el 28-ago-2026 por el equipo comercial.)*
+
+*"Vuelve en su mismo plástico en caso de haber sido con tarjeta, y a su cuenta de haber sido con QR A2A. Más arriba, los plazos."*
+
+- **Tarjeta (crédito o débito):** el dinero vuelve **al mismo plástico** con el que se pagó.
+- **QR:** vuelve **a la cuenta** desde la que se pagó. Bancard lo llama **QR A2A** (*account to account*), que es la primera vez que aparece ese término en el intercambio.
+
+> **Plazo del QR: no está dicho.** La remisión *"más arriba, los plazos"* cubre TC (48-72 h) y TD (sin SLA), y el QR A2A no es ninguno de los dos. Ver §2.9 del análisis y la consulta **B3-bis**.
 
 ### **B4**
 
@@ -207,8 +229,8 @@ Los montos mínimos o máximos para el vPOS (Pago Ocasional) y para el QR **debe
 | # | Tema | Estado | Quién responde lo que falta |
 | :---- | :---- | :---- | :---- |
 | B1 | Ventana de rollback vPOS | **Respondida** | — |
-| B2 | Devolución posterior al cuponado (SLA, constancia, parcial) | **Pendiente** | Equipo comercial |
-| B3 | Devolución por medio (TC / TD / QR / débito en cuenta) | **Pendiente** | Equipo comercial |
+| B2 | Devolución posterior al cuponado (SLA, constancia, parcial) | **Respondida** (28-ago) — sin constancia documental | — |
+| B3 | Devolución por medio (TC / TD / QR / débito en cuenta) | **Respondida** (28-ago) — falta el plazo del QR A2A | Ver B3-bis |
 | B4 | Ventana y procedimiento de reversa QR | **Respondida** | — |
 | B5 | TTL del QR dinámico | **Respondida** (3 días) | — |
 | B6 | Consulta de pagos por `hook_alias` | **Respondida: el endpoint no existe** | — |

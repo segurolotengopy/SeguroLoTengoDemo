@@ -49,9 +49,20 @@
 
 export const TITULO_PANTALLA_B = "Tu solicitud venció porque no completaste el pago";
 
-/** Variante legada: expedientes que vencieron pagados, bajo el orden viejo. */
+/**
+ * Variante legada: expedientes que vencieron pagados, bajo el orden viejo.
+ *
+ * **Divergencia de la especificación, corregida el 28-ago-2026.** El literal
+ * del documento dice *"del premio pagado mediante QR Bancard"*, porque la
+ * pantalla se escribió para el único caso que existía entonces. Bajo el orden
+ * viejo también se pagaba con débito y con crédito, así que a un expediente
+ * legado de tarjeta la pantalla le afirmaba un medio de pago que no era el
+ * suyo. Se quita la mención al medio de la bajada; el medio real —y adónde
+ * vuelve el dinero— se dice en el bloque de destino, con el dato del
+ * expediente.
+ */
 export const BAJADA_PANTALLA_B =
-  "Se inició el procedimiento de devolución del premio pagado mediante QR Bancard. Te informamos " +
+  "Se inició el procedimiento de devolución del premio pagado. Te informamos " +
   "por WhatsApp y correo verificados.";
 
 /** Variante del flujo vigente: se firmó, no se pagó, y por eso no hay nada que devolver. */
@@ -154,6 +165,31 @@ export const PASOS_DEVOLUCION: readonly PasoDevolucion[] = [
 
 export const AVISO_DEVOLUCION_SOLO_AL_ORIGEN =
   "No se devuelve en efectivo, a terceros ni a otra cuenta.";
+
+/**
+ * Rótulos del bloque que dice **adónde** vuelve el dinero y **en cuánto
+ * tiempo** (respuestas B2(a) y B3 de Bancard, 28-ago-2026).
+ *
+ * Es lo que faltaba para cumplir la fila 65 completa: los cuatro pasos ya
+ * explicaban el procedimiento, pero el paso 4 decía *"al medio o cuenta de
+ * origen"* sin poder precisar cuál ni cuándo, porque no lo sabíamos.
+ *
+ * El contenido no vive acá sino en `devolucionPorMedio` de
+ * `textos-devolucion.ts`, para que la consola administrativa lea exactamente
+ * los mismos literales que ve la persona: si el trámite se explica de una
+ * manera en la pantalla y de otra en la consola, quien atiende el reclamo está
+ * leyendo algo distinto de lo que leyó quien reclama.
+ */
+export const TITULO_DESTINO_DEVOLUCION = "ADÓNDE VUELVE Y CUÁNDO";
+export const ROTULO_DESTINO_DEVOLUCION = "Destino";
+export const ROTULO_PLAZO_DEVOLUCION = "Plazo estimado";
+
+/**
+ * Aclaración que acompaña a un plazo que Bancard no fija (débito y QR). Sin
+ * ella, un plazo ausente se lee como un plazo olvidado.
+ */
+export const NOTA_PLAZO_LO_FIJA_EL_BANCO =
+  "Bancard no fija un plazo para este medio: la acreditación la resuelve tu banco.";
 
 /** Variante del flujo vigente: sin cobro no hay trámite de ningún tipo. */
 export const TITULO_CADUCIDAD_SIN_COBRO = "QUÉ PASA AHORA";

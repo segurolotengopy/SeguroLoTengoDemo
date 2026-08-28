@@ -1,0 +1,29 @@
+Van mis comentarios en azul.
+
+- B2. Para una transacción ya cuponada (fuera de la ventana de reversa automática que nos precisó Soporte en B1): confirmamos que el único canal es el pedido manual por el Portal de Comercios. Sobre ese trámite necesitamos saber:
+
+(a) ¿cuál es el SLA típico de resolución?
+
+- Para tarjetas de crédito es de 48hs a 72hs, siempre y cuando se cumplan todos los requisitos.
+* correcta carga del pedido de anulación
+* disponibilidad de saldos a ser retenidos.
+
+- Para tarjetas de débito no hay un SLA establecido, puesto que, como Bancard acredita en linea las transacciones, la resolución dependerá del tiempo en que el banco pagador autorice el debito en la cuenta del cliente.
+
+(b) ¿qué constancia o comprobante emite Bancard una vez ejecutada la devolución, y en qué formato? Este punto es el más importante de los cuatro: esa constancia la tenemos que incorporar al expediente del cliente como respaldo documental, así que necesitamos saber qué documento vamos a recibir antes de diseñar dónde se guarda.
+
+El comprobante disponible es desde el portal de comercios de Bancard, en donde queda reflejada el estado de la transacción.
+
+(c) ¿Existe un plazo máximo desde la transacción original para solicitarla?
+
+Un año
+
+(d) ¿Se admite devolución parcial, o solo por el importe total?
+
+Devolución parcial solo se acepta para tarjetas de crédito, no para débito.
+
+- B3. ¿El procedimiento de devolución es el mismo para pagos con tarjeta de crédito, tarjeta de débito y QR (incluido el débito en cuenta)? Para cada uno de esos medios: ¿por qué vía vuelve el dinero al cliente (reversa al plástico, acreditación en cuenta, otra) y en qué plazo estimado? Es el dato que necesitamos para poder informarle al cliente algo cierto en pantalla.
+
+Vuelve en su mismo plástico en caso de haber sido con tarjeta, y a su cuenta de haber sido con QR A2A.
+
+Más arriba, los plazos.

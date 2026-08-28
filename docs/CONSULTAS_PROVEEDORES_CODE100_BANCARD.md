@@ -114,7 +114,7 @@ Interseguros S.A.
 # Segunda ronda — Bancard (repregunta)
 
 **Fecha de redacción:** 2026-08-27
-**Motivo:** las respuestas recibidas (`docs/Integraciones/Bancard - Respuestas B1 a B13 (parte 1).md`) dejaron cuatro consultas sin responder y abrieron siete puntos nuevos, analizados en `docs/ANALISIS_RESPUESTAS_BANCARD.md` §6.
+**Motivo:** las respuestas recibidas (`docs/Integraciones/Bancard - Respuestas B1 a B13.md`) dejaron cuatro consultas sin responder y abrieron siete puntos nuevos, analizados en `docs/ANALISIS_RESPUESTAS_BANCARD.md` §6.
 
 Van **dos correos separados porque tienen dos destinatarios distintos**: el equipo técnico de integraciones y el equipo comercial / la ejecutiva de cuenta. Los identificadores nuevos siguen la convención de la primera ronda: `-bis` y `-ter` cuelgan de la consulta original de la que nacieron, para que la trazabilidad B1…B13 no se rompa.
 
@@ -136,9 +136,11 @@ Las dos que más pesan son **B4-bis** y **B10-bis**: de sus respuestas depende q
 
 **Cuerpo listo para reenviar:** `docs/correos/Correo 4 - Bancard comercial - devoluciones (B2, B3, B7, B11).md`
 
-Cuatro consultas: **B2** y **B3** repreguntadas con el contexto que les faltaba (qué constancia emite Bancard en una devolución y en qué plazo vuelve el dinero por cada medio), más el recordatorio de **B7** (hosts, credenciales y certificación de QR) y **B11** (montos mínimos y máximos).
+**Enviado el 27-ago. B2 y B3 respondidas el 28-ago**; quedan **B7** (hosts, credenciales y certificación de QR) y **B11** (montos mínimos y máximos).
 
-De las cuatro, la que más bloquea es **B2(b)**: la constancia de devolución se incorpora al expediente del cliente, y no se puede diseñar dónde se guarda sin saber qué documento se recibe.
+La respuesta a **B2(b)** invirtió el problema: no hay documento que guardar, porque **Bancard no emite constancia de devolución** — el único respaldo es el estado de la transacción en el Portal de Comercios. El respaldo documental lo tiene que producir el trámite, y eso es una decisión de Cumplimiento con Alianza (§2.9 del análisis).
+
+De **B3** nació **B3-bis**, que va en la próxima tanda: al dar los plazos, la respuesta remite a los de tarjeta, y el QR A2A no es ninguno de los dos.
 
 ---
 

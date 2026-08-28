@@ -433,6 +433,20 @@ Indicador: `PANTALLA B` / `FIRMADA · PAGO NO COMPLETADO`.
 
 Los expedientes que vencieron **bajo el orden viejo** —con el pago hecho y sin firmar— no se reescriben (regla inviolable #10) y su trámite sigue abierto. Para ellos la pantalla conserva los literales originales: `PROCEDIMIENTO DE DEVOLUCIÓN` en cuatro pasos —notificación doble → presentación en Alianza con la cédula → formulario presencial firmado → devolución **únicamente** al medio o cuenta de origen—, con el bloque rojo `No se devuelve en efectivo, a terceros ni a otra cuenta`, y el pie `VENCIDO · DEVOLUCIÓN EN TRÁMITE / DEVUELTO`.
 
+**`ADÓNDE VUELVE Y CUÁNDO`** (agregado el 28-ago-2026, con las respuestas B2 y B3 de Bancard). Debajo del bloque rojo, `Destino` y `Plazo estimado` según el medio con el que se pagó:
+
+| Medio | Destino | Plazo |
+| :---- | :---- | :---- |
+| Tarjeta de crédito | A la misma tarjeta de crédito con la que pagaste. | Entre 48 y 72 horas desde que Alianza carga el pedido de anulación. |
+| Tarjeta de débito | A la misma tarjeta de débito con la que pagaste. | Depende de cuándo tu banco autorice el movimiento en tu cuenta: no hay un plazo fijo. |
+| QR Bancard | A la cuenta desde la que pagaste el QR. | Depende de cuándo tu banco acredite el movimiento en tu cuenta: no hay un plazo fijo. |
+
+Cuando el plazo no lo fija Bancard —débito y QR— se agrega la nota `Bancard no fija un plazo para este medio: la acreditación la resuelve tu banco.` Sin ella, un plazo ausente se lee como un plazo olvidado. **Ningún medio sin SLA puede llevar una cantidad de tiempo en su texto**, y hay un test que lo hace fallar a propósito.
+
+Este bloque es lo que completa la fila 65 (*"Explicar cancelación y metodología de devolución"*): los cuatro pasos ya explicaban el procedimiento, pero el paso 4 decía *"al medio o cuenta de origen"* sin poder precisar cuál ni cuándo, porque hasta esta respuesta no lo sabíamos.
+
+**Corrección del literal de la bajada.** El documento decía *"del premio pagado mediante QR Bancard"*, porque la pantalla se escribió cuando el QR era el único caso. Bajo el orden viejo también se pagaba con débito y con crédito, así que a un expediente legado de tarjeta la pantalla le afirmaba un medio que no era el suyo. La bajada ya no nombra el medio; el medio real se dice en el bloque de arriba, con el dato del expediente.
+
 Cuál de las dos se muestra lo decide si el dinero efectivamente entró, no el medio de pago ni la fecha del expediente.
 
 **`ACTORES Y REGISTRO`:** SeguroLoTengo controla el plazo, registra el estado y genera las comunicaciones · Interseguros realiza los recordatorios de 1, 5 y 12 horas · Alianza Garantía, solo en la variante legada, obtiene el formulario firmado y ejecuta la devolución al origen.
