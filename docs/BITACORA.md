@@ -38,6 +38,65 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-30 (c) · Lote F4a: la firma interna del cliente entra a main
+
+**Rama:** `feat/f4a-firma-interna-dominio` · **Merge de la rama en espera**
+
+### El caso
+
+Decisión de Andres (30-ago, al abrir F4): **la firma del cliente la ejecuta
+nuestra solución interna no cualificada; el mock de Code100 queda solo para
+las cualificadas de Interseguros y Alianza.** Eso es exactamente lo que la
+rama `claude/code100-api-integration-1f2547` (8 commits, en espera desde el
+27-ago) construyó a nivel dominio, así que F4 se partió en dos PRs: F4a
+mergea la rama; F4b cablea pantalla y endpoints.
+
+### Qué cambió
+
+- Merge de la rama: `src/domain/firma-cliente.ts` (el acto de firma interno,
+  Res. 210/2025 art. 4, con sus 23 tests), propósito OTP `FIRMA` con
+  `canalCoherenteConProposito` (ambos canales), renombre
+  `Firma.idCode100 → referenciaActo` + campo `origen: PROVEEDOR|INTERNA`
+  (`ActoDeFirmaEnCurso.idCode100` se conserva: es el acto del proveedor),
+  y los docs `MATRIZ_LEGAL_V4.md`, `normativa/CATALOGO.md` y
+  `VALIDACION_LEGAL_FIRMA_INTERNA.md`.
+- Conflicto único en `CLAUDE.md` (las dos citas de la 215): ganó la doctrina
+  de main (#57 — la vigente es la **215/2025**), y la viñeta nueva de la rama
+  que afirmaba «la correcta es la 215/2017» se corrigió a esa doctrina, con
+  la regla de que ante discrepancia entre `CATALOGO.md` (de la rama) e
+  `INDICE.md` manda el índice.
+- `CLAUDE.md` §SignatureProvider actualizado con la decisión ratificada: la
+  firma del cliente es interna (v3); el flujo simulado de Code100 sigue en v2
+  hasta su retiro.
+
+### Qué hizo Andres
+
+- Ratificó el modelo de firma (30-ago): interna para el cliente, Code100
+  (mock) solo institucionales — respuesta directa, no una de las opciones
+  ofrecidas.
+
+### Verificaciones
+
+- typecheck + lint + **1218 tests en verde** (los 23 de firma-cliente
+  absorbidos sin tocar ninguno de main).
+- `npm run build` en verde (flag apagado y con entorno demo).
+- **Smoke e2e `07-firma-atomica`: BLOQUEADO por la máquina, no por el
+  código** — el guardián `preflight-inotify` aborta la corrida porque el cupo
+  de watchers (65536) está agotado por los IDEs abiertos. Pendiente de que
+  Andres corra `sudo sysctl fs.inotify.max_user_watches=524288` (+persistir
+  en /etc/sysctl.d); después, correr `npx playwright test
+  e2e/07-firma-atomica.spec.ts` antes del merge de F4b.
+
+### Queda abierto
+
+- El smoke v2 de firma (bloqueo de inotify, arriba).
+- F4b: textos de la aceptación agrupada 3, endpoints
+  `/api/p8/firma-interna/{enviar,verificar}`, componente `FirmaInternaV3`,
+  página `/pago-y-firma` y `e2e/v3/03`.
+- La memoria de la rama en espera queda obsoleta al mergear este PR.
+
+---
+
 ## 2026-08-30 (b) · Lote F3: la página /seguro — el paso 2 y el mapa 5→8
 
 **Rama:** `feat/f3-seguro` · **Implementación**
