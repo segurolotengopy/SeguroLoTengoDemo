@@ -36,6 +36,7 @@ export type { IsologoProps } from "./marcas";
 
 export { ToggleTema } from "./ToggleTema";
 export type { ToggleTemaProps } from "./ToggleTema";
+export { PestanasDeProducto } from "./PestanasDeProducto";
 
 export {
   aplicarTema,

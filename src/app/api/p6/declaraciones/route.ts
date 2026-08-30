@@ -46,6 +46,10 @@ export async function POST(request: Request): Promise<Response> {
     expedienteId,
     beneficiario: bloque(cuerpo, "beneficiario"),
     declaraciones: bloque(cuerpo, "declaraciones"),
+    // v3 (lote F3): las cinco respuestas del paso 2 y la casilla agrupada.
+    // Con el flag apagado el dominio los ignora.
+    respuestasV3: bloque(cuerpo, "respuestasV3"),
+    aceptacionPlan: cuerpo.aceptacionPlan === true,
     contexto,
   });
 
@@ -64,6 +68,9 @@ export async function POST(request: Request): Promise<Response> {
         ...(resultado.camposInvalidos ? { camposInvalidos: resultado.camposInvalidos } : {}),
         ...(resultado.declaracionesSinResponder
           ? { declaracionesSinResponder: resultado.declaracionesSinResponder }
+          : {}),
+        ...(resultado.respuestasSinResponderV3
+          ? { respuestasSinResponderV3: resultado.respuestasSinResponderV3 }
           : {}),
       },
       { status },

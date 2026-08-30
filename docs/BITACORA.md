@@ -38,6 +38,74 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-30 (b) · Lote F3: la página /seguro — el paso 2 y el mapa 5→8
+
+**Rama:** `feat/f3-seguro` · **Implementación**
+
+### El caso
+
+Con F2 mergeado, Andres pidió F3. Corrección importante surgida en la
+exploración: **los premios ya eran los aprobados** (319.000/522.500/726.000,
+OFERTA-CONFIO-v2 del 20-ago) — la pregunta sobre premios partió de un dato
+viejo mío y la decisión «global ahora» ya estaba cumplida; este lote no tocó
+el catálogo.
+
+### Qué cambió
+
+- **El mapa 5→8 (DI-3)**: `src/domain/declaraciones-v3.ts` — la pantalla
+  pregunta 5, el PDF sigue imprimiendo 8. Claves 1/2/3/4/8 desde las
+  preguntas; 5/6/7 desde la casilla agrupada 2. Con test propio, como exigía
+  la decisión.
+- `declaraciones-p6.ts` con camino v3: exige la aceptación agrupada
+  (`ACEPTACION_REQUERIDA`), corta carencias en No **sin derivar**
+  (`CARENCIAS_NO_ACEPTADAS` — la clave 4 no bloquea en el motor y dejarla
+  pasar convertiría un alto de UI en un derivado), expande y sigue el
+  pipeline intacto. Evidencia por flag: en v3 asienta el literal y la versión
+  de la aceptación agrupada 2 (`SEGURO-ACEPTACION-v1`).
+- `textos-seguro.ts`: las 5 preguntas del canvas con sus notas (PEP,
+  carencias), la aceptación agrupada 2 (5 ítems) y `coberturasEnClaro()`
+  derivada del catálogo + las carencias del certificado (ahora exportadas).
+- `/seguro`: page (patrón F2; sin trámite → puerta a `/inscripcion`),
+  orquestador `Seguro.tsx` (plan activo/colapsado con `cambiar plan` vía el
+  autobucle, coberturas en claro, formulario gated) y `FormularioSeguroP2`
+  (beneficiario con los campos de la Solicitud, 5 preguntas con avisos, CTA
+  dual continuar/asesor — mismo POST, el motor decide).
+- `SelectorDePlanes` ganó `onCompletado` (v2 intacto);
+  `PestanasDeProducto` extraída a shared con etiqueta parametrizada
+  («PRÓXIMAMENTE» v2 / «PRONTO» v3).
+- `DETALLE_SEGURO_COMPLETO` neutral: a esta página se llega desde trámites
+  anteriores Y posteriores al paso; afirmar «tu plan ya está elegido»
+  mentiría en el primer caso (visto en el recorrido por navegador).
+- E2E v3: `02-seguro.spec.ts` (redirect de /declaraciones, puerta sin
+  trámite, etiqueta PRONTO, stepper «Paso 2 de 3»).
+
+### Qué hizo Andres
+
+- Eligió «global ahora» para los premios (resultó ya cumplida) y aprobó el
+  plan del lote.
+
+### Verificaciones
+
+- typecheck + lint + **1195 tests** (12 nuevos del mapa y el caso de uso v3,
+  con imports dinámicos post-stubEnv — las constantes por flag son de
+  import-time).
+- Build sin flag en verde. **E2E v3: 6/6** (52 s). Smoke v2:
+  `03-salud-incompatible` en verde (1.7 m) — P6 v2 intacto.
+- Navegador con flag: /seguro dibuja tabs PRONTO, marcadores CDXXXXX y
+  reencamina un trámite en inscripción.
+
+### Queda abierto
+
+- F4: página `/pago-y-firma` (paso 3) + decisión de integración de la rama
+  de firma interna. El destino tras las declaraciones ya apunta ahí.
+- El E2E v3 de recorrido completo sigue esperando a que el flujo cierre
+  (F4–F6).
+- La sección del plan dentro de /seguro reusa el pie del selector v2 (nota
+  legal + botón) tal cual; los literales finos del canvas para esa sección
+  entran al refinar, si hace falta.
+
+---
+
 ## 2026-08-30 · Lote F2: la página /inscripcion — el paso 1 del flujo v3
 
 **Rama:** `feat/f2-inscripcion` · **Implementación (primera página v3)**

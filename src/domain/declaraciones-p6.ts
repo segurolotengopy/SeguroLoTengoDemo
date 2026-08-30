@@ -66,10 +66,13 @@ import {
   interpretarDeclaracionesP6,
 } from "./elegibilidad";
 import type { MotivoDerivacion } from "./elegibilidad";
+import { expandirRespuestasV3, interpretarRespuestasV3 } from "./declaraciones-v3";
+import type { ClaveRespuestaV3 } from "./declaraciones-v3";
 import { registrarDeclaracionesP6 } from "./expediente";
 import { flujoV3Activo } from "./flujo-vigente";
 import { PANTALLA_POR_ESTADO } from "./rutas-flujo";
 import { registrarRemisionFallida, remitirCasoAAlianza } from "./remision-alianza";
+import { TEXTO_ACEPTACION_SEGURO, VERSION_ACEPTACION_SEGURO } from "./textos-seguro";
 import { VERSION_TEXTOS_DECLARACIONES_P6 } from "./textos-p6";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal";
@@ -160,6 +163,15 @@ export interface EntradaP6 {
   readonly beneficiario: Readonly<Record<string, unknown>>;
   /** Respuestas del bloque 2, indexadas por número de declaración ("1".."8"). */
   readonly declaraciones: Readonly<Record<string, unknown>>;
+  /**
+   * v3 (lote F3) · las **cinco** respuestas de la pantalla del paso 2, por
+   * clave (`salud`, `antecedentes`, `enfermedades`, `pep`, `carencias`). Con
+   * el flag encendido este bloque reemplaza a `declaraciones`: el mapa 5→8
+   * (`declaraciones-v3.ts`) las expande antes de tocar el motor.
+   */
+  readonly respuestasV3?: Readonly<Record<string, unknown>>;
+  /** v3 · la casilla agrupada 2 (DI-8), fuente de las claves 5/6/7 del mapa. */
+  readonly aceptacionPlan?: boolean;
   readonly contexto: ContextoPeticion;
 }
 
@@ -167,7 +179,12 @@ export type MotivoRechazoP6 =
   | "EXPEDIENTE_NO_ENCONTRADO"
   | "ESTADO_INVALIDO"
   | "DATOS_INCOMPLETOS"
-  | "DECLARACIONES_INCOMPLETAS";
+  | "DECLARACIONES_INCOMPLETAS"
+  // v3 · la casilla agrupada sin marcar: sin ella no hay claves 5/6/7.
+  | "ACEPTACION_REQUERIDA"
+  // v3 · la pregunta de carencias en No **bloquea sin derivar** (DI-3): es un
+  // alto de la pantalla, no una declaración que entre al motor ni al PDF.
+  | "CARENCIAS_NO_ACEPTADAS";
 
 /**
  * Lo que devuelve el caso de uso. Deliberadamente **no tiene** ningún campo de
@@ -203,6 +220,8 @@ export type ResultadoP6 =
       readonly motivo: MotivoRechazoP6;
       readonly camposInvalidos?: readonly CampoP6[];
       readonly declaracionesSinResponder?: readonly number[];
+      /** v3 · las claves de las cinco preguntas que faltan responder. */
+      readonly respuestasSinResponderV3?: readonly ClaveRespuestaV3[];
     };
 
 // ---------------------------------------------------------------------------
@@ -278,11 +297,15 @@ async function registrarEvidencia(
     ip: entrada.contexto.ip,
     dispositivo: entrada.contexto.dispositivo,
     sesionId: entrada.contexto.sesionId,
-    versionTextoAceptado: VERSION_TEXTOS_DECLARACIONES_P6,
-    // La versión alcanza: el literal íntegro de las ocho declaraciones queda
-    // en la Solicitud y el FIPF, que se cierran y se hashean en P8 (regla
-    // inviolable #4). Duplicarlo acá solo agrandaría el registro.
-    textoAceptado: null,
+    // v2: la versión de los literales de las ocho declaraciones (el texto
+    // íntegro queda en la Solicitud y el FIPF, que se cierran y hashean en P8
+    // — regla inviolable #4; duplicarlo acá solo agrandaría el registro).
+    // v3: además de esa garantía, la persona marcó la casilla agrupada 2
+    // (DI-8), y ese literal sí se asienta acá con su versión propia.
+    versionTextoAceptado: flujoV3Activo()
+      ? VERSION_ACEPTACION_SEGURO
+      : VERSION_TEXTOS_DECLARACIONES_P6,
+    textoAceptado: flujoV3Activo() ? TEXTO_ACEPTACION_SEGURO : null,
     resultado: entrada.resultado,
     detalle: formatearDetalle(entrada.detalle),
   };
@@ -320,7 +343,29 @@ export async function guardarDatosYDeclaracionesP6(
     };
   }
 
-  const declaraciones = interpretarDeclaracionesP6(entrada.declaraciones);
+  // v3 · la pantalla manda cinco respuestas y la casilla agrupada; el mapa
+  // 5→8 las convierte en las ocho claves de siempre ANTES del intérprete: de
+  // acá en adelante, el motor, el expediente y el PDF no distinguen versiones.
+  let brutoDeclaraciones = entrada.declaraciones;
+  if (flujoV3Activo()) {
+    if (entrada.aceptacionPlan !== true) {
+      return { ok: false, motivo: "ACEPTACION_REQUERIDA" };
+    }
+    const cinco = interpretarRespuestasV3(entrada.respuestasV3 ?? {});
+    if (!cinco.ok) {
+      return {
+        ok: false,
+        motivo: "DECLARACIONES_INCOMPLETAS",
+        respuestasSinResponderV3: cinco.sinResponder,
+      };
+    }
+    if (cinco.respuestas.carencias === "NO") {
+      return { ok: false, motivo: "CARENCIAS_NO_ACEPTADAS" };
+    }
+    brutoDeclaraciones = expandirRespuestasV3(cinco.respuestas);
+  }
+
+  const declaraciones = interpretarDeclaracionesP6(brutoDeclaraciones);
   if (!declaraciones.ok) {
     return {
       ok: false,

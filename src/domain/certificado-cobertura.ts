@@ -215,9 +215,9 @@ const LEYENDA_FIRMA_CERTIFICADO =
  * al lado de cada suma: es el dato que alguien va a buscar con el certificado
  * en la mano.
  */
-const CARENCIA_CANCER = "180 días";
-const CARENCIA_RENTA = "30 días";
-const CARENCIA_GENERAL = "1 día";
+export const CARENCIA_CANCER = "180 días";
+export const CARENCIA_RENTA = "30 días";
+export const CARENCIA_GENERAL = "1 día";
 
 // ---------------------------------------------------------------------------
 // Armado

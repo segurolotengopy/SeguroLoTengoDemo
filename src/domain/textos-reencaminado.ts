@@ -37,6 +37,12 @@ export const DETALLE_INSCRIPCION_COMPLETA =
   "Tu inscripción ya está completa: identidad verificada, WhatsApp confirmado y " +
   "autorizaciones aceptadas. Podés retomar el trámite donde quedaste.";
 
+// Neutral a propósito: a esta página se puede llegar desde un trámite que ya
+// la completó O desde uno que todavía no llegó (la inscripción a medio hacer).
+// Afirmar «tu plan ya está elegido» mentiría en el segundo caso.
+export const DETALLE_SEGURO_COMPLETO =
+  "Este paso no le corresponde ahora a tu trámite. Podés retomarlo donde quedaste.";
+
 export const DETALLE_DECLARACIONES_YA_RESPONDIDAS =
   "Ya respondiste las declaraciones y quedaron guardadas con la fecha y la hora en que las " +
   "hiciste, así que no se editan desde acá. Podés retomar el trámite donde quedaste.";
