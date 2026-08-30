@@ -2,12 +2,13 @@ import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import {
   HeaderInstitucional,
+  PestanasDeProducto,
   PieLegal,
   StepperPasos,
   TituloDePantalla,
   TramiteEnOtroPaso,
 } from "@/components/shared";
-import { NOMBRE_PRODUCTO, PRODUCTOS, REGISTRO_PRODUCTO, urlVideoInformativo } from "@/domain/catalogo";
+import { NOMBRE_PRODUCTO, REGISTRO_PRODUCTO, urlVideoInformativo } from "@/domain/catalogo";
 import {
   BAJADA_VIDEO_PLAN,
   DETALLE_TRAMITE_EN_OTRO_PASO,
@@ -75,42 +76,6 @@ const TRAZOS = {
   reloj: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2",
 } as const;
 
-/** Ícono por producto, como los dibuja la maqueta en cada pestaña. */
-const ICONO_PRODUCTO: Readonly<Record<string, string>> = {
-  VIDA_ONCOLOGICO: TRAZOS.persona,
-  VIDA: TRAZOS.corazon,
-  ACCIDENTES_PERSONALES: TRAZOS.persona,
-  RESPONSABILIDAD_CIVIL: TRAZOS.escudo,
-};
-
-/**
- * Pestañas de producto (maqueta p.1). Absorben las fichas de P0: el
- * oncológico activo y los otros tres productos anunciados. Server-rendered:
- * hoy no hay otro producto al que navegar, así que las inactivas no son
- * botones que finjan serlo.
- */
-function PestanasDeProducto() {
-  return (
-    <div className="flex flex-wrap gap-1 border-b-2 border-naranja-500" role="presentation">
-      {PRODUCTOS.map((producto) => (
-        <span
-          key={producto.id}
-          className={`inline-flex items-center gap-1.5 rounded-t-lg px-4 py-2 text-xs font-bold tracking-wide uppercase ${
-            producto.disponible
-              ? "border-x border-t border-naranja-500 bg-naranja-50 text-naranja-800 dark:bg-naranja-950 dark:text-naranja-200"
-              : "border-x border-t border-borde-tenue bg-superficie text-etiqueta"
-          }`}
-        >
-          <Icono trazo={ICONO_PRODUCTO[producto.id] ?? TRAZOS.escudo} />
-          {producto.nombre}
-          {producto.disponible ? null : (
-            <span className="ml-1 text-[9px] font-semibold">PRÓXIMAMENTE</span>
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 /**
  * Botón de video de la maqueta. Es el mismo material de P0 —un marcador de

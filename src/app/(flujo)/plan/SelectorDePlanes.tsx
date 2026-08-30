@@ -174,7 +174,18 @@ function TarjetaPlan({
   );
 }
 
-export function SelectorDePlanes({ entreTarjetasYPie }: { entreTarjetasYPie?: React.ReactNode }) {
+export function SelectorDePlanes({
+  entreTarjetasYPie,
+  onCompletado,
+}: {
+  entreTarjetasYPie?: React.ReactNode;
+  /**
+   * Al guardar el plan, en vez de navegar al paso siguiente (el default, para
+   * la página v2). Lo usa la página del paso 2 del flujo v3 para avanzar el
+   * gating de secciones sin recargar (lote F3).
+   */
+  onCompletado?: () => void;
+}) {
   const [planElegido, setPlanElegido] = useState<PlanId | null>(null);
   const [enProceso, setEnProceso] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,7 +214,11 @@ export function SelectorDePlanes({ entreTarjetasYPie }: { entreTarjetasYPie?: Re
         return;
       }
 
-      window.location.assign(rutaSiguienteDe("/plan") ?? "/whatsapp");
+      if (onCompletado) {
+        onCompletado();
+      } else {
+        window.location.assign(rutaSiguienteDe("/plan") ?? "/whatsapp");
+      }
     } catch {
       setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
     } finally {
