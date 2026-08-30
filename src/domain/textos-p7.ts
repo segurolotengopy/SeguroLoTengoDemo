@@ -45,7 +45,7 @@
  * - 28 — En QR, informar la condición del pago anterior a la firma. **Ya no
  *   aplica:** con D-08 no hay pago anterior a la firma.
  * - 30 — Devolver el premio si no se firma dentro del plazo comunicado
- *   (Ley 4868/13, arts. 7(f), 17 y 30(b); Res. SS SG. 215/15, Anexo 1,
+ *   (Ley 4868/13, arts. 7(f), 17 y 30(b); Res. SS SG. 215/2025, Anexo 1,
  *   numerales 8.4, 8.5 y 8.9). Se cumple por construcción: el expediente
  *   caduca **antes** de cobrar, así que nunca hay premio que devolver por esta
  *   causa.
