@@ -42,6 +42,10 @@ import {
   vencerPlazoPagoP7,
 } from "../pago-p7";
 import type { EvidenceStore } from "../../ports/evidence-store";
+import {
+  CODIGOS_RESPUESTA_BANCARD,
+  CODIGO_RESPUESTA_APROBADA,
+} from "../../ports/payment-provider";
 import type { EstadoConsultaPago, PaymentProvider } from "../../ports/payment-provider";
 import type { PolicyIssuer } from "../../ports/policy-issuer";
 import type { SignatureProvider } from "../../ports/signature-provider";
@@ -422,6 +426,8 @@ describe("P7 · escrituras concurrentes sobre el mismo expediente", () => {
           montoGs: pagoPendiente.montoGs,
           ultimos4Digitos: null,
           actualizadoEn: "2026-08-09T15:01:00.000Z",
+          codigoRespuesta: CODIGO_RESPUESTA_APROBADA,
+          descripcionRespuesta: CODIGOS_RESPUESTA_BANCARD[CODIGO_RESPUESTA_APROBADA] ?? null,
         };
       },
     };

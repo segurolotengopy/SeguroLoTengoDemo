@@ -290,6 +290,16 @@ export type ResultadoIniciarPagoP7 =
       readonly ok: false;
       readonly motivo: MotivoRechazoP7;
       readonly detalle?: string;
+      /**
+       * `response_code` de Bancard cuando el rechazo vino de ahí y trajo uno.
+       *
+       * Sube hasta la pantalla —no se queda en la evidencia— porque el motivo
+       * del rechazo es del proveedor y la pantalla no tiene por qué inventarlo:
+       * "Fondos insuficientes" y "Tarjeta inhabilitada" mandan a la persona a
+       * hacer cosas distintas. Ausente en un timeout, donde por definición no
+       * hubo respuesta que citar.
+       */
+      readonly codigoRespuesta?: string;
       readonly siguientePantalla?: typeof RUTA_PANTALLA_B;
     };
 
@@ -642,7 +652,12 @@ async function intentarIniciarPagoP7(
         hashDocumento: documento.hashSha256,
       }),
     });
-    return { ok: false, motivo, detalle: esDeBancard ? error.message : undefined };
+    return {
+      ok: false,
+      motivo,
+      detalle: esDeBancard ? error.message : undefined,
+      codigoRespuesta: esDeBancard ? (error.codigoRespuesta ?? undefined) : undefined,
+    };
   }
 
   const facturacion: DatosFacturacionP7 = {

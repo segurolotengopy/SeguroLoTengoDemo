@@ -230,12 +230,57 @@ export const ACLARACION_REQUISITOS_IDENTIDAD: DocumentoAclaracion = {
   ],
 };
 
+/**
+ * Derecho de retracto.
+ *
+ * Existe porque el pie de página lo ofrece en **todas** las pantallas,
+ * incluidas las que tienen un formulario a medio llenar, y hasta ahora ese
+ * enlace navegaba a otra página: quien lo tocaba para despejar una duda perdía
+ * lo que estaba cargando. Como modal, la duda se despeja sin salir de donde se
+ * está (pedido de Andres, 21-ago-2026).
+ *
+ * La página `/retracto` **se conserva**: es una dirección que se puede guardar,
+ * compartir o citar, y a la que hay que poder llegar sin estar en el flujo.
+ * Cambió por dónde se entra desde el pie, no que el contenido exista.
+ *
+ * Como el resto de este módulo: informativo, sin citar artículos.
+ */
+export const ACLARACION_DERECHO_RETRACTO: DocumentoAclaracion = {
+  id: "derecho-retracto",
+  titulo: "Derecho de retracto",
+  version: "v1.0",
+  secciones: [
+    {
+      titulo: "Qué es",
+      parrafos: [
+        "Podés arrepentirte de la contratación y dejarla sin efecto dentro del plazo previsto, contado desde que recibís la póliza. No hace falta que expliques el motivo: alcanza con que lo pidas.",
+        "Si ejercés el retracto dentro del plazo, se te devuelve lo que hayas pagado. La cobertura queda sin efecto desde ese momento.",
+      ],
+    },
+    {
+      titulo: "Cómo se pide",
+      parrafos: [
+        "Escribiendo al correo de contacto que figura al pie de esta pantalla, o por el mismo WhatsApp con el que verificaste tu número. Conviene incluir tu número de cédula y el número de propuesta que figura en tus documentos.",
+        "Te confirmamos la recepción por el mismo canal por el que lo pediste, y desde ahí el trámite lo continúa la aseguradora.",
+      ],
+    },
+    {
+      titulo: "Qué no es",
+      parrafos: [
+        "No es lo mismo que dejar vencer una solicitud sin pagar: en ese caso nunca se te cobró nada, así que no hay devolución que pedir ni retracto que ejercer — simplemente podés empezar una solicitud nueva.",
+        "Tampoco reemplaza a la cancelación posterior de la póliza, que tiene sus propias condiciones y plazos, y que se gestiona con la aseguradora.",
+      ],
+    },
+  ],
+};
+
 /** Catálogo por id, para resolver el documento desde el componente. */
 export const DOCUMENTOS_ACLARACION = {
   coberturas: ACLARACION_COBERTURAS,
   documentacionPrecontractual: ACLARACION_DOCUMENTACION_PRECONTRACTUAL,
   consultasReclamos: ACLARACION_CONSULTAS_RECLAMOS,
   avisoPrivacidad: ACLARACION_AVISO_PRIVACIDAD,
+  derechoRetracto: ACLARACION_DERECHO_RETRACTO,
   terminosCondiciones: ACLARACION_TERMINOS_CONDICIONES,
   requisitosIdentidad: ACLARACION_REQUISITOS_IDENTIDAD,
 } as const;

@@ -39,6 +39,8 @@
  */
 import type { CanalFirma } from "./tipos";
 
+import type { IdDocumentoAclaracion } from "./textos-aclaraciones";
+
 export const TITULO_P8 = "Revisión y firma final";
 
 export const SUBTITULO_P8 =
@@ -89,10 +91,26 @@ export const NOTA_SIN_DESCARGA_ANTES_DE_FIRMAR_P8 =
 
 export const TITULO_ACCESO_PREVIO_P8 = "ACCESO PREVIO A LA INFORMACIÓN";
 
-export const ENLACES_ACCESO_PREVIO_P8: readonly string[] = [
-  "Coberturas, exclusiones y carencias",
-  "Condiciones del seguro",
-  "Aviso de privacidad",
+/**
+ * Los tres documentos que la persona tiene derecho a leer **antes** de firmar,
+ * con el id del texto que abre cada uno.
+ *
+ * Antes esto era una lista de etiquetas sueltas y la pantalla las dibujaba a
+ * las tres apuntando a `/plan`: en el momento previo a firmar un contrato de
+ * seguro de vida, tocar "Aviso de privacidad" te sacaba del acto de firma y te
+ * devolvía al paso 1. Llevar el id acá adentro hace que la etiqueta y el
+ * documento viajen juntos y no se puedan volver a separar.
+ *
+ * Se abren en modal (`EnlaceAclaracion`), no navegando: salir de la pantalla en
+ * este punto es perder el contexto del acto que se está por hacer.
+ */
+export const ENLACES_ACCESO_PREVIO_P8: readonly {
+  readonly etiqueta: string;
+  readonly documento: IdDocumentoAclaracion;
+}[] = [
+  { etiqueta: "Coberturas, exclusiones y carencias", documento: "coberturas" },
+  { etiqueta: "Condiciones del seguro", documento: "terminosCondiciones" },
+  { etiqueta: "Aviso de privacidad", documento: "avisoPrivacidad" },
 ];
 
 export const NOTA_SIN_MODIFICACION_P8 =
@@ -106,6 +124,22 @@ export const TITULO_BLOQUE_CANAL_P8 = "Elegí el canal";
 
 export const SUBTITULO_BLOQUE_CANAL_P8 =
   "Te enviaremos un enlace seguro al canal elegido para realizar la firma electrónica.";
+
+/**
+ * Lo que dice el bloque de canal **en la demostración**, donde no hay elección
+ * que hacer.
+ *
+ * El acto de firma se abre al cargar la pantalla, así que para cuando la
+ * persona mira los canales el código ya salió: los controles quedaban
+ * deshabilitados desde el primer instante, ofreciendo una decisión que no se
+ * podía tomar. Peor que no ofrecerla.
+ *
+ * Se muestra a dónde fue el código, que es la pregunta que la persona sí tiene.
+ * Poder cambiar de canal exige descartar el acto abierto, y eso hoy no existe
+ * en el dominio — queda anotado para el rediseño, no simulado acá.
+ */
+export const SUBTITULO_BLOQUE_CANAL_DEMO_P8 =
+  "El código para firmar sale a tu canal verificado.";
 
 /** El canal por defecto de la especificación es el WhatsApp verificado. */
 export const CANAL_FIRMA_POR_DEFECTO: CanalFirma = "WHATSAPP";
@@ -182,6 +216,25 @@ export const PASOS_PROGRESO_FIRMA_P8: readonly string[] = [
   "Te confirmamos y volvés al portal",
 ];
 
+/**
+ * Los mismos tres pasos, contados como ocurren **en la demostración**.
+ *
+ * Los de arriba narran el recorrido del servicio real: llega un enlace, se
+ * firma del otro lado y se vuelve al portal. Desde que el paso 6 pide el código
+ * acá mismo, en la demostración no hay enlace que recibir, no se sale a ningún
+ * lado y no se vuelve de ninguna parte — así que ese indicador describía tres
+ * cosas que no pasan mientras la persona las mira.
+ *
+ * Se agrega un juego aparte en vez de cambiar el primero porque los dos
+ * recorridos son ciertos, cada uno en su modo, y el día que exista el adaptador
+ * oficial el de arriba vuelve a ser el único.
+ */
+export const PASOS_PROGRESO_FIRMA_DEMO_P8: readonly string[] = [
+  "Te enviamos el código",
+  "Escribilo y firmá",
+  "Te confirmamos la firma",
+];
+
 export const ESTADO_ESPERANDO_FIRMA_P8 = "Esperando la confirmación verificable de la firma";
 
 export const NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8 =
@@ -244,3 +297,21 @@ export const AVISO_FIRMA_RECHAZADA_P8 =
 
 export const AVISO_ENLACE_ENVIADO_P8 =
   "Enviamos el enlace de firma a tu canal verificado. Abrilo, firmá y volvé a esta pantalla.";
+
+/**
+ * Lo que dice esa misma línea **en la demostración**, donde el enlace no se
+ * envía a ningún lado.
+ *
+ * `SignatureProvider` está en mock y su `iniciarFirma` no hace una sola llamada
+ * de red: fabrica una URL simulada y la guarda. Anunciar "enviamos el enlace"
+ * ahí no es una simplificación, es una afirmación falsa — y sale cara: alguien
+ * probó dos veces el paso, esperando un correo que ninguna línea de código
+ * llegó a intentar.
+ *
+ * La regla del proyecto es que ninguna pantalla nombre al proveedor, y esto no
+ * la rompe: no dice quién firma, dice que en esta demostración el envío está
+ * simulado y por dónde seguir.
+ */
+export const AVISO_ENLACE_SIMULADO_P8 =
+  "Demostración: el enlace de firma no se envía a ningún canal — no esperes un mensaje. " +
+  "Abrí el firmador desde el botón de acá abajo.";

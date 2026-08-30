@@ -41,7 +41,22 @@ export function runPaymentProviderContractTests(
       });
 
       expect(resultado.referenciaBancard.length).toBeGreaterThan(0);
+
+      // El `qr_data` es **EMVCo**, no una cadena cualquiera: lo fija
+      // `docs/Integraciones/Qr en API de Comercios v1.2 16 (1).pdf`. La
+      // exigencia vive en el contrato compartido —y no solo en los tests del
+      // mock— porque el día que exista el adaptador oficial tiene que cumplirla
+      // igual: una app de banco no lee otra cosa.
       expect(resultado.qrPayload.length).toBeGreaterThan(0);
+      // Versión del formato y método de iniciación dinámico.
+      expect(resultado.qrPayload.startsWith("000201")).toBe(true);
+      // Moneda guaraní (ISO 4217 numérico) y país del comercio.
+      expect(resultado.qrPayload).toContain("5303600");
+      expect(resultado.qrPayload).toContain("5802PY");
+      // El importe de la venta, en guaraníes y sin decimales.
+      expect(resultado.qrPayload).toContain("5406475000");
+      // Cierra con el CRC en su etiqueta `63`, de cuatro dígitos hexadecimales.
+      expect(resultado.qrPayload).toMatch(/6304[0-9A-F]{4}$/);
     });
 
     it("consulta el estado de un pago QR recién iniciado", async () => {

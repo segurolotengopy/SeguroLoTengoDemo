@@ -13,7 +13,7 @@ import type { Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import type { PersonaDemo } from "@/adapters/mock/personas";
 import { enmascararCelular } from "@/domain/telefono";
-import { accionarFirmaPanel, leerCodigoOtpDelPanel, leerSesionFirmaDelPanel } from "./demo-panel";
+import { leerCodigoOtpDelPanel, leerSesionFirmaDelPanel } from "./demo-panel";
 
 /** `+595981000123` → `981000123`, lo que se tipea en el campo de P1. */
 export function celularLocal(persona: PersonaDemo): string {
@@ -280,6 +280,9 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
   ).toBeVisible();
 
   await page.getByLabel(/Autorizo la captura y comparación/).check();
+  // El sexo se elige: desde el 21-ago-2026 no lo prellena el OCR, y sin
+  // elegirlo el botón de continuar no se habilita.
+  await page.locator("#p5-sexo").selectOption("Femenino");
   await page.locator("#p5-pais").selectOption("Paraguay");
   await page.locator("#p5-pais-residencia").selectOption("Paraguay");
   await page.locator("#p5-estado-civil").selectOption("Soltero/a");
@@ -309,6 +312,9 @@ export async function completarCapturasP5(page: Page): Promise<void> {
     page.getByText("La selfie no coincide con la fotografía de la cédula.", { exact: false }),
   ).toBeVisible();
   await page.getByLabel(/Autorizo la captura y comparación/).check();
+  // El sexo se elige: desde el 21-ago-2026 no lo prellena el OCR, y sin
+  // elegirlo el botón de continuar no se habilita.
+  await page.locator("#p5-sexo").selectOption("Femenino");
   await page.locator("#p5-pais").selectOption("Paraguay");
   await page.locator("#p5-pais-residencia").selectOption("Paraguay");
   await page.locator("#p5-estado-civil").selectOption("Soltero/a");
@@ -437,17 +443,23 @@ export async function completarP7Qr(page: Page): Promise<void> {
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
   await expect(page.getByText("Escaneá el QR con tu app de banco")).toBeVisible();
 
-let ultimaRespuestaDiagnostico = "";
-  await expect(async () => {
-    const respuesta = await page.request.get("/api/p7/estado");
-    const texto = await respuesta.text();
-    ultimaRespuestaDiagnostico = `status=${respuesta.status()} body=${texto}`;
-    const datos = JSON.parse(texto || "{}") as { ok?: boolean; confirmado?: boolean };
-    expect(datos.ok === true && datos.confirmado === true, ultimaRespuestaDiagnostico).toBe(true);
-  }).toPass({ timeout: 30_000, intervals: [1_000] });
+  // El pago lo dispara el botón *Pagado*, no un reloj. Antes acá se sondeaba
+  // hasta que el mock acreditara solo a los seis segundos, y de eso salían dos
+  // problemas: el test dependía de una carrera contra un temporizador, y el
+  // recorrido mostraba el dinero entrando sin que nadie hiciera nada.
+  //
+  // `toBeEnabled` espera con el auto-retry de Playwright a que pase el contador
+  // de cinco segundos: no hace falta un `waitForTimeout`, que sería justamente
+  // la clase de espera fija que vuelve intermitente a una suite.
+  const pagado = page.getByRole("button", { name: "Pagado", exact: true });
+  await expect(pagado).toBeEnabled({ timeout: 15_000 });
+  await pagado.click();
 
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Pago acreditado" })).toBeVisible();
+  // La confirmación del expediente la hace el sondeo, que corre solo. Se espera
+  // el resultado en la pantalla —no en la API— porque es lo que la persona ve.
+  await expect(page.getByRole("heading", { name: "Pago acreditado" })).toBeVisible({
+    timeout: 15_000,
+  });
 }
 
 export async function continuarAConfirmacion(page: Page): Promise<void> {
@@ -456,10 +468,12 @@ export async function continuarAConfirmacion(page: Page): Promise<void> {
 }
 
 /**
- * Paso 6 · Revisá, aceptá y firmá — envía el enlace de firma por WhatsApp y
- * abre el "otro lado" (el panel de demo haciendo de Code100). No firma: eso lo
- * hacen `firmarNormalmente` / `firmarConFallaAMitad` de abajo, según el
- * escenario.
+ * Paso 6 · Revisá, aceptá y firmá — espera a que el acto de firma se abra solo.
+ *
+ * Ya no hay botón de enviar enlace: la pantalla abre el acto al cargar y pide
+ * el código, que es lo único que la persona hace acá. Este ayudante devuelve el
+ * identificador del acto para que el escenario pueda mirarlo desde el panel;
+ * quien firma es `firmarNormalmente` / `firmarConFallaAMitad`.
  */
 export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
   await expect(page).toHaveURL(/\/firma$/);
@@ -468,31 +482,49 @@ export async function enviarEnlaceYAbrir(page: Page): Promise<string> {
   // firmar es lo que habilita el pago.
   await expect(page.getByRole("heading", { name: "DESPUÉS DE FIRMAR" })).toBeVisible();
 
-  await page.getByRole("button", { name: "ENVIAR ENLACE SEGURO DE FIRMA" }).click();
-  await expect(
-    page.getByText("Enviamos el enlace de firma a tu canal verificado.", { exact: false }),
-  ).toBeVisible();
+  // El acto se abre solo, pero recién cuando la pantalla tiene el resumen — y
+  // para tenerlo hay que cerrar el paquete documental: generar el PDF,
+  // hashearlo y subirlo. Antes esa espera quedaba escondida detrás del botón,
+  // que Playwright aguardaba a que se habilitara; ahora es explícita, así que
+  // el plazo tiene que cubrir el cierre del paquete, no solo la apertura del
+  // acto.
+  await expect(page.getByRole("heading", { name: "Código para firmar" })).toBeVisible({
+    timeout: 60_000,
+  });
+
+  // Y se espera a que el código **exista**, no solo a que el bloque aparezca.
+  // El título se dibuja apenas hay acto, mientras la emisión sigue en vuelo y
+  // el bloque dice "Generando el código…": leer el panel en ese instante
+  // devuelve `null` y el escenario falla con "el panel no tiene código", que
+  // es cierto y desorienta. El texto del destino es la señal de que ya se
+  // emitió.
+  await expect(page.getByText("Te enviamos un código de 6 dígitos")).toBeVisible({
+    timeout: 30_000,
+  });
 
   const idMatch = await page.getByText(/^ID MOCK-FIRMA-/).textContent();
   const idCode100 = (idMatch ?? "").replace(/^ID\s*/, "").trim();
   expect(idCode100, "No se encontró el ID de Code100 en la pantalla de P8.").not.toBe("");
-
-  const abierto = await accionarFirmaPanel(page, idCode100, { accion: "ABRIR" });
-  expect(abierto.ok, `abrir enlace de firma: ${JSON.stringify(abierto.datos)}`).toBeTruthy();
 
   return idCode100;
 }
 
 /** Firma normalmente con el código real leído del panel; espera pasar al pago. */
 export async function firmarNormalmente(page: Page, idCode100: string): Promise<void> {
+  // El código lo lee el panel de demo, que es el único lugar por donde sale
+  // (regla inviolable #2: la API del flujo no lo devuelve nunca). La persona lo
+  // recibe por WhatsApp; el test lo mira por la puerta de servicio.
   const sesion = await leerSesionFirmaDelPanel(page, idCode100);
   expect(sesion.codigo, "El panel no tiene código de firma para esta sesión.").not.toBeNull();
 
-  const resultado = await accionarFirmaPanel(page, idCode100, {
-    accion: "FIRMAR",
-    codigo: sesion.codigo as string,
-  });
-  expect(resultado.ok, `firmar: ${JSON.stringify(resultado.datos)}`).toBeTruthy();
+  // Y se tipea en la pantalla, como haría la persona: es el camino que el
+  // producto tiene ahora, y ejercitarlo desde la API dejaría sin probar los
+  // campos y el botón.
+  await tipearOtp(page, "p8", sesion.codigo as string);
 
-  await expect(page).toHaveURL(/\/pago$/, { timeout: 20_000 });
+  // Tipear el código no lleva al pago por sí solo: firma del cliente, después
+  // las institucionales, y recién cuando el sondeo ve `FIRMADO` la pantalla
+  // navega. Son varios ciclos de dos segundos contra DynamoDB real, así que el
+  // plazo cubre esa cadena y no solo el envío del código.
+  await expect(page).toHaveURL(/\/pago$/, { timeout: 60_000 });
 }

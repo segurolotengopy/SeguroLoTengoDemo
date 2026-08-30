@@ -109,6 +109,48 @@ export interface PagoTarjetaCreditoIniciado {
   readonly urlFormularioSeguro: string;
 }
 
+/**
+ * Códigos de respuesta de Bancard, con su descripción tal como la documenta el
+ * proveedor.
+ *
+ * Fuente: `docs/Integraciones/eCommerce_bancard_compra_simple_version_1.23.1
+ * (1).pdf`, campo `response_code` (String(2)) y `response_description`
+ * (String(40)). El documento de QR (`Qr en API de Comercios v1.2`) usa los
+ * mismos códigos en el callback: `"00"` es pago exitoso y *"cualquier otro
+ * valor es fallido"*, y su ejemplo de rechazo usa `"51"`.
+ *
+ * **No se inventan códigos ni descripciones.** Si mañana hace falta uno que no
+ * está acá, sale del documento del proveedor o no existe — es el mismo criterio
+ * con el que no se inventan endpoints ni parámetros de Code100.
+ *
+ * Las descripciones son las de Bancard y **no son el texto que ve la persona**:
+ * "Tarjeta inhabilitada" describe el rechazo para quien opera o audita. Lo que
+ * se le muestra a la persona lo redacta la pantalla, que además tiene que
+ * decirle qué hacer.
+ */
+export const CODIGOS_RESPUESTA_BANCARD: Readonly<Record<string, string>> = {
+  "00": "Transacción aprobada.",
+  "05": "Tarjeta inhabilitada",
+  "12": "Transacción inválida",
+  "15": "Tarjeta inválida",
+  "51": "Fondos insuficientes",
+};
+
+/** El único código que significa que el dinero entró. */
+export const CODIGO_RESPUESTA_APROBADA = "00";
+
+/**
+ * Moneda de la transacción.
+ *
+ * **Los dos documentos de Bancard no coinciden, y se conserva la diferencia en
+ * vez de unificarla:** compra simple declara `currency` como `String (3)` con
+ * valor `PYG`, y el callback de QR trae `"currency":"GS"` en sus ejemplos. Son
+ * dos APIs distintas del mismo proveedor; elegir una sola por prolijidad sería
+ * inventar el contrato de la otra.
+ */
+export const MONEDA_BANCARD_VPOS = "PYG";
+export const MONEDA_BANCARD_QR = "GS";
+
 export interface EstadoConsultaPago {
   readonly referenciaBancard: string;
   readonly medio: MedioDePago;
@@ -117,6 +159,18 @@ export interface EstadoConsultaPago {
   /** Últimos 4 dígitos enmascarados, o null si no aplica (p.ej. pago por QR). Nunca el PAN completo. */
   readonly ultimos4Digitos: string | null;
   readonly actualizadoEn: string; // ISO 8601
+  /**
+   * `response_code` de Bancard: `"00"` es aprobada, cualquier otro es rechazo.
+   * `null` mientras la operación sigue pendiente, que es antes de que Bancard
+   * haya respondido nada.
+   *
+   * Viaja en el estado —y no solo en el error— porque un rechazo **es** un
+   * desenlace de la consulta, no una excepción: la pantalla necesita poder
+   * decir por qué se rechazó, y la evidencia tiene que guardarlo.
+   */
+  readonly codigoRespuesta: string | null;
+  /** `response_description` de Bancard, la del proveedor, sin traducir. */
+  readonly descripcionRespuesta: string | null;
 }
 
 /**
@@ -130,11 +184,21 @@ export interface EstadoConsultaPago {
  */
 export class ErrorBancard extends Error {
   readonly motivo: "TIMEOUT" | "RECHAZADA";
+  /**
+   * `response_code` de Bancard cuando el rechazo trae uno.
+   *
+   * `null` en un timeout, y no es un detalle: un timeout es precisamente el
+   * caso en que **no hubo respuesta**, así que inventarle un código sería
+   * afirmar que Bancard dijo algo. Es la misma distinción que obliga a
+   * reintentar con la misma `idempotencyKey`.
+   */
+  readonly codigoRespuesta: string | null;
 
-  constructor(motivo: "TIMEOUT" | "RECHAZADA", mensaje: string) {
+  constructor(motivo: "TIMEOUT" | "RECHAZADA", mensaje: string, codigoRespuesta: string | null = null) {
     super(mensaje);
     this.name = "ErrorBancard";
     this.motivo = motivo;
+    this.codigoRespuesta = codigoRespuesta;
   }
 }
 

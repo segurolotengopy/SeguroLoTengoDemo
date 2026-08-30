@@ -6,7 +6,11 @@ import {
   PieLegal,
   StepperPasos,
   TituloDePantalla,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
+import { DETALLE_PREPARACION_YA_AUTORIZADA } from "@/domain/textos-reencaminado";
+import { expedienteEnOtroPaso } from "../_reencaminado";
 import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
 import {
   ADVERTENCIA_AUTORIZACION_INICIAL_P3,
@@ -104,7 +108,8 @@ const AVISO_IMPORTANTE =
   "identidad, el número de WhatsApp, el correo electrónico y el medio de pago deberán " +
   "pertenecer necesariamente al asegurado.";
 
-export default function PantallaPreparacion() {
+export default async function PantallaPreparacion() {
+  const enOtroPaso = await expedienteEnOtroPaso("/preparacion");
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/preparacion" />} />
@@ -170,6 +175,17 @@ export default function PantallaPreparacion() {
         {/* ---------------------------------------------------------------- */}
         {/* Consentimiento (caja azul con candado) + botón, como la maqueta    */}
         {/* ---------------------------------------------------------------- */}
+        {/* Con el trámite ya adelantado, el bloque de consentimiento y su botón
+            se reemplazan por el reencaminado: pedir de nuevo una autorización
+            ya dada, con un botón que el servidor va a rechazar, es la clase de
+            callejón que este panel existe para cerrar. */}
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_PREPARACION_YA_AUTORIZADA}
+            modoDemo={esModoDemo()}
+          />
+        ) : (
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
           <div className="flex max-w-3xl items-start gap-3 rounded-xl border-2 border-azul-700 bg-superficie px-4 py-3 dark:border-azul-400">
             <svg
@@ -200,6 +216,7 @@ export default function PantallaPreparacion() {
             <p className="max-w-xs text-[11px] text-etiqueta">{NOTA_REGISTRO_P3}</p>
           </div>
         </div>
+        )}
       </main>
 
       <PieLegal />

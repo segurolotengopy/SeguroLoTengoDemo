@@ -5,10 +5,12 @@ import {
   PieLegal,
   StepperPasos,
   TituloDePantalla,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
 import { NOMBRE_PRODUCTO, PRODUCTOS, REGISTRO_PRODUCTO, urlVideoInformativo } from "@/domain/catalogo";
 import {
   BAJADA_VIDEO_PLAN,
+  DETALLE_TRAMITE_EN_OTRO_PASO,
   INFORMACION_RELEVANTE,
   ROTULO_PRODUCTO_INSCRITO,
   SUBTITULO_PLAN,
@@ -23,7 +25,6 @@ import type { DestinoDelExpediente } from "@/domain/rutas-flujo";
 import { puedeElegirPlan } from "@/domain/seleccion-plan";
 import { crearExpedienteRepository } from "@/repositories";
 import { SelectorDePlanes } from "./SelectorDePlanes";
-import { TramiteEnOtroPaso } from "./TramiteEnOtroPaso";
 
 /**
  * Paso 1 · Selección del plan — `/plan`, en el formato de la maqueta
@@ -220,7 +221,11 @@ export default async function PantallaSeleccionDePlan() {
         {/* La franja `Información relevante` entra por prop: la maqueta la
             dibuja entre las tarjetas y el pie, y el pie vive en el selector. */}
         {enOtroPaso ? (
-          <TramiteEnOtroPaso destino={enOtroPaso} modoDemo={esModoDemo()} />
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_TRAMITE_EN_OTRO_PASO}
+            modoDemo={esModoDemo()}
+          />
         ) : (
           <SelectorDePlanes
             entreTarjetasYPie={

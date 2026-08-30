@@ -468,20 +468,29 @@ export type OrigenCaptura = "CAMARA" | "ARCHIVO";
  * generada, y mientras no haya proveedor documental especializado exigir la
  * cámara es el control de autenticidad más efectivo que tenemos.
  *
- * `modoDemo` abre **una sola** excepción, y acotada:
+ * `modoDemo` levanta esa exigencia para **las tres** capturas, y solo ahí.
+ * Fuera de la demostración no hay excepción: `DEMO_MODE=true` lo resuelve
+ * quien llama, porque el dominio no lee variables de entorno.
  *
- * - Solo `FRENTE` y `DORSO`. **La selfie nunca**, en ningún modo. Es el ancla
- *   biométrica de todo el expediente: aceptar un archivo ahí permitiría
- *   verificar la identidad con la fotografía de otra persona, que es
- *   exactamente el fraude que P5 existe para impedir. Una cédula subida se
- *   sigue comparando contra un rostro capturado en vivo.
- * - Solo con `DEMO_MODE=true`, resuelto por quien llama (el dominio no lee
- *   variables de entorno).
+ * **La selfie también, y conviene entender qué se está aceptando.** Es el
+ * ancla biométrica del expediente: un archivo ahí permite verificar la
+ * identidad con la fotografía de otra persona, que es exactamente el fraude
+ * que P5 existe para impedir. Se admite igual porque el camino de demostración
+ * ya renunció a la prueba de vida —`decidirPresenciaDemo` comprueba
+ * *presencia*, no vida, y una foto impresa frente a la cámara pasaría— así que
+ * exigir la cámara para la selfie no compraba la garantía que parecía comprar,
+ * y a cambio cortaba el recorrido de toda demostración a distancia en la que
+ * la persona no está frente al equipo. Decisión de Andres del 20-ago-2026,
+ * tomada con esta consecuencia a la vista.
  *
- * Por qué existe la excepción: en una demostración a distancia no siempre se
- * tiene la cédula en la mano, y sin esto el recorrido se corta en P5. Es
- * comodidad de demostración, no una capacidad del producto — no hay fila en la
- * matriz de cumplimiento que la respalde, y la evidencia la deja marcada.
+ * Lo que sostiene la separación con producción no es esta función sola, son
+ * tres cosas juntas: `DEMO_MODE`, el adaptador de demostración —que **tira si
+ * el flag no está encendido**— y el origen sellado en la evidencia, que deja
+ * a un expediente con documento o rostro subidos imposible de confundir con
+ * uno fotografiado en vivo.
+ *
+ * Comodidad de demostración, no capacidad del producto: no hay fila en la
+ * matriz de cumplimiento que la respalde.
  */
 export function origenCapturaAdmitido(
   tipo: "FRENTE" | "DORSO" | "SELFIE",
@@ -489,7 +498,7 @@ export function origenCapturaAdmitido(
   modoDemo: boolean,
 ): boolean {
   if (origen === "CAMARA") return true;
-  return modoDemo && tipo !== "SELFIE";
+  return modoDemo;
 }
 
 // ---------------------------------------------------------------------------

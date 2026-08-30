@@ -8,6 +8,8 @@ export type { HeaderInstitucionalProps } from "./HeaderInstitucional";
 
 export { StepperPasos } from "./StepperPasos";
 
+export { TramiteEnOtroPaso } from "./TramiteEnOtroPaso";
+
 export { TituloDePantalla } from "./TituloDePantalla";
 
 export { PieLegal } from "./PieLegal";

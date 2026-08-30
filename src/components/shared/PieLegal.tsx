@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { EnlaceAclaracion } from "./AclaracionModal";
 import { IDENTIFICACION_CANAL } from "@/domain/textos-legales";
 import { CORREO_RETRACTO_Y_DATOS } from "@/domain/entidades";
 
@@ -30,18 +30,24 @@ export function PieLegal({ className = "" }: { className?: string }) {
         <p className="text-[11px] leading-relaxed text-etiqueta">{IDENTIFICACION_CANAL}</p>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-          <Link
-            href="/retracto"
+          {/* Modal, no navegación. Este pie aparece en **todas** las
+              pantallas, incluidas las que tienen un formulario a medio llenar:
+              un enlace que navega hace que despejar una duda cueste perder lo
+              cargado. Las páginas `/retracto` y `/privacidad` se conservan para
+              quien llegue por su dirección; lo que cambió es por dónde se entra
+              desde acá. */}
+          <EnlaceAclaracion
+            documento="derechoRetracto"
             className="font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-300 dark:decoration-azul-600"
           >
             Derecho de retracto
-          </Link>
-          <Link
-            href="/privacidad"
+          </EnlaceAclaracion>
+          <EnlaceAclaracion
+            documento="avisoPrivacidad"
             className="font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-300 dark:decoration-azul-600"
           >
             Tus datos y cookies
-          </Link>
+          </EnlaceAclaracion>
           <a
             href={`mailto:${CORREO_RETRACTO_Y_DATOS}`}
             className="font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-300 dark:decoration-azul-600"

@@ -30,6 +30,10 @@ import {
   obtenerSesionFirmaMock,
 } from "../../adapters/mock/signature-provider";
 import type { EvidenceStore } from "../../ports/evidence-store";
+import {
+  CODIGOS_RESPUESTA_BANCARD,
+  CODIGO_RESPUESTA_APROBADA,
+} from "../../ports/payment-provider";
 import type { EstadoConsultaPago, PaymentProvider } from "../../ports/payment-provider";
 import type { SignatureProvider } from "../../ports/signature-provider";
 import {
@@ -102,6 +106,12 @@ function bancardFalso(pago: Pago | null) {
       montoGs: pago?.montoGs ?? 0,
       ultimos4Digitos: null,
       actualizadoEn: AHORA,
+      // El código sigue al estado: `00` solo cuando el dinero entró.
+      codigoRespuesta: estado === "CONFIRMADO" ? CODIGO_RESPUESTA_APROBADA : null,
+      descripcionRespuesta:
+        estado === "CONFIRMADO"
+          ? (CODIGOS_RESPUESTA_BANCARD[CODIGO_RESPUESTA_APROBADA] ?? null)
+          : null,
     };
   }
 

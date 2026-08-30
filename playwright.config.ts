@@ -73,7 +73,15 @@ export default defineConfig({
   // (firma atómica) recorre lo mismo MÁS dos actos de firma con sus
   // verificaciones. El margen es deliberadamente holgado: acá un timeout no
   // detecta bugs, solo mata corridas lentas a medio camino.
-  timeout: 180_000,
+  //
+  // Subido de 180 a 300 s el 21-ago-2026. El recorrido incorporó dos esperas
+  // **deliberadas del producto** —el contador de 5 s antes de habilitar
+  // *Pagado*, y el cierre del paquete documental antes de que aparezca el
+  // código de firma— y con 180 s el camino feliz empezó a morir **después de
+  // llegar al paso 8**: completaba todo el flujo y el reloj lo mataba en la
+  // última pantalla. Un test que falla habiendo hecho su trabajo no reporta
+  // nada, solo confunde.
+  timeout: 300_000,
   /**
    * 30 s por aserción, no 15.
    *

@@ -281,6 +281,46 @@ export interface DestinoDelExpediente {
  * continuar o no, y esa decisión es la misma que la de la ruta: separarlas
  * invitaría a que una pantalla ofreciera "continuar" hacia un estado terminal.
  */
+/**
+ * `true` si un expediente en ese estado **pertenece** a esa pantalla.
+ *
+ * ## Por qué existe
+ *
+ * Nace del mismo callejón que `PANTALLA_POR_ESTADO`, pero del otro lado. Quien
+ * vuelve atrás —a `/identidad`, pongamos, con la identidad ya verificada—
+ * encontraba la pantalla dibujada entera, con sus botones de captura, y el
+ * rechazo aparecía recién al mandar la fotografía:
+ *
+ *     "Este proceso ya no está en el paso de verificación de identidad."
+ *
+ * Cierto, inútil y caro: la persona ya sacó las fotos. El arreglo es preguntar
+ * **antes de dibujar**, y `/plan` lo hizo primero con `puedeElegirPlan`. Esto
+ * es lo mismo para las pantallas que quedaban.
+ *
+ * ## Por qué se pregunta por la pantalla y no por la transición
+ *
+ * El primer intento fue derivarlo del grafo: "¿es legal la transición al estado
+ * que este paso produce?". Se ve razonable y es incorrecto en `/firma`, porque
+ * a `FIRMADO` solo se llega desde `FIRMADO_CLIENTE` — así que un expediente en
+ * `DECLARACIONES_OK`, que es justamente el que entra a firmar, quedaba
+ * expulsado de su propia pantalla. Un paso no es una transición: es el tramo
+ * que va desde que la persona llega hasta que sale, y por el medio pasa por
+ * estados intermedios que son suyos (`PAQUETE_GENERADO`, `FIRMADO_CLIENTE`).
+ *
+ * `PANTALLA_POR_ESTADO` ya contesta exactamente eso, es exhaustiva por tipo, y
+ * es la misma tabla de la que sale el botón de vuelta. Preguntarle a ella
+ * mantiene una sola fuente: si mañana un estado cambia de pantalla, cambia en
+ * un lugar y las dos direcciones se enteran.
+ *
+ * `/plan` **no** usa esto y conserva `puedeElegirPlan`: ahí `PLAN_SELECCIONADO`
+ * apunta a `/whatsapp` —porque es donde hay que seguir— pero volver a elegir
+ * plan sigue siendo legal, que es el enlace `Cambiar plan`. Las dos preguntas
+ * coinciden en las demás pantallas y difieren en esa; conviene no forzarlas.
+ */
+export function perteneceAEstePaso(slug: string, estado: EstadoExpediente): boolean {
+  return PANTALLA_POR_ESTADO[estado] === slug;
+}
+
 export function destinoDelExpediente(estado: EstadoExpediente): DestinoDelExpediente {
   const terminal = TERMINALES.has(estado);
   return {

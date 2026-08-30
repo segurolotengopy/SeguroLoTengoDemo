@@ -21,7 +21,11 @@ import {
 } from "../textos-p7";
 import { describe, expect, it, vi } from "vitest";
 import type { EvidenceStore } from "../../ports/evidence-store";
-import { ErrorBancard } from "../../ports/payment-provider";
+import {
+  CODIGOS_RESPUESTA_BANCARD,
+  CODIGO_RESPUESTA_APROBADA,
+  ErrorBancard,
+} from "../../ports/payment-provider";
 import type { PaymentProvider } from "../../ports/payment-provider";
 import { PLANES } from "../catalogo";
 import {
@@ -142,6 +146,13 @@ function bancardFalso(opciones: { estadoTrasAcreditar?: EstadoPago | null } = {}
         // Bancard sí devuelve el enmascarado; el dominio lo tiene que descartar.
         ultimos4Digitos: medio === "QR_BANCARD" ? null : "0042",
         actualizadoEn: AHORA,
+        // El código sigue al estado, como en el proveedor real: `00` es el
+        // único que significa que el dinero entró.
+        codigoRespuesta: estado === "CONFIRMADO" ? CODIGO_RESPUESTA_APROBADA : null,
+        descripcionRespuesta:
+          estado === "CONFIRMADO"
+            ? (CODIGOS_RESPUESTA_BANCARD[CODIGO_RESPUESTA_APROBADA] ?? null)
+            : null,
       };
     },
     cancelarOLiberarReserva: vi.fn(),
