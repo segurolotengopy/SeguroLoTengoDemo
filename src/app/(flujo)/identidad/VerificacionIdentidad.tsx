@@ -251,6 +251,15 @@ export interface VerificacionIdentidadProps {
    * solo decide si el botón se dibuja; quien lo impide de verdad es el servidor.
    */
   readonly subidaDeArchivoDisponible?: boolean;
+  /**
+   * Al completar la validación, en vez de navegar al paso siguiente (el
+   * default, para la página v2). Existe para que la página de inscripción del
+   * flujo v3 monte este componente como sección y avance el gating sin
+   * recargar (lote F2).
+   */
+  readonly onCompletado?: () => void;
+  /** Ídem para la salida a asistencia humana tras agotar los intentos. */
+  readonly onAsistencia?: () => void;
 }
 
 /** Misma caja que usan los campos de identidad de esta pantalla. */
@@ -296,6 +305,8 @@ function SelectorP5({
 export function VerificacionIdentidad({
   pruebaDeVidaEnVivoDisponible = false,
   subidaDeArchivoDisponible = false,
+  onCompletado,
+  onAsistencia,
 }: VerificacionIdentidadProps = {}) {
   const [capturas, setCapturas] = useState<Capturas>({});
   /** Toma de cámara abierta; mientras exista, el visor ocupa la pantalla. */
@@ -422,7 +433,11 @@ export function VerificacionIdentidad({
       // expediente ya no está en P5. Repetir la captura acá no llevaría a
       // ningún lado, así que la pantalla cede el paso.
       if (datosRespuesta.asistenciaIdentidad) {
-        window.location.assign("/asistencia-identidad");
+        if (onAsistencia) {
+          onAsistencia();
+        } else {
+          window.location.assign("/asistencia-identidad");
+        }
         return;
       }
 
@@ -681,7 +696,11 @@ export function VerificacionIdentidad({
 
       setRegistro(respuesta.registroSeguridad ?? null);
       setAviso("Identidad verificada.");
-      window.location.assign(rutaSiguienteDe("/identidad") ?? "/declaraciones");
+      if (onCompletado) {
+        onCompletado();
+      } else {
+        window.location.assign(rutaSiguienteDe("/identidad") ?? "/declaraciones");
+      }
     } catch {
       setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
     } finally {

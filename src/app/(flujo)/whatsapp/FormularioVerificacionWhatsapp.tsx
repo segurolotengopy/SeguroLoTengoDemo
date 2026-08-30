@@ -81,7 +81,14 @@ function cuentaRegresiva(expiraEn: string | null, ahora: number): string {
 export function FormularioVerificacionWhatsapp(props: {
   /** Número de pruebas de Meta (fase de pruebas del canal real), o `null`. */
   numeroPruebaWhatsApp?: string | null;
+  /**
+   * Al verificar el canal, en vez de navegar al paso siguiente (el default,
+   * para la página v2). Lo usa la página de inscripción del flujo v3 para
+   * avanzar el gating de secciones sin recargar (lote F2).
+   */
+  onCompletado?: () => void;
 }) {
+  const { onCompletado } = props;
   const [isoPais, setIsoPais] = useState("PY");
   const pais = paisPorIso(isoPais) ?? PAISES_CELULAR[0];
 
@@ -195,13 +202,17 @@ export function FormularioVerificacionWhatsapp(props: {
           return;
         }
         // Un solo botón: verificado el canal, se continúa (maqueta p.3).
-        window.location.assign(rutaSiguienteDe("/whatsapp") ?? "/preparacion");
+        if (onCompletado) {
+          onCompletado();
+        } else {
+          window.location.assign(rutaSiguienteDe("/whatsapp") ?? "/preparacion");
+        }
       } catch {
         setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
         setEnProceso(false);
       }
     },
-    [],
+    [onCompletado],
   );
 
   return (
