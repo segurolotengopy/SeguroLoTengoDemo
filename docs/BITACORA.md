@@ -38,6 +38,54 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-29 (b) · Fase 1: importación del diseño de 3 pasos desde Claude Design
+
+**Rama:** `docs/importacion-diseno-3-pasos` · **Importación de diseño**
+
+### El caso
+
+Con la Fase 0 cerrada (PR #60 mergeado, ramas y worktrees consolidados),
+Andres pidió arrancar la Fase 1 del cambio de configuración de pantallas. El
+diseño ya estaba aprobado en Claude Design, así que no se re-maqueta: se
+importa.
+
+### Qué cambió
+
+- `docs/plan/IMPORTACION_DISENO_3_PASOS.md`: transcripción fiel del canvas
+  «Seguro lo tengo: Flujo de 3 pasos» (artifact ce0c8332, 27-ago) —
+  estructura de 3 pasos + inicio/confirmación/revisión, textos por pantalla,
+  planes y carencias, las 5 declaraciones nuevas, trazabilidad contra los 8
+  pasos vigentes y **11 divergencias (DI-1…DI-11)** que necesitan decisión
+  antes de reescribir `ESPECIFICACION_PANTALLAS.md`.
+
+### Qué hizo Andres
+
+- Mergeó #57, #55, #56, #59 y #60 (resuelto el conflicto de
+  `textos-aclaraciones.ts` integrando el derecho de retracto al catálogo-función).
+- Borró las ramas que exigían `-D`.
+- Confirmó que el diseño aprobado es el canvas de Claude Design y que la
+  Fase 1 lo importa en lugar de re-maquetar.
+
+### Verificaciones
+
+- La extracción del canvas se hizo del bundle publicado (template JSON de
+  163 KB + datos del prototipo de 53 KB); los premios extraídos (319.000 /
+  522.500 / 726.000) coinciden con la decisión aprobada del 20-ago.
+
+### Queda abierto
+
+- **Las 11 decisiones DI-1…DI-11** del documento — Andres. Las tres urgentes:
+  DI-1 (qué significa FIPF: el canvas lo redefine como «Información Previa a
+  la Firma» y contradice a la Res. SEPRELAD 71/19), DI-3 (mapa de 8→5
+  declaraciones contra `Solicitud.pdf`) y DI-4 (carencias 180/30/1 y
+  Res. 250/2026: ¿datos reales de Alianza o marcadores de la maqueta?).
+- Reescritura de `ESPECIFICACION_PANTALLAS.md` contra el documento importado.
+- Primer PR de implementación: `PASOS_FLUJO` con la noción de paso visible
+  (3) sin aplanar la máquina de estados.
+- La rama de firma interna se integra al implementar el paso 3.
+
+---
+
 ## 2026-08-29 · Fase 0: consolidación del repo antes del cambio de configuración de pantallas
 
 **Rama:** `claude/review-pending-prs-e227dd` · **Consolidación**
