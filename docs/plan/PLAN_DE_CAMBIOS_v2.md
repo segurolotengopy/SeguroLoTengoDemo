@@ -303,6 +303,27 @@ Cada lote termina con: diff resumido, checklist de aceptación, `npm run typeche
 | **L5e · Remisión a Alianza y devoluciones** ✅ **hecho (20-ago-2026)** | CHG-47: la derivación por elegibilidad remite el caso sola, con el `origen` (`AUTOMATICA`/`CONSOLA`) en la evidencia; la acción de la consola queda como reenvío. D-02: `solicitarDevolucion` / `acreditarDevolucion` sobre un cobro acreditado, trámite persistido en `Expediente.devolucion`, y vista + acciones en la consola con la duración del trámite a la vista | ✅ desbloqueado (D-02, D-14); requiere L5b | **Cumplidos (20-ago-2026):** 1085 tests en verde; typecheck, lint y build en verde; devolución seguible de punta a punta con evidencia de cada paso |
 | **L6 · Trazabilidad y hardening** ← **único lote pendiente** | TRV-01 completo + consulta en consola, CMP-10 (info del canal), CMP-11 (retracto), CMP-12 (privacidad), CMP-13 (cookies), CMP-16 (auditoría de logs), rate limiting, TRV-06 (pasada responsive final). **Se le suma** la reevaluación de la evidencia por visita en `/verificar/<código>`, que L5c dejó explícitamente para cuando existiera rate limiting | L2 + reformulación de pantallas (§1-bis a) | Cada acción del E2E genera su evento con IP; panel de cookies bloquea analítica previa; logs sin datos sensibles (test); 429 en abuso de OTP |
 
+### L6 no es endurecimiento opcional: es cierre normativo (26-ago-2026)
+
+El análisis de la **Res. SS.SG. N° 210/2025** (`docs/auditoria/ANALISIS_RES_210_2025.md`)
+mostró que casi todo lo que queda en L6 no es una mejora de calidad sino una
+obligación de la norma central del portal, hoy incumplida:
+
+| Ítem de L6 | Norma que lo exige | Fila de la matriz |
+| :--- | :--- | :--- |
+| TRV-01 · trazabilidad completa con IP, versión y sello de tiempo | Res. 210/2025, Anexo I, **art. 9** (metadatos, IP, fecha y hora, códigos de validación) | 92 |
+| CMP-14 · política de conservación 2/5/10 años | Res. 210/2025, Anexo I, **art. 9** (mínimo 2 años desde el vencimiento); Res. SEPRELAD 71/19, arts. 43-44 (5 años) | 92, 76 |
+| CMP-10 · información del canal | Res. 210/2025, Anexo I, **art. 7(a) a 7(d)** — incluye el procedimiento de denuncia de siniestros, que hoy tiene texto (`ACLARACION_CONSULTAS_RECLAMOS`) pero **ninguna pantalla lo enlaza** | 90 |
+| CMP-12/13 · privacidad y panel de cookies | Res. 210/2025, Anexo I, **art. 2(e)** (protección de datos y ciberseguridad activa); Ley 7593/2025 como estándar de diseño anticipado | 84, 85 |
+| CMP-16 · protección de logs | Regla inviolable #7, con el art. 2(e) como respaldo normativo | 84 |
+| Rate limiting | Res. 210/2025, Anexo I, **art. 2(e)**; se lo trata además como capa de aplicación del WAF de Go-Live | — |
+
+Consecuencia práctica: **priorizar L6 dejó de ser una decisión de calidad
+técnica**. Mientras no esté, el portal no cumple los arts. 2(e), 7 y 9 de la
+resolución que habilita la venta electrónica. El criterio operativo completo
+—con el mapa de mecanismos AWS por horizonte— está en
+`docs/CRITERIO_UNIFICADO_NORMATIVA_Y_SEGURIDAD.md`.
+
 ---
 
 ## 6. Riesgos, dependencias y alertas

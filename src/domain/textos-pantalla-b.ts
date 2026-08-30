@@ -17,10 +17,10 @@
  *   aclara que **no existe un artículo que determine esos horarios**: son un
  *   control interno, no una obligación legal.
  * - 30 — *"Devolver el premio si el cliente no firma dentro del plazo
- *   comunicado"* (Ley 4868/13, arts. 7(f), 17 y 30(b); Res. SS SG. 215/15,
+ *   comunicado"* (Ley 4868/13, arts. 7(f), 17 y 30(b); Res. SS SG. 215/2025,
  *   Anexo 1, numerales 8.4, 8.5 y 8.9). Es la fila que manda en esta pantalla.
  * - 65 — *"Explicar cancelación y metodología de devolución"* (Ley 4868/13,
- *   arts. 7(m, p, q) y 30(c); Res. SS SG. 215/15, Anexo 1, numerales 8.4, 8.5
+ *   arts. 7(m, p, q) y 30(c); Res. SS SG. 215/2025, Anexo 1, numerales 8.4, 8.5
  *   y 8.9).
  * - 41 — la vigencia de 24 horas del enlace de firma, que es el plazo cuyo
  *   vencimiento trae a la persona hasta acá.

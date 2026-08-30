@@ -115,7 +115,7 @@ export const NOMBRE_PRODUCTO = "Seguro de Vida Oncológico CONFÍO";
 /**
  * Identificación del producto ante la Superintendencia de Seguros (CHG-03).
  *
- * La Res. SS.SG. 215/17 (num. 9.f) exige exhibir el modelo registrado del plan
+ * La Res. SS.SG. 215/2025 (num. 9.f) exige exhibir el modelo registrado del plan
  * con su código, su acto administrativo y una URL directa. **Todavía no los
  * tenemos**: la Matriz Legal V4 los deja como PENDIENTE ALIANZA y ordena usar
  * el marcador `CDXXXXX` hasta recibir los definitivos.

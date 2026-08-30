@@ -31,7 +31,7 @@ import { FirmaP8 } from "./FirmaP8";
  * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "Revisión y firma
  * final". Respaldo normativo del conjunto: filas 29, 34, 35,
  * 36, 37, 41, 42, 43 y 47 de la matriz de cumplimiento (Ley 6822/21, arts.
- * 38(1), 40, 42(5), 44-46, 61, 66 y 67-69; Res. SS SG. 215/15, anexo 1,
+ * 38(1), 40, 42(5), 44-46, 61, 66 y 67-69; Res. SS SG. 215/2025, anexo 1,
  * numeral 11.15, y punto 14; Ley 4868/13, arts. 7(f), 7(n) y 7(r); Código
  * Civil, arts. 1348 y 1373-1374).
  *
