@@ -21,6 +21,7 @@ import { ID_VERSION_OFERTA, OFERTA_VIGENTE, PLANES, esPlanId, serializarOfertaCa
 import type { OfertaVersionada } from "./catalogo";
 import { esTransicionLegal, transicionarExpediente } from "./expediente";
 import { crearExpedienteInicial } from "./tipos";
+import { flujoV3Activo } from "./flujo-vigente";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal-whatsapp";
 import type {
   EstadoExpediente,
@@ -174,10 +175,16 @@ export async function seleccionarPlan(
   }
   const planId: PlanId = entrada.planId;
 
-  // CHG-01 · elegir plan es ahora el primer paso, así que acá **nace** el
+  // v2 (CHG-01) · elegir plan es el primer paso, así que acá **nace** el
   // expediente si todavía no existe. Antes lo creaba la verificación de
   // WhatsApp, que era el paso 1; moverlo sin mover esto habría dejado el
   // catálogo sin poder guardar nada.
+  //
+  // v3 (DI-2/DI-10) · el plan ya no es el primer paso: el expediente nace con
+  // la aceptación de T&C del inicio y llega acá con la inscripción completa.
+  // Crear uno desde el catálogo sería saltarse la identidad, así que una
+  // visita sin expediente se trata como sesión perdida, igual que en
+  // cualquier otro paso intermedio.
   //
   // `entrada.expedienteId` puede llegar nulo (visita nueva) o apuntar a un
   // expediente real (volver por `Cambiar plan`). Un id que no existe **no** se
@@ -185,6 +192,9 @@ export async function seleccionarPlan(
   // cliente, y esos ids son la llave de todo el trámite.
   let expediente: Expediente;
   if (entrada.expedienteId === null) {
+    if (flujoV3Activo()) {
+      return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+    }
     expediente = crearExpedienteInicial({ id: nuevoId(), ahora: fecha });
     await deps.expedientes.crear(expediente);
   } else {

@@ -38,6 +38,73 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-29 (e) · Lote F1: el flujo v3 entra al dominio detrás del flag FLUJO_V3
+
+**Rama:** `feat/f1-flujo-v3-dominio` · **Implementación (primer lote de código)**
+
+### El caso
+
+Con la Fase 1 documental cerrada, Andres pidió abrir la sesión de
+`PASOS_FLUJO`. La restricción que dio forma al plan: el merge a main ES el
+deploy, así que cambiar la lista a 3 rutas sin páginas rompería producción.
+Andres eligió la estrategia de **flag de entorno `FLUJO_V3`** (mismo patrón
+que DEMO_MODE y los INTEGRATION_*): lotes chicos con el flag apagado, un PR
+final lo enciende.
+
+### Qué cambió
+
+- `src/domain/flujo-vigente.ts` (nuevo): `flujoV3Activo()`, único lector del
+  flag. La versión del flujo es propiedad del despliegue, así que se resuelve
+  a import-time y ningún consumidor cambia de firma.
+- `rutas-flujo.ts`: `PASOS_FLUJO_V2/V3` (3 pasos: /inscripcion, /seguro,
+  /pago-y-firma), `PANTALLA_POR_ESTADO_V2/V3` (la v3 mapea estados
+  intermedios a su página larga — el corazón del gating en cascada) y
+  `REDIRECCIONES_RUTAS_VIEJAS_V2/V3` (la v3 redirige también los slugs
+  semánticos v2).
+- `expediente.ts`: `TRANSICIONES_V2/V3`. El orden nuevo (identidad primero,
+  DI-2) recablea aristas entre los estados existentes — cero estados nuevos;
+  el tramo desde DECLARACIONES_OK es idéntico al v2 (verificado por test).
+  ASISTENCIA_IDENTIDAD sale de INICIADO; DERIVADO_MANUAL de PLAN_SELECCIONADO.
+- Constantes por versión: `CANAL_WHATSAPP_P1.estadoRequerido`
+  (IDENTIDAD_VERIFICADA en v3), `ESTADO_REQUERIDO_P5` (INICIADO),
+  `ESTADO_REQUERIDO_P6` (PLAN_SELECCIONADO), `RUTA_TRAS_DECLARACIONES` y
+  `RUTA_PAGO` derivadas de PANTALLA_POR_ESTADO, y `seleccionarPlan` en v3 ya
+  no crea el expediente (nacerá con los T&C del inicio, DI-10/F5).
+- Tests: los contratos v2 quedaron fijados por nombre (_V2), bloque nuevo de
+  PANTALLA_POR_ESTADO_V3, y `flujo-v3.test.ts` con los invariantes del grafo
+  (regla 6-bis, tramo D-08 idéntico, terminales intactos) y la selección por
+  flag vía vi.stubEnv + import dinámico.
+
+### Qué hizo Andres
+
+- Eligió la estrategia del flag (contra rama larga y contra mega-PR).
+- Aprobó el plan del lote F1 en plan mode.
+
+### Verificaciones
+
+- `npm run typecheck && npm run lint && npm test`: **86 archivos, 1171 tests
+  en verde** (17 nuevos), con el flag apagado — cero cambio de comportamiento.
+- `npm run build` en verde con el flag apagado.
+- `grep FLUJO_V3` confinado a src/domain y tests: ningún componente de UI lo
+  lee todavía.
+- Desvío declarado respecto del plan: la corrida de la suite completa con
+  `FLUJO_V3=true` se difirió a F6 — los tests históricos fijan comportamiento
+  v2 y migrarlos ahora sería trabajo tirado; los contratos v3 quedan cubiertos
+  por los tests por nombre (_V3), que no dependen del entorno.
+
+### Queda abierto
+
+- F2: página `/inscripcion` (paso 1) — convertir los `window.location.assign`
+  de los componentes en callbacks `onCompletado` y montarlos como secciones.
+- F3: `/seguro` · F4: `/pago-y-firma` (+ decisión de la rama de firma
+  interna) · F5: inicio (T&C crea expediente, DI-10) + confirmación +
+  revisión manual · F6: encendido del flag, migración de la suite y los E2E,
+  barrido de expedientes v2 en curso del demo, retiro del v2.
+- El spec `08-plan-tramite-en-curso` habrá que rediseñarlo en F3/F6: su
+  escenario entero asume una pantalla por paso.
+
+---
+
 ## 2026-08-29 (d) · Fase 1: ESPECIFICACION_PANTALLAS.md reescrita al flujo de 3 pasos
 
 **Rama:** `docs/especificacion-pantallas-3-pasos` · **Especificación**
