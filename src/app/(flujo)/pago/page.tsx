@@ -7,7 +7,12 @@ import {
   PieLegal,
   StepperPasos,
   TituloDePantalla,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
+import { DETALLE_PAGO_YA_HECHO } from "@/domain/textos-reencaminado";
+import { pasoAnteriorDe } from "@/domain/rutas-flujo";
+import { expedienteEnOtroPaso } from "../_reencaminado";
 import { ADVERTENCIA_P7, LEYENDA_PROCESADOR_P7, TITULO_P7 } from "@/domain/textos-p7";
 import { FormularioPagoP7 } from "./FormularioPagoP7";
 
@@ -37,7 +42,12 @@ export const metadata: Metadata = {
     "Paso 7 de 9: datos para la factura, declaración de origen lícito de fondos y elección del medio de pago.",
 };
 
-export default function PantallaP7Pago() {
+export default async function PantallaP7Pago() {
+  // `PAGO_CONFIRMADO` sigue siendo de esta pantalla: al acreditarse se queda
+  // acá mostrando el comprobante y el enlace a la confirmación, en vez de
+  // navegar sola. Ver `expedienteEnOtroPaso`.
+  const enOtroPaso = await expedienteEnOtroPaso("/pago", ["PAGO_CONFIRMADO"]);
+  const pasoAnterior = pasoAnteriorDe("/pago");
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/pago" />} />
@@ -52,16 +62,32 @@ export default function PantallaP7Pago() {
         <TituloDePantalla titulo={TITULO_P7} subtitulo={ADVERTENCIA_P7} />
         <p className="text-center text-xs text-cuerpo">{LEYENDA_PROCESADOR_P7}</p>
 
-        <FormularioPagoP7 />
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_PAGO_YA_HECHO}
+            modoDemo={esModoDemo()}
+          />
+        ) : (
+          <FormularioPagoP7 pagoSimuladoDisponible={esModoDemo()} />
+        )}
 
-        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
-          <Link
-            href="/declaraciones"
-            className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-          >
-            ← Volver a datos y declaraciones
-          </Link>
-        </footer>
+        {/* El paso anterior sale de PASOS_FLUJO, no escrito a mano: acá decía
+            "Volver a datos y declaraciones" y apuntaba a `/declaraciones`, que
+            es dos pasos atrás. Quedó de antes de D-08, cuando el pago venía
+            justo después de las declaraciones; al meterse la firma en el medio,
+            el enlace se quedó viejo. Es el mismo error que ya se había
+            corregido en `/firma` de esta misma forma. */}
+        {pasoAnterior ? (
+          <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
+            <Link
+              href={pasoAnterior.slug}
+              className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
+            >
+              ← Volver a {pasoAnterior.titulo.toLocaleLowerCase("es-PY")}
+            </Link>
+          </footer>
+        ) : null}
       </main>
 
       <PieLegal />

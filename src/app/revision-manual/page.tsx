@@ -1,6 +1,5 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
 import {
   BAJADA_PANTALLA_A,
@@ -221,12 +220,15 @@ export default function PantallaARevisionManual() {
             ))}
           </div>
 
-          <Link
-            href="/"
-            className="inline-flex h-12 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start"
-          >
-            {ROTULO_BOTON_FINALIZAR}
-          </Link>
+          {/* Cierra el trámite en este navegador antes de volver: si no, la
+              selección de plan reconoce el expediente terminado y recibe con
+              "Ya tenés un trámite empezado" a quien acaba de terminarlo.
+              POST y no enlace porque `next/link` precarga los href. */}
+          <form action="/api/flujo/cerrar" method="post" className="shrink-0">
+            <button type="submit" className="inline-flex h-12 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-start">
+              {ROTULO_BOTON_FINALIZAR}
+            </button>
+          </form>
         </section>
         </div>
 

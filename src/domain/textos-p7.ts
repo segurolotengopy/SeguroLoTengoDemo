@@ -202,6 +202,20 @@ export const TITULO_PLAZO_PAGO_P7 = "Plazo para pagar: 24 horas";
  * diferencia con el aviso que había mientras se cobraba primero: bajo este
  * orden el expediente caduca antes de que exista un cobro, así que no hay
  * premio que devolver ni trámite presencial que hacer.
+ *
+ * ## El aviso de vencimiento existe, y no lo manda este sistema
+ *
+ * Una auditoría del 21-ago-2026 marcó esta frase como una promesa sin
+ * implementación: la transición a `VENCIDO` (`domain/expediente.ts`) no llama a
+ * `MessagingProvider` ni a nada parecido. **Andres confirmó que el aviso sí se
+ * da, por fuera del sistema**: lo hace el equipo, no el portal.
+ *
+ * O sea que el texto es cierto y se queda como está. Lo que no hay que hacer es
+ * "arreglarlo" de dos maneras tentadoras y equivocadas: sacar la frase —estaría
+ * ocultando algo que de verdad ocurre— o implementar un envío automático que
+ * duplicaría el que ya se hace a mano. Si algún día se automatiza, la decisión
+ * es de producto y se registra; hasta entonces, la ausencia de código acá es
+ * deliberada.
  */
 export const AVISO_PLAZO_PAGO_P7 =
   "Si el pago no se completa dentro de 24 horas, la solicitud vence y se avisa por WhatsApp y " +

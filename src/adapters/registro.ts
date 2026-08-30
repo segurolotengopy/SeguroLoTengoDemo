@@ -48,7 +48,10 @@ import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
 import type { OtpFirmaRemoto } from "./mock/signature-provider";
 import { crearMessagingProviderMock } from "./mock/messaging-provider";
-import { crearPaymentProviderMock } from "./mock/payment-provider";
+import {
+  DEMORA_ACREDITACION_SOLO_POR_BOTON_MS,
+  crearPaymentProviderMock,
+} from "./mock/payment-provider";
 import { crearPolicyIssuerMock } from "./mock/policy-issuer";
 import { crearRegistroCivilMock } from "./mock/registro-civil";
 import {
@@ -276,6 +279,23 @@ export function obtenerPaymentProvider(): PaymentProvider {
     mock: () =>
       crearPaymentProviderMock({
         fallaForzada: () => (consumirFallaDemo("BANCARD_TIMEOUT") ? "TIMEOUT" : null),
+        // En demostración la acreditación **no la dispara el reloj**, sino el
+        // botón *Pagado* del paso 7 (`POST /api/p7/pagado`), que es lo que en
+        // la realidad hace la persona en la app de su banco.
+        //
+        // El reloj tenía dos problemas. Uno visible: el pago se confirmaba solo
+        // a los seis segundos, sin que nadie hiciera nada, y una demostración
+        // en la que el dinero entra por arte de magia no muestra el paso que
+        // más importa. Otro peor: ese reloj vivía en la memoria de una
+        // instancia de cómputo, y Amplify puede atender el sondeo con otra que
+        // nunca vio la operación, dejando la pantalla esperando para siempre.
+        //
+        // `Infinity` no sirve acá —se suma a un instante para calcular
+        // `acreditableDesde`, y da `Invalid Date`—, así que se usa un plazo que
+        // ninguna demostración va a alcanzar.
+        ...(process.env.DEMO_MODE === "true"
+          ? { demoraAcreditacionMs: DEMORA_ACREDITACION_SOLO_POR_BOTON_MS }
+          : {}),
       }),
     live: () => {
       throw new Error(

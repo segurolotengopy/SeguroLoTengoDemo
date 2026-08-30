@@ -77,6 +77,12 @@ export async function POST(request: Request): Promise<Response> {
       {
         ok: false,
         motivo: resultado.motivo,
+        // El `response_code` de Bancard viaja al cliente: no es un dato
+        // sensible —no dice nada de la persona ni de su tarjeta— y es lo que
+        // permite que la pantalla explique el rechazo con la razón real en vez
+        // de una genérica. La descripción la resuelve la pantalla desde el
+        // catálogo del puerto, así que no hace falta mandarla dos veces.
+        ...(resultado.codigoRespuesta ? { codigoRespuesta: resultado.codigoRespuesta } : {}),
         ...(resultado.siguientePantalla ? { siguientePantalla: resultado.siguientePantalla } : {}),
       },
       { status: estadoHttp(resultado.motivo) },

@@ -7,7 +7,11 @@ import {
   PieLegal,
   StepperPasos,
   TituloDePantalla,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
+import { DETALLE_WHATSAPP_YA_VERIFICADO } from "@/domain/textos-reencaminado";
+import { expedienteEnOtroPaso } from "../_reencaminado";
 import {
   AVISO_ALCANCE_VERIFICACION_P1,
   SUBTITULO_WHATSAPP,
@@ -31,7 +35,8 @@ export const metadata: Metadata = {
   description: "Paso 2: verificación del número de WhatsApp. Todavía no es una contratación.",
 };
 
-export default function PantallaVerificacionWhatsapp() {
+export default async function PantallaVerificacionWhatsapp() {
+  const enOtroPaso = await expedienteEnOtroPaso("/whatsapp");
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/whatsapp" />} />
@@ -41,15 +46,23 @@ export default function PantallaVerificacionWhatsapp() {
 
         <TituloDePantalla titulo={TITULO_WHATSAPP} subtitulo={SUBTITULO_WHATSAPP} />
 
-        <FormularioVerificacionWhatsapp
-          // Aviso operativo de la fase de pruebas del canal real: solo con
-          // INTEGRATION_OTP=live y el número configurado; en mock no aparece.
-          numeroPruebaWhatsApp={
-            resolverModoIntegracion("OTP") === "live"
-              ? (process.env.WHATSAPP_NUMERO_PRUEBA ?? null)
-              : null
-          }
-        />
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_WHATSAPP_YA_VERIFICADO}
+            modoDemo={esModoDemo()}
+          />
+        ) : (
+          <FormularioVerificacionWhatsapp
+            // Aviso operativo de la fase de pruebas del canal real: solo con
+            // INTEGRATION_OTP=live y el número configurado; en mock no aparece.
+            numeroPruebaWhatsApp={
+              resolverModoIntegracion("OTP") === "live"
+                ? (process.env.WHATSAPP_NUMERO_PRUEBA ?? null)
+                : null
+            }
+          />
+        )}
 
         {/* CHG-10 · alcance de la verificación, al pie como en la maqueta. */}
         <p className="rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2 text-xs leading-snug font-semibold text-rojo-800 dark:text-rojo-300">

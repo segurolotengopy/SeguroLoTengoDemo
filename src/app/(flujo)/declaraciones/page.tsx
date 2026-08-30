@@ -7,7 +7,11 @@ import {
   PieLegal,
   StepperPasos,
   TituloDePantalla,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
+import { DETALLE_DECLARACIONES_YA_RESPONDIDAS } from "@/domain/textos-reencaminado";
+import { expedienteEnOtroPaso } from "../_reencaminado";
 import { SUBTITULO_P6, TITULO_P6 } from "@/domain/textos-p6";
 import { FormularioDatosYDeclaraciones } from "./FormularioDatosYDeclaraciones";
 
@@ -31,7 +35,8 @@ export const metadata: Metadata = {
     "Paso 6 de 9: datos complementarios, beneficiario por fallecimiento y las ocho declaraciones obligatorias.",
 };
 
-export default function PantallaP6Declaraciones() {
+export default async function PantallaP6Declaraciones() {
+  const enOtroPaso = await expedienteEnOtroPaso("/declaraciones");
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/declaraciones" />} />
@@ -41,7 +46,15 @@ export default function PantallaP6Declaraciones() {
 
         <TituloDePantalla titulo={TITULO_P6} subtitulo={SUBTITULO_P6} />
 
-        <FormularioDatosYDeclaraciones />
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_DECLARACIONES_YA_RESPONDIDAS}
+            modoDemo={esModoDemo()}
+          />
+        ) : (
+          <FormularioDatosYDeclaraciones />
+        )}
 
         <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link

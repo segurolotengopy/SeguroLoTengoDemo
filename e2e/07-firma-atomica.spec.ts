@@ -68,6 +68,19 @@ test("si las firmas institucionales no llegan, el cobro sigue inhabilitado", asy
   // Pero la pantalla no avanza al pago: las institucionales no llegaron, así
   // que el expediente se queda en FIRMADO_CLIENTE.
   await expect(page).toHaveURL(/\/firma$/);
+
+  // El sondeo de la pantalla corre cada dos segundos y **reintenta el tramo
+  // institucional**, así que la ventana que este test quiere observar la cierra
+  // el propio producto. Comprobar el 409 con la pantalla abierta era una
+  // carrera: el escenario fallaba de a ratos en la corrida completa y pasaba
+  // siempre aislado, que es la firma de una condición de tiempo y no de un
+  // error.
+  //
+  // La salida no es dar más plazo —eso vuelve la carrera más lenta, no la
+  // elimina— sino **apagar el sondeo antes de mirar**. En `about:blank` no hay
+  // temporizadores corriendo, y `page.request` usa las cookies del contexto, no
+  // las de la pantalla, así que la consulta sigue siendo la del expediente.
+  await page.goto("about:blank");
   const resumenPago = await page.request.get("/api/p7/resumen");
   expect(resumenPago.status(), "el paso de pago no puede estar disponible").toBe(409);
 
@@ -75,7 +88,7 @@ test("si las firmas institucionales no llegan, el cobro sigue inhabilitado", asy
   // No se vuelve a firmar —el OTP es de uso único y ya se gastó, que es
   // justamente la razón de que el tramo institucional se retome solo—: alcanza
   // con que el sondeo corra de nuevo. Ahí sí avanza al pago.
-  await page.reload();
+  await page.goto("/firma");
   await expect(page).toHaveURL(/\/pago$/, { timeout: 30_000 });
 
   // Y la firma del cliente siguió siendo la misma de siempre: no se repitió.

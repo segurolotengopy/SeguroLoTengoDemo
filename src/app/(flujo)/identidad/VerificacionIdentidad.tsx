@@ -41,12 +41,12 @@ import { rutaSiguienteDe } from "@/domain/rutas-flujo";
  * ellos — el mock los hashea y decide por persona de prueba, el de AWS los
  * analiza de verdad.
  *
- * **Única excepción, y solo con `DEMO_MODE=true`:** el frente y el dorso se
- * pueden subir como archivo (`subidaDeArchivoDisponible`), porque en una
- * demostración a distancia no siempre se tiene la cédula en la mano. La selfie
- * **nunca** — es el ancla biométrica, y un archivo ahí permitiría verificar la
- * identidad con la cara de otra persona. Esta prop solo decide si el botón se
- * dibuja; quien lo impide de verdad es el servidor (`origenCapturaAdmitido`),
+ * **Única excepción, y solo con `DEMO_MODE=true`:** las tres capturas se pueden
+ * subir como archivo (`subidaDeArchivoDisponible`), porque en una demostración
+ * a distancia no siempre se tiene la cédula en la mano ni a la persona frente
+ * al equipo. Incluida la selfie, que es el ancla biométrica: el porqué de
+ * admitirla igual está en `origenCapturaAdmitido`. Esta prop solo decide si el
+ * botón se dibuja; quien lo impide de verdad es el servidor,
  * porque esconder un botón no impide armar la petición a mano.
  *
  * La selfie es el único caso con dos caminos, y lo decide el servidor:
@@ -191,9 +191,25 @@ const CAMPOS_BLOQUEADOS: readonly {
   { id: "nombres", etiqueta: "Nombres" },
   { id: "apellidos", etiqueta: "Apellidos" },
   { id: "fechaNacimiento", etiqueta: "Fecha de nacimiento" },
-  { id: "sexo", etiqueta: "Sexo" },
   { id: "nacionalidad", etiqueta: "Nacionalidad" },
 ];
+
+/*
+ * El sexo **no** está en esa lista, y no es un olvido.
+ *
+ * Hasta el 21-ago-2026 se dibujaba como los demás: lo prellenaba el OCR y se
+ * corregía tocando el candado. Andres pidió que deje de completarse solo y se
+ * elija. Es el campo donde el prellenado rendía menos y costaba más: son dos
+ * valores, elegir uno cuesta un toque, y en cambio una lectura errada pasaba
+ * inadvertida justo por venir ya puesta —el candado invita a revisar, no a
+ * dudar— hasta aparecer en un documento firmado.
+ *
+ * Sigue viajando en `correcciones.sexo`, que es el mismo campo que el servidor
+ * ya cotejaba contra `SEXOS_ADMITIDOS` (no por distancia, como los nombres:
+ * son dos valores conocidos), así que el contrato del endpoint no cambia. Lo
+ * que sí cambia es que la pantalla ahora exige elegir antes de continuar, en
+ * vez de dejar que el servidor caiga al valor del OCR cuando no viene nada.
+ */
 
 /** `1990-04-17` → `17/04/1990`, sin pasar por `Date` (no hay zona horaria que corra el día). */
 function formatearFecha(iso: string): string {
@@ -231,8 +247,8 @@ export interface VerificacionIdentidadProps {
    *
    * Es **comodidad de demostración**, no una capacidad del producto: la regla
    * del proceso es `CAPTURA_SOLO_DESDE_CAMARA`, porque un archivo puede ser la
-   * foto de una foto o una cédula ajena. Esta prop solo decide si el botón se
-   * dibuja; quien lo impide de verdad es el servidor.
+   * foto de una foto, una cédula ajena o el rostro de otra persona. Esta prop
+   * solo decide si el botón se dibuja; quien lo impide de verdad es el servidor.
    */
   readonly subidaDeArchivoDisponible?: boolean;
 }
@@ -326,6 +342,8 @@ export function VerificacionIdentidad({
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
+  /** Lo elige la persona; nunca se prellena desde el OCR (ver CAMPOS_BLOQUEADOS). */
+  const sexoElegido = correcciones.sexo ?? "";
   const paisYEstadoCivilCompletos =
     paisNacimiento !== "" && paisResidencia !== "" && estadoCivil !== "";
   const complementariosCompletos =
@@ -366,6 +384,7 @@ export function VerificacionIdentidad({
     autorizacionBiometrica &&
     correoCoincide &&
     complementariosCompletos &&
+    sexoElegido !== "" &&
     enProceso === null;
 
   function mensajeDe(motivo: string | undefined, porDefecto: string): string {
@@ -526,8 +545,8 @@ export function VerificacionIdentidad({
   /**
    * Lee un archivo elegido y lo manda como si fuera una captura.
    *
-   * Solo existe en modo demostración y solo para el documento — la guarda de
-   * verdad está en el servidor (`origenCapturaAdmitido`), esto es la interfaz.
+   * Solo existe en modo demostración — la guarda de verdad está en el servidor
+   * (`origenCapturaAdmitido`), esto es la interfaz.
    */
   function elegirArchivo(tipo: TipoCapturaP5) {
     const entrada = document.createElement("input");
@@ -752,10 +771,13 @@ export function VerificacionIdentidad({
                     {enProceso === tipo ? "Capturando…" : aprobada ? "Repetir" : boton}
                   </button>
 
-                  {/* Subir archivo: solo demostración, solo el documento. La
-                      selfie no lo ofrece nunca — es el ancla biométrica, y un
-                      archivo ahí permitiría verificar con la cara de otro. */}
-                  {subidaDeArchivoDisponible && tipo !== "SELFIE" ? (
+                  {/* Subir archivo: solo demostración, y desde el 21-ago-2026
+                      también para la selfie. Lo que la habilita no es que sea
+                      inocua —no lo es, ver `origenCapturaAdmitido`— sino que
+                      este camino ya renunció a la prueba de vida, así que
+                      exigir la cámara acá no compraba la garantía que parecía
+                      comprar. El origen queda sellado en la evidencia. */}
+                  {subidaDeArchivoDisponible ? (
                     <button
                       type="button"
                       onClick={() => elegirArchivo(tipo)}
@@ -880,43 +902,22 @@ export function VerificacionIdentidad({
                     )}
                     {etiqueta}
                   </label>
-                  {/* El sexo se corrige eligiendo entre los dos valores que
-                      puede decir una cédula, no escribiendo: un campo libre acá
-                      no arreglaría una lectura, abriría la puerta a cualquier
-                      cadena en un dato que va al documento firmado. */}
-                  {enEdicion && id === "sexo" ? (
-                    <select
-                      id={`p5-${id}`}
-                      value={valorMostrado}
-                      onChange={(evento) =>
-                        setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
-                      }
-                      className="h-11 w-full rounded-lg border border-naranja-400 bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-                    >
-                      {SEXOS_ADMITIDOS.map((valor) => (
-                        <option key={valor} value={valor}>
-                          {valor}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      id={`p5-${id}`}
-                      type="text"
-                      readOnly={!enEdicion}
-                      aria-readonly={!enEdicion}
-                      value={valorMostrado}
-                      onChange={(evento) =>
-                        setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
-                      }
-                      placeholder="Se completa automáticamente"
-                      className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
-                        enEdicion
-                          ? "border-naranja-400 bg-superficie"
-                          : "border-borde-sutil bg-superficie-suave"
-                      }`}
-                    />
-                  )}
+                  <input
+                    id={`p5-${id}`}
+                    type="text"
+                    readOnly={!enEdicion}
+                    aria-readonly={!enEdicion}
+                    value={valorMostrado}
+                    onChange={(evento) =>
+                      setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
+                    }
+                    placeholder="Se completa automáticamente"
+                    className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
+                      enEdicion
+                        ? "border-naranja-400 bg-superficie"
+                        : "border-borde-sutil bg-superficie-suave"
+                    }`}
+                  />
                   {enEdicion ? (
                     <p className="text-xs text-etiqueta">
                       Corregí solo errores de lectura. El dato final se coteja con tu cédula.
@@ -925,6 +926,31 @@ export function VerificacionIdentidad({
                 </div>
               );
             })}
+
+            {/* El sexo se elige, no se lee: ver la nota en CAMPOS_BLOQUEADOS.
+                Entre los dos valores que puede decir una cédula y nada más —un
+                campo libre acá no arreglaría una lectura, abriría la puerta a
+                cualquier cadena en un dato que va al documento firmado. */}
+            <div className="flex flex-col gap-1">
+              <label htmlFor="p5-sexo" className="text-xs font-semibold text-etiqueta">
+                Sexo *
+              </label>
+              <select
+                id="p5-sexo"
+                value={sexoElegido}
+                onChange={(evento) =>
+                  setCorrecciones((actuales) => ({ ...actuales, sexo: evento.target.value }))
+                }
+                className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+              >
+                <option value="">Elegí una opción</option>
+                {SEXOS_ADMITIDOS.map((valor) => (
+                  <option key={valor} value={valor}>
+                    {valor}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="flex flex-col gap-1">
               <label htmlFor="p5-pais" className="text-xs font-semibold text-etiqueta">
@@ -984,11 +1010,12 @@ export function VerificacionIdentidad({
             </div>
           </div>
 
-          {error ? (
-            <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
-              {error}
-            </p>
-          ) : null}
+          {/* El error de esta pantalla **ya no se dibuja acá**: vivía a media
+              pantalla del botón que lo produce, así que quien apretaba
+              "Validar identidad y continuar" no veía por qué no había pasado
+              nada. Ahora va debajo del botón. El aviso de éxito sí se queda:
+              acompaña a los datos que acaban de completarse, que es lo que
+              está mirando la persona cuando aparece. */}
           {aviso ? (
             <p role="status" className="text-sm font-semibold text-verde-700 dark:text-verde-300">
               {aviso}
@@ -1178,11 +1205,25 @@ export function VerificacionIdentidad({
           >
             {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
           </button>
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-rojo-300 bg-rojo-50 px-3 py-2 text-sm font-semibold text-rojo-800 dark:border-rojo-700 dark:bg-rojo-950 dark:text-rojo-300"
+            >
+              {error}
+            </p>
+          ) : null}
+          {/* La lista de acá tiene que ser **la misma** que la condición de
+              `puedeContinuar`. Cuando no lo era, alguien con los cinco
+              requisitos en verde, la biometría tildada, el correo repetido y la
+              edad en rango podía quedarse mirando un botón apagado sin nada
+              que se lo explicara: le faltaba el sexo, o un campo del bloque
+              económico, y el texto le juraba que con lo otro alcanzaba. */}
           {!puedeContinuar ? (
             <p className="text-xs text-etiqueta">
-              Se habilita con el correo escrito dos veces igual, los cinco requisitos cumplidos, la
-              autorización biométrica marcada y una edad entre {EDAD_MINIMA_PERMITIDA} y{" "}
-              {EDAD_MAXIMA_PERMITIDA} años según la cédula.
+              Se habilita con el correo escrito dos veces igual, los cinco requisitos cumplidos, el
+              sexo elegido, los datos económicos completos, la autorización biométrica marcada y una
+              edad entre {EDAD_MINIMA_PERMITIDA} y {EDAD_MAXIMA_PERMITIDA} años según la cédula.
             </p>
           ) : null}
         </div>

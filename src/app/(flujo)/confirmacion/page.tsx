@@ -1,11 +1,14 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   HeaderInstitucional,
   PieLegal,
   StepperPasos,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
+import { esModoDemo } from "@/app/demo-panel/_sesion";
+import { DETALLE_CONFIRMACION_SIN_CONTRATACION } from "@/domain/textos-reencaminado";
+import { expedienteEnOtroPaso } from "../_reencaminado";
 import {
   BAJADA_P9,
   LEYENDA_CIERRE_P9,
@@ -47,7 +50,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function PantallaP9Confirmacion() {
+export default async function PantallaP9Confirmacion() {
+  // Esta pantalla es dueña de dos estados, no de uno: `PAGO_CONFIRMADO` —el
+  // cobro entró y el certificado existe— y `EMITIDO`, que es a donde llega
+  // después. Con cualquier otro, el componente se quedaba en un párrafo suelto
+  // ("Este expediente todavía no llegó a la contratación aceptada") sin decir
+  // qué hacer ni a dónde ir.
+  const enOtroPaso = await expedienteEnOtroPaso("/confirmacion", ["PAGO_CONFIRMADO"]);
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/confirmacion" />} />
@@ -68,7 +77,15 @@ export default function PantallaP9Confirmacion() {
           </p>
         </header>
 
-        <ContratacionAceptada />
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_CONFIRMACION_SIN_CONTRATACION}
+            modoDemo={esModoDemo()}
+          />
+        ) : (
+          <ContratacionAceptada />
+        )}
 
         {/* ---------------------------------------------------------------- */}
         {/* Pie: botón de cierre y leyenda de asesoramiento (CHG-46)          */}
@@ -81,12 +98,15 @@ export default function PantallaP9Confirmacion() {
             {LEYENDA_CIERRE_P9}
           </p>
 
-          <Link
-            href="/"
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-naranja-500 px-8 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400"
-          >
-            {ROTULO_BOTON_FINALIZAR_P9}
-          </Link>
+          {/* Cierra el trámite en este navegador antes de volver: si no, la
+              selección de plan reconoce el expediente terminado y recibe con
+              "Ya tenés un trámite empezado" a quien acaba de terminarlo.
+              POST y no enlace porque `next/link` precarga los href. */}
+          <form action="/api/flujo/cerrar" method="post" className="shrink-0">
+            <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-naranja-500 px-8 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400">
+              {ROTULO_BOTON_FINALIZAR_P9}
+            </button>
+          </form>
         </footer>
       </main>
 

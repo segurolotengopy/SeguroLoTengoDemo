@@ -33,7 +33,8 @@ import {
  * devolución: no hubo cobro que devolver.
  */
 test("expediente firmado sin pagar dentro del plazo dispara Pantalla B", async ({ page }) => {
-  test.setTimeout(150_000);
+  // El flujo entero más los 30 s comprimidos del plazo de pago.
+  test.setTimeout(300_000);
 
   const persona = obtenerPersonaDemo("no-firma");
   if (!persona) throw new Error("Fixture 'no-firma' no encontrado en personas.ts.");

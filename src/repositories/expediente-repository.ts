@@ -230,9 +230,41 @@ export function crearExpedienteRepositoryDynamoDb(
       await escribirIndices(expediente);
     },
 
+    /**
+     * Lectura **fuertemente consistente**, y no es una optimización: es lo que
+     * hace correcto al flujo.
+     *
+     * DynamoDB lee por omisión con consistencia eventual, así que un `GetItem`
+     * puede devolver la versión anterior durante un instante después de una
+     * escritura. Todo este producto es una secuencia de escrituras seguidas de
+     * lecturas inmediatas: la pantalla transiciona el expediente, navega a la
+     * siguiente y esa pantalla lo lee de nuevo, en el mismo segundo. Con la
+     * lectura eventual, cada una de esas costuras tiene una probabilidad real
+     * de leer el estado viejo y contestar que el trámite no está donde está.
+     *
+     * La costura más expuesta es el vencimiento del plazo: la pantalla de pago
+     * confirma la transición a `VENCIDO` y lleva a Pantalla B, que lee el
+     * expediente inmediatamente. Un escenario E2E se vio fallar ahí una vez,
+     * mostrando la pantalla con guiones donde van los datos del caso, que es
+     * exactamente lo que produce una lectura atrasada.
+     *
+     * **Honestidad sobre la evidencia:** ese fallo se vio una sola vez y no se
+     * logró reproducir a voluntad, así que esto no está *probado* como su causa
+     * — los intentos de reproducirlo con `--repeat-each` resultaron inválidos,
+     * porque el escenario deja el expediente en `VENCIDO` y la regla #11 bloquea
+     * la cédula en la repetición siguiente. Lo que sí es seguro es que leer con
+     * consistencia eventual en un flujo de escritura-y-lectura inmediata es
+     * incorrecto por su cuenta, y eso alcanza para cambiarlo.
+     *
+     * El costo es el doble de unidades de lectura. Para un expediente que se
+     * lee unas pocas veces por trámite, es intrascendente al lado de mostrarle
+     * a alguien que su solicitud no existe.
+     */
     async obtenerPorId(expedienteId: string): Promise<Expediente | null> {
       const { pk, sk } = claveExpediente(expedienteId);
-      const respuesta = await documentClient.send(new GetCommand({ TableName: nombreTabla, Key: { pk, sk } }));
+      const respuesta = await documentClient.send(
+        new GetCommand({ TableName: nombreTabla, Key: { pk, sk }, ConsistentRead: true }),
+      );
       if (!respuesta.Item) return null;
       const item = respuesta.Item as { pk: string; sk: string; entityType: string } & Expediente;
       return conPlazoDePago(quitarClavesInternas(item));

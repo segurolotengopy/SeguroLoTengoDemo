@@ -9,7 +9,10 @@ import {
   HeaderInstitucional,
   PieLegal,
   StepperPasos,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
+import { DETALLE_IDENTIDAD_YA_VERIFICADA } from "@/domain/textos-reencaminado";
+import { expedienteEnOtroPaso } from "../_reencaminado";
 import { soportaSesionPruebaDeVida } from "@/ports/identity-provider";
 import { VerificacionIdentidad } from "./VerificacionIdentidad";
 
@@ -62,7 +65,8 @@ function pruebaDeVidaEnVivoDisponible(): boolean {
   }
 }
 
-export default function PantallaP5Identidad() {
+export default async function PantallaP5Identidad() {
+  const enOtroPaso = await expedienteEnOtroPaso("/identidad");
   const enVivo = pruebaDeVidaEnVivoDisponible();
 
   return (
@@ -84,10 +88,18 @@ export default function PantallaP5Identidad() {
           </p>
         </header>
 
-        <VerificacionIdentidad
-          pruebaDeVidaEnVivoDisponible={enVivo}
-          subidaDeArchivoDisponible={esModoDemo()}
-        />
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_IDENTIDAD_YA_VERIFICADA}
+            modoDemo={esModoDemo()}
+          />
+        ) : (
+          <VerificacionIdentidad
+            pruebaDeVidaEnVivoDisponible={enVivo}
+            subidaDeArchivoDisponible={esModoDemo()}
+          />
+        )}
 
         <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
           <Link

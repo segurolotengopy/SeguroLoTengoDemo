@@ -60,7 +60,12 @@ import type {
   PaymentProvider,
   PagoTarjetaCreditoIniciado,
 } from "../../ports/payment-provider";
-import { ErrorBancard } from "../../ports/payment-provider";
+import {
+  CODIGOS_RESPUESTA_BANCARD,
+  CODIGO_RESPUESTA_APROBADA,
+  ErrorBancard,
+} from "../../ports/payment-provider";
+import { construirQrEmvco, generarHookAlias } from "./bancard-emvco";
 import type { EstadoPago, MedioDePago } from "../../domain/tipos";
 import { estadoCompartidoDemo } from "./estado-compartido";
 
@@ -83,6 +88,17 @@ export const DEMORA_GENERACION_MS = 1_200;
 export const DEMORA_ACREDITACION_MS = 6_000;
 
 /**
+ * Plazo de acreditación que usa la demostración para que el reloj **no**
+ * acredite nunca: la acreditación la dispara el botón *Pagado* del paso 7.
+ *
+ * Es un año. No es `Infinity` porque el valor se suma a un instante para
+ * calcular `acreditableDesde`, y `fecha + Infinity` da `Invalid Date`, que
+ * compara como falso contra cualquier cosa y produciría un pendiente eterno
+ * por accidente en vez de por decisión.
+ */
+export const DEMORA_ACREDITACION_SOLO_POR_BOTON_MS = 365 * 24 * 60 * 60 * 1000;
+
+/**
  * Últimos 4 dígitos simulados. Fijo y evidentemente de prueba: no sale de
  * ninguna tarjeta porque en el demo no hay ninguna. Es el único dato de
  * tarjeta que el puerto admite (enmascarado) y no se persiste en el
@@ -92,6 +108,16 @@ const ULTIMOS_4_SIMULADOS = "0042";
 
 /** Falla que el panel de demo puede forzar sobre la próxima operación. */
 export type FallaBancardDemo = "TIMEOUT" | "RECHAZADA";
+
+/**
+ * Con qué `response_code` rechaza la palanca `BANCARD_TIMEOUT`/`RECHAZADA` del
+ * panel.
+ *
+ * `51` (fondos insuficientes) porque es el que usa el propio documento de
+ * Bancard QR en su ejemplo de pago rechazado, y porque es el rechazo que más se
+ * ve en producción: la demostración muestra el caso frecuente, no uno exótico.
+ */
+export const CODIGO_RECHAZO_SIMULADO = "51";
 
 /**
  * Falla de la **captura** de una preautorización, que es un momento distinto de
@@ -112,9 +138,17 @@ export interface OperacionMock {
   /** Instante a partir del cual la operación pasa de PENDIENTE a su estado listo. */
   readonly acreditableDesde: string;
   readonly qrPayload: string | null;
+  /**
+   * `hook_alias` de Bancard QR: el alias con el que después llega la
+   * confirmación por callback. `null` en los medios que no son QR, que se
+   * identifican por `shop_process_id`.
+   */
+  readonly hookAlias: string | null;
   readonly expiraEn: string | null;
   readonly urlFormularioSeguro: string | null;
   estado: EstadoPago;
+  /** `response_code` de Bancard; `null` mientras no contestó nada. */
+  codigoRespuesta: string | null;
   actualizadoEn: string;
 }
 
@@ -169,7 +203,74 @@ function proyectar(operacion: OperacionMock): EstadoConsultaPago {
     montoGs: operacion.montoGs,
     ultimos4Digitos: operacion.medio === "QR_BANCARD" ? null : ULTIMOS_4_SIMULADOS,
     actualizadoEn: operacion.actualizadoEn,
+    codigoRespuesta: operacion.codigoRespuesta,
+    // La descripción no se guarda: se deriva del código, que es lo que Bancard
+    // documenta como pareja fija. Guardar las dos permitiría que se separaran.
+    descripcionRespuesta: operacion.codigoRespuesta
+      ? (CODIGOS_RESPUESTA_BANCARD[operacion.codigoRespuesta] ?? null)
+      : null,
   };
+}
+
+/**
+ * Acredita una operación **por acción explícita**, que es lo que hace el botón
+ * *Pagado* del paso 7 en la demostración.
+ *
+ * ## Por qué existe, y por qué no alcanzaba con el reloj
+ *
+ * El mock acreditaba solo, a los `DEMORA_ACREDITACION_MS`. Eso funciona en los
+ * tests, donde el reloj se fija, y falla en una demostración desplegada por una
+ * razón conocida: las operaciones viven en memoria del proceso, y Amplify puede
+ * atender el sondeo con **otra instancia de cómputo** que nunca vio esta
+ * operación. La pantalla quedaba esperando una confirmación que nadie iba a dar.
+ *
+ * Por eso esta función **crea la operación si no la encuentra**, con los datos
+ * que le pasa quien la llama —que los saca del `Pago` persistido del
+ * expediente, no de la memoria—. Así la acreditación deja de depender de qué
+ * instancia atendió cada pedido: el dato de verdad está en DynamoDB.
+ *
+ * Es una palanca de demostración, con las mismas reglas que las del panel: solo
+ * existe con `DEMO_MODE`, y no inventa un camino paralelo — deja la operación
+ * exactamente en el estado `CONFIRMADO` con `response_code` `00` al que habría
+ * llegado sola, así que el resto del flujo la valida como siempre.
+ */
+export function acreditarPagoMock(
+  referenciaBancard: string,
+  datos: { readonly medio: MedioDePago; readonly montoGs: number; readonly ahora: string },
+): EstadoConsultaPago {
+  const existente = operaciones.get(referenciaBancard);
+
+  if (existente) {
+    // Ya acreditada: idempotente, como el propio proveedor ante un reintento.
+    if (existente.estado !== "CONFIRMADO") {
+      existente.estado = "CONFIRMADO";
+      existente.codigoRespuesta = CODIGO_RESPUESTA_APROBADA;
+      existente.actualizadoEn = datos.ahora;
+    }
+    return proyectar(existente);
+  }
+
+  // Esta instancia no conoce la operación. La reconstruye desde lo que el
+  // expediente sí persiste, en vez de decir "no existe" sobre un pago real.
+  const reconstruida: OperacionMock = {
+    referenciaBancard,
+    expedienteId: "",
+    propuestaId: "",
+    medio: datos.medio,
+    montoGs: datos.montoGs,
+    idempotencyKey: "",
+    creadaEn: datos.ahora,
+    acreditableDesde: datos.ahora,
+    hookAlias: null,
+    qrPayload: null,
+    expiraEn: null,
+    urlFormularioSeguro: null,
+    estado: "CONFIRMADO",
+    codigoRespuesta: CODIGO_RESPUESTA_APROBADA,
+    actualizadoEn: datos.ahora,
+  };
+  operaciones.set(referenciaBancard, reconstruida);
+  return proyectar(reconstruida);
 }
 
 export function crearPaymentProviderMock(
@@ -195,9 +296,14 @@ export function crearPaymentProviderMock(
     const instante = ahora().toISOString();
     if (instante >= operacion.acreditableDesde) {
       operacion.estado = estadoAcreditado();
+      operacion.codigoRespuesta = CODIGO_RESPUESTA_APROBADA;
       operacion.actualizadoEn = instante;
     } else if (operacion.expiraEn && instante >= operacion.expiraEn) {
       operacion.estado = "CANCELADO";
+      // Un QR que vence sin pagarse es una transacción que nunca ocurrió: en el
+      // vocabulario de Bancard, `12` (transacción inválida). No se inventa un
+      // código propio — los que existen son los cinco del documento.
+      operacion.codigoRespuesta = "12";
       operacion.actualizadoEn = instante;
     }
     return operacion;
@@ -230,18 +336,30 @@ export function crearPaymentProviderMock(
       // la operación hubiera quedado creada del otro lado, la rama de arriba
       // la devuelve en vez de abrir una segunda y cobrar dos veces.
       await esperar(demoraGeneracionMs);
+      // Sin `response_code`: un timeout es, justamente, no haber recibido
+      // respuesta. El documento de QR es explícito en que Bancard aguarda 5
+      // segundos y, si no hay respuesta, **reversa la transacción**.
       throw new ErrorBancard("TIMEOUT", "Bancard no respondió dentro del tiempo previsto (simulado).");
     }
 
     await esperar(demoraGeneracionMs);
 
     if (falla === "RECHAZADA") {
-      throw new ErrorBancard("RECHAZADA", "Bancard rechazó la operación (simulado).");
+      // Con el código y la descripción del proveedor, no con un texto propio:
+      // `51` es el que usa el propio ejemplo de rechazo del documento de QR.
+      throw new ErrorBancard(
+        "RECHAZADA",
+        CODIGOS_RESPUESTA_BANCARD[CODIGO_RECHAZO_SIMULADO] ?? "Operación rechazada",
+        CODIGO_RECHAZO_SIMULADO,
+      );
     }
 
     const creadaEn = ahora();
     const referenciaBancard = referenciaDeBancard();
     const esQr = entrada.medio === "QR_BANCARD";
+    // `hook_alias` solo existe en la API de QR; los otros medios se identifican
+    // por `shop_process_id`, que acá es la referencia.
+    const hookAlias = esQr ? generarHookAlias(() => randomUUID()) : null;
 
     const operacion: OperacionMock = {
       referenciaBancard,
@@ -252,11 +370,12 @@ export function crearPaymentProviderMock(
       idempotencyKey: entrada.idempotencyKey,
       creadaEn: creadaEn.toISOString(),
       acreditableDesde: new Date(creadaEn.getTime() + demoraAcreditacionMs).toISOString(),
-      qrPayload: esQr
-        ? // Payload análogo al EMVCo que devolvería Bancard QR: identifica la
-          // operación y el importe, nunca un dato de la persona.
-          `bancard-qr://pago?ref=${referenciaBancard}&monto=${entrada.montoGs}&moneda=PYG`
-        : null,
+      hookAlias,
+      // `qr_data` en EMVCo, como lo define el documento de Bancard QR. Antes acá
+      // había una cadena inventada (`bancard-qr://pago?ref=…`) que ningún lector
+      // reconoce: mostraba en la demostración un formato que no es el del
+      // producto. Lleva el importe y el alias, nunca un dato de la persona.
+      qrPayload: esQr ? construirQrEmvco({ montoGs: entrada.montoGs, hookAlias: hookAlias ?? "" }) : null,
       expiraEn: esQr
         ? new Date(creadaEn.getTime() + VIGENCIA_QR_MINUTOS * 60_000).toISOString()
         : null,
@@ -264,6 +383,8 @@ export function crearPaymentProviderMock(
         ? null
         : `https://vpos.simulado.bancard.com.py/checkout/${referenciaBancard}`,
       estado: "PENDIENTE",
+      // Pendiente es, literalmente, que Bancard todavía no respondió nada.
+      codigoRespuesta: null,
       actualizadoEn: creadaEn.toISOString(),
     };
 

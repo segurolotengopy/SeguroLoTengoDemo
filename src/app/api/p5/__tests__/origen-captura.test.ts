@@ -97,13 +97,29 @@ describe("en modo demostración", () => {
     expect(respuesta.status).toBe(200);
   });
 
-  it("NO acepta un archivo para la selfie", async () => {
-    // La selfie es el ancla biométrica: un archivo acá permitiría verificar la
-    // identidad con la fotografía de otra persona. No hay modo que lo habilite.
+  it("acepta un archivo para la selfie y lo marca como tal", async () => {
+    // Habilitado el 20-ago-2026 para la demostración a distancia. Lo que este
+    // test cuida no es que se acepte —eso es una línea— sino que el origen
+    // llegue al dominio: la selfie es el ancla biométrica, y un expediente
+    // cuyo rostro se subió como archivo no puede quedar registrado como
+    // fotografiado en vivo.
+    //
     // Se manda `imagen`, que es el campo que usa la pantalla para las tres
     // capturas. El test decía `selfie` y por eso ejercitaba un camino que el
     // cliente nunca recorre — así se le escapó que la selfie por cámara
     // llegaba rota.
+    const respuesta = await POST(peticion({ tipo: "SELFIE", imagen: IMAGEN, origen: "ARCHIVO" }));
+
+    expect(respuesta.status).toBe(200);
+    expect(registrarCaptura).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tipo: "SELFIE", origen: "ARCHIVO" }),
+    );
+  });
+
+  it("fuera del modo demostración la selfie por archivo se rechaza", async () => {
+    vi.stubEnv("DEMO_MODE", "false");
+
     const respuesta = await POST(peticion({ tipo: "SELFIE", imagen: IMAGEN, origen: "ARCHIVO" }));
     const cuerpo = (await respuesta.json()) as { motivo?: string };
 

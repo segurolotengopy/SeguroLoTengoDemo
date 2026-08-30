@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { EnlaceAclaracion } from "@/components/shared";
+import { BloqueOtpFirma } from "./BloqueOtpFirma";
 import {
   AVISO_ENLACE_ENVIADO_P8,
+  AVISO_ENLACE_SIMULADO_P8,
   AVISO_FIRMA_RECHAZADA_P8,
   BADGE_DATOS_VERIFICADOS_P8,
   BOTON_ENVIAR_ENLACE_P8,
@@ -22,8 +25,10 @@ import {
   NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8,
   NOTA_SIN_MODIFICACION_P8,
   PASOS_PROGRESO_FIRMA_P8,
+  PASOS_PROGRESO_FIRMA_DEMO_P8,
   ROTULO_CANAL_P8,
   SUBTITULO_BLOQUE_CANAL_P8,
+  SUBTITULO_BLOQUE_CANAL_DEMO_P8,
   TEXTO_DECLARACION_FIRMA_P8,
   TEXTO_UN_SOLO_ACTO_P8,
   TITULO_ACCESO_PREVIO_P8,
@@ -36,7 +41,6 @@ import {
 } from "@/domain/textos-p8";
 import type { CanalFirma } from "@/domain/tipos";
 import { ModalVisorPdf } from "./ModalVisorPdf";
-import { PanelFirmadorSimulado } from "./PanelFirmadorSimulado";
 
 /**
  * Bloques 1, 2 y 3 de P8 · Revisión y firma final.
@@ -198,14 +202,17 @@ function AccesoPrevio() {
         {TITULO_ACCESO_PREVIO_P8}
       </h3>
       <ul className="flex flex-wrap gap-x-4 gap-y-1">
-        {ENLACES_ACCESO_PREVIO_P8.map((enlace) => (
-          <li key={enlace}>
-            <a
-              href="/plan"
+        {ENLACES_ACCESO_PREVIO_P8.map(({ etiqueta, documento }) => (
+          <li key={documento}>
+            {/* En modal y no navegando: irse de la pantalla justo antes de
+                firmar es perder el contexto del acto. Los tres apuntaban a
+                `/plan`, que además devolvía al paso 1. */}
+            <EnlaceAclaracion
+              documento={documento}
               className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
             >
-              {enlace}
-            </a>
+              {etiqueta}
+            </EnlaceAclaracion>
           </li>
         ))}
       </ul>
@@ -242,7 +249,6 @@ export function FirmaP8({
 }: FirmaP8Props = {}) {
   const router = useRouter();
 
-  const [firmadorAbierto, setFirmadorAbierto] = useState(false);
   const [visorAbierto, setVisorAbierto] = useState(false);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [canal, setCanal] = useState<CanalFirma>(CANAL_FIRMA_POR_DEFECTO);
@@ -401,6 +407,39 @@ export function FirmaP8({
     };
   }, [acto, firmado, sondear]);
 
+  /**
+   * En demostración el acto de firma se abre solo, apenas la pantalla tiene el
+   * resumen: no hay botón que apretar porque no hay enlace que mandar — lo que
+   * se pide es el código, y para emitirlo tiene que existir el acto.
+   *
+   * ## Se intenta UNA vez, y el `ref` es la razón de que esto no sea un bucle
+   *
+   * La primera versión se guardaba con `acto` y `enviando`, y eso alcanza
+   * mientras la apertura sale bien. Cuando falla, no: `enviarEnlace` deja
+   * `acto` en `null` y `enviando` vuelve a `false`, el efecto se vuelve a
+   * disparar por ese mismo cambio, y **se reintenta para siempre** — un POST
+   * por vuelta, contra un endpoint que escribe. Nadie lo ve desde la pantalla:
+   * se ve un error y ya. Lo que se degrada es el servidor, y encima para todo
+   * lo demás.
+   *
+   * Un `ref` es lo correcto acá y no un estado: marcar el intento no tiene que
+   * provocar un render, y justamente lo que hay que evitar es que la marca
+   * participe del ciclo que quiere gobernar.
+   *
+   * Si la apertura falla, la persona no queda sin salida: el error queda a la
+   * vista y recargar la pantalla vuelve a intentarlo.
+   */
+  const aperturaIntentada = useRef(false);
+  useEffect(() => {
+    if (!firmadorSimuladoDisponible || !resumen || acto || firmado) return;
+    if (aperturaIntentada.current) return;
+    aperturaIntentada.current = true;
+    void enviarEnlace();
+    // `enviarEnlace` se redefine en cada render; quien gobierna el disparo es
+    // el `ref` de arriba, no la lista de dependencias.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmadorSimuladoDisponible, resumen, acto, firmado]);
+
   async function enviarEnlace() {
     if (enviando || !resumen) return;
 
@@ -489,10 +528,22 @@ export function FirmaP8({
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             {TITULO_BLOQUE_CANAL_P8}
           </h2>
-          <p className="text-xs text-cuerpo">{SUBTITULO_BLOQUE_CANAL_P8}</p>
+          <p className="text-xs text-cuerpo">
+            {firmadorSimuladoDisponible ? SUBTITULO_BLOQUE_CANAL_DEMO_P8 : SUBTITULO_BLOQUE_CANAL_P8}
+          </p>
         </div>
 
-        <fieldset className="flex flex-col gap-2" disabled={acto !== null || firmado}>
+        {/* En demostración no se dibujan los canales: el acto se abre al cargar
+            la pantalla, así que para cuando alguien mira estos controles el
+            código ya salió y quedan congelados desde el primer instante.
+            Ofrecer una decisión que no se puede tomar es peor que no ofrecerla
+            (opción elegida por Andres, 21-ago-2026). A dónde fue el código lo
+            dice el bloque del OTP. Poder cambiarlo exige descartar el acto
+            abierto, que hoy el dominio no permite. */}
+        <fieldset
+          className={`flex flex-col gap-2 ${firmadorSimuladoDisponible ? "hidden" : ""}`}
+          disabled={acto !== null || firmado}
+        >
           <legend className="sr-only">{TITULO_BLOQUE_CANAL_P8}</legend>
           {canales.map((opcion) => (
             <label
@@ -556,25 +607,49 @@ export function FirmaP8({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={enviarEnlace}
-          disabled={enviando || firmado || acto !== null || resumen === null}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:opacity-40"
-        >
-          {enviando ? "Enviando…" : BOTON_ENVIAR_ENLACE_P8}
-        </button>
-        <p className="text-xs text-etiqueta">{NOTA_ENVIO_ENLACE_P8}</p>
+        {/* Sin botón de enviar enlace: el acto se abre solo y la pantalla pide
+            el código, que llega por el canal verificado. Ver `BloqueOtpFirma`
+            para el porqué — el enlace no se enviaba, y el acto abierto dejaba
+            el canal clavado sin forma de descartarlo. */}
+        {!firmadorSimuladoDisponible ? (
+          <>
+            <button
+              type="button"
+              onClick={enviarEnlace}
+              disabled={enviando || firmado || acto !== null || resumen === null}
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:opacity-40"
+            >
+              {enviando ? "Enviando…" : BOTON_ENVIAR_ENLACE_P8}
+            </button>
+            <p className="text-xs text-etiqueta">{NOTA_ENVIO_ENLACE_P8}</p>
+          </>
+        ) : null}
 
         {acto ? (
-          <p role="status" className="text-sm font-semibold text-verde-700 dark:text-verde-300">
-            {AVISO_ENLACE_ENVIADO_P8} ({ROTULO_CANAL_P8[acto.canal]} {acto.destinoEnmascarado})
-          </p>
+          firmadorSimuladoDisponible ? (
+            /* En demostración el enlace no sale a ningún lado: `SignatureProvider`
+               está en mock y `iniciarFirma` no hace una sola llamada de red.
+               Decir "enviamos el enlace" acá hace esperar un mensaje que nadie
+               mandó — ya pasó, dos veces. */
+            <p
+              role="status"
+              className="rounded-lg border border-naranja-400 bg-naranja-50 px-3 py-2 text-sm font-semibold text-naranja-800 dark:border-naranja-600 dark:bg-naranja-950 dark:text-naranja-200"
+            >
+              {AVISO_ENLACE_SIMULADO_P8}
+            </p>
+          ) : (
+            <p role="status" className="text-sm font-semibold text-verde-700 dark:text-verde-300">
+              {AVISO_ENLACE_ENVIADO_P8} ({ROTULO_CANAL_P8[acto.canal]} {acto.destinoEnmascarado})
+            </p>
+          )
         ) : null}
 
         {/* Progreso de tres pasos */}
         <ol className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie-suave p-4 sm:flex-row sm:items-center sm:gap-4">
-          {PASOS_PROGRESO_FIRMA_P8.map((paso, indice) => {
+          {(firmadorSimuladoDisponible
+            ? PASOS_PROGRESO_FIRMA_DEMO_P8
+            : PASOS_PROGRESO_FIRMA_P8
+          ).map((paso, indice) => {
             const numero = indice + 1;
             const cumplido = pasoActual >= numero;
             return (
@@ -606,50 +681,15 @@ export function FirmaP8({
           </p>
         ) : null}
 
-        {/* Atajo de demostración: abre la ventana del firmador acá mismo en
-            vez de obligar a pasar por el panel de demo. Solo con DEMO_MODE. */}
+        {/* El código se pide acá mismo, no en una ventana aparte. */}
         {firmadorSimuladoDisponible && acto && !firmado ? (
-          <div className="flex flex-col gap-1 rounded-lg border border-dashed border-naranja-400 bg-naranja-50 px-3 py-2.5 dark:border-naranja-600 dark:bg-naranja-950">
-            <p className="text-[11px] font-bold tracking-wide text-naranja-900 uppercase dark:text-naranja-200">
-              Solo demostración
-            </p>
-            <p className="text-xs text-naranja-900 dark:text-naranja-100">
-              En el servicio real abrís el enlace que te llegó por{" "}
-              {ROTULO_CANAL_P8[acto.canal]} y firmás en el sitio del proveedor de firma. Acá podés
-              abrir esa misma ventana sin salir de la demostración.
-            </p>
-            <button
-              type="button"
-              onClick={() => setFirmadorAbierto(true)}
-              className="mt-1 inline-flex h-10 items-center justify-center self-start rounded-lg border-2 border-naranja-500 px-4 text-xs font-bold tracking-wide text-naranja-900 uppercase transition-colors hover:bg-naranja-100 dark:text-naranja-200 dark:hover:bg-naranja-900"
-            >
-              Abrir el firmador
-            </button>
-          </div>
-        ) : null}
-
-        {firmadorSimuladoDisponible && firmadorAbierto && acto ? (
-          <PanelFirmadorSimulado
+          <BloqueOtpFirma
             idCode100={acto.idCode100}
             destino={`${ROTULO_CANAL_P8[acto.canal]} ${acto.destinoEnmascarado}`}
             alFirmar={() => {
-              setFirmadorAbierto(false);
-              // No se marca `firmado` acá: quien lo confirma es el proveedor,
-              // igual que con la ventana real. Lo que se hace es avisar que
-              // la persona volvió, para no esperar al próximo tick del sondeo.
-              void confirmarRetorno();
-            }}
-            alRechazar={() => {
-              setFirmadorAbierto(false);
-              // Mismo criterio: el rechazo lo informa el proveedor. El sondeo
-              // devuelve FIRMA_NO_COMPLETADA y limpia el acto, que es lo que
-              // vuelve a habilitar el botón de pedir enlace.
-              void sondear().catch(() => undefined);
-            }}
-            alCerrar={() => {
-              setFirmadorAbierto(false);
-              // Cerrar la ventana también es volver: puede haber firmado y
-              // cerrado sin usar el botón.
+              // No se marca `firmado` acá: quien lo confirma es el proveedor.
+              // Se avisa que la persona terminó para no esperar al próximo tick
+              // del sondeo.
               void confirmarRetorno();
             }}
           />

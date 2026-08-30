@@ -736,6 +736,12 @@ describe("3. Inventario de rutas de la API", () => {
       "demo-panel/plazo-firma",
       // Solo borra cookies del navegador: no toca el expediente en la base.
       "demo-panel/reiniciar",
+      // Cierra el trámite en el navegador al terminar (botón *Finalizar*):
+      // borra las cookies y redirige. Deliberadamente no toca el expediente —
+      // un EMITIDO o un DERIVADO_MANUAL siguen terminales, y el bloqueo por
+      // cédula de la regla #11 se deriva de la cadena de expedientes, no de la
+      // cookie, así que esto no lo levanta.
+      "flujo/cerrar",
       "demo-panel/sesion",
       // Proyecta el caso de asistencia de identidad desde el propio expediente
       // y responde 409 si no está en ASISTENCIA_IDENTIDAD. Un derivado no lo

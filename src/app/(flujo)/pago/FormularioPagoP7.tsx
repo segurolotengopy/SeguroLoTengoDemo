@@ -2,6 +2,7 @@
 
 import { nombrePortal } from "@/domain/entidades";
 import { useRouter } from "next/navigation";
+import { CODIGOS_RESPUESTA_BANCARD } from "@/ports/payment-provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatearGuaranies } from "@/domain/catalogo";
 // Desde `textos-p7`, no desde el caso de uso: este es un componente de cliente
@@ -83,6 +84,8 @@ type Instruccion =
 interface RespuestaInicio {
   readonly ok?: boolean;
   readonly motivo?: string;
+  /** `response_code` de Bancard cuando el rechazo vino de ahí. */
+  readonly codigoRespuesta?: string;
   readonly numeroPropuesta?: string;
   readonly referenciaBancard?: string;
   readonly instruccion?: Instruccion;
@@ -105,10 +108,18 @@ const MENSAJES: Readonly<Record<string, string>> = {
   RUC_INVALIDO: "Revisá el RUC: el formato esperado es 80012345-6.",
   BANCARD_NO_DISPONIBLE: "Bancard no respondió. Volvé a intentar en unos segundos.",
   BANCARD_RECHAZO: "Bancard rechazó la operación. Probá con otro medio de pago.",
-  PAGO_NO_INICIADO: "Todavía no hay una operación de pago abierta.",
+  PAGO_NO_INICIADO:
+    "Bancard no reconoce esta operación, así que seguir esperando no la va a confirmar. " +
+    "Generá el pago de nuevo: no se te cobró nada.",
   PAGO_CANCELADO: "La operación se canceló o venció. Generá una nueva.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",
 };
+
+/** `m:ss` para la espera de la acreditación, que se cuenta en minutos, no en horas. */
+function formatearEspera(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, "0")}`;
+}
 
 function formatearRestante(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -121,6 +132,45 @@ function formatearRestante(ms: number): string {
 
 /** Cada cuánto se le pregunta a Bancard si la operación ya se acreditó. */
 const INTERVALO_SONDEO_MS = 2_000;
+
+/**
+ * Cuánto dura el contador antes de habilitar el botón *Pagado*, en la
+ * demostración.
+ *
+ * Cinco segundos: lo que tarda alguien en sacar el celular y escanear. No es un
+ * plazo del negocio —el del negocio son las 24 horas de D-10— sino el tiempo
+ * que hace creíble el recorrido sin hacer esperar a nadie en una reunión.
+ */
+const ESPERA_ANTES_DE_PAGADO_MS = 5_000;
+
+/**
+ * A partir de cuánta espera la pantalla deja de limitarse a decir "esperando".
+ *
+ * Treinta segundos es bastante más que lo que tarda una acreditación normal
+ * —el mock acredita a los seis— y bastante menos que el rato en que alguien
+ * empieza a pensar que la pantalla se colgó. Pasado eso aparece qué hacer, que
+ * es la regla de los mensajes de este proyecto: decir qué hacer, no qué pasa.
+ */
+const ESPERA_LARGA_MS = 30_000;
+
+/**
+ * Cuántos `PAGO_NO_INICIADO` seguidos se toleran antes de cortar el sondeo.
+ *
+ * No es un motivo transitorio disfrazado: significa que el proveedor **no
+ * conoce** la operación que estamos consultando. Con Bancard de verdad no
+ * debería pasar nunca; con el mock pasa por una razón conocida y documentada en
+ * `adapters/mock/estado-compartido.ts` — las operaciones simuladas viven en
+ * memoria del proceso, y Amplify puede atender el sondeo con **otra instancia
+ * de cómputo** que nunca vio esa operación.
+ *
+ * Antes eso dejaba la pantalla sondeando en silencio para siempre: el motivo no
+ * estaba en la lista de terminales, así que cada respuesta se trataba como un
+ * tropiezo pasajero y el siguiente sondeo repetía el mismo resultado. Cinco
+ * seguidos son diez segundos: suficiente para descartar una carrera entre la
+ * apertura de la operación y el primer sondeo, y poco para no hacer esperar al
+ * pedo a nadie.
+ */
+const SONDEOS_SIN_OPERACION_TOLERADOS = 5;
 
 /**
  * Motivos que de verdad no se resuelven esperando: con ellos el sondeo se
@@ -138,6 +188,49 @@ const MOTIVOS_TERMINALES_SONDEO: ReadonlySet<string> = new Set([
 const CLASE_CAMPO =
   "h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500";
 
+/**
+ * Arma el mensaje de un rechazo: **la razón la dice Bancard, qué hacer lo
+ * decimos nosotros.**
+ *
+ * Antes acá había un texto propio para todos los rechazos —"Bancard rechazó la
+ * operación. Probá con otro medio de pago."— que servía igual para fondos
+ * insuficientes que para una tarjeta inhabilitada, y esas dos cosas mandan a la
+ * persona a hacer cosas distintas. La descripción sale del catálogo del puerto
+ * (`CODIGOS_RESPUESTA_BANCARD`), que es la tabla del documento del proveedor,
+ * así que ni la pantalla ni el servidor la redactan.
+ *
+ * El código va entre paréntesis a propósito: es lo que la persona le va a decir
+ * a quien la atienda, y lo que queda en la evidencia.
+ */
+function mensajeDeRechazo(motivo: string | undefined, codigoRespuesta: string | undefined): string {
+  const base = MENSAJES[motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO;
+  const descripcion = codigoRespuesta ? CODIGOS_RESPUESTA_BANCARD[codigoRespuesta] : undefined;
+  if (!descripcion) return base;
+  return `${base} Bancard informó: ${descripcion} (código ${codigoRespuesta}).`;
+}
+
+/**
+ * El mensaje de error, dibujado **donde está la acción que lo produjo**.
+ *
+ * Se monta tres veces en la pantalla —junto al botón de generar, junto al de
+ * *Pagado* y junto al bloque de espera— y cada instancia decide si le toca por
+ * el origen. Es más simple que mover un único nodo por el árbol, y hace
+ * imposible que el mensaje quede lejos de su botón: si mañana se agrega una
+ * acción, o se le pone su instancia o su error no se ve, que es un fallo
+ * evidente en vez de uno silencioso.
+ */
+function MensajeDeError({ texto }: { texto: string | null }) {
+  if (!texto) return null;
+  return (
+    <p
+      role="alert"
+      className="rounded-lg border border-rojo-300 bg-rojo-50 px-3 py-2 text-sm font-semibold text-rojo-800 dark:border-rojo-700 dark:bg-rojo-950 dark:text-rojo-300"
+    >
+      {texto}
+    </p>
+  );
+}
+
 function Fila({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-1.5">
@@ -147,7 +240,17 @@ function Fila({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-export function FormularioPagoP7() {
+export function FormularioPagoP7({
+  /**
+   * `DEMO_MODE=true`: aparece el contador y el botón *Pagado*, que es lo que en
+   * la realidad hace la persona en la app de su banco. La guarda de verdad está
+   * en el servidor —la ruta es una extensión `route.demo.ts` y no se compila
+   * siquiera con el flag apagado—; esto solo decide si el botón se dibuja.
+   */
+  pagoSimuladoDisponible = false,
+}: {
+  pagoSimuladoDisponible?: boolean;
+} = {}) {
   const router = useRouter();
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [ruc, setRuc] = useState("");
@@ -162,6 +265,23 @@ export function FormularioPagoP7() {
   const [numeroPropuesta, setNumeroPropuesta] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
   const [restanteMs, setRestanteMs] = useState<number | null>(null);
+  /** Desde cuándo se espera la acreditación; alimenta el contador de la espera. */
+  const [esperandoDesde, setEsperandoDesde] = useState<number | null>(null);
+  const [esperaMs, setEsperaMs] = useState(0);
+  /** `PAGO_NO_INICIADO` consecutivos. Ver SONDEOS_SIN_OPERACION_TOLERADOS. */
+  const sondeosSinOperacion = useRef(0);
+  /** Botón *Pagado* en vuelo, para no mandar dos veces el mismo pago. */
+  const [marcandoPagado, setMarcandoPagado] = useState(false);
+  /**
+   * Qué acción produjo el error que se está mostrando.
+   *
+   * Existe para poder dibujarlo **junto al botón que lo disparó** en vez de en
+   * un lugar fijo. Esta pantalla tiene tres acciones —generar el pago, marcar
+   * *Pagado* y el sondeo que corre solo— y el mensaje vivía al final de la
+   * columna, a media pantalla de distancia de cualquiera de ellas: quien
+   * apretaba un botón arriba no veía por qué no había pasado nada.
+   */
+  const [origenError, setOrigenError] = useState<"GENERAR" | "PAGADO" | "SONDEO" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Evita que un sondeo en vuelo escriba estado después de desmontar.
@@ -270,12 +390,27 @@ export function FormularioPagoP7() {
         irAPantallaB();
         return true;
       }
+
+      // El proveedor no conoce la operación. Repetido, no se arregla esperando.
+      if (datos.motivo === "PAGO_NO_INICIADO") {
+        sondeosSinOperacion.current += 1;
+        if (sondeosSinOperacion.current < SONDEOS_SIN_OPERACION_TOLERADOS) return false;
+        if (vigente.current) {
+          setOrigenError("SONDEO");
+          setError(MENSAJES.PAGO_NO_INICIADO);
+        }
+        return true;
+      }
+      sondeosSinOperacion.current = 0;
+
       const terminal = datos.motivo !== undefined && MOTIVOS_TERMINALES_SONDEO.has(datos.motivo);
       if (terminal && vigente.current) {
+        setOrigenError("SONDEO");
         setError(MENSAJES[datos.motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO);
       }
       return terminal;
     }
+    sondeosSinOperacion.current = 0;
     if (!datos.confirmado) return false;
 
     if (vigente.current) {
@@ -285,9 +420,51 @@ export function FormularioPagoP7() {
     return true;
   }, [irAPantallaB]);
 
+  // Contador de la espera. Va aparte del sondeo porque corre cada segundo y el
+  // sondeo cada dos: mezclarlos haría que el número saltara de a dos.
+  useEffect(() => {
+    if (esperandoDesde === null || confirmado) return;
+
+    const recalcular = () => setEsperaMs(Date.now() - esperandoDesde);
+    recalcular();
+    const temporizador = setInterval(recalcular, 1_000);
+    return () => clearInterval(temporizador);
+  }, [esperandoDesde, confirmado]);
+
+  /**
+   * Marca el pago como acreditado del lado del proveedor simulado y fuerza un
+   * sondeo, para no esperar hasta dos segundos por el intervalo.
+   *
+   * **No confirma el expediente**: eso lo sigue haciendo `confirmarPagoP7` con
+   * todas sus validaciones, desde el sondeo de siempre. Este botón hace lo que
+   * hace la app del banco, ni más ni menos.
+   */
+  async function marcarPagado() {
+    setMarcandoPagado(true);
+    setError(null);
+    try {
+      const respuesta = await fetch("/api/p7/pagado", { method: "POST" });
+      const datos = (await respuesta.json().catch(() => ({}))) as { ok?: boolean; motivo?: string };
+      if (!datos.ok) {
+        setOrigenError("PAGADO");
+        setError(mensajeDeRechazo(datos.motivo, undefined));
+        return;
+      }
+      // El sondeo que sigue ve la operación acreditada y confirma el expediente.
+      sondeosSinOperacion.current = 0;
+      await sondear();
+    } catch {
+      setOrigenError("PAGADO");
+      setError("No pudimos confirmar el pago. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      if (vigente.current) setMarcandoPagado(false);
+    }
+  }
+
   // Sondeo mientras hay una operación abierta y sin confirmar.
   useEffect(() => {
     if (!referenciaBancard || confirmado) return;
+    setEsperandoDesde((actual) => actual ?? Date.now());
 
     let cancelado = false;
     const temporizador = setInterval(() => {
@@ -323,7 +500,8 @@ export function FormularioPagoP7() {
       const datos = (await respuesta.json().catch(() => ({}))) as RespuestaInicio;
 
       if (!datos.ok) {
-        setError(MENSAJES[datos.motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO);
+        setOrigenError("GENERAR");
+        setError(mensajeDeRechazo(datos.motivo, datos.codigoRespuesta));
         return;
       }
 
@@ -331,6 +509,7 @@ export function FormularioPagoP7() {
       setReferenciaBancard(datos.referenciaBancard ?? null);
       setNumeroPropuesta(datos.numeroPropuesta ?? null);
     } catch {
+      setOrigenError("GENERAR");
       setError(MENSAJES.BANCARD_NO_DISPONIBLE);
     } finally {
       setGenerando(false);
@@ -549,6 +728,7 @@ export function FormularioPagoP7() {
             {/* CHG-38 · lo que el pago hace ahora: contrata. Con el pago antes
                 de la firma este texto habría mentido. */}
             <p className="text-xs font-semibold text-cuerpo">{BOTON_PAGAR_Y_CONTRATAR_P7}</p>
+            <MensajeDeError texto={origenError === "GENERAR" ? error : null} />
           </div>
         ) : null}
       </section>
@@ -567,10 +747,11 @@ export function FormularioPagoP7() {
                 Escaneá el QR con tu app de banco
               </h2>
               {/*
-                En el demo el payload es el que devolvería Bancard QR: se
-                muestra como texto en vez de dibujar un QR, porque no hay un
-                pago real detrás y agregar una librería de códigos QR para
-                esto no se justifica.
+                La cadena es un `qr_data` **EMVCo de verdad**, con la
+                estructura y el CRC que define el documento de Bancard QR: un
+                lector de QR la parsea. Se muestra como texto en vez de
+                dibujarla porque no hay un pago real detrás; el dibujo lo hace
+                Bancard, que en la API real devuelve además la URL del PNG.
               */}
               <p className="w-full overflow-x-auto rounded-lg border border-borde-sutil bg-superficie-suave px-4 py-3 font-mono text-xs break-all text-cuerpo">
                 {instruccion.qrPayload}
@@ -598,9 +779,45 @@ export function FormularioPagoP7() {
               </a>
             </>
           )}
-          <p className="text-sm font-semibold text-cuerpo">
-            Esperando la confirmación de Bancard…
+          {/* El contador no es decoración: sin él, treinta segundos y cinco
+              minutos se ven exactamente igual, y la persona no tiene con qué
+              decidir si esperar o volver a generar el pago. */}
+          <p className="text-sm font-semibold text-cuerpo" aria-live="polite">
+            Esperando la confirmación de Bancard…{" "}
+            <span className="tabular-nums text-etiqueta">{formatearEspera(esperaMs)}</span>
           </p>
+
+          {/* Demostración: el botón hace lo que en la realidad hace la persona
+              en la app de su banco. Antes esto ocurría solo, por reloj, y una
+              demostración en la que el dinero entra sin que nadie haga nada no
+              muestra el paso que más importa. El contador da el momento: cinco
+              segundos, lo que tarda alguien en escanear. */}
+          {pagoSimuladoDisponible ? (
+            <div className="flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={() => void marcarPagado()}
+                disabled={esperaMs < ESPERA_ANTES_DE_PAGADO_MS || marcandoPagado}
+                className="inline-flex h-11 items-center justify-center rounded-lg border-2 border-verde-600 px-6 text-sm font-bold tracking-wide text-verde-700 uppercase transition-colors hover:bg-verde-50 disabled:cursor-not-allowed disabled:opacity-40 sm:self-start dark:border-verde-400 dark:text-verde-300 dark:hover:bg-verde-950"
+              >
+                {marcandoPagado ? "Confirmando…" : "Pagado"}
+              </button>
+              <p className="text-xs text-etiqueta">
+                {esperaMs < ESPERA_ANTES_DE_PAGADO_MS
+                  ? `Demostración: se habilita en ${Math.ceil((ESPERA_ANTES_DE_PAGADO_MS - esperaMs) / 1000)} s, simulando el tiempo de escanear y pagar.`
+                  : "Demostración: equivale a haber pagado el QR desde la app de tu banco."}
+              </p>
+              <MensajeDeError texto={origenError === "PAGADO" ? error : null} />
+            </div>
+          ) : null}
+          {esperaMs >= ESPERA_LARGA_MS ? (
+            <p className="text-xs text-etiqueta">
+              Está tardando más de lo habitual. Si ya pagaste, no vuelvas a pagar: esperá acá o
+              volvé a esta pantalla más tarde, que la confirmación se registra igual. Si todavía no
+              pagaste, podés generar el pago de nuevo.
+            </p>
+          ) : null}
+          <MensajeDeError texto={origenError === "SONDEO" ? error : null} />
         </section>
       ) : null}
 
@@ -626,11 +843,6 @@ export function FormularioPagoP7() {
         </section>
       ) : null}
 
-      {error ? (
-        <p role="alert" className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">
-          {error}
-        </p>
-      ) : null}
       </div>
       </div>
 

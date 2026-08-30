@@ -358,15 +358,22 @@ describe("origen de la captura", () => {
     }
   });
 
-  it("en demostración se admite archivo solo para el documento", () => {
-    expect(origenCapturaAdmitido("FRENTE", "ARCHIVO", true)).toBe(true);
-    expect(origenCapturaAdmitido("DORSO", "ARCHIVO", true)).toBe(true);
+  it("en demostración se admite archivo para las tres capturas", () => {
+    // Decisión del 20-ago-2026, selfie incluida. No es que subirla sea
+    // inocuo: es que este camino ya renunció a la prueba de vida
+    // (`decidirPresenciaDemo` comprueba presencia, no vida), así que exigir la
+    // cámara para la selfie no compraba la garantía que parecía comprar.
+    for (const tipo of ["FRENTE", "DORSO", "SELFIE"] as const) {
+      expect(origenCapturaAdmitido(tipo, "ARCHIVO", true)).toBe(true);
+    }
   });
 
-  it("la selfie no acepta archivo ni siquiera en demostración", () => {
-    // Es el ancla biométrica del expediente: un archivo acá permitiría
-    // verificar la identidad con la fotografía de otra persona, que es
-    // exactamente el fraude que P5 existe para impedir.
-    expect(origenCapturaAdmitido("SELFIE", "ARCHIVO", true)).toBe(false);
+  it("el modo demostración es lo único que abre el archivo, para la selfie también", () => {
+    // La separación con producción no la sostiene esta función sola: la
+    // sostienen `DEMO_MODE`, el adaptador de demostración —que tira si el flag
+    // no está encendido— y el origen sellado en la evidencia. Lo que este test
+    // fija es el primer eslabón: sin modo demostración, ni una.
+    expect(origenCapturaAdmitido("SELFIE", "ARCHIVO", false)).toBe(false);
+    expect(origenCapturaAdmitido("SELFIE", "CAMARA", false)).toBe(true);
   });
 });

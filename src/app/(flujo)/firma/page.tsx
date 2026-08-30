@@ -6,7 +6,10 @@ import {
   HeaderInstitucional,
   PieLegal,
   StepperPasos,
+  TramiteEnOtroPaso,
 } from "@/components/shared";
+import { DETALLE_FIRMA_YA_HECHA } from "@/domain/textos-reencaminado";
+import { expedienteEnOtroPaso } from "../_reencaminado";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
 import { TOTAL_PASOS, numeroDePaso, pasoAnteriorDe } from "@/domain/rutas-flujo";
 import {
@@ -49,7 +52,15 @@ export const metadata: Metadata = {
   description: `Paso ${numeroDePaso("/firma")} de ${TOTAL_PASOS}: revisión de la Solicitud y el FIPF cerrados y firma de ambos en un único acto.`,
 };
 
-export default function PantallaP8Firma() {
+export default async function PantallaP8Firma() {
+  // `FIRMADO` sigue siendo de esta pantalla, por la misma razón que
+  // `PAGO_CONFIRMADO` es de la de pago: cuando las firmas institucionales
+  // entran, es la propia pantalla la que lleva a la persona al paso siguiente
+  // desde su sondeo. Reemplazarla por el panel le sacaba esa capacidad y la
+  // dejaba esperando un clic donde antes avanzaba sola — lo encontró el E2E
+  // del tramo institucional caído, que recarga justo cuando el reintento
+  // completa el sellado.
+  const enOtroPaso = await expedienteEnOtroPaso("/firma", ["FIRMADO"]);
   const pasoAnterior = pasoAnteriorDe("/firma");
 
   return (
@@ -83,6 +94,13 @@ export default function PantallaP8Firma() {
             cerrado—, que a pedido tienen que ser lo último. Sigue siendo
             contenido de servidor: pasar un componente de servidor como
             `children` de uno de cliente no lo empuja al bundle. */}
+        {enOtroPaso ? (
+          <TramiteEnOtroPaso
+            destino={enOtroPaso}
+            detalle={DETALLE_FIRMA_YA_HECHA}
+            modoDemo={esModoDemo()}
+          />
+        ) : (
         <FirmaP8 firmadorSimuladoDisponible={esModoDemo()}>
         <section
           aria-labelledby="p8-despues"
@@ -115,6 +133,7 @@ export default function PantallaP8Firma() {
           </ul>
         </section>
         </FirmaP8>
+        )}
 
         {/* Destino y rótulo derivados de PASOS_FLUJO. Escrito a mano decía
             "Volver a facturación y garantía de pago" hacia /pago, del orden

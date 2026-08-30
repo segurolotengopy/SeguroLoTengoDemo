@@ -128,6 +128,35 @@ export function respuestaJson(
   return new Response(JSON.stringify(cuerpo), { status: opciones.status ?? 200, headers: cabeceras });
 }
 
+/**
+ * Redirección con cookies, para los formularios que no llevan JavaScript.
+ *
+ * Existe por el botón *Finalizar* de las pantallas de cierre: para que el
+ * navegador olvide el trámite terminado hay que borrarle la cookie, y borrar
+ * una cookie es escribir una cabecera —cosa que un `page.tsx` no puede hacer en
+ * Next 15, solo un Route Handler o una Server Action—. Con esto el botón es un
+ * `<form method="post">` común y la pantalla sigue sin bundle de cliente.
+ *
+ * `303` y no `302` a propósito: es el código que convierte el POST del
+ * formulario en un GET al destino. Con 302 hay navegadores que reenvían el POST
+ * y la persona termina en un método que la pantalla de destino no atiende.
+ */
+export function respuestaRedireccion(
+  destino: string,
+  opciones: { cookies?: readonly CookieAEscribir[] } = {},
+): Response {
+  const cabeceras = new Headers({ location: destino, "cache-control": "no-store" });
+
+  for (const cookie of opciones.cookies ?? []) {
+    cabeceras.append(
+      "set-cookie",
+      serializarCookie(cookie.nombre, cookie.valor, cookie.maxAge ?? VIDA_COOKIE_SEGUNDOS),
+    );
+  }
+
+  return new Response(null, { status: 303, headers: cabeceras });
+}
+
 /** Cuerpo JSON del request, o `null` si no es JSON válido. */
 export async function leerJson(request: Request): Promise<Record<string, unknown> | null> {
   try {
