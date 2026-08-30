@@ -38,6 +38,56 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-29 (d) · Fase 1: ESPECIFICACION_PANTALLAS.md reescrita al flujo de 3 pasos
+
+**Rama:** `docs/especificacion-pantallas-3-pasos` · **Especificación**
+
+### El caso
+
+Con las 11 DI decididas (PR #62 mergeado), Andres pidió arrancar la
+reescritura de la especificación de pantallas contra el canvas importado y el
+Bloque E.
+
+### Qué cambió
+
+- `docs/ESPECIFICACION_PANTALLAS.md` reescrita completa: 3 pasos visibles con
+  gating en cascada (+ inicio, confirmación y revisión manual fuera del
+  contador), textos literales del canvas, premios aprobados
+  (319.000/522.500/726.000), aceptaciones agrupadas, mapa 5→8 de
+  declaraciones con tabla explícita, y banner de transición: describe la
+  configuración OBJETIVO; el código en main sigue en 8 pasos hasta que los
+  lotes cierren, y el orden vigente sigue viviendo en PASOS_FLUJO.
+- Verificaciones DI-3 y DI-7 hechas contra `Solicitud.pdf` (pdftotext): la
+  declaración médica son 3 preguntas + 4 finales + PEP en FIPF — el mapa 5→8
+  cierra sin huecos; el beneficiario del formulario lleva nombre, parentesco
+  y domicilio — los 3 campos extra del canvas (cédula, f. nac., celular del
+  beneficiario) NO se piden, por DI-7 mandan los campos de la Solicitud.
+- El expandible «¿Qué es el FIPF?» quedó redactado sobre el formulario real
+  (DI-1); las referencias regulatorias del canvas quedaron rotuladas como
+  marcadores provisionales (DI-4).
+
+### Qué hizo Andres
+
+- Mergeó el #62 y pidió arrancar la reescritura («arranquemos»).
+
+### Verificaciones
+
+- `npm run typecheck && npm run lint && npm test` sobre la rama (el test de
+  higiene de citas también vigila docs/).
+
+### Queda abierto
+
+- Primer PR de implementación: `PASOS_FLUJO` con pasos visibles (3) y las
+  rutas nuevas (`/inscripcion`, `/seguro`, `/pago-y-firma`, provisionales
+  hasta ese PR), sin aplanar la máquina de estados (DI-2).
+- Después, un paso por sesión (cada paso nuevo es una página larga: paso 1,
+  paso 2, paso 3, inicio+confirmación+revisión).
+- La rama de firma interna (`claude/code100-api-integration-1f2547`) se
+  integra al implementar el paso 3.
+- Los marcadores provisionales (DI-4) esperan el dato oficial de Alianza.
+
+---
+
 ## 2026-08-29 (c) · Fase 1: las 11 DI resueltas en DECISIONES.md
 
 **Rama:** `docs/decisiones-di-diseno-3-pasos` · **Ronda de decisiones**
