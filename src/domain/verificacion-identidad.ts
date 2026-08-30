@@ -57,6 +57,7 @@ import type {
 import { evaluarBloqueoPorCedula } from "./consola-administrativa";
 import type { LectorExpedientesPorCedula } from "./consola-administrativa";
 import { normalizarCorreo } from "./correo";
+import { flujoV3Activo } from "./flujo-vigente";
 import { cotejarCorreccion } from "./cotejo-ocr";
 // Los datos laborales y económicos se capturan **acá** desde la reformulación
 // de pantallas (maqueta p.4). El intérprete y el catálogo conservan el sufijo
@@ -113,13 +114,17 @@ export interface DependenciasP5 {
 
 /** Único estado desde el que P5 puede operar. */
 /**
- * Se entra a identidad desde la autorización inicial (D-06).
+ * v2: se entra a identidad desde la autorización inicial (D-06) — antes se
+ * entraba desde `CANAL_EMAIL_VERIFICADO`, y al retirarse el paso de correo el
+ * estado previo pasó a ser `AUTORIZADO`.
  *
- * Antes se entraba desde `CANAL_EMAIL_VERIFICADO`, que era el estado que
- * dejaba el paso de correo. Al retirarse ese paso, el correo se declara en
- * esta misma pantalla y el estado previo pasa a ser `AUTORIZADO`.
+ * v3 (DI-2, flujo de 3 pasos): la identidad es **lo primero** que hace la
+ * persona — el expediente recién creado por los T&C del inicio está en
+ * `INICIADO`, y la cédula se conoce al comienzo para que el bloqueo por
+ * cédula (regla inviolable #11) se evalúe antes de invertir tiempo en el
+ * flujo.
  */
-export const ESTADO_REQUERIDO_P5: EstadoExpediente = "AUTORIZADO";
+export const ESTADO_REQUERIDO_P5: EstadoExpediente = flujoV3Activo() ? "INICIADO" : "AUTORIZADO";
 
 /**
  * Estado previo de los expedientes que empezaron antes del retiro del OTP de

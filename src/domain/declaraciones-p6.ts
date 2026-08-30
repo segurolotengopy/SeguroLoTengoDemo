@@ -67,6 +67,8 @@ import {
 } from "./elegibilidad";
 import type { MotivoDerivacion } from "./elegibilidad";
 import { registrarDeclaracionesP6 } from "./expediente";
+import { flujoV3Activo } from "./flujo-vigente";
+import { PANTALLA_POR_ESTADO } from "./rutas-flujo";
 import { registrarRemisionFallida, remitirCasoAAlianza } from "./remision-alianza";
 import { VERSION_TEXTOS_DECLARACIONES_P6 } from "./textos-p6";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
@@ -85,8 +87,22 @@ export interface DependenciasP6 {
   readonly nuevoNumeroCaso?: () => string;
 }
 
-/** Único estado desde el que P6 puede operar. */
-export const ESTADO_REQUERIDO_P6: EstadoExpediente = "IDENTIDAD_VERIFICADA";
+/**
+ * Único estado desde el que P6 puede operar.
+ *
+ * v3 (DI-2): las declaraciones viven en el paso 2 junto con el plan, así que
+ * se responden con el plan ya elegido — la identidad quedó atrás, en el paso 1.
+ */
+export const ESTADO_REQUERIDO_P6: EstadoExpediente = flujoV3Activo()
+  ? "PLAN_SELECCIONADO"
+  : "IDENTIDAD_VERIFICADA";
+
+/**
+ * A dónde sigue quien queda elegible: la pantalla que contiene la firma, que
+ * en v2 es `/firma` y en v3 la página larga del paso 3. Derivada del mapa
+ * estado→pantalla para que siga al flag sola.
+ */
+export const RUTA_TRAS_DECLARACIONES = PANTALLA_POR_ESTADO.DECLARACIONES_OK;
 
 export const PASO_EVIDENCIA_P6 = "P6_DATOS_Y_DECLARACIONES";
 
@@ -164,8 +180,11 @@ export type ResultadoP6 =
       readonly expedienteId: string;
       readonly estado: EstadoExpediente;
       readonly elegibleParaEmisionAutomatica: true;
-      /** D-08 · se firma antes de pagar: el paso siguiente es la firma. */
-      readonly siguientePantalla: "/firma";
+      /**
+       * D-08 · se firma antes de pagar: el paso siguiente es el que contiene
+       * la firma (`/firma` en v2, la página del paso 3 en v3).
+       */
+      readonly siguientePantalla: typeof RUTA_TRAS_DECLARACIONES;
     }
   | {
       readonly ok: true;
@@ -371,7 +390,7 @@ export async function guardarDatosYDeclaracionesP6(
       expedienteId: entrada.expedienteId,
       estado: transicion.expediente.estado,
       elegibleParaEmisionAutomatica: true,
-      siguientePantalla: "/firma",
+      siguientePantalla: RUTA_TRAS_DECLARACIONES,
     };
   }
 

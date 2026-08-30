@@ -38,9 +38,10 @@ import { codigoFipf, codigoSolicitud } from "./documentos";
 import { codigoCertificado } from "./certificado-cobertura";
 import { firmantesConjuntos } from "./firmantes-documento";
 import { evaluarElegibilidad } from "./elegibilidad";
+import { flujoV3Activo } from "./flujo-vigente";
 
-/** Grafo de transiciones legales: única fuente de verdad de la máquina de estados. */
-const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
+/** Grafo del flujo de 8 pasos, vigente mientras `FLUJO_V3` esté apagado. */
+export const TRANSICIONES_V2: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
   // CHG-01 · el plan se elige primero y el OTP de WhatsApp viene después.
   // Todo lo anterior al OTP es información pública, así que ponerlo delante no
   // protegía nada; puesto acá, el código funciona como elemento disuasivo y da
@@ -125,6 +126,54 @@ const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExp
   // (D-02): el dinero ya entró y el trámite lo lleva Alianza fuera del flujo.
   EMITIDO: ["DEVOLUCION_EN_TRAMITE"],
 };
+
+/**
+ * Grafo del flujo de 3 pasos (DI-2, Bloque E de `docs/plan/DECISIONES.md`).
+ *
+ * El orden nuevo —identidad primero, plan después— se logra **recableando
+ * aristas entre los mismos estados**: no hay estados nuevos, así que los
+ * expedientes históricos siguen siendo legibles y los terminales y legados
+ * quedan idénticos. El tramo desde `DECLARACIONES_OK` hasta el final es el
+ * mismo del v2, copiado a propósito y con test que lo verifica: la inversión
+ * firma→pago (D-08) y la regla 6-bis no se renegocian con este rediseño.
+ */
+export const TRANSICIONES_V3: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
+  // Paso 1 · la cédula se conoce al comienzo: el bloqueo por cédula (regla
+  // inviolable #11) se evalúa antes de que la persona invierta tiempo en el
+  // flujo, y la salida a asistencia humana (tres análisis fallidos) sale de
+  // acá y ya no de AUTORIZADO.
+  INICIADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
+  IDENTIDAD_VERIFICADA: ["CANAL_WA_VERIFICADO"],
+  CANAL_WA_VERIFICADO: ["AUTORIZADO"],
+  // La aceptación agrupada del paso 1 (DI-8) es la autorización: cierra la
+  // inscripción y habilita el paso 2.
+  AUTORIZADO: ["PLAN_SELECCIONADO"],
+  // El autobucle sigue siendo el enlace `cambiar plan`. Las declaraciones
+  // viven ahora en el mismo paso que el plan, así que la derivación a análisis
+  // (regla inviolable #5) sale de acá.
+  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "DECLARACIONES_OK", "DERIVADO_MANUAL"],
+
+  // Legado (D-06): sin aristas de entrada; conserva sus salidas v2 para que
+  // un expediente histórico detenido acá pueda terminar su trámite.
+  CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
+  ASISTENCIA_IDENTIDAD: [],
+  DERIVADO_MANUAL: [],
+
+  // Paso 3 en adelante: idéntico al v2, aristas copiadas sin cambios.
+  DECLARACIONES_OK: ["PAQUETE_GENERADO"],
+  PAQUETE_GENERADO: ["FIRMADO_CLIENTE"],
+  FIRMADO_CLIENTE: ["FIRMADO"],
+  FIRMADO: ["PAGO_CONFIRMADO", "VENCIDO"],
+  PAGO_CONFIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE"],
+  VENCIDO: ["DEVOLUCION_EN_TRAMITE"],
+  DEVOLUCION_EN_TRAMITE: ["DEVUELTO"],
+  DEVUELTO: [],
+  EMITIDO: ["DEVOLUCION_EN_TRAMITE"],
+};
+
+/** Grafo vigente en este despliegue: única fuente de verdad de la máquina de estados. */
+const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> =
+  flujoV3Activo() ? TRANSICIONES_V3 : TRANSICIONES_V2;
 
 export type ResultadoTransicion =
   | { readonly ok: true; readonly expediente: Expediente }

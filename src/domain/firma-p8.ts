@@ -63,6 +63,7 @@ import {
   registrarFirmasInstitucionales,
 } from "./expediente";
 import { firmantesConjuntos } from "./firmantes-documento";
+import { PANTALLA_POR_ESTADO } from "./rutas-flujo";
 import {
   TEXTO_DECLARACION_FIRMA_P8,
   VERSION_DECLARACION_FIRMA_P8,
@@ -125,8 +126,13 @@ export const PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 = "P8_FIRMAS_INSTITUCIONAL
  */
 export const PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8 = "P8_CONFIRMACION_DUPLICADA";
 
-/** D-08 · firmado el expediente, el paso siguiente es el pago. */
-export const RUTA_PAGO = "/pago";
+/**
+ * D-08 · firmado el expediente, el paso siguiente es el pago. Derivada del
+ * mapa estado→pantalla para que siga al flag del flujo: `/pago` en v2, la
+ * página larga del paso 3 en v3 (donde el pago es la sección siguiente de la
+ * misma pantalla).
+ */
+export const RUTA_PAGO = PANTALLA_POR_ESTADO.FIRMADO;
 
 /**
  * Plazo para pagar un expediente ya firmado (D-10: 24 horas).

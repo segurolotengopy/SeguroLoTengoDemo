@@ -24,6 +24,7 @@
  * exhaustivo y TypeScript no deja olvidarse de ninguno.
  */
 import type { EstadoExpediente } from "./tipos";
+import { flujoV3Activo } from "./flujo-vigente";
 
 export const RUTA_ASISTENCIA_IDENTIDAD = "/asistencia-identidad";
 export const RUTA_REVISION_MANUAL = "/revision-manual";
@@ -80,7 +81,7 @@ export interface PasoDelFlujo {
   readonly estadoAlCompletar: EstadoExpediente;
 }
 
-export const PASOS_FLUJO: readonly PasoDelFlujo[] = [
+export const PASOS_FLUJO_V2: readonly PasoDelFlujo[] = [
   {
     id: "Pv2-1",
     slug: "/plan",
@@ -135,6 +136,46 @@ export const PASOS_FLUJO: readonly PasoDelFlujo[] = [
   },
 ];
 
+/**
+ * El flujo de 3 pasos del rediseño (Bloque E de `docs/plan/DECISIONES.md`,
+ * `docs/ESPECIFICACION_PANTALLAS.md` reescrita el 29-ago-2026).
+ *
+ * Cada paso es una **página larga con secciones habilitadas en cascada**, no
+ * una pantalla por estado: por eso son tres entradas que cubren varios estados
+ * cada una, y `PANTALLA_POR_ESTADO_V3` mapea los intermedios a su página. La
+ * confirmación y la revisión manual quedan fuera del contador, igual que la
+ * P0 lo estaba en el flujo anterior.
+ *
+ * El orden invertido —identidad primero, plan después (DI-2)— vive en el grafo
+ * de transiciones (`expediente.ts`), no acá: esta lista solo dice qué página
+ * es cada paso y con qué estado se completa.
+ */
+export const PASOS_FLUJO_V3: readonly PasoDelFlujo[] = [
+  {
+    id: "Pv3-1",
+    slug: "/inscripcion",
+    titulo: "Inscribite",
+    estadoAlCompletar: "AUTORIZADO",
+  },
+  {
+    id: "Pv3-2",
+    slug: "/seguro",
+    titulo: "Elegí tu seguro",
+    estadoAlCompletar: "DECLARACIONES_OK",
+  },
+  {
+    id: "Pv3-3",
+    slug: "/pago-y-firma",
+    titulo: "Pagá y firmá",
+    estadoAlCompletar: "PAGO_CONFIRMADO",
+  },
+];
+
+/** La lista vigente en este despliegue. Todo lo demás se deriva de ella. */
+export const PASOS_FLUJO: readonly PasoDelFlujo[] = flujoV3Activo()
+  ? PASOS_FLUJO_V3
+  : PASOS_FLUJO_V2;
+
 export const TOTAL_PASOS = PASOS_FLUJO.length;
 
 /**
@@ -180,11 +221,18 @@ export function pasoAnteriorDe(slug: string): PasoDelFlujo | null {
   return PASOS_FLUJO[indice - 1] ?? null;
 }
 
+function rutaDelPasoSiguienteEn(
+  pasos: readonly PasoDelFlujo[],
+  estado: EstadoExpediente,
+): string | null {
+  const indice = pasos.findIndex((paso) => paso.estadoAlCompletar === estado);
+  if (indice === -1) return null;
+  return pasos[indice + 1]?.slug ?? null;
+}
+
 /** Ruta del paso siguiente al que deja este estado, o `null` si no hay. */
 export function rutaDelPasoSiguiente(estado: EstadoExpediente): string | null {
-  const indice = PASOS_FLUJO.findIndex((paso) => paso.estadoAlCompletar === estado);
-  if (indice === -1) return null;
-  return PASOS_FLUJO[indice + 1]?.slug ?? null;
+  return rutaDelPasoSiguienteEn(PASOS_FLUJO, estado);
 }
 
 /**
@@ -195,7 +243,7 @@ export function rutaDelPasoSiguiente(estado: EstadoExpediente): string | null {
  * contratación termina en una llamada de alguien que cree que perdió su
  * trámite.
  */
-export const REDIRECCIONES_RUTAS_VIEJAS: Readonly<Record<string, string>> = {
+export const REDIRECCIONES_RUTAS_VIEJAS_V2: Readonly<Record<string, string>> = {
   "/p1-whatsapp": "/whatsapp",
   "/p2-plan": "/plan",
   "/p3-preparacion": "/preparacion",
@@ -211,6 +259,37 @@ export const REDIRECCIONES_RUTAS_VIEJAS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Con el flujo de 3 pasos, las rutas viejas son **dos generaciones**: las
+ * numeradas (`/p1-…`) y los slugs semánticos del flujo de 8 pasos, que también
+ * viven en enlaces ya enviados. Cada una redirige a la página larga que
+ * absorbió su contenido (mapa de trazabilidad en
+ * `docs/plan/IMPORTACION_DISENO_3_PASOS.md` §5). `/confirmacion` no aparece:
+ * sigue existiendo con el mismo slug, fuera del contador.
+ */
+export const REDIRECCIONES_RUTAS_VIEJAS_V3: Readonly<Record<string, string>> = {
+  "/p1-whatsapp": "/inscripcion",
+  "/p2-plan": "/seguro",
+  "/p3-preparacion": "/inscripcion",
+  "/p4-correo": "/inscripcion",
+  "/p5-identidad": "/inscripcion",
+  "/p6-declaraciones": "/seguro",
+  "/p7-pago": "/pago-y-firma",
+  "/p8-firma": "/pago-y-firma",
+  "/p9-confirmacion": "/confirmacion",
+  "/plan": "/seguro",
+  "/whatsapp": "/inscripcion",
+  "/preparacion": "/inscripcion",
+  "/identidad": "/inscripcion",
+  "/declaraciones": "/seguro",
+  "/firma": "/pago-y-firma",
+  "/pago": "/pago-y-firma",
+};
+
+export const REDIRECCIONES_RUTAS_VIEJAS: Readonly<Record<string, string>> = flujoV3Activo()
+  ? REDIRECCIONES_RUTAS_VIEJAS_V3
+  : REDIRECCIONES_RUTAS_VIEJAS_V2;
+
+/**
  * Pantalla donde la persona puede **continuar** con ese estado.
  *
  * Se deriva de `PASOS_FLUJO` para los estados del camino feliz: el expediente
@@ -221,16 +300,16 @@ export const REDIRECCIONES_RUTAS_VIEJAS: Readonly<Record<string, string>> = {
  * pasó y qué sigue", que es lo mismo desde el punto de vista de no dejar a
  * nadie sin salida.
  */
-export const PANTALLA_POR_ESTADO: Readonly<Record<EstadoExpediente, string>> = {
+export const PANTALLA_POR_ESTADO_V2: Readonly<Record<EstadoExpediente, string>> = {
   // Camino feliz, derivado del orden de la lista.
-  INICIADO: PASOS_FLUJO[0].slug,
-  PLAN_SELECCIONADO: rutaDelPasoSiguiente("PLAN_SELECCIONADO") ?? PASOS_FLUJO[0].slug,
-  CANAL_WA_VERIFICADO: rutaDelPasoSiguiente("CANAL_WA_VERIFICADO") ?? PASOS_FLUJO[0].slug,
-  AUTORIZADO: rutaDelPasoSiguiente("AUTORIZADO") ?? PASOS_FLUJO[0].slug,
-  IDENTIDAD_VERIFICADA: rutaDelPasoSiguiente("IDENTIDAD_VERIFICADA") ?? PASOS_FLUJO[0].slug,
-  DECLARACIONES_OK: rutaDelPasoSiguiente("DECLARACIONES_OK") ?? PASOS_FLUJO[0].slug,
-  PAGO_CONFIRMADO: rutaDelPasoSiguiente("PAGO_CONFIRMADO") ?? PASOS_FLUJO[0].slug,
-  FIRMADO: rutaDelPasoSiguiente("FIRMADO") ?? PASOS_FLUJO[0].slug,
+  INICIADO: PASOS_FLUJO_V2[0].slug,
+  PLAN_SELECCIONADO: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "PLAN_SELECCIONADO") ?? PASOS_FLUJO_V2[0].slug,
+  CANAL_WA_VERIFICADO: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "CANAL_WA_VERIFICADO") ?? PASOS_FLUJO_V2[0].slug,
+  AUTORIZADO: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "AUTORIZADO") ?? PASOS_FLUJO_V2[0].slug,
+  IDENTIDAD_VERIFICADA: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "IDENTIDAD_VERIFICADA") ?? PASOS_FLUJO_V2[0].slug,
+  DECLARACIONES_OK: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "DECLARACIONES_OK") ?? PASOS_FLUJO_V2[0].slug,
+  PAGO_CONFIRMADO: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "PAGO_CONFIRMADO") ?? PASOS_FLUJO_V2[0].slug,
+  FIRMADO: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "FIRMADO") ?? PASOS_FLUJO_V2[0].slug,
 
   // El paquete documental se cierra al entrar a la pantalla de firma, y la
   // firma del cliente deja el expediente esperando las institucionales: los
@@ -251,6 +330,51 @@ export const PANTALLA_POR_ESTADO: Readonly<Record<EstadoExpediente, string>> = {
   DEVOLUCION_EN_TRAMITE: RUTA_SOLICITUD_VENCIDA,
   DEVUELTO: RUTA_SOLICITUD_VENCIDA,
 };
+
+/**
+ * El mapa del flujo de 3 pasos. Es el corazón del gating en cascada: cada
+ * página larga cubre varios estados, así que los intermedios apuntan a **su**
+ * página y no a "la siguiente" — la página decide qué secciones habilitar
+ * leyendo el estado. `perteneceAEstePaso` y el reencaminado funcionan sin
+ * cambios porque siempre fueron un mapeo estado → slug, no paso → paso.
+ *
+ * Se escribe entero a mano en vez de derivarse: con tres entradas que cubren
+ * once estados, la derivación por "paso siguiente" diría otra cosa.
+ */
+export const PANTALLA_POR_ESTADO_V3: Readonly<Record<EstadoExpediente, string>> = {
+  // Paso 1 · Inscribite: identidad → canal → autorización.
+  INICIADO: "/inscripcion",
+  IDENTIDAD_VERIFICADA: "/inscripcion",
+  CANAL_WA_VERIFICADO: "/inscripcion",
+  // Legado (D-06): expedientes históricos detenidos en el correo verificado
+  // retoman por la página que hoy contiene la identidad y los canales.
+  CANAL_EMAIL_VERIFICADO: "/inscripcion",
+
+  // Paso 2 · Elegí tu seguro: plan → beneficiario → declaraciones.
+  AUTORIZADO: "/seguro",
+  PLAN_SELECCIONADO: "/seguro",
+
+  // Paso 3 · Pagá y firmá: paquete → firma → pago.
+  DECLARACIONES_OK: "/pago-y-firma",
+  PAQUETE_GENERADO: "/pago-y-firma",
+  FIRMADO_CLIENTE: "/pago-y-firma",
+  FIRMADO: "/pago-y-firma",
+
+  // Fuera del contador.
+  PAGO_CONFIRMADO: "/confirmacion",
+  EMITIDO: "/confirmacion",
+
+  // Terminales: idénticos al v2.
+  ASISTENCIA_IDENTIDAD: RUTA_ASISTENCIA_IDENTIDAD,
+  DERIVADO_MANUAL: RUTA_REVISION_MANUAL,
+  VENCIDO: RUTA_SOLICITUD_VENCIDA,
+  DEVOLUCION_EN_TRAMITE: RUTA_SOLICITUD_VENCIDA,
+  DEVUELTO: RUTA_SOLICITUD_VENCIDA,
+};
+
+export const PANTALLA_POR_ESTADO: Readonly<Record<EstadoExpediente, string>> = flujoV3Activo()
+  ? PANTALLA_POR_ESTADO_V3
+  : PANTALLA_POR_ESTADO_V2;
 
 /**
  * Estados desde los que **no se puede volver al flujo digital**.
