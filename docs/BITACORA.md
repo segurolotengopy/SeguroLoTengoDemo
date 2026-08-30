@@ -38,6 +38,51 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-29 (c) · Fase 1: las 11 DI resueltas en DECISIONES.md
+
+**Rama:** `docs/decisiones-di-diseno-3-pasos` · **Ronda de decisiones**
+
+### El caso
+
+Con el PR #61 mergeado, Andres resolvió la ronda completa de divergencias de
+la importación del diseño (DI-1…DI-11), dos por mensaje directo y cuatro por
+preguntas estructuradas; las cinco restantes se derivaron de reglas ya
+existentes.
+
+### Qué cambió
+
+- `docs/plan/DECISIONES.md`: **Bloque E** nuevo con las once DI decididas.
+- `docs/plan/IMPORTACION_DISENO_3_PASOS.md` §6: marcado como ronda resuelta,
+  apuntando al Bloque E como fuente de verdad.
+
+### Qué hizo Andres
+
+- Mergeó el #61 (pidió el merge explícitamente).
+- **DI-1:** confirmó que FIPF es el Formulario de Identificación de Persona
+  Física (Res. SEPRELAD 71/19); el texto del canvas es error de maqueta.
+- **DI-4:** confirmó que carencias, resolución y código de producto del
+  canvas son marcadores de la maqueta (parámetros provisionales, criterio D-04).
+- **DI-3, DI-5, DI-8, DI-10:** eligió la opción recomendada en las cuatro
+  (PDF conserva las 8 declaraciones con mapa 5→8; enlace de firma por ambos
+  canales; casillas agrupadas como el canvas; T&C del inicio con evidencia).
+
+### Verificaciones
+
+- `npm run typecheck && npm run lint && npm test` (solo docs, igual corre la
+  cadena por política).
+
+### Queda abierto
+
+- Reescribir `ESPECIFICACION_PANTALLAS.md` contra el documento de importación
+  y el Bloque E — incluye documentar el mapa 5→8 y cotejar el beneficiario
+  contra `Solicitud.pdf` (DI-7).
+- Primer PR de implementación: `PASOS_FLUJO` con pasos visibles (3) sin
+  aplanar la máquina de estados (DI-2).
+- La rama de firma interna se integra al implementar el paso 3 (DI-5 ya la
+  respalda).
+
+---
+
 ## 2026-08-29 (b) · Fase 1: importación del diseño de 3 pasos desde Claude Design
 
 **Rama:** `docs/importacion-diseno-3-pasos` · **Importación de diseño**
