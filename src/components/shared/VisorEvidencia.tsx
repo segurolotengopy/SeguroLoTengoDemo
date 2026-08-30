@@ -155,7 +155,7 @@ export function VisorEvidencia({
               <div className="flex flex-col gap-2 rounded-lg border border-verde-300 bg-verde-50 p-3 sm:col-span-2 dark:border-verde-800 dark:bg-verde-950">
                 <p className="text-sm font-semibold text-verde-900 dark:text-verde-100">
                   Firmado (Code100{" "}
-                  <code className="font-mono text-xs">{firma.idCode100}</code>) el{" "}
+                  <code className="font-mono text-xs">{firma.referenciaActo}</code>) el{" "}
                   <span className="tabular-nums">{fechaLegible(firma.firmadoEn)}</span> · canal{" "}
                   {firma.canal}
                 </p>

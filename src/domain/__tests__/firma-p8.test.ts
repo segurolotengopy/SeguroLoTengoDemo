@@ -356,7 +356,7 @@ describe("P8 · confirmar la firma", () => {
     const expediente = entorno.repositorio.actual();
     expect(expediente.estado).toBe("FIRMADO");
     expect(expediente.firma?.hashDocumentoFirmado).toHaveLength(64);
-    expect(expediente.firma?.idCode100).toBe(enlace.acto.idCode100);
+    expect(expediente.firma?.referenciaActo).toBe(enlace.acto.idCode100);
     // D-08 · firmado el expediente, lo que sigue es pagar.
     expect(resultado.siguientePantalla).toBe("/pago");
   });
@@ -476,7 +476,8 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
 
     const resultado = registrarFirmaP8(conActo, {
       canal: "WHATSAPP",
-      idCode100: "MOCK-FIRMA-X",
+      origen: "PROVEEDOR",
+      referenciaActo: "MOCK-FIRMA-X",
       firmadoEn: AHORA,
       hashDocumentoFirmado: "",
     });
@@ -501,7 +502,8 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
 
     const resultado = registrarFirmaP8(conActo, {
       canal: "WHATSAPP",
-      idCode100: "MOCK-FIRMA-AJENO",
+      origen: "PROVEEDOR",
+      referenciaActo: "MOCK-FIRMA-AJENO",
       firmadoEn: AHORA,
       hashDocumentoFirmado: "c".repeat(64),
     });

@@ -330,7 +330,7 @@ async function intentarEmitirPolizaP9(
       propuesta: expediente.numeroPropuesta,
       estadoPoliza: poliza.estado,
       referenciaBancard: pago.referenciaBancard ?? "",
-      idCode100: firma.idCode100,
+      idCode100: firma.referenciaActo,
       hashDocumentoFirmado: firma.hashDocumentoFirmado,
       emisorPoliza: "ALIANZA_GARANTIA_SEBAOT",
       // Constancia explícita de que no existe: el producto no la contempla.

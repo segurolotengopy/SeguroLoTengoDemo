@@ -67,6 +67,14 @@ const INTEGRACION_POR_PASO: Readonly<Record<string, IntegracionEvidencia>> = {
   P8_CAPTURA_PAGO: "PaymentProvider",
   P8_ENVIO_ENLACE_FIRMA: "SignatureProvider",
   P8_FIRMA: "SignatureProvider",
+  // El código con el que el cliente firma sí viaja por un proveedor (WhatsApp
+  // o correo), así que su envío y su reenvío se imputan a la integración de
+  // OTP. El **acto** de firma en sí (`FIRMA_CLIENTE_ACTO`) queda fuera de este
+  // mapa a propósito: desde que la firma del cliente es no cualificada y la
+  // genera SeguroLoTengo, no es una integración con nadie. Mismo criterio que
+  // con la generación de los PDF, que tampoco tiene puerto.
+  FIRMA_CLIENTE_OTP_ENVIO: "OtpProvider",
+  FIRMA_CLIENTE_OTP_REENVIO: "OtpProvider",
   P9_EMISION_POLIZA: "PolicyIssuer",
   P9_ESTADO_POLIZA: "PolicyIssuer",
 };

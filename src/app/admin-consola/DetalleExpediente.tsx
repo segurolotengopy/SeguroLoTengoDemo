@@ -366,7 +366,7 @@ export function DetalleExpediente({
             <Dato rotulo="Referencia Bancard" valor={expediente.pago?.referenciaBancard} />
             <Dato rotulo="Documento" valor={expediente.paqueteDocumental?.codigo} />
             <Dato rotulo="Sección FIPF" valor={expediente.paqueteDocumental?.codigoSeccionFipf} />
-            <Dato rotulo="Firma (Code100)" valor={expediente.firma?.idCode100} />
+            <Dato rotulo="Acto de firma" valor={expediente.firma?.referenciaActo} />
           </dl>
 
           {/* D-13 · quién firmó, con qué nivel y en qué modalidad. La consola

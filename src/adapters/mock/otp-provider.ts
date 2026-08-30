@@ -25,6 +25,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { INTENTOS_MAXIMOS_OTP, VIGENCIA_OTP_MS } from "../../domain/reglas-otp";
+import { canalCoherenteConProposito } from "../../ports/otp-provider";
 import type {
   OtpProvider,
   ResultadoEnvioOtp,
@@ -111,8 +112,7 @@ export function crearOtpProviderMock(opciones: OpcionesOtpProviderMock): OtpProv
     async enviarOtp(solicitud: SolicitudEnvioOtp): Promise<ResultadoEnvioOtp> {
       const { expedienteId, proposito, destino } = solicitud;
 
-      const esperado = proposito === "VERIFICACION_CELULAR" ? "WHATSAPP" : "EMAIL";
-      if (destino.canal !== esperado) {
+      if (!canalCoherenteConProposito(proposito, destino.canal)) {
         return {
           ok: false,
           motivo: "ERROR_ENVIO",
