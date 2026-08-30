@@ -33,6 +33,10 @@ export const DETALLE_IDENTIDAD_YA_VERIFICADA =
   "Si algún dato de tu cédula quedó mal, escribinos antes de firmar: el documento que vas a " +
   "firmar los lleva.";
 
+export const DETALLE_INSCRIPCION_COMPLETA =
+  "Tu inscripción ya está completa: identidad verificada, WhatsApp confirmado y " +
+  "autorizaciones aceptadas. Podés retomar el trámite donde quedaste.";
+
 export const DETALLE_DECLARACIONES_YA_RESPONDIDAS =
   "Ya respondiste las declaraciones y quedaron guardadas con la fecha y la hora en que las " +
   "hiciste, así que no se editan desde acá. Podés retomar el trámite donde quedaste.";

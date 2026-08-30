@@ -767,7 +767,14 @@ describe("3. Inventario de rutas de la API", () => {
      * Escriben en la base, pero **creando un expediente nuevo**: nunca mueven
      * el original. Cada uno tiene su prueba dedicada en el bloque 4.
      */
-    const CREAN_SIN_TOCAR_EL_ORIGINAL: readonly string[] = ["admin-consola/reinicio"];
+    const CREAN_SIN_TOCAR_EL_ORIGINAL: readonly string[] = [
+      "admin-consola/reinicio",
+      // T&C del inicio del flujo v3 (DI-10, lote F2): crea el expediente en
+      // INICIADO. Con uno ya existente en la sesión —derivado o no— responde
+      // EXPEDIENTE_YA_EXISTE sin tocarlo; probado en
+      // `src/domain/__tests__/inicio-terminos.test.ts`.
+      "inicio/terminos",
+    ];
 
     const CUBIERTAS: readonly string[] = [
       "admin-consola/devolucion",

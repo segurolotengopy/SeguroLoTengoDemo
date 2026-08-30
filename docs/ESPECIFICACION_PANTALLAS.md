@@ -156,6 +156,20 @@ en vivo. Los campos marcados en rojo son los que todavía faltan completar.`
 - Leyenda: `La edad de ingreso admitida es de 18 a 64 años y se calcula con la fecha de nacimiento de tu cédula.`
 - En `DEMO_MODE`: botón `Completar el resto con datos de ejemplo (demo)`, con los datos de `personas.ts` (DI-9 — los de la maqueta no entran al código).
 
+> **Nota de implementación (lote F2, 30-ago-2026).** El correo (doble tipeo) y
+> los datos complementarios se implementaron **dentro de la sección 1**, junto
+> con el documento: son el envío único que el caso de uso de identidad valida
+> y asienta, y partirlo habría duplicado endpoints y evidencias sin cambiar
+> ninguna garantía. Los gates que importan se conservan — sin identidad no hay
+> OTP, sin OTP no hay aceptación. Decisión de Andres del 30-ago (opción
+> «agrupado pragmático»); si el orden visual del canvas se quiere literal, se
+> refina en un lote posterior. Además, el **ítem 3 de la aceptación agrupada**
+> (biometría) se acepta también inline, **antes** de capturar — aceptar la
+> biometría después de haberla hecho sería un consentimiento retroactivo; el
+> ítem del expandible queda como ratificación (matiz de DI-8). Y mientras la
+> página de inicio no exista (lote F5), la casilla de T&C vive arriba de esta
+> pantalla como puerta provisional que crea el expediente (DI-10).
+
 ### Sección 2 — Tus canales (`TUS CANALES`, gated por identidad)
 
 **Título:** `{nombre,} verificá tu WhatsApp personal` — `Por acá recibís la

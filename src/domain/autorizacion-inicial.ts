@@ -26,11 +26,33 @@
 import { randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../ports/evidence-store";
 import { transicionarExpediente } from "./expediente";
+import { flujoV3Activo } from "./flujo-vigente";
+import {
+  TEXTO_ACEPTACION_INSCRIPCION,
+  VERSION_ACEPTACION_INSCRIPCION,
+} from "./textos-inscripcion";
 import { TEXTO_AUTORIZACION_INICIAL_P3, VERSION_AVISO_P3 } from "./textos-p3";
 import type { AutorizacionInicial, Expediente, RegistroEvidencia } from "./tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal-whatsapp";
 
 export { TEXTO_AUTORIZACION_INICIAL_P3, VERSION_AVISO_P3 };
+
+/**
+ * Qué literal firma la autorización según la versión del flujo (lote F2).
+ *
+ * En v3 la autorización es la **aceptación agrupada** del paso 1 (DI-8, siete
+ * ítems de `textos-inscripcion.ts`); en v2 sigue siendo el aviso de P3. La
+ * transición (`CANAL_WA_VERIFICADO → AUTORIZADO`) y el endpoint no cambian:
+ * cambia qué texto queda asentado con qué versión — mismo patrón de selección
+ * a import-time que las constantes del lote F1.
+ */
+export const TEXTO_AUTORIZACION_VIGENTE = flujoV3Activo()
+  ? TEXTO_ACEPTACION_INSCRIPCION
+  : TEXTO_AUTORIZACION_INICIAL_P3;
+
+export const VERSION_AUTORIZACION_VIGENTE = flujoV3Activo()
+  ? VERSION_ACEPTACION_INSCRIPCION
+  : VERSION_AVISO_P3;
 
 export const PASO_EVIDENCIA_AUTORIZACION_INICIAL = "P3_AUTORIZACION_INICIAL";
 
@@ -103,8 +125,8 @@ export async function registrarAutorizacionInicial(
     ip: entrada.contexto.ip,
     dispositivo: entrada.contexto.dispositivo,
     sesionId: entrada.contexto.sesionId,
-    versionAviso: VERSION_AVISO_P3,
-    textoAceptado: TEXTO_AUTORIZACION_INICIAL_P3,
+    versionAviso: VERSION_AUTORIZACION_VIGENTE,
+    textoAceptado: TEXTO_AUTORIZACION_VIGENTE,
   };
 
   const transicion = transicionarExpediente(expediente, "AUTORIZADO", { autorizacionInicial: autorizacion }, fecha);
@@ -117,8 +139,8 @@ export async function registrarAutorizacionInicial(
     ip: entrada.contexto.ip,
     dispositivo: entrada.contexto.dispositivo,
     sesionId: entrada.contexto.sesionId,
-    versionTextoAceptado: VERSION_AVISO_P3,
-    textoAceptado: TEXTO_AUTORIZACION_INICIAL_P3,
+    versionTextoAceptado: VERSION_AUTORIZACION_VIGENTE,
+    textoAceptado: TEXTO_AUTORIZACION_VIGENTE,
     resultado: transicion.ok ? "EXITOSO" : "FALLIDO",
     detalle: transicion.ok
       ? formatearDetalle({ estado: "AUTORIZADO" })

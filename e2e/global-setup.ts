@@ -26,7 +26,9 @@ import { crearTablaDeLaCorrida } from "./support/tabla-efimera";
 import { verificarCupoInotify } from "./support/preflight-inotify";
 import { descargarClaveDelPanel } from "./support/secreto-panel";
 
-const BASE_URL = "http://127.0.0.1:3100";
+// La config v3 (`playwright.v3.config.ts`) corre en otro puerto y lo declara
+// por esta variable; sin ella rige el puerto histórico de la batería.
+const BASE_URL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100";
 
 const RUTAS_A_CALENTAR = [
   "/",

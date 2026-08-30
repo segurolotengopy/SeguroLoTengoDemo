@@ -717,6 +717,12 @@ export interface Expediente {
   readonly canalWhatsapp: CanalVerificado | null;
   readonly plan: PlanSeleccionado | null;
   readonly autorizacionInicial: AutorizacionInicial | null;
+  /**
+   * Aceptación de T&C del inicio del flujo v3 (DI-10): el acto que creó el
+   * expediente, con versión y texto del servidor. `null` en todo expediente
+   * v2, donde el trámite nace al elegir plan.
+   */
+  readonly terminosIniciales: AutorizacionInicial | null;
   readonly canalEmail: CanalVerificado | null;
   readonly identidad: Identidad | null;
   readonly datosComplementarios: DatosComplementariosP6 | null;
@@ -821,6 +827,7 @@ export function crearExpedienteInicial(input: {
     canalWhatsapp: null,
     plan: null,
     autorizacionInicial: null,
+    terminosIniciales: null,
     canalEmail: null,
     identidad: null,
     datosComplementarios: null,

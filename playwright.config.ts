@@ -68,6 +68,10 @@ process.env.APP_SECRETS_ARN ??=
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Los specs del flujo v3 viven aparte y corren con su propia config
+  // (`playwright.v3.config.ts`, FLUJO_V3=true): levantarlos acá, contra un
+  // servidor sin el flag, fallaría por el motivo equivocado.
+  testIgnore: ["**/v3/**"],
   // 90s quedaba justo para los escenarios de flujo completo: el camino feliz
   // solo ya toma ~80s contra `next dev` + DynamoDB real, y el escenario 7
   // (firma atómica) recorre lo mismo MÁS dos actos de firma con sus

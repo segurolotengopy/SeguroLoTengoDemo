@@ -38,6 +38,79 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-30 · Lote F2: la página /inscripcion — el paso 1 del flujo v3
+
+**Rama:** `feat/f2-inscripcion` · **Implementación (primera página v3)**
+
+### El caso
+
+Con F1 desplegado, Andres pidió abrir F2. Dos decisiones suyas dieron el
+recorte: **entrada por caso de uso + bootstrap** (los T&C que crean el
+expediente se implementan de verdad, DI-10, y la casilla vive provisoriamente
+arriba de /inscripcion hasta que exista /inicio en F5) y **secciones en
+agrupado pragmático** (correo y complementarios quedan dentro de la sección
+de identidad — el envío único que el dominio ya valida — en vez de partir el
+caso de uso).
+
+### Qué cambió
+
+- Dominio: `inicio-terminos.ts` (`aceptarTerminosIniciales`: crea el
+  expediente en INICIADO con evidencia INICIO_TERMINOS_ACEPTADOS; rechaza en
+  v2 con FLUJO_NO_DISPONIBLE y no duplica con EXPEDIENTE_YA_EXISTE),
+  `textos-inicio.ts`, `textos-inscripcion.ts` (los 7 ítems de DI-8 con
+  versión INSCRIPCION-ACEPTACION-v1), campo `Expediente.terminosIniciales`, y
+  `autorizacion-inicial.ts` asienta texto/versión por flag (v3 firma la
+  aceptación agrupada; v2 sigue con P3).
+- Endpoint `POST /api/inicio/terminos` (siembra la cookie como p2/plan).
+- `VerificacionIdentidad` y `FormularioVerificacionWhatsapp` ganaron
+  `onCompletado` (y `onAsistencia`) opcionales: con la prop avanzan el gating
+  con `router.refresh()`; sin ella navegan como siempre — las páginas v2 no
+  cambian.
+- `/inscripcion`: page server con `notFound()` sin flag, sin barra de plan, y
+  orquestador client con las tres secciones en cascada (bloqueada / activa /
+  completa) con los rótulos de la spec.
+- E2E: `playwright.v3.config.ts` (puerto 3101, FLUJO_V3=true, readiness
+  contra /inscripcion porque la raíz redirige a /seguro que es 404 hasta F3),
+  `testIgnore: **/v3/**` en la config base, `E2E_BASE_URL` en global-setup,
+  spec `e2e/v3/01-inscripcion` (redirects 308, puerta de T&C → gating,
+  persistencia por cookie, stepper «Paso 1 de 3») y script `test:e2e:v3`.
+- Spec: nota de implementación en el Paso 1 con las dos divergencias (agrupado
+  pragmático; checkbox biométrico inline ANTES de capturar, el ítem 3 del
+  expandible queda como ratificación) y el bootstrap provisional de T&C.
+- `.claude/launch.json`: configuración `segurolotengo-dev-flujo-v3`.
+
+### Qué hizo Andres
+
+- Eligió «caso de uso + bootstrap» para la entrada y «agrupado pragmático»
+  para las secciones; aprobó el plan del lote en plan mode.
+
+### Verificaciones
+
+- typecheck + lint + **1183 tests** en verde (12 nuevos de dominio/textos).
+- `npm run build` con el flag apagado en verde.
+- **E2E v3: 3/3** (`npm run test:e2e:v3`, 37 s) — redirects, puerta de T&C
+  con expediente real en Dynamo, gating y stepper.
+- Smoke v2: `05-otp-agotado` en verde (2.1 m) — el formulario de WhatsApp
+  modificado sigue intacto en su página.
+- Recorrido por navegador con el flag encendido: T&C → sección 1 activa con
+  capturas y rótulos de bloqueo; el `router.refresh()` transiciona en vivo
+  (la primera impresión tarda lo que tarda el dev server en compilar).
+- Dos servidores `next dev` simultáneos comparten `.next` y el segundo no
+  arranca — por eso la corrida v3 exige el puerto libre y
+  `reuseExistingServer: false`.
+
+### Queda abierto
+
+- El recorrido E2E completo del paso 1 (capturas + OTP + aceptación) entra
+  cuando el flujo v3 sea recorrible de punta a punta (F3–F6): los helpers
+  v2 están acoplados a URLs por página y no vale la pena bifurcarlos ahora.
+- F3: página `/seguro` (paso 2 — plan + beneficiario + 5 declaraciones con
+  mapa 5→8). El destino tras la aceptación de F2 ya apunta ahí.
+- Los títulos internos de la sección de identidad conservan los literales v2
+  (los del canvas entran al refinar la sección en un lote posterior).
+
+---
+
 ## 2026-08-29 (e) · Lote F1: el flujo v3 entra al dominio detrás del flag FLUJO_V3
 
 **Rama:** `feat/f1-flujo-v3-dominio` · **Implementación (primer lote de código)**
