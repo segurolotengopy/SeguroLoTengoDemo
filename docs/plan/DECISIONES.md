@@ -113,6 +113,48 @@ La última orden imprime la regla que lo excluye: si no imprime nada, el archivo
 
 ---
 
+## Bloque E — Importación del diseño de 3 pasos (ronda del 29-ago-2026)
+
+Divergencias DI-1…DI-11 detectadas al importar el canvas aprobado de Claude
+Design (`docs/plan/IMPORTACION_DISENO_3_PASOS.md`, PR #61). **Ronda resuelta
+el 29-ago-2026** (Andres Alberdi): las once quedan decididas y ninguna
+permanece pendiente.
+
+### DI-1 · Qué significa «FIPF»
+- **DECIDIDA (29-ago-2026): FIPF es el Formulario de Identificación de Persona Física de la Res. SEPRELAD 71/19.** El texto del canvas que lo redefine como «Formulario de Información Previa a la Firma» es un **error de la maqueta** y se corrige en la implementación: el expandible «¿Qué es el FIPF?» explicará el formulario real (identificación KYC/AML), y la información precontractual del producto sigue viviendo donde ya vive (coberturas, carencias y condiciones del paso 2, más lo que el PDF ya imprime por la Matriz V4 §4). El PDF único de D-11 queda intacto.
+
+### DI-2 · Identidad antes que plan
+- **DECIDIDA (29-ago-2026): sí**, deriva de la aprobación del canvas. Orden nuevo: inscripción (identidad + canales + KYC) → plan + declaraciones → firma → pago. El bloqueo por cédula (regla inviolable #11) pasa a evaluarse al comienzo del flujo. El rediseño de la máquina de estados se especifica en el plan de lotes de la implementación, conservando los estados legados sin reescribirlos (regla #10).
+
+### DI-3 · Declaraciones: 5 en pantalla, 8 en el PDF
+- **DECIDIDA (29-ago-2026): el PDF conserva las 8.** La pantalla pregunta las 5 del diseño; la Solicitud impresa mantiene sus 8 declaraciones con las respuestas derivadas de un **mapa 5→8 explícito**, que se documenta en la reescritura de `ESPECIFICACION_PANTALLAS.md` y se implementa en dominio con test propio. `Solicitud.pdf` no cambia y nada escala a Alianza. La declaración 5 (carencias) es aceptación bloqueante: en No detiene sin derivar a Pantalla A.
+
+### DI-4 · Carencias, resolución y código de producto del canvas
+- **DECIDIDA (29-ago-2026): son marcadores de la maqueta.** Las carencias (180/30/1 días), la Res. SS.SG. N° 250/2026 y el código `SIS-VID-ONC-001/2026` **no son datos confirmados por Alianza**: se implementan como **parámetros provisionales rotulados**, con el mismo criterio de D-04 (`CDXXXXX`). No se publican como definitivos hasta el dato oficial.
+
+### DI-5 · Canal del enlace de firma
+- **DECIDIDA (29-ago-2026): ambos canales.** El enlace de firma puede ir al WhatsApp verificado por OTP **o** al correo declarado por doble tipeo: la declaración de veracidad firmada respalda al correo como canal (D-06), y la rama de firma interna ya modela el OTP de firma por cualquiera de los dos. La evidencia registra a cuál se envió.
+
+### DI-6 · Datos de factura en el paso 3
+- **DECIDIDA (29-ago-2026):** los campos «factura a nombre de», «documento» y «RUC (opcional)» son **captura para remitir a Alianza** (la factura la emite Alianza por SIFEN, fila 40): viajan en la remisión del caso (CHG-47) y quedan en el expediente. No constituyen facturación propia del portal.
+
+### DI-7 · Beneficiario en pantalla
+- **DECIDIDA (29-ago-2026): se adopta el bloque del canvas** (herederos legales por defecto, o designación de una persona al 100%). Verificación previa obligatoria en la reescritura de la spec: cotejar los 6 campos del canvas contra la sección de beneficiario de `Solicitud.pdf` antes de tocar el modelo de datos; ante diferencia, mandan los campos de la Solicitud.
+
+### DI-8 · Aceptaciones agrupadas
+- **DECIDIDA (29-ago-2026): se adopta el patrón del canvas** — una casilla agrupada por paso con detalle expandible («Ver todo lo que aceptás»). El opt-in comercial sigue separado (D-01) y los textos que la Matriz V4 exige integrados al PDF (art. 1556, licitud y veracidad, cuenta propia) siguen dentro del documento que se firma, no en casillas.
+
+### DI-9 · Datos de ejemplo del canvas
+- **DECIDIDA (29-ago-2026):** los textos se importan; los datos de ejemplo no. Las personas de prueba siguen siendo las de `src/adapters/mock/personas.ts`. «Ana María González Ramírez» y su cédula no entran al código.
+
+### DI-10 · T&C del inicio
+- **DECIDIDA (29-ago-2026): con evidencia.** La aceptación de T&C del inicio registra fecha, hora, IP y versión del texto (regla #10); es el acto que crea el expediente antes del paso 1.
+
+### DI-11 · Opt-in comercial en la confirmación
+- **DECIDIDA (29-ago-2026): se implementa como lo dibuja el canvas y lo exige D-01** — desmarcado, opcional, con evidencia propia (versión de texto incluida) y revocación por BAJA en WhatsApp o enlace de baja en correos. No condiciona el seguro y sus datos no salen hacia analítica/CRM (regla #7).
+
+---
+
 ## Actualizaciones que la Matriz V4 necesita (consecuencia de la ronda 1)
 
 Dos decisiones **establecidas** dejan desactualizado el texto de la matriz. No son

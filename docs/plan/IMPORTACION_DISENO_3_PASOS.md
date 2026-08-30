@@ -160,10 +160,20 @@ de demo (el canvas trae sus propios ganchos demo: «Completar con datos de
 ejemplo (demo)», «Simular que ya pagué (demo)» — compatibles con
 `DEMO_MODE`).
 
-## 6. Divergencias y decisiones pendientes (resolver ANTES de reescribir la especificación)
+## 6. Divergencias y decisiones (RESUELTAS el 29-ago-2026)
 
-Ninguna se implementa hasta que Andres la resuelva; se numeran DI-x
-(decisiones de importación) para no chocar con las D-01…D-22 del Plan v2.
+> **Ronda cerrada.** Las once quedaron decididas por Andres el 29-ago-2026 y
+> están asentadas en el **Bloque E de `DECISIONES.md`**, que es la fuente de
+> verdad de cada resolución. Lo de abajo se conserva como el planteo original
+> de cada divergencia; ante duda, manda `DECISIONES.md`. Titulares: FIPF es
+> el formulario SEPRELAD (el texto del canvas se corrige); carencias,
+> resolución y código de producto son marcadores provisionales; el PDF
+> conserva las 8 declaraciones con mapa 5→8; el enlace de firma va por
+> cualquiera de los dos canales; y el resto se adopta como lo dibuja el
+> canvas.
+
+Se numeran DI-x (decisiones de importación) para no chocar con las D-01…D-22
+del Plan v2.
 
 - **DI-1 · Qué significa «FIPF» (la más grave).** El canvas lo explica como
   «Formulario de **Información Previa a la Firma**: la hoja donde la
