@@ -25,7 +25,14 @@ frontend:
         # el build para que un despliegue no pueda publicar tipos rotos, lint
         # en rojo o tests fallando: los tests de P1 incluyen el que verifica
         # que el código del OTP no se filtra por la API ni por los logs.
-        - npm run verify
+        #
+        # `FLUJO_V3=false` explícito: la suite está anclada al flujo v2 hasta
+        # el lote F6, y el branch deploy de demo (`demo-v3`) define
+        # FLUJO_V3=true a nivel rama — sin esto, sus builds corren los tests
+        # con el grafo v3 y 350 fixtures v2 explotan (visto en el job 1 de
+        # demo-v3, 31-ago). Los tests validan el código, no el ambiente del
+        # despliegue; el flag del runtime lo lleva `.env.production`, abajo.
+        - FLUJO_V3=false npm run verify
 
         # Las variables de entorno de la app de Amplify existen SOLO durante
         # el build: el cómputo SSR de Next no las hereda. Sin este paso,
@@ -57,7 +64,7 @@ frontend:
         # `WHATSAPP_MODULAR_TOKEN`, justamente porque acá terminaría escrito en
         # `.env.production` dentro del artefacto de build.
         - |
-          for var in DEMO_MODE ADMIN_CONSOLE_ENABLED DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN INTEGRATION_IDENTITY INTEGRATION_IDENTITY_SELFIE IDENTITY_PAISES_CEDULA INTEGRATION_OTP WHATSAPP_MODULAR_URL INTEGRATION_OTP_EMAIL OTP_EMAIL_FROM; do
+          for var in FLUJO_V3 DEMO_MODE ADMIN_CONSOLE_ENABLED DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN INTEGRATION_IDENTITY INTEGRATION_IDENTITY_SELFIE IDENTITY_PAISES_CEDULA INTEGRATION_OTP WHATSAPP_MODULAR_URL INTEGRATION_OTP_EMAIL OTP_EMAIL_FROM; do
             if [ -n "${!var:-}" ]; then echo "$var=${!var}" >> .env.production; fi
           done
         - npm run build
