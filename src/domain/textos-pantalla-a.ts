@@ -21,12 +21,20 @@
  * sea la demostración.
  */
 
-export const TITULO_PANTALLA_A = "Tu solicitud requiere una revisión adicional";
+import { flujoV3Activo } from "./flujo-vigente";
 
-export const BAJADA_PANTALLA_A =
-  "Por la información declarada, la póliza no puede emitirse automáticamente. Interseguros y " +
+// v3 (F5): los textos del canvas — «no es un rechazo» dicho de frente.
+export const TITULO_PANTALLA_A = flujoV3Activo()
+  ? "Tu solicitud queda en buenas manos"
+  : "Tu solicitud requiere una revisión adicional";
+
+export const BAJADA_PANTALLA_A = flujoV3Activo()
+  ? "Por lo que declaraste, tu seguro no puede emitirse automáticamente — y eso no es un " +
+    "rechazo. Un asesor de Interseguros y Alianza Garantía va a analizar tu caso y te contacta " +
+    "por tus canales verificados. Nada se movió de tu bolsillo: no se generó póliza, no se " +
+    "pidió ninguna firma y no se realizó ni autorizó ningún pago."
+  :   "Por la información declarada, la póliza no puede emitirse automáticamente. Interseguros y " +
   "Alianza Garantía analizarán el caso y podrán contactarte por los canales que verificaste.";
-
 /** Rótulo del bloque derecho del encabezado. */
 export const ROTULO_PRODUCTO_PANTALLA_A = "Seguro de Vida Oncológico";
 export const ROTULO_MODO_PANTALLA_A = "Revisión manual";
