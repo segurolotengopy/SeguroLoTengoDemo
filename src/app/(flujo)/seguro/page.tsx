@@ -69,6 +69,11 @@ export default async function PantallaSeguro() {
       <HeaderInstitucional indicador={<StepperPasos slug="/seguro" />} />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
+        <div className="overflow-hidden border border-borde-sutil bg-superficie" aria-hidden="true">
+          {/* Foto del canvas para este paso (lote F5b). */}
+          <img src="/v3/familia-paso-2.jpg" alt="Familia paraguaya reunida" className="h-40 w-full object-cover sm:h-52" />
+        </div>
+
         <header className="flex flex-col gap-1">
           <h1 className="text-xl font-bold text-titulo sm:text-2xl">
             {propio?.nombrePila

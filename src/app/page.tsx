@@ -72,15 +72,24 @@ export default async function Raiz() {
       <HeaderInstitucional indicador={<StepperPasos variante="p0" />} />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold text-titulo sm:text-3xl">
-            Protege a tu familia, consigue su tranquilidad en 3 pasos
-          </h1>
-          <p className="text-base text-cuerpo">
-            Todo desde tu celular, en unos minutos. Respaldado por Alianza Garantía e
-            intermediado por Interseguros.
-          </p>
-        </header>
+        <div className="grid items-center gap-6 lg:grid-cols-2">
+          <header className="flex flex-col gap-2">
+            <h1 className="text-2xl font-bold text-titulo sm:text-3xl">
+              Protege a tu familia, consigue su tranquilidad en 3 pasos
+            </h1>
+            <p className="text-base text-cuerpo">
+              Todo desde tu celular, en unos minutos. Respaldado por Alianza Garantía e
+              intermediado por Interseguros.
+            </p>
+          </header>
+          {/* Las cuatro fotos del canvas, rotando en crossfade (globals.css). */}
+          <div className="v3-hero aspect-[16/10] w-full" aria-hidden="true">
+            <img src="/v3/hero-protege.jpg" alt="" />
+            <img src="/v3/hero-inscribite.jpg" alt="" />
+            <img src="/v3/hero-seguro.jpg" alt="" />
+            <img src="/v3/hero-paga-firma.jpg" alt="" />
+          </div>
+        </div>
 
         <section aria-label="Los tres pasos" className="grid gap-3 sm:grid-cols-3">
           {PASOS_EXPLICADOS.map((paso) => (

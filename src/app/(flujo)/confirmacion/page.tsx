@@ -1,4 +1,5 @@
 import { sufijoTitulo } from "@/domain/entidades";
+import { flujoV3Activo } from "@/domain/flujo-vigente";
 import type { Metadata } from "next";
 import {
   HeaderInstitucional,
@@ -62,6 +63,16 @@ export default async function PantallaP9Confirmacion() {
       <HeaderInstitucional indicador={<StepperPasos slug="/confirmacion" />} />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
+        {flujoV3Activo() ? (
+          <div className="overflow-hidden border border-borde-sutil bg-superficie" aria-hidden="true">
+            {/* Foto del canvas para el cierre (lote F5b); la página es compartida con v2. */}
+            <img
+              src="/v3/familia-confirmacion.jpg"
+              alt="Familia abrazándose junto a la póliza emitida"
+              className="h-40 w-full object-cover sm:h-52"
+            />
+          </div>
+        ) : null}
         {/* ---------------------------------------------------------------- */}
         {/* Encabezado verde                                                  */}
         {/* ---------------------------------------------------------------- */}

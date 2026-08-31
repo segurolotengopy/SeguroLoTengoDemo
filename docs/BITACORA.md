@@ -38,6 +38,53 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-31 (b) · Lote F5b: la piel del canvas — el diseño que faltaba
+
+**Rama:** `feat/f5b-diseno-canvas` · **Corrección de alcance, urgente**
+
+### El caso
+
+Andres probó la demo desde el celular: «todo mal — NO se ha aplicado el
+diseño, solo el modelo funcional». Tenía razón: F1–F5 importaron del canvas
+la estructura y los textos, pero las pantallas se maquetaron con los tokens
+y componentes v2. El sistema visual del canvas —fotos, Archivo 800, acento
+rojo #ec3013, esquinas rectas, fondo #f3f2f2— nunca se aplicó.
+
+### Qué cambió
+
+- **La piel por tokens**: bloque `[data-flujo="v3"]` en globals.css que
+  redefine las variables que Tailwind v4 consume — fuente (`--font-sans` →
+  Archivo, + regla directa porque el preflight no pasa por ahí), la rampa
+  completa del acento (los MISMOS tokens naranja-* pasan a la rampa roja del
+  canvas: cada `bg-naranja-600` del árbol se re-viste sin editar
+  componentes), radios a 0, superficie clara del canvas, títulos 800. El
+  layout marca el atributo cuando `flujoV3Activo()` y carga Archivo por
+  next/font. Con el flag apagado el bloque no matchea nada: v2 intacto.
+- **Las 8 fotos y 2 logos del canvas** extraídos del bundle del Artifact a
+  `public/v3/`: hero con crossfade de los 4 pasos en el inicio (CSS puro,
+  16s), y la foto «familia» arriba de cada paso y de la confirmación (esta
+  última condicional al flag: la página es compartida).
+- Verificación visual por Playwright a 375px (el panel de preview no
+  compone): capturas enviadas a Andres.
+
+### Verificaciones
+
+- typecheck + lint (0 errores; 7 warnings de `<img>` aceptados para la demo)
+  + 1222 tests + build.
+- **Batería v3: 10/10** con la piel puesta — el camino feliz no se inmutó.
+- Runtime verificado por consola del navegador: `data-flujo=v3`, acento
+  `#dd2b0f`, fondo `#f3f2f2`, radius 0, Archivo aplicada, 4 heros cargados.
+
+### Queda abierto
+
+- Refinar contra el canvas: la vpos modal, iconografía fina, el modo noche
+  propio del canvas (hoy el oscuro conserva superficies del sistema con el
+  acento nuevo), y reemplazar `<img>` por `next/image`.
+- GUIA_DE_ESTILOS.md queda como fuente del v2; el canvas manda en v3 — a
+  reconciliar en F6.
+
+---
+
 ## 2026-08-31 · Lote F5 (esencial): el inicio real y los cierres v3
 
 **Rama:** `feat/f5-inicio-y-cierres` · **Implementación (apurada por la presentación a Alianza del 2-sep)**
