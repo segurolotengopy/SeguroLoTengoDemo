@@ -815,7 +815,7 @@ export function VerificacionIdentidad({
                   className={`flex flex-col gap-2 rounded-lg border p-3 ${
                     aprobada && !noCoincide
                       ? "border-verde-300 bg-verde-50 dark:border-verde-700 dark:bg-verde-950"
-                      : rechazada
+                      : rechazada || noCoincide
                         ? "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
                         : "border-borde-sutil bg-superficie-suave"
                   }`}
@@ -828,7 +828,7 @@ export function VerificacionIdentidad({
                       className={`text-[11px] font-bold tracking-wide uppercase ${
                         aprobada && !noCoincide
                           ? "text-verde-700 dark:text-verde-300"
-                          : rechazada
+                          : rechazada || noCoincide
                             ? "text-rojo-700 dark:text-rojo-300"
                             : "text-etiqueta"
                       }`}
