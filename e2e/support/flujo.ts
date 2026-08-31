@@ -20,7 +20,7 @@ export function celularLocal(persona: PersonaDemo): string {
   return persona.celular.replace("+595", "");
 }
 
-async function tipearOtp(page: Page, idPrefijo: string, codigo: string): Promise<void> {
+export async function tipearOtp(page: Page, idPrefijo: string, codigo: string): Promise<void> {
   for (let i = 0; i < codigo.length; i += 1) {
     await page.locator(`#${idPrefijo}-otp-${i}`).fill(codigo[i]);
   }
@@ -205,7 +205,7 @@ export async function declararCorreo(page: Page, persona: PersonaDemo): Promise<
  * pero el helper contempla las dos posibilidades para no depender de una
  * propiedad del video sintético.
  */
-async function tomarCapturaP5(page: Page, toma: "FRENTE" | "DORSO" | "SELFIE"): Promise<void> {
+export async function tomarCapturaP5(page: Page, toma: "FRENTE" | "DORSO" | "SELFIE"): Promise<void> {
   const enTarjeta =
     toma === "SELFIE"
       ? page.getByRole("button", { name: "Tomar selfie", exact: true })

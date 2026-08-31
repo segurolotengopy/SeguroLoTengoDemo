@@ -47,6 +47,11 @@ export const DETALLE_DECLARACIONES_YA_RESPONDIDAS =
   "Ya respondiste las declaraciones y quedaron guardadas con la fecha y la hora en que las " +
   "hiciste, así que no se editan desde acá. Podés retomar el trámite donde quedaste.";
 
+// Neutral por la misma razón que el del paso 2: a esta página llegan trámites
+// que todavía no firmaron Y trámites que ya pagaron.
+export const DETALLE_PAGO_Y_FIRMA =
+  "Este paso no le corresponde ahora a tu trámite. Podés retomarlo donde quedaste.";
+
 export const DETALLE_FIRMA_YA_HECHA =
   "El documento ya está firmado, así que no se vuelve a firmar. Podés retomar el trámite " +
   "donde quedaste.";
