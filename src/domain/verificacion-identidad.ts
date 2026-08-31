@@ -849,6 +849,15 @@ export interface EntradaConfirmacionP5 {
    */
   readonly correcciones?: CorreccionesOcr;
   /**
+   * F5d · la persona confirma que escribió nombres/apellidos EXACTAMENTE como
+   * figuran en su cédula, aunque no se parezcan a lo que la lectura
+   * automática leyó. Sin esto, una lectura basura del OCR («BLI») hacía
+   * imposible la corrección legítima: el cotejo por distancia comparaba
+   * contra basura. Con la confirmación, la corrección se acepta y queda
+   * evidencia de qué campos entraron sin cotejo.
+   */
+  readonly confirmaCorrecciones?: boolean;
+  /**
    * Cuerpo crudo de los datos laborales y económicos: domicilio, ciudad,
    * situación laboral, actividad, profesión, empleador, ingreso mensual y
    * origen de fondos. Se interpretan y validan en el dominio, igual que
@@ -891,6 +900,11 @@ export type ResultadoConfirmacionP5 =
       readonly requisitos?: RequisitosP5;
       readonly pendientes?: readonly IdRequisitoP5[];
       readonly datos?: DatosIdentidadP5 | null;
+      /**
+       * F5d · solo con `CORRECCION_NO_COINCIDE`: qué correcciones de texto no
+       * cotejan con la lectura, para que la pantalla pida la confirmación.
+       */
+      readonly camposQueNoCotejan?: readonly string[];
       /** Solo con `DATOS_INCOMPLETOS`: qué campos del bloque económico faltan. */
       readonly camposInvalidos?: readonly string[];
     };
@@ -1029,23 +1043,48 @@ export async function confirmarIdentidadP5(
   // ya no deja escribir cualquier cosa, pero esconder un campo es cosmético:
   // cualquiera arma la petición a mano, y lo que se guarda termina en un
   // documento firmado.
-  const nombres = cotejarCorreccion(
+  // F5d · nombres y apellidos: si el cotejo por distancia no da, la persona
+  // puede CONFIRMAR que escribió lo que su cédula dice (la lectura del OCR
+  // puede ser basura y entonces "parecido a la lectura" no prueba nada). La
+  // confirmación entra con el valor corregido y queda asentada en la
+  // evidencia; sin confirmación, se devuelven los campos para que la
+  // pantalla la pida.
+  const sinCotejo: string[] = [];
+  const camposQueNoCotejan: string[] = [];
+
+  function textoConConfirmacion(
+    campo: "nombres" | "apellidos",
+    leido: string,
+    corregido: string | undefined,
+  ): string {
+    const cotejo = cotejarCorreccion(campo, leido, corregido);
+    if (cotejo.ok) return cotejo.valor;
+    if (entrada.confirmaCorrecciones === true && corregido && corregido.trim() !== "") {
+      sinCotejo.push(campo);
+      return corregido.trim();
+    }
+    camposQueNoCotejan.push(campo);
+    return leido;
+  }
+
+  const nombresValor = textoConConfirmacion(
     "nombres",
     verificacion.datos.nombres,
     entrada.correcciones?.nombres,
   );
-  if (!nombres.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
-
-  const apellidos = cotejarCorreccion(
+  const apellidosValor = textoConConfirmacion(
     "apellidos",
     verificacion.datos.apellidos,
     entrada.correcciones?.apellidos,
   );
-  if (!apellidos.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
+  if (camposQueNoCotejan.length > 0) {
+    return { ok: false, motivo: "CORRECCION_NO_COINCIDE", camposQueNoCotejan };
+  }
 
   const sexo = cotejarCorreccion("sexo", verificacion.datos.sexo, entrada.correcciones?.sexo);
   if (!sexo.ok) return { ok: false, motivo: "CORRECCION_NO_COINCIDE" };
 
+  // Nacionalidad: de lista (como el sexo), elegida en un selector.
   const nacionalidad = cotejarCorreccion(
     "nacionalidad",
     verificacion.datos.nacionalidad,
@@ -1059,8 +1098,8 @@ export async function confirmarIdentidadP5(
     // cédula es la llave del bloqueo (regla #11). Los otros cuatro admiten
     // corrección cotejada — arreglar la lectura, no reemplazarla.
     numeroCedula: verificacion.datos.numeroCedula,
-    nombres: nombres.valor,
-    apellidos: apellidos.valor,
+    nombres: nombresValor,
+    apellidos: apellidosValor,
     fechaNacimiento: verificacion.datos.fechaNacimiento,
     sexo: sexo.valor,
     nacionalidad: nacionalidad.valor,
@@ -1106,6 +1145,9 @@ export async function confirmarIdentidadP5(
       pruebaDeVida: captura.pruebaDeVidaAprobada,
       coincidenciaFacial: captura.coincidenciaFacialAprobada,
       edadEnRango: true,
+      // Qué campos entraron por confirmación explícita, nunca sus valores:
+      // los valores viven en el expediente, la evidencia registra el hecho.
+      ...(sinCotejo.length > 0 ? { correccionConfirmadaSinCotejo: sinCotejo.join(",") } : {}),
     },
   });
 

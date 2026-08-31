@@ -64,6 +64,7 @@ export async function POST(request: Request): Promise<Response> {
       typeof cuerpo.datosComplementarios === "object" && cuerpo.datosComplementarios !== null
         ? (cuerpo.datosComplementarios as Readonly<Record<string, unknown>>)
         : {},
+    confirmaCorrecciones: cuerpo.confirmaCorrecciones === true,
     autorizacionBiometrica: cuerpo.autorizacionBiometrica === true,
     contexto,
   });
@@ -83,6 +84,9 @@ export async function POST(request: Request): Promise<Response> {
         ...(resultado.requisitos ? { requisitos: resultado.requisitos } : {}),
         ...(resultado.pendientes ? { pendientes: resultado.pendientes } : {}),
         ...(resultado.datos ? { datos: resultado.datos } : {}),
+        ...(resultado.camposQueNoCotejan
+          ? { camposQueNoCotejan: resultado.camposQueNoCotejan }
+          : {}),
       },
       { status },
     );

@@ -10,7 +10,7 @@ import { EnlaceAclaracion } from "@/components/shared";
 import { ESTADOS_CIVILES, PAISES_NACIMIENTO, REQUISITOS_P5 } from "@/domain/catalogo-identidad";
 import type { IdRequisitoP5, TipoCapturaP5 } from "@/domain/catalogo-identidad";
 import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "@/domain/tipos";
-import { SEXOS_ADMITIDOS, esCampoCorregible } from "@/domain/cotejo-ocr";
+import { NACIONALIDADES_ADMITIDAS, SEXOS_ADMITIDOS, esCampoCorregible } from "@/domain/cotejo-ocr";
 import {
   ACTIVIDADES,
   CIUDADES,
@@ -139,8 +139,9 @@ const MENSAJES: Readonly<Record<string, string>> = {
   // Dice qué hacer, no solo qué pasó: si el dato es realmente otro, el camino
   // es repetir la captura, no seguir escribiendo.
   CORRECCION_NO_COINCIDE:
-    "Lo que escribiste no se parece a lo que dice tu cédula. Corregí solo errores de lectura; " +
-    "si el dato es otro, repetí la captura.",
+    "Lo que escribiste no se parece a lo que la lectura automática leyó de tu cédula. Si lo " +
+    "escribiste tal como figura en el documento, marcá la confirmación de abajo y volvé a " +
+    "validar.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",
 };
 
@@ -359,6 +360,9 @@ export function VerificacionIdentidad({
   const [correo, setCorreo] = useState("");
   const [correoRepetido, setCorreoRepetido] = useState("");
   const [autorizacionBiometrica, setAutorizacionBiometrica] = useState(false);
+  // F5d · el cotejo no dio y la persona confirma que escribió lo de su cédula.
+  const [pideConfirmacion, setPideConfirmacion] = useState(false);
+  const [confirmaCorrecciones, setConfirmaCorrecciones] = useState(false);
 
   const [enProceso, setEnProceso] = useState<TipoCapturaP5 | "ANALISIS" | "CONFIRMACION" | null>(
     null,
@@ -749,12 +753,14 @@ export function VerificacionIdentidad({
           origenFondos,
         },
         ...correcciones,
+        confirmaCorrecciones,
         autorizacionBiometrica,
       });
 
       if (!respuesta.ok) {
         if (respuesta.requisitos) setRequisitosServidor(respuesta.requisitos);
         if (respuesta.datos) setDatos(respuesta.datos);
+        if (respuesta.motivo === "CORRECCION_NO_COINCIDE") setPideConfirmacion(true);
         setError(mensajeDe(respuesta.motivo, "No pudimos validar tu identidad."));
         return;
       }
@@ -798,12 +804,16 @@ export function VerificacionIdentidad({
               const captura = capturas[tipo];
               const aprobada = captura?.aprobada === true;
               const rechazada = captura !== undefined && !aprobada;
+              // F5d · la calidad puede aprobar y la comparación facial no: si
+              // el aviso solo vive junto al botón, la tarjeta en verde miente.
+              const noCoincide =
+                tipo === "SELFIE" && aprobada && requisitosServidor?.coincidenciaFacial === false;
 
               return (
                 <article
                   key={tipo}
                   className={`flex flex-col gap-2 rounded-lg border p-3 ${
-                    aprobada
+                    aprobada && !noCoincide
                       ? "border-verde-300 bg-verde-50 dark:border-verde-700 dark:bg-verde-950"
                       : rechazada
                         ? "border-rojo-300 bg-rojo-50 dark:border-rojo-700 dark:bg-rojo-950"
@@ -816,18 +826,29 @@ export function VerificacionIdentidad({
                     </p>
                     <span
                       className={`text-[11px] font-bold tracking-wide uppercase ${
-                        aprobada
+                        aprobada && !noCoincide
                           ? "text-verde-700 dark:text-verde-300"
                           : rechazada
                             ? "text-rojo-700 dark:text-rojo-300"
                             : "text-etiqueta"
                       }`}
                     >
-                      {aprobada ? "Aprobada" : rechazada ? "Rechazada" : "Pendiente"}
+                      {noCoincide
+                        ? "No coincide"
+                        : aprobada
+                          ? "Aprobada"
+                          : rechazada
+                            ? "Rechazada"
+                            : "Pendiente"}
                     </span>
                   </div>
 
                   <p className="text-xs text-cuerpo">{detalle}</p>
+                  {noCoincide ? (
+                    <p className="text-xs font-semibold text-rojo-700 dark:text-rojo-300">
+                      La selfie no coincide con la fotografía de la cédula. Repetila.
+                    </p>
+                  ) : null}
 
                   {captura?.motivoRechazo ? (
                     <p className="text-xs font-semibold text-rojo-700 dark:text-rojo-300">
@@ -974,6 +995,43 @@ export function VerificacionIdentidad({
               // (CHG-15), igual que siempre.
               const editable = esCampoCorregible(id);
               const valorMostrado = correcciones[id] ?? valorDelCampo(datos, id);
+
+              // F5d · la nacionalidad es de lista: las cédulas admitidas solo
+              // pueden decir estos valores, y un texto libre cotejado contra
+              // una lectura mala bloqueaba la corrección legítima.
+              if (id === "nacionalidad") {
+                const valorSelect = NACIONALIDADES_ADMITIDAS.includes(
+                  valorMostrado.trim().toUpperCase(),
+                )
+                  ? valorMostrado.trim().toUpperCase()
+                  : "";
+                return (
+                  <div key={id} className="flex flex-col gap-1">
+                    <label
+                      htmlFor={`p5-${id}`}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-etiqueta"
+                    >
+                      <span aria-hidden="true">🔓</span>
+                      {etiqueta} · editable
+                    </label>
+                    <select
+                      id={`p5-${id}`}
+                      value={valorSelect}
+                      onChange={(evento) =>
+                        setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
+                      }
+                      className="h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
+                    >
+                      <option value="">Elegí una opción</option>
+                      {NACIONALIDADES_ADMITIDAS.map((valor) => (
+                        <option key={valor} value={valor}>
+                          {valor}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              }
 
               return (
                 <div key={id} className="flex flex-col gap-1">
@@ -1293,6 +1351,21 @@ export function VerificacionIdentidad({
           >
             {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
           </button>
+          {pideConfirmacion ? (
+            <label className="flex items-start gap-2 rounded-lg border border-naranja-300 bg-naranja-50 p-3 text-sm text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
+              <input
+                type="checkbox"
+                checked={confirmaCorrecciones}
+                onChange={(evento) => setConfirmaCorrecciones(evento.target.checked)}
+                className="mt-1 h-4 w-4"
+              />
+              <span>
+                Confirmo que escribí mis nombres y apellidos{" "}
+                <span className="font-bold">exactamente como figuran en mi cédula</span>. La
+                corrección queda registrada.
+              </span>
+            </label>
+          ) : null}
           {error ? (
             <p
               role="alert"
