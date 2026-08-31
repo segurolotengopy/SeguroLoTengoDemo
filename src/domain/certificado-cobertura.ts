@@ -349,7 +349,7 @@ export function armarContenidoCertificado(
       ],
       respaldo: [
         { etiqueta: "Solicitud y FIPF firmados", valor: codigoPaquete },
-        { etiqueta: "Acto de firma", valor: firma.idCode100 },
+        { etiqueta: "Acto de firma", valor: firma.referenciaActo },
         { etiqueta: "Firmado el", valor: formatearInstante(firma.firmadoEn) },
       ],
       huellaDocumentoFirmado: {

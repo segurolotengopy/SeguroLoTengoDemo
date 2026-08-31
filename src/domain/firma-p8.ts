@@ -576,7 +576,7 @@ async function intentarConfirmarFirmaP8(
       resultado: "EXITOSO",
       detalle: {
         origen,
-        idCode100: expediente.firma.idCode100,
+        idCode100: expediente.firma.referenciaActo,
         estado: expediente.estado,
       },
     });
@@ -586,7 +586,7 @@ async function intentarConfirmarFirmaP8(
       firmado: true,
       estado: expediente.estado,
       numeroPropuesta: expediente.numeroPropuesta ?? "",
-      idCode100: expediente.firma.idCode100,
+      idCode100: expediente.firma.referenciaActo,
       firmadoEn: expediente.firma.firmadoEn,
       plazoPagoVenceEn: expediente.plazoPagoVenceEn ?? "",
       duplicada: true,
@@ -660,7 +660,7 @@ async function intentarConfirmarFirmaP8(
     contexto: entrada.contexto,
     resultado: "EXITOSO",
     detalle: {
-      idCode100: resultado.firma.idCode100,
+      idCode100: resultado.firma.referenciaActo,
       canal: resultado.firma.canal,
       firmante: "CLIENTE",
       firmadoEn: resultado.firma.firmadoEn,
@@ -769,7 +769,7 @@ async function aplicarFirmasInstitucionales(
     firmado: true,
     estado: transicion.expediente.estado,
     numeroPropuesta: transicion.expediente.numeroPropuesta ?? "",
-    idCode100: firma?.idCode100 ?? "",
+    idCode100: firma?.referenciaActo ?? "",
     firmadoEn: firma?.firmadoEn ?? fecha,
     plazoPagoVenceEn,
     duplicada: false,

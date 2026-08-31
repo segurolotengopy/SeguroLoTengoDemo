@@ -17,7 +17,8 @@ const PAQUETE_DE_PRUEBA: PaqueteDocumental = {
 
 const FIRMA_DE_PRUEBA: Firma = {
   canal: "WHATSAPP",
-  idCode100: "C100-CONTRATO-1",
+  origen: "PROVEEDOR",
+  referenciaActo: "C100-CONTRATO-1",
   firmadoEn: "2026-01-01T00:05:00.000Z",
   hashDocumentoFirmado: "c".repeat(64),
 };

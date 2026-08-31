@@ -116,7 +116,13 @@ describe("MockSignatureProvider · un solo acto sobre un solo documento", () => 
 
     // Una sola huella firmada, y ningún campo por documento que pueda faltar.
     const claves = Object.keys(resultado.firma).sort();
-    expect(claves).toEqual(["canal", "firmadoEn", "hashDocumentoFirmado", "idCode100"]);
+    expect(claves).toEqual([
+      "canal",
+      "firmadoEn",
+      "hashDocumentoFirmado",
+      "origen",
+      "referenciaActo",
+    ]);
   });
 
   it("rechaza un documento sin huella (regla inviolable #4)", async () => {

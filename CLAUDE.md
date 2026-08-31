@@ -81,6 +81,9 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 | `Cumplimiento SeguroLoTengo.pdf`                                                                                                                                            | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario.                                                                                                                                                                                                                                    |
 | `CONFIGURACION_SES.md`                                                                                                                                                      | Guía operativa del OTP de correo (P4) sobre Amazon SES: sandbox y sus tres límites, verificación de remitente y destinatarios, salida a producción, deliverability con dominio propio, y el reparto de permisos entre el rol de cómputo y el usuario local. Leela antes de tocar `INTEGRATION_OTP_EMAIL` o `infra/ses-correo-otp.tf`.                        |
 | `SeguroLoTengo_Asistente_IA_y_Configuracion.pdf`                                                                                                                            | Especificación del asistente Terra — **fuera de alcance de esta demo por ahora**, ver sección "Asistente IA (Terra)" más abajo.                                                                                                                                                                                                                              |
+| `MATRIZ_LEGAL_V4.md` + `MATRIZ_LEGAL_V4_2026-08-16.pdf` | **Matriz de referencia regulatoria (V4, corte 16-ago-2026).** Se declara prevalente sobre la versión anterior y corrige errores de cita verificables del CSV. Ante conflicto entre el CSV y la V4, manda la V4. |
+| `normativa/` + `normativa/CATALOGO.md` | Las normas mismas, en PDF, con el nombre derivado de su contenido — verificado abriendo cada una. Antes de citar un artículo, comprobá que la norma esté acá y leída: el catálogo dice cuáles se leyeron de primera mano y cuáles vienen de fuentes secundarias. Las dos centrales del canal son la **Res. SS.SG. 210/2025** (art. 4: firma simple del proponente con OTP; art. 5: firma cualificada obligatoria del corredor; art. 9: conservación) y la **231/2025** (pólizas electrónicas). |
+| `VALIDACION_LEGAL_FIRMA_INTERNA.md` | Por qué SeguroLoTengo puede generar la firma no cualificada del cliente sin ser prestador registrado, qué exigiría serlo, y la convergencia en dos fases con el proyecto Firmas-NoCualificadas. |
 
 ---
 
@@ -172,6 +175,7 @@ infra/ \# Terraform
 
 - **Nunca cites de memoria un artículo de ley.** Si necesitás justificar una regla de negocio, buscá la fila correspondiente en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` y citá Número + Categoría + Norma y Artículo tal como figuran ahí.
 - Si un pedido no tiene fila en esa matriz, decilo explícitamente: _"Esto no tiene respaldo en la matriz de cumplimiento cargada; es una decisión de producto/UX, no una obligación legal"_.
+- **Contrastá toda cita del CSV contra `docs/MATRIZ_LEGAL_V4.md` y `docs/normativa/`.** El CSV tiene errores comprobados —cita la resolución de modelos como `Res. SS SG. 215/15`, y la vigente es la **215/2025** (ver `docs/normativa/INDICE.md` §5, que también prohíbe la errata «215/17»)— y no menciona ni la 210/2025 ni la 231/2025, que son las normas centrales del canal electrónico. `docs/normativa/CATALOGO.md` es el catálogo que trajo el análisis de firma; ante discrepancia con `INDICE.md`, manda el índice.
 - Los PDF (`Solicitud.pdf`, `FIPF.pdf`, `Pantallas Sistema Demo.pdf`) son la fuente de verdad de **estructura de datos y UI**. El CSV de cumplimiento es la fuente de verdad de **obligación legal**. No mezclar ambos como si fueran lo mismo.
 - Ante conflicto entre lo que se pide y lo que exige la matriz de cumplimiento (por ejemplo, saltear un OTP, iniciar cobertura antes del pago, o permitir contratar para un tercero), **priorizá la matriz** y señalá el conflicto en vez de implementarlo en silencio.
 - **Antes de citar una norma, mirá `docs/normativa/INDICE.md`**: dice qué textos oficiales están en el repositorio y cuáles todavía no. Una norma sin PDF acá es una cita que nadie puede contrastar — y varias de las más citadas (la Res. SIS 215/2025, la Ley 6822/2021, la Ley 4868/2013) están en esa situación. Si una norma nueva hace falta, primero entra el PDF a `docs/normativa/`, después se la cita.
@@ -273,13 +277,17 @@ Reglas no negociables de esa integración: el documento único viaja en **un** `
 `docs/Integraciones/Code100 - Respuestas C1 a C12.md` (C1): Api Flow firma **exclusivamente con
 certificado cualificado que el firmante ya tenga emitido a su nombre**, y no existe flujo alternativo.
 El cliente de CONFÍO no lo tiene. Así que el adaptador oficial de `SignatureProvider`, cuando se
-escriba, cubre **las firmas institucionales**; quién ejecuta la del cliente es decisión de Gerencia y
-Legal (D1 del informe del 20-ago-2026), con la opción recomendada de que la resuelva SeguroLoTengo
-sobre lo que la plataforma ya hace: identidad verificada, OTP de un solo uso, IP, sello de tiempo y
-huella. Dos datos del proveedor que empujan en esa dirección: **no registra IP ni dispositivo del
-firmante** y **no emite acta de evidencias descargable**, así que el respaldo probatorio lo produce y
-conserva el portal de todos modos. **Ninguna pantalla nombra al proveedor**: dicen «te enviaremos un
-enlace» y «te confirmaremos la firma», y quedan válidas se decida lo que se decida.
+escriba, cubre **las firmas institucionales**. **La del cliente quedó decidida (D1, ratificada por
+Andres el 30-ago-2026): la ejecuta SeguroLoTengo con su firma electrónica no cualificada interna**
+(Res. SS.SG. 210/2025 art. 4) — `src/domain/firma-cliente.ts`, sobre lo que la plataforma ya hace:
+identidad verificada, OTP de firma de un solo uso (propósito `FIRMA`, por el canal verificado
+elegido), IP, sello de tiempo y huella. El respaldo legal está en
+`docs/VALIDACION_LEGAL_FIRMA_INTERNA.md`. Dos datos del proveedor que confirmaron el camino: **no
+registra IP ni dispositivo del firmante** y **no emite acta de evidencias descargable**, así que el
+respaldo probatorio lo produce y conserva el portal de todos modos. En el flujo v3 el acto interno
+es el camino del cliente; en el v2 sigue operando el flujo simulado de Code100 hasta su retiro.
+**Ninguna pantalla nombra al proveedor**: dicen «te enviaremos un enlace» y «te confirmaremos la
+firma», y quedan válidas se decida lo que se decida.
 
 ### Confirmación de firma: dos vías, un `session_id` (CHG-33)
 

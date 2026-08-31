@@ -161,6 +161,52 @@ describe("enviarOtp", () => {
     expect(registro).toEqual(["enviar:VERIFICACION_CORREO"]);
   });
 
+  it("el OTP de firma viaja con el propósito SIGNATURE_P7A, no con el de verificación", async () => {
+    const vistas: SolicitudVista[] = [];
+    const provider = crearOtpProviderWhatsAppModular({
+      cliente: clienteDoble({
+        solicitudes: [
+          {
+            ok: true,
+            otpId: "otp-firma",
+            expiraEn: "2026-08-27T10:05:00.000Z",
+            destinoEnmascarado: "+595 ••• ••• 000",
+          },
+        ],
+        vistas,
+      }),
+      correo: correoDoble([]),
+    });
+
+    const resultado = await provider.enviarOtp({
+      expedienteId: "exp-1",
+      proposito: "FIRMA",
+      destino: { canal: "WHATSAPP", valor: "+595981000000" },
+    });
+
+    expect(resultado.ok).toBe(true);
+    // La plantilla del servicio no puede ser la misma que la de P1: el código
+    // que firma un contrato no se anuncia como verificación de número.
+    expect(vistas.map((v) => v.proposito)).toEqual(["SIGNATURE_P7A"]);
+  });
+
+  it("el OTP de firma por correo se delega al adaptador de correo", async () => {
+    const registro: string[] = [];
+    const provider = crearOtpProviderWhatsAppModular({
+      cliente: clienteDoble({}),
+      correo: correoDoble(registro),
+    });
+
+    const resultado = await provider.enviarOtp({
+      expedienteId: "exp-1",
+      proposito: "FIRMA",
+      destino: { canal: "EMAIL", valor: "monica@example.com" },
+    });
+
+    expect(resultado.ok).toBe(true);
+    expect(registro).toEqual(["enviar:FIRMA"]);
+  });
+
   it("rechaza un destino que no sea WhatsApp para el propósito de celular", async () => {
     const provider = crearOtpProviderWhatsAppModular({
       cliente: clienteDoble({}),

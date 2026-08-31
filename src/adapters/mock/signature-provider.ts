@@ -584,7 +584,8 @@ export async function abrirEnlaceDeFirmaMock(
 
   if (retener) {
     await almacen().guardar(COLECCION_CODIGOS, idCode100, {
-      idCode100,
+      origen: "PROVEEDOR" as const,
+    referenciaActo: idCode100,
       codigo,
       destino: sesion.destino,
       emitidoEn,
@@ -688,7 +689,8 @@ export async function firmarEnCode100Mock(
 
   const firma: Firma = {
     canal: sesion.canal,
-    idCode100,
+    origen: "PROVEEDOR",
+    referenciaActo: idCode100,
     firmadoEn,
     hashDocumentoFirmado,
   };
