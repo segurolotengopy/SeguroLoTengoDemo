@@ -280,7 +280,7 @@ export function FirmaInternaV3({ onCompletado }: { onCompletado: () => void }) {
             onChange={setCodigo}
             deshabilitado={enProceso}
             etiqueta="Código de firma"
-            idPrefijo="firma-interna-otp"
+            idPrefijo="firma-v3-otp"
           />
           <div className="flex flex-wrap gap-3">
             <button

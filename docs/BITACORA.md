@@ -88,9 +88,29 @@ sobre una firma interna sin tocar `firma-p8.ts`.
   queda pendiente junto con las corridas formales de Playwright: ambos
   destrabados por el mismo `sysctl`.
 
+### Adenda (31-ago, tras el sysctl de Andres)
+
+- inotify subido a 524288: **E2E v3 10/10 en verde**, incluido el nuevo
+  `04-camino-feliz.spec.ts` — **el recorrido completo T&C → identidad → OTP →
+  aceptaciones → plan → 5 preguntas → firma interna con su código →
+  institucionales del mock → pago QR → confirmación pasa de punta a punta**
+  (1.7–3.3 m). Es la prueba de demo-readiness para la presentación a Alianza
+  del miércoles. Ajustes que salieron de iterarlo: `tipearOtp` y
+  `tomarCapturaP5` exportados del helper v2, espera del acuse de envío antes
+  de leer el panel, y el idPrefijo de `CamposOtp` en la firma
+  (`firma-v3-otp`).
+- El smoke v2 `07-firma-atomica` (escenario 2) **falla igual en main limpio**
+  (verificado con worktree en ffa1900): GET /demo-panel devuelve 500 con
+  errores de streaming del dev server ("ArrayBuffer is not detachable").
+  **Preexistente, no regresión de F4** — queda como tarea aparte (chip
+  lanzado); el escenario 1 del mismo spec pasa.
+
 ### Queda abierto
 
-- `sudo sysctl fs.inotify.max_user_watches=524288` (Andres) → correr
+- El 500 de /demo-panel bajo `next dev` (preexistente, chip lanzado) — no
+  bloquea la demo (el panel funciona en el recorrido normal; falla bajo la
+  secuencia del escenario 2 del spec 07).
+- `sudo sysctl fs.inotify.max_user_watches=524288` (hecho el 31-ago) → correr
   `test:e2e:v3` (3 specs), el smoke v2 `07-firma-atomica` de F4a, y el
   recorrido completo por navegador ANTES de mergear F4b.
 - F5: inicio + confirmación + revisión manual. F6: encendido y limpieza.
