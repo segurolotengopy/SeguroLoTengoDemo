@@ -38,6 +38,49 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-31 · Lote F5 (esencial): el inicio real y los cierres v3
+
+**Rama:** `feat/f5-inicio-y-cierres` · **Implementación (apurada por la presentación a Alianza del 2-sep)**
+
+### El caso
+
+Con F4 mergeado y el camino feliz v3 probado, Andres pidió el branch deploy
+de demo Y el F5. El F5 se recortó a lo que la presentación necesita: el
+aterrizaje del canvas en la raíz (en v3, `/` terminaba en 404 vía la cadena
+de redirects) y los títulos v3 de confirmación y revisión manual.
+
+### Qué cambió
+
+- **La raíz `/` en v3 ES el inicio del canvas** (H1 «Protege a tu familia…»,
+  los 3 pasos explicados, ANTES DE EMPEZAR, casilla de T&C → crea el
+  expediente → /inscripcion; con trámite empezado, CTA de reencaminado). En
+  v2 sigue redirigiendo a /plan.
+- **El bootstrap de T&C se mudó** de /inscripcion al inicio (como F2 dejó
+  anotado): /inscripcion sin trámite ahora manda a `/`.
+- Títulos v3 por flag: `TITULO_P9` («¡Listo! Tu familia ya está protegida»)
+  y `TITULO_PANTALLA_A`/`BAJADA` («Tu solicitud queda en buenas manos», «no
+  es un rechazo», «Nada se movió de tu bolsillo…»).
+- Specs v3 01 y 04 actualizados al arranque por `/`.
+- **Branch `demo-v3` creado y pusheado** para el deploy de demo de Amplify
+  con FLUJO_V3=true — la conexión al app espera el `aws login` de Andres.
+
+### Verificaciones
+
+- typecheck + lint + 1222 tests; build en verde.
+- **Batería v3: 10/10** (3.1 m), camino feliz completo incluido, arrancando
+  desde la raíz.
+
+### Queda abierto
+
+- Conectar `demo-v3` a Amplify (branch + FLUJO_V3=true + job) — bloqueado por
+  `aws login` de Andres. **OJO: demo-v3 debe re-crearse desde main tras
+  mergear este PR** para incluir el inicio.
+- Resto de F5 (personalización con nombre en confirmación, hitos/documentos
+  finos del canvas) y F6 — post-presentación.
+- El 500 de /demo-panel (preexistente) corre en su propia sesión.
+
+---
+
 ## 2026-08-30 (d) · Lote F4b: la página /pago-y-firma con la firma interna
 
 **Rama:** `feat/f4b-pago-y-firma` (encadenada sobre F4a) · **Implementación**

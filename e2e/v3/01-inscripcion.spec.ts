@@ -27,19 +27,26 @@ test("las rutas v2 redirigen 308 a la página larga que absorbió su contenido",
   }
 });
 
-test("la puerta de T&C crea el expediente y habilita la sección de identidad", async ({
+test("los T&C del inicio crean el expediente y habilitan la sección de identidad", async ({
   page,
 }) => {
+  // F5: la casilla vive en la página de inicio; /inscripcion sin trámite
+  // manda ahí.
   await page.goto("/inscripcion");
-  await esperarHidratacion(page);
+  await expect(page.getByRole("link", { name: /ir al inicio/i })).toBeVisible();
 
-  // Sin expediente: la puerta provisional de T&C, con el CTA apagado.
+  await page.goto("/");
+  await esperarHidratacion(page);
+  await expect(
+    page.getByRole("heading", { name: /protege a tu familia, consigue su tranquilidad/i }),
+  ).toBeVisible();
   const empezar = page.getByRole("button", { name: /empezar/i });
   await expect(empezar).toBeDisabled();
 
   await page.getByRole("checkbox").check();
   await expect(empezar).toBeEnabled();
   await empezar.click();
+  await expect(page).toHaveURL(/\/inscripcion$/);
 
   // Con el expediente creado (INICIADO), la sección 1 queda activa…
   await expect(page.getByRole("heading", { name: /empecemos por tu cédula/i })).toBeVisible();
@@ -54,7 +61,7 @@ test("la puerta de T&C crea el expediente y habilita la sección de identidad", 
   // La cookie sostiene el estado: recargar no vuelve a pedir los T&C.
   await page.reload();
   await expect(page.getByRole("heading", { name: /empecemos por tu cédula/i })).toBeVisible();
-  await expect(page.getByText(/tocá acá para empezar/i)).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /ir al inicio/i })).toHaveCount(0);
 });
 
 test("el stepper anuncia el paso 1 de 3", async ({ page }) => {

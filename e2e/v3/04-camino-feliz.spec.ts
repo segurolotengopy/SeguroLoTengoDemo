@@ -31,11 +31,12 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
 
   await prepararEscenario(page, { personaId: persona.id });
 
-  // ── Puerta de T&C (crea el expediente, DI-10) ─────────────────────────
-  await page.goto("/inscripcion");
+  // ── El inicio: T&C que crean el expediente (DI-10, página real de F5) ─
+  await page.goto("/");
   await esperarHidratacion(page);
   await page.getByRole("checkbox").check();
   await clickearHidratado(page.getByRole("button", { name: /empezar/i }));
+  await expect(page).toHaveURL(/\/inscripcion$/);
 
   // ── Paso 1 · sección identidad (el formulario v2 montado como sección) ─
   await expect(page.getByRole("heading", { name: /empecemos por tu cédula/i })).toBeVisible();
@@ -138,5 +139,5 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   // ── Confirmación ──────────────────────────────────────────────────────
   await page.getByRole("link", { name: "Ver la confirmación →" }).click();
   await expect(page).toHaveURL(/\/confirmacion$/);
-  await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible();
+  await expect(page.getByText("¡Listo! Tu familia ya está protegida")).toBeVisible();
 });

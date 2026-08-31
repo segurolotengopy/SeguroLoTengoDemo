@@ -166,9 +166,9 @@ en vivo. Los campos marcados en rojo son los que todavía faltan completar.`
 > refina en un lote posterior. Además, el **ítem 3 de la aceptación agrupada**
 > (biometría) se acepta también inline, **antes** de capturar — aceptar la
 > biometría después de haberla hecho sería un consentimiento retroactivo; el
-> ítem del expandible queda como ratificación (matiz de DI-8). Y mientras la
-> página de inicio no exista (lote F5), la casilla de T&C vive arriba de esta
-> pantalla como puerta provisional que crea el expediente (DI-10).
+> ítem del expandible queda como ratificación (matiz de DI-8). La casilla de T&C vivió
+> como puerta provisional arriba de esta pantalla hasta el lote F5 (31-ago),
+> que la mudó a su página definitiva: el inicio en la raíz `/`.
 
 ### Sección 2 — Tus canales (`TUS CANALES`, gated por identidad)
 

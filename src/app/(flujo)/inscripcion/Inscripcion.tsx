@@ -19,13 +19,9 @@
  * allá y acá queda solo el gating por estado.
  */
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { EstadoExpediente } from "@/domain/tipos";
-import {
-  GUIA_TERMINOS_ACEPTADOS,
-  GUIA_TERMINOS_PENDIENTES,
-  ROTULO_TERMINOS_INICIO,
-} from "@/domain/textos-inicio";
 import {
   ITEMS_ACEPTACION_INSCRIPCION,
   NOTA_ACEPTACION_INSCRIPCION,
@@ -105,7 +101,6 @@ export function Inscripcion(props: InscripcionProps) {
   const con = (frase: string) =>
     props.nombrePila ? `${props.nombrePila}, ${frase}` : frase.charAt(0).toUpperCase() + frase.slice(1);
 
-  const [tycAceptados, setTycAceptados] = useState(false);
   const [aceptacionMarcada, setAceptacionMarcada] = useState(false);
   const [verItems, setVerItems] = useState(false);
   const [enProceso, setEnProceso] = useState(false);
@@ -142,42 +137,21 @@ export function Inscripcion(props: InscripcionProps) {
     }
   }
 
-  // ── Puerta provisional de T&C (se muda a /inicio en el lote F5) ──────────
+  // ── Sin expediente: los T&C viven en el inicio (mudados en F5) ───────────
   if (props.estado === null) {
     return (
-      <div className="flex flex-col gap-4">
-        <section className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-4 sm:p-5">
-          <p className="text-[11px] font-semibold tracking-wide text-etiqueta uppercase">
-            Antes de empezar
-          </p>
-          <p className="text-sm text-cuerpo">
-            Usamos tu WhatsApp y tu correo solo para esta contratación: verificación, firma y
-            entrega de documentos. Los datos quedan entre Interseguros S.A. y Alianza Garantía y
-            no se ceden a terceros con fines comerciales.
-          </p>
-          <label className="flex items-start gap-2 text-sm text-cuerpo">
-            <input
-              type="checkbox"
-              checked={tycAceptados}
-              onChange={(evento) => setTycAceptados(evento.target.checked)}
-              className="mt-1 h-4 w-4"
-            />
-            <span>{tycAceptados ? "✓ Términos y condiciones aceptados" : ROTULO_TERMINOS_INICIO}</span>
-          </label>
-          <button
-            type="button"
-            disabled={!tycAceptados || enProceso}
-            onClick={() => void postear("/api/inicio/terminos")}
-            className="h-11 rounded-lg bg-naranja-600 px-4 text-sm font-bold text-white disabled:opacity-40"
-          >
-            Tocá acá para empezar →
-          </button>
-          <p className="text-xs text-etiqueta">
-            {tycAceptados ? GUIA_TERMINOS_ACEPTADOS : GUIA_TERMINOS_PENDIENTES}
-          </p>
-          {error ? <p className="text-sm font-semibold text-rojo-700 dark:text-rojo-300">{error}</p> : null}
-        </section>
-      </div>
+      <section className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-4 sm:p-5">
+        <p className="text-sm text-cuerpo">
+          Para empezar, aceptá los términos y condiciones en la página de inicio: ahí arranca tu
+          trámite y volvés acá con todo listo.
+        </p>
+        <Link
+          href="/"
+          className="inline-flex h-11 w-fit items-center rounded-lg bg-naranja-600 px-4 text-sm font-bold text-white"
+        >
+          Ir al inicio →
+        </Link>
+      </section>
     );
   }
 

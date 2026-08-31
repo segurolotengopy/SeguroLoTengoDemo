@@ -32,7 +32,12 @@
  * hacer"). No hay tipo, ni endpoint, ni método de proveedor que la produzca.
  */
 
-export const TITULO_P9 = "¡Tu solicitud de seguro fue aceptada!";
+import { flujoV3Activo } from "./flujo-vigente";
+
+// v3 (F5): el título del canvas. El v2 conserva el suyo hasta el retiro.
+export const TITULO_P9 = flujoV3Activo()
+  ? "¡Listo! Tu familia ya está protegida"
+  : "¡Tu solicitud de seguro fue aceptada!";
 
 export const BAJADA_P9 =
   "Alianza Garantía emitirá tu póliza y la recibirás en breves momentos en tu correo y WhatsApp verificados.";
