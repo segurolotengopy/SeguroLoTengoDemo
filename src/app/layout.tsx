@@ -1,9 +1,10 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
-import { DM_Sans, Geist_Mono } from "next/font/google";
+import { Archivo, DM_Sans, Geist_Mono } from "next/font/google";
 import { BandaDemo } from "@/components/shared/BandaDemo";
 import { AvisoCookies } from "@/components/shared/AvisoCookies";
 import { SCRIPT_TEMA_INICIAL } from "@/components/shared/tema";
+import { flujoV3Activo } from "@/domain/flujo-vigente";
 import "./globals.css";
 
 // DM Sans: la tipografía del sitio institucional interseguros360.com
@@ -16,6 +17,15 @@ const dmSans = DM_Sans({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Archivo: la tipografía del flujo v3 (canvas aprobado de Claude Design,
+// lote F5b). Se carga siempre —next/font no es condicional— pero solo la
+// aplica el bloque `[data-flujo="v3"]` de globals.css; en v2 no cambia nada.
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -37,7 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="es-PY"
       suppressHydrationWarning
-      className={`${dmSans.variable} ${geistMono.variable} h-full antialiased`}
+      // La piel del canvas (paleta, Archivo, esquinas rectas) se activa por
+      // tokens bajo este atributo — ver el bloque v3 de globals.css.
+      data-flujo={flujoV3Activo() ? "v3" : undefined}
+      className={`${dmSans.variable} ${geistMono.variable} ${archivo.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_INICIAL }} />
