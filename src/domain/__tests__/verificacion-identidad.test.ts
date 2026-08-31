@@ -433,26 +433,62 @@ describe("P5 · los datos extraídos no se editan a mano", () => {
     expect(guardado?.identidad?.fechaNacimiento).toBe(persona?.identidad.fechaNacimiento);
   });
 
-  it("una corrección de nacionalidad que arregla la lectura se guarda", async () => {
+  it("la nacionalidad se normaliza contra la lista, como el sexo (F5d)", async () => {
     conEscenario("APROBADO");
     const banco = crearBanco();
-    const persona = obtenerPersonaDemo("camino-feliz");
-    // Misma nacionalidad con la tilde que el OCR se comió: es un arreglo, no
-    // un reemplazo, así que el cotejo lo acepta.
-    const conTilde = persona!.identidad.nacionalidad.replace("Paraguaya", "Paraguáya");
-
-    const resultado = await confirmar(banco, { correcciones: { nacionalidad: conTilde } });
+    // Escrita con tilde o minúsculas, entra igual pero guardada con el valor
+    // canónico de la lista: es un dato cerrado, no texto libre.
+    const resultado = await confirmar(banco, { correcciones: { nacionalidad: "Paraguáya" } });
 
     expect(resultado.ok).toBe(true);
-    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.identidad?.nacionalidad).toBe(conTilde);
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.identidad?.nacionalidad).toBe("PARAGUAYA");
   });
 
-  it("una nacionalidad distinta se rechaza: corregir no es reemplazar", async () => {
+  it("elegir la otra nacionalidad admitida es legítimo: es un selector, no un cotejo por distancia (F5d)", async () => {
+    conEscenario("APROBADO");
+    const banco = crearBanco();
+    // Caso real que motivó el cambio: cédula paraguaya de nacional boliviano;
+    // el frente no declara la nacionalidad y la persona la elige de la lista.
+    const resultado = await confirmar(banco, { correcciones: { nacionalidad: "Boliviana" } });
+
+    expect(resultado.ok).toBe(true);
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.identidad?.nacionalidad).toBe("BOLIVIANA");
+  });
+
+  it("una nacionalidad fuera de la lista se rechaza (F5d)", async () => {
     conEscenario("APROBADO");
     const banco = crearBanco();
 
-    const resultado = await confirmar(banco, { correcciones: { nacionalidad: "Boliviana" } });
+    const resultado = await confirmar(banco, { correcciones: { nacionalidad: "Marciana" } });
 
     expect(resultado).toEqual({ ok: false, motivo: "CORRECCION_NO_COINCIDE" });
+  });
+
+  it("la corrección confirmada entra aunque el cotejo no dé, y sin confirmación no (F5d)", async () => {
+    conEscenario("APROBADO");
+    const banco = crearBanco();
+
+    // La lectura del OCR puede ser basura («BLI»): sin confirmación, se piden
+    // los campos; con ella, la corrección entra tal cual.
+    const sinConfirmar = await confirmar(banco, {
+      correcciones: { nombres: "Rodrigo" },
+    });
+    expect(sinConfirmar.ok).toBe(false);
+    if (!sinConfirmar.ok) {
+      expect(sinConfirmar.motivo).toBe("CORRECCION_NO_COINCIDE");
+      expect(sinConfirmar.camposQueNoCotejan).toEqual(["nombres"]);
+    }
+
+    const confirmado = await confirmar(banco, {
+      correcciones: { nombres: "Rodrigo" },
+      confirmaCorrecciones: true,
+    });
+    expect(confirmado.ok).toBe(true);
+    expect(banco.expedientes.todos.get(EXPEDIENTE_ID)?.identidad?.nombres).toBe("Rodrigo");
+    // Y la evidencia registra el hecho (qué campos, nunca los valores).
+    const evidencia = banco.evidencias.registros.find((registro) =>
+      registro.detalle?.includes("correccionConfirmadaSinCotejo"),
+    );
+    expect(evidencia?.detalle).toContain("correccionConfirmadaSinCotejo=nombres");
   });
 });

@@ -150,6 +150,13 @@ export type ResultadoCotejo =
  */
 export const SEXOS_ADMITIDOS = ["Masculino", "Femenino"] as const;
 
+/**
+ * Los valores de nacionalidad que una cédula admitida puede declarar
+ * (Paraguay y, con `IDENTITY_PAISES_CEDULA`, Bolivia). Lista y no texto
+ * libre: es un dato de dominio cerrado, como el sexo.
+ */
+export const NACIONALIDADES_ADMITIDAS: readonly string[] = ["PARAGUAYA", "BOLIVIANA"];
+
 export function cotejarCorreccion(
   campo: CampoCorregible,
   leidoPorOcr: string,
@@ -170,6 +177,19 @@ export function cotejarCorreccion(
     );
     return admitido
       ? { ok: true, valor: admitido, corregido: normalizarParaCotejo(admitido) !== ocrNormalizado }
+      : { ok: false, motivo: "NO_COINCIDE_CON_LA_CEDULA", campo };
+  }
+
+  // La nacionalidad también es de lista (F5d, feedback con cédulas reales):
+  // las cédulas admitidas solo pueden decir estos valores, y cotejarla por
+  // distancia contra una lectura mala del OCR bloqueaba la corrección
+  // legítima. La pantalla la ofrece como selector.
+  if (campo === "nacionalidad") {
+    const admitida = NACIONALIDADES_ADMITIDAS.find(
+      (valor) => normalizarParaCotejo(valor) === correccionNormalizada,
+    );
+    return admitida
+      ? { ok: true, valor: admitida, corregido: normalizarParaCotejo(admitida) !== ocrNormalizado }
       : { ok: false, motivo: "NO_COINCIDE_CON_LA_CEDULA", campo };
   }
 

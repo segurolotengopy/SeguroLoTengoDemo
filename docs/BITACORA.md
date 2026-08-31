@@ -38,6 +38,70 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-31 (d) · Lote F5d: correcciones reales — drill-down, confirmación y la tarjeta de la selfie
+
+**Rama:** `feat/f5d-correcciones-reales` · **Segundo feedback de Andres con documentos reales**
+
+### El caso
+
+Segunda prueba de Andres con la cédula real de Rodrigo destapó tres cosas:
+(1) la nacionalidad era texto libre y pidió drill-down; (2) puso **su** selfie
+sobre el documento de Rodrigo y la tarjeta dijo «Aprobada» mientras el
+rechazo real («no coincide») aparecía lejos, abajo — error de UX; (3) el
+cotejo de CHG-15 bloqueaba sus correcciones legítimas («Rodrigo»,
+«Fernandez Echazu») porque el OCR había leído basura y la distancia de
+edición no perdona: «No me permite seguir».
+
+### Qué cambió (vale para v2 y v3)
+
+- **Nacionalidad por lista** (`NACIONALIDADES_ADMITIDAS = PARAGUAYA,
+  BOLIVIANA` en `cotejo-ocr.ts`): `<select>` en pantalla y cotejo por
+  pertenencia, como el sexo. Elegir un valor de la lista nunca «no coteja».
+- **Confirmación explícita cuando el cotejo falla**
+  (`verificacion-identidad.ts`): el primer VALIDAR devuelve
+  `CORRECCION_NO_COINCIDE` + `camposQueNoCotejan`; la pantalla muestra un
+  mensaje honesto («no se parece a lo que la lectura automática leyó», ya no
+  «lo que dice tu cédula») y una casilla «escribí mis nombres exactamente
+  como figuran». Revalidar con `confirmaCorrecciones: true` acepta el valor
+  y deja evidencia `correccionConfirmadaSinCotejo=<campos>` (nombres de
+  campos, nunca valores). El OCR malo deja de ser un callejón sin salida sin
+  volverse un bypass silencioso: queda asentado qué campos pasaron sin cotejo.
+- **La tarjeta de la selfie dice la verdad**: si la calidad aprobó pero la
+  coincidencia facial no, la tarjeta pasa a rojo con «No coincide» y el texto
+  «Repetila» — el veredicto vive donde está la foto, no tres bloques más abajo.
+
+### Qué hizo Andres
+
+- Reportó los tres problemas con capturas (31-ago). Autorizó pruebas con los
+  documentos reales de `tests/fixtures/identidad/` (fixtures D-21,
+  gitignorados; sus datos bolivianos solo para pruebas).
+
+### Verificaciones
+
+- Suite completa: **1224 tests** en verde; `verificacion-identidad.test.ts`
+  17/17 (4 tests nuevos: normalización a lista, BOLIVIANA legítima,
+  «Marciana» rechazada, y el ciclo sin confirmar → `camposQueNoCotejan` /
+  confirmado → guardado + evidencia). Batería e2e v3: 10/10.
+- Playwright manual contra dev en mock (fixtures reales de Rodrigo por
+  archivo): primer VALIDAR → 400 `CORRECCION_NO_COINCIDE`
+  `["nombres","apellidos"]`, aparece la casilla, segundo VALIDAR con
+  `confirmaCorrecciones: true` → identidad verificada, sección WhatsApp
+  activa. BOLIVIANA pasó a la primera. Payloads y respuestas capturados.
+- La prueba con Textract/Rekognition **reales no se pudo correr en local**:
+  `aab1-demo-qa` no tiene `rekognition:DetectFaces` (AccessDenied); solo el
+  rol de cómputo de Amplify los tiene. Queda para la demo desplegada.
+
+### Queda abierto
+
+- Probar el flujo con fixtures reales contra `demo-v3` desplegada (Textract
+  real) después del merge — autorizado por Andres.
+- El MRZ del dorso no le ganó al OCR malo del frente en la prueba real:
+  pendiente post-presentación.
+- El fix del 500 del demo-panel (serialización binaria de `next dev`) sigue
+  en la sesión worktree paralela; los e2e v2 de firma (01/07) esperan eso.
+
+---
+
 ## 2026-08-31 (c) · Lote F5c: la UX de identidad con cédulas reales
 
 **Rama:** `feat/f5c-ux-identidad` · **Feedback directo de Andres con documentos reales**
