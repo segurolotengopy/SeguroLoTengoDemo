@@ -3,9 +3,11 @@
 **Asunto:** Interseguros S.A. (SeguroLoTengo) — Consultas B2 y B3 pendientes (devoluciones) y recordatorio de B7 y B11
 
 > **Estado:** enviado el 27-ago-2026. **B2 y B3 respondidas el 28-ago-2026**
-> (ver `docs/Integraciones/Bancard - Respuestas B1 a B13.md`). Siguen abiertas
-> **B7** y **B11**. De B3 quedó pendiente el plazo del QR A2A, que se repregunta
-> como **B3-bis** en la tanda siguiente.
+> (ver `docs/Integraciones/Bancard - Respuestas B1 a B13.md`). **Reemplazado**
+> por `Correo 5 - Bancard unificado - consultas pendientes priorizadas.md`, que
+> se lleva lo que quedó abierto: **B7**, **B11** y **B3-bis** (el plazo del QR
+> A2A, que B3 no llegó a responder). Se conserva como registro de lo que se
+> envió y cuándo; **no volver a enviarlo**.
 
 ---
 

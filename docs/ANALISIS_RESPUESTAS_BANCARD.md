@@ -487,11 +487,12 @@ intención se cubre por otros medios.
 Al 28-ago quedan **nueve**: las siete técnicas de la segunda ronda, más **B7** y **B11**
 del hilo comercial. **B2 y B3 ya están respondidas** (§2.9), y de B3 nació **B3-bis**.
 
-**Redactadas y listas para reenviar**, un archivo por correo —van separados porque tienen
-destinatarios distintos—:
+**Redactadas y listas para reenviar**, las diez en un solo correo agrupadas por impacto
+(bloqueantes · importantes · deseables), con el área que corresponde a cada una:
 
-- `docs/correos/Correo 3 - Bancard tecnico - segunda ronda (B4-bis a B13-bis).md`
-- `docs/correos/Correo 4 - Bancard comercial - devoluciones (B2, B3, B7, B11).md`
+- `docs/correos/Correo 5 - Bancard unificado - consultas pendientes priorizadas.md`
+
+Reemplaza a los correos 3 y 4, que se conservan solo como registro de lo enviado.
 
 El porqué de cada consulta y la trazabilidad B1…B13 siguen en
 `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` → "Segunda ronda — Bancard".

@@ -2,6 +2,12 @@
 **CC:** [ejecutiva de cuenta]
 **Asunto:** Interseguros S.A. (SeguroLoTengo) — Segunda ronda de consultas técnicas (B4-bis, B5-bis, B6-bis, B8-bis, B8-ter, B10-bis, B13-bis)
 
+> **Estado: enviado el 27-ago-2026, sin responder. Reemplazado** por
+> `Correo 5 - Bancard unificado - consultas pendientes priorizadas.md`, que
+> consolida sus siete consultas con las que quedaban del hilo comercial y las
+> ordena por impacto. Se conserva como registro de lo que se envió y cuándo;
+> **no volver a enviarlo**.
+
 ---
 
 Estimado equipo de Soporte de Integraciones de Bancard:

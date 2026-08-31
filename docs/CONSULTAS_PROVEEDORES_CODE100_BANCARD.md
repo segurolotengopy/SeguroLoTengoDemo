@@ -144,7 +144,25 @@ De **B3** nació **B3-bis**, que va en la próxima tanda: al dar los plazos, la 
 
 ---
 
-> **Por qué estos dos correos no están transcriptos acá y los dos primeros sí.** Se
+---
+
+## Correo 5 — Bancard, unificado y priorizado *(el vigente)*
+
+**Cuerpo listo para reenviar:** `docs/correos/Correo 5 - Bancard unificado - consultas pendientes priorizadas.md`
+
+**Reemplaza a los correos 3 y 4** para todo lo que quedó sin responder. Los dos anteriores fueron a destinatarios distintos y se cruzaron con la tanda de respuestas del 28-ago, así que el estado de cada consulta quedó repartido entre tres hilos. Este los junta: **10 consultas en un solo correo**, agrupadas por impacto sobre el cronograma y con el área que corresponde a cada una, para que Bancard pueda derivarlas internamente sin que nosotros elijamos por ellos a quién escribirle.
+
+| Bloque | Consultas | Criterio |
+| :---- | :---- | :---- |
+| **Bloqueantes** | B7, B13-bis, B4-bis, B10-bis | Sin la respuesta no se puede escribir ni certificar la integración |
+| **Importantes** | B11, B8-ter, B6-bis, B3-bis | No frenan hoy; tienen que estar antes de producción |
+| **Deseables** | B5-bis, B8-bis | Se puede avanzar sin ellas; simplificarían el diseño |
+
+El correo aclara explícitamente que **no hace falta responder todo junto** y que las cuatro del primer bloque desbloquean el trabajo por sí solas. B7 es la única de las diez que no requiere ninguna definición del proveedor: es entrega de datos que ya existen.
+
+---
+
+> **Por qué estos correos no están transcriptos acá y los dos primeros sí.** Se
 > pidieron como archivos sueltos para reenviar, y tener el mismo texto en dos lugares
 > es la forma más segura de que uno de los dos quede viejo. El cuerpo vive en
 > `docs/correos/`; este documento conserva la trazabilidad B1…B13 y el porqué de cada
