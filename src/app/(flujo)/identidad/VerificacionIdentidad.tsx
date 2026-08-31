@@ -183,6 +183,20 @@ const TARJETA_SELFIE_EN_VIVO = {
   boton: "Iniciar verificación",
 } as const;
 
+/**
+ * Rangos de ingreso del canvas (F5c): la persona elige un rango, no tipea un
+ * monto. El valor que viaja es el representante numérico del rango —el mismo
+ * campo `ingresoMensualDeclaradoGs` de siempre—, así el dominio y el FIPF no
+ * cambian; la etiqueta es lo que la persona ve y elige.
+ */
+const RANGOS_INGRESO: readonly { readonly etiqueta: string; readonly valor: string }[] = [
+  { etiqueta: "Hasta 2.800.000", valor: "2800000" },
+  { etiqueta: "De 2.800.001 a 5.000.000", valor: "5000000" },
+  { etiqueta: "De 5.000.001 a 10.000.000", valor: "10000000" },
+  { etiqueta: "De 10.000.001 a 20.000.000", valor: "20000000" },
+  { etiqueta: "Más de 20.000.000", valor: "25000000" },
+];
+
 const CAMPOS_BLOQUEADOS: readonly {
   readonly id: keyof DatosIdentidad;
   readonly etiqueta: string;
@@ -342,7 +356,6 @@ export function VerificacionIdentidad({
   // otros cuatro campos siguen bloqueados porque de ellos cuelgan el corte de
   // edad y el bloqueo por cédula. Vacío significa "sin corregir".
   const [correcciones, setCorrecciones] = useState<Partial<Record<string, string>>>({});
-  const [campoEnEdicion, setCampoEnEdicion] = useState<string | null>(null);
   const [correo, setCorreo] = useState("");
   const [correoRepetido, setCorreoRepetido] = useState("");
   const [autorizacionBiometrica, setAutorizacionBiometrica] = useState(false);
@@ -397,6 +410,59 @@ export function VerificacionIdentidad({
     complementariosCompletos &&
     sexoElegido !== "" &&
     enProceso === null;
+
+  // F5c · el patrón de faltantes del canvas: una lista que nombra qué falta,
+  // con el ancla del primer campo para desplazarse. Reemplaza al párrafo que
+  // enumeraba condiciones en abstracto («no se entiende qué falta»).
+  const [mostrarFaltantes, setMostrarFaltantes] = useState(false);
+  const faltantes: { texto: string; ancla: string | null }[] = [];
+  if (!cumplidos) faltantes.push({ texto: "completar y aprobar las tres capturas", ancla: "p5-capturas" });
+  if (datos && !edadHabilita) faltantes.push({ texto: "una edad entre 18 y 64 años según la cédula", ancla: null });
+  if (!autorizacionBiometrica) faltantes.push({ texto: "marcar la autorización biométrica", ancla: "p5-autorizacion-biometrica" });
+  if (sexoElegido === "") faltantes.push({ texto: "elegir tu sexo", ancla: "p5-sexo" });
+  if (!paisYEstadoCivilCompletos) faltantes.push({ texto: "completar país y estado civil", ancla: "p5-pais" });
+  if (!correoCoincide) faltantes.push({ texto: "escribir tu correo dos veces igual", ancla: "p5-correo" });
+  if (!complementariosCompletos) {
+    const primerVacio =
+      domicilio.trim() === "" ? "p5-domicilio"
+      : ciudad === "" ? "p5-ciudad"
+      : situacionLaboral === "" ? "p5-situacion-laboral"
+      : actividad === "" ? "p5-actividad"
+      : profesion === "" ? "p5-profesion"
+      : ingreso === "" ? "p5-ingreso"
+      : "p5-origen-fondos";
+    faltantes.push({ texto: "completar tus datos complementarios", ancla: primerVacio });
+  }
+
+  function irAlPrimerFaltante() {
+    setMostrarFaltantes(true);
+    const ancla = faltantes.find((falta) => falta.ancla !== null)?.ancla;
+    if (ancla) {
+      document.getElementById(ancla)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById(ancla)?.focus?.();
+    }
+  }
+
+  /** Botón del canvas «Completar el resto con datos de ejemplo (demo)». */
+  function completarConEjemplos() {
+    if (sexoElegido === "") setCorrecciones((actuales) => ({ ...actuales, sexo: SEXOS_ADMITIDOS[0] }));
+    if (paisNacimiento === "") setPaisNacimiento("Paraguay");
+    if (paisResidencia === "") setPaisResidencia("Paraguay");
+    if (estadoCivil === "") setEstadoCivil(ESTADOS_CIVILES[0]);
+    if (domicilio.trim() === "") setDomicilio("Avda. Mcal. López 1234, Asunción");
+    if (ciudad === "") setCiudad(CIUDADES[0]);
+    if (situacionLaboral === "") setSituacionLaboral(SITUACIONES_LABORALES[0]);
+    if (actividad === "") setActividad(ACTIVIDADES[0]);
+    if (profesion === "") setProfesion(PROFESIONES[0]);
+    if (empresa.trim() === "") setEmpresa("Ejemplo S.A.");
+    if (ingreso === "") setIngreso(RANGOS_INGRESO[1].valor);
+    if (origenFondos === "") setOrigenFondos(ORIGENES_FONDOS[0]);
+    if (correo.trim() === "") {
+      setCorreo("maria.ejemplo@correo.com");
+      setCorreoRepetido("maria.ejemplo@correo.com");
+    }
+    setAutorizacionBiometrica(true);
+  }
 
   function mensajeDe(motivo: string | undefined, porDefecto: string): string {
     return (motivo && MENSAJES[motivo]) ?? porDefecto;
@@ -627,7 +693,6 @@ export function VerificacionIdentidad({
       // Un dato viejo del OCR no puede sobrevivir a una captura nueva, y una
       // corrección tampoco: quedaría corrigiendo una lectura que ya no existe.
       setCorrecciones({});
-      setCampoEnEdicion(null);
       // Un dato viejo del OCR no puede sobrevivir a una captura nueva.
       setDatos(null);
       setRequisitosServidor(null);
@@ -719,7 +784,7 @@ export function VerificacionIdentidad({
           fotografía, y de ahí salen los datos— y es el de la maqueta
           aprobada (p.4). */}
       <div className="flex flex-col gap-3">
-        <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
+        <section id="p5-capturas" className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Captura documental y biométrica
           </h2>
@@ -837,6 +902,7 @@ export function VerificacionIdentidad({
 
           <label className="flex items-start gap-2.5 text-sm text-cuerpo">
             <input
+              id="p5-autorizacion-biometrica"
               type="checkbox"
               checked={autorizacionBiometrica}
               onChange={(evento) => setAutorizacionBiometrica(evento.target.checked)}
@@ -881,16 +947,33 @@ export function VerificacionIdentidad({
               bajado toda la columna llega tarde. */}
           <p className="rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 text-xs text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
             <span className="font-bold text-naranja-800 dark:text-naranja-200">Revisá tus datos</span>{" "}
-            antes de validar: la lectura automática puede confundir caracteres parecidos.
+            antes de validar: la lectura automática puede confundir caracteres parecidos. Nombres,
+            apellidos y nacionalidad son editables; lo corregido se coteja con tu cédula.
           </p>
+
+          {subidaDeArchivoDisponible ? (
+            <button
+              type="button"
+              onClick={completarConEjemplos}
+              className="self-start rounded-lg border border-dashed border-borde-sutil px-3 py-1.5 text-xs font-semibold text-etiqueta hover:text-cuerpo"
+            >
+              Completar el resto con datos de ejemplo (demo)
+            </button>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             {CAMPOS_BLOQUEADOS.map(({ id, etiqueta }) => {
-              const corregible = esCampoCorregible(id);
-              const enEdicion = campoEnEdicion === id;
-              // Lo corregido si existe, y si no lo que leyó el OCR.
+              // F5c (feedback de Andres con cédulas reales): los tres campos
+              // corregibles son EDITABLES directos — el candado-botón parecía
+              // decorativo y, con una lectura mala del OCR, dejaba a la
+              // persona atrapada mirando "BLI" sin salida visible. El número
+              // de cédula y la fecha de nacimiento siguen bloqueados: de
+              // ellos cuelgan el bloqueo por cédula y el corte de edad, y
+              // ante un error se repite la captura. Lo editado viaja en
+              // `correcciones` y el servidor lo coteja contra la cédula
+              // (CHG-15), igual que siempre.
+              const editable = esCampoCorregible(id);
               const valorMostrado = correcciones[id] ?? valorDelCampo(datos, id);
-              const hayDatos = valorDelCampo(datos, id) !== "";
 
               return (
                 <div key={id} className="flex flex-col gap-1">
@@ -898,50 +981,26 @@ export function VerificacionIdentidad({
                     htmlFor={`p5-${id}`}
                     className="flex items-center gap-1.5 text-xs font-semibold text-etiqueta"
                   >
-                    {/* CHG-15 · el candado deja de ser decorativo en los
-                        cuatro campos corregibles —nombres, apellidos, sexo y
-                        nacionalidad—: es el botón que abre la edición. En el
-                        número de cédula y la fecha de nacimiento sigue siendo un
-                        ícono, porque de ellos cuelgan el bloqueo por cédula y el
-                        corte de edad. */}
-                    {corregible && hayDatos ? (
-                      <button
-                        type="button"
-                        onClick={() => setCampoEnEdicion(enEdicion ? null : id)}
-                        aria-pressed={enEdicion}
-                        aria-label={
-                          enEdicion ? `Terminar de corregir ${etiqueta}` : `Corregir ${etiqueta}`
-                        }
-                        className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500"
-                      >
-                        {enEdicion ? "🔓" : "🔒"}
-                      </button>
-                    ) : (
-                      <span aria-hidden="true">🔒</span>
-                    )}
+                    <span aria-hidden="true">{editable ? "🔓" : "🔒"}</span>
                     {etiqueta}
+                    {editable ? " · editable" : " · no editable"}
                   </label>
                   <input
                     id={`p5-${id}`}
                     type="text"
-                    readOnly={!enEdicion}
-                    aria-readonly={!enEdicion}
+                    readOnly={!editable}
+                    aria-readonly={!editable}
                     value={valorMostrado}
                     onChange={(evento) =>
                       setCorrecciones((actuales) => ({ ...actuales, [id]: evento.target.value }))
                     }
                     placeholder="Se completa automáticamente"
                     className={`h-11 w-full rounded-lg border px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500 ${
-                      enEdicion
-                        ? "border-naranja-400 bg-superficie"
+                      editable
+                        ? "border-borde-sutil bg-superficie"
                         : "border-borde-sutil bg-superficie-suave"
                     }`}
                   />
-                  {enEdicion ? (
-                    <p className="text-xs text-etiqueta">
-                      Corregí solo errores de lectura. El dato final se coteja con tu cédula.
-                    </p>
-                  ) : null}
                 </div>
               );
             })}
@@ -1183,15 +1242,19 @@ export function VerificacionIdentidad({
               <label htmlFor="p5-ingreso" className="text-xs font-semibold text-etiqueta">
                 7. Ingreso mensual declarado *
               </label>
-              <input
+              <select
                 id="p5-ingreso"
-                type="text"
-                inputMode="numeric"
                 value={ingreso}
                 onChange={(evento) => setIngreso(evento.target.value)}
-                placeholder="Ej.: 9.500.000"
-                className={`${CLASE_CAMPO_P5} tabular-nums`}
-              />
+                className={CLASE_CAMPO_P5}
+              >
+                <option value="">Elegí un rango</option>
+                {RANGOS_INGRESO.map((rango) => (
+                  <option key={rango.valor} value={rango.valor}>
+                    {rango.etiqueta}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex flex-col gap-1 sm:col-span-2">
@@ -1218,8 +1281,14 @@ export function VerificacionIdentidad({
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            onClick={confirmar}
-            disabled={!puedeContinuar}
+            onClick={() => {
+              if (!puedeContinuar) {
+                irAlPrimerFaltante();
+                return;
+              }
+              void confirmar();
+            }}
+            aria-disabled={!puedeContinuar}
             className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
           >
             {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
@@ -1238,12 +1307,19 @@ export function VerificacionIdentidad({
               edad en rango podía quedarse mirando un botón apagado sin nada
               que se lo explicara: le faltaba el sexo, o un campo del bloque
               económico, y el texto le juraba que con lo otro alcanzaba. */}
-          {!puedeContinuar ? (
-            <p className="text-xs text-etiqueta">
-              Se habilita con el correo escrito dos veces igual, los cinco requisitos cumplidos, el
-              sexo elegido, los datos económicos completos, la autorización biométrica marcada y una
-              edad entre {EDAD_MINIMA_PERMITIDA} y {EDAD_MAXIMA_PERMITIDA} años según la cédula.
+          {!puedeContinuar && mostrarFaltantes && faltantes.length > 0 ? (
+            <p className="text-sm font-semibold text-rojo-700 dark:text-rojo-300" role="alert">
+              Te falta: {faltantes.map((falta) => falta.texto).join(", ")}.
             </p>
+          ) : null}
+          {!puedeContinuar && !mostrarFaltantes ? (
+            <button
+              type="button"
+              onClick={irAlPrimerFaltante}
+              className="self-start text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 dark:text-azul-200"
+            >
+              Mostrame qué me falta
+            </button>
           ) : null}
         </div>
       </div>

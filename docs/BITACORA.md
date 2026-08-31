@@ -38,6 +38,53 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-31 (c) · Lote F5c: la UX de identidad con cédulas reales
+
+**Rama:** `feat/f5c-ux-identidad` · **Feedback directo de Andres con documentos reales**
+
+### El caso
+
+Andres probó la demo con la cédula real de Rodrigo (fixture D-21). El OCR
+leyó mal («BLI», «FECHA DE VENCIMIENTO») y la pantalla no ofrecía salida: el
+candado-botón de CHG-15 existía pero era indescubrible (se ve igual que el
+ícono decorativo). Pidió: campos editables, ingreso por rangos como el
+Design, entender qué falta, y el botón de datos ficticios del canvas.
+
+### Qué cambió (VerificacionIdentidad, vale para v2 y v3)
+
+- **Nombres, apellidos y nacionalidad: editables directos**, rotulados
+  «· editable» con candado abierto; cédula y fecha siguen «· no editable»
+  (regla #8/#11). El cotejo del servidor (CHG-15) no cambia: lo editado viaja
+  en `correcciones` como siempre.
+- **Ingreso mensual por rangos** (los cinco del canvas); viaja el
+  representante numérico del rango en el mismo campo de siempre — dominio y
+  FIPF intactos.
+- **Faltantes del canvas**: el CTA es siempre clickeable; sin requisitos
+  muestra «Te falta: …» (rojo) y se desplaza al primer campo, más el enlace
+  «Mostrame qué me falta». Reemplaza al párrafo que enumeraba condiciones en
+  abstracto.
+- **«Completar el resto con datos de ejemplo (demo)»** (solo DEMO_MODE):
+  llena lo vacío con opciones válidas de los catálogos.
+- Helper e2e actualizado (`p5-ingreso` → selectOption).
+
+### Verificaciones
+
+- typecheck + lint (0 errores) + 1222 tests; **batería v3 10/10** (2.3 m).
+- Captura de la sección nueva enviada a Andres.
+- **Smoke v2 `01-camino-feliz`: FALLA en la firma, y es el bug preexistente**
+  del 500 del panel de demo (next dev serializa mal binarios grandes en RSC —
+  causa raíz ya identificada por la sesión del worktree; su PR lo arregla).
+  El tramo donde falla no lo toca este lote.
+
+### Queda abierto
+
+- Mergear el PR de la sesión del worktree (arregla el 500 del panel y con él
+  el smoke v2 de firma).
+- El MRZ del dorso real no ganó al OCR aproximado (leyó «BLI» pese a un MRZ
+  legible) — retomar el pendiente conocido del MRZ tras la presentación.
+
+---
+
 ## 2026-08-31 (b) · Lote F5b: la piel del canvas — el diseño que faltaba
 
 **Rama:** `feat/f5b-diseno-canvas` · **Corrección de alcance, urgente**
