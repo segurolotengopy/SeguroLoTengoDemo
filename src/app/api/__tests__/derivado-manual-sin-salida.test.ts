@@ -40,6 +40,7 @@ import {
   reiniciarExpediente,
 } from "@/domain/consola-administrativa";
 import { guardarDatosYDeclaracionesP6 } from "@/domain/declaraciones-p6";
+import { registrarActoDeFirmaCliente, solicitarOtpDeFirmaCliente } from "@/domain/firma-cliente";
 
 /** Bloque económico crudo, tal como lo manda la pantalla del paso 4. */
 const COMPLEMENTARIOS_CRUDOS = {
@@ -616,6 +617,36 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
         ),
     },
     {
+      // Firma interna del cliente (F4b): un derivado no tiene paquete cerrado,
+      // así que las dos operaciones rechazan sin tocar el expediente.
+      ruta: "p8/firma-interna/enviar",
+      ejecutar: async (repo) => {
+        const { provider, lector } = otpFalso();
+        return solicitarOtpDeFirmaCliente(
+          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
+          { expedienteId: EXPEDIENTE_ID, canal: "WHATSAPP", contexto: CONTEXTO },
+        );
+      },
+    },
+    {
+      ruta: "p8/firma-interna/verificar",
+      ejecutar: async (repo) => {
+        const { provider, lector } = otpFalso();
+        return registrarActoDeFirmaCliente(
+          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            canal: "WHATSAPP",
+            otpId: "OTP-X",
+            codigoIngresado: "123456",
+            textoAceptado: "texto",
+            versionTextoAceptado: "v-test",
+            contexto: CONTEXTO,
+          },
+        );
+      },
+    },
+    {
       ruta: "p8/resumen",
       ejecutar: async (repo) =>
         generarPaqueteDocumental(
@@ -795,6 +826,8 @@ describe("3. Inventario de rutas de la API", () => {
       "p8/estado",
       "p8/retorno",
       "p8/firma",
+      "p8/firma-interna/enviar",
+      "p8/firma-interna/verificar",
       "p8/resumen",
       "pantalla-b/caso",
       "demo-panel/devolucion",

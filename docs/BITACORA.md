@@ -38,6 +38,67 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-30 (d) · Lote F4b: la página /pago-y-firma con la firma interna
+
+**Rama:** `feat/f4b-pago-y-firma` (encadenada sobre F4a) · **Implementación**
+
+### El caso
+
+Segunda mitad de F4: cablear la firma interna del cliente (mergeada en F4a)
+a la pantalla del paso 3. Arquitectura verificada antes de codear:
+`confirmarFirmaP8` con `FIRMADO_CLIENTE` aplica las institucionales SIN
+requerir acto de Code100 — el sondeo de siempre completa el tramo cualificado
+sobre una firma interna sin tocar `firma-p8.ts`.
+
+### Qué cambió
+
+- `textos-pago-firma.ts`: aceptación agrupada 3 (DI-8, 3 ítems,
+  `PAGO-FIRMA-ACEPTACION-v1`) — **es además el texto que el acto interno
+  registra como firmado** —, el «¿Qué es el FIPF?» con el formulario real
+  (DI-1) y los encabezados del paso.
+- Endpoints `POST /api/p8/firma-interna/{enviar,verificar}`: guarda
+  `flujoV3Activo()` en la puerta HTTP (el dominio del acto no distingue
+  versiones a propósito — es el mismo acto legal), aceptación agrupada
+  requerida antes de emitir el código, texto/versión del servidor, deps de P1
+  reutilizadas (`DependenciasFirmaCliente` ≡ `DependenciasP1`). Registrados
+  en el inventario de rutas con sus dos CASOS (rechazan a un derivado sin
+  tocarlo: sin paquete cerrado no hay nada que firmar).
+- `FirmaInternaV3.tsx`: resumen del paquete (reutiliza `GET /api/p8/resumen`,
+  que además lo genera, y `ModalVisorPdf`), casilla agrupada + expandible,
+  botones de canal WhatsApp/correo enmascarados (DI-5), `CamposOtp`, y el
+  sondeo institucional con `GET /api/p8/estado` → `onCompletado`.
+- `PagoYFirma.tsx` + `page.tsx`: dos secciones gateadas (firma hasta FIRMADO,
+  pago desde FIRMADO — regla 6-bis en el gating), `FIRMADO` como estado
+  propio (mismo criterio que `tambienPropios` de la página v2 de pago),
+  `FormularioPagoP7` montado sin cambios, barra de plan con `cambiar plan` →
+  /seguro, puerta a /inscripcion sin trámite. `DETALLE_PAGO_Y_FIRMA` neutral.
+- `e2e/v3/03-pago-y-firma.spec.ts` (molde de 01/02).
+
+### Verificaciones
+
+- typecheck + lint + **1222 tests en verde**; build con y sin flag en verde
+  (la ruta `/pago-y-firma` aparece en el build).
+- **La batería E2E sigue bloqueada por el cupo de inotify** (65536; el sysctl
+  de F4a sigue pendiente). Verificación equivalente hecha contra un build de
+  producción con el flag (`next start`, sin watchers): redirects 308 de
+  /firma y /pago → /pago-y-firma, puerta sin trámite, «Paso 3 de 3», y las
+  guardas de los endpoints nuevos (ACEPTACION_REQUERIDA / SESION_INVALIDA /
+  CANAL_INVALIDO) por curl.
+- El circuito completo firma-interna → institucionales → pago por navegador
+  queda pendiente junto con las corridas formales de Playwright: ambos
+  destrabados por el mismo `sysctl`.
+
+### Queda abierto
+
+- `sudo sysctl fs.inotify.max_user_watches=524288` (Andres) → correr
+  `test:e2e:v3` (3 specs), el smoke v2 `07-firma-atomica` de F4a, y el
+  recorrido completo por navegador ANTES de mergear F4b.
+- F5: inicio + confirmación + revisión manual. F6: encendido y limpieza.
+- El PR de F4b tiene base en la rama de F4a: se re-apunta a main al mergear
+  #67.
+
+---
+
 ## 2026-08-30 (c) · Lote F4a: la firma interna del cliente entra a main
 
 **Rama:** `feat/f4a-firma-interna-dominio` · **Merge de la rama en espera**
