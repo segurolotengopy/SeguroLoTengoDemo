@@ -259,7 +259,9 @@ export async function completarDatosComplementarios(
   await page.locator("#p5-actividad").selectOption(datos.actividad);
   await page.locator("#p5-profesion").selectOption(datos.profesion);
   if (datos.empresa) await page.locator("#p5-empresa").fill(datos.empresa);
-  await page.locator("#p5-ingreso").fill(String(datos.ingresoMensualDeclaradoGs));
+  // F5c: el ingreso es un rango; se elige la primera opción que cubre el
+  // monto del fixture (los values son los representantes numéricos).
+  await page.locator("#p5-ingreso").selectOption("5000000");
   await page.locator("#p5-origen-fondos").selectOption(datos.origenFondos);
 }
 
