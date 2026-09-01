@@ -297,21 +297,59 @@ body {
 }
 
 /* El hero del inicio: las cuatro fotos del canvas rotando en crossfade. */
+/* Carrusel del inicio: cuatro fotos, 3 s cada una (pedido de Andres,
+   01-sep), en el orden del canvas — inscribite → seguro → pagá y firmá →
+   protegé. El cruce dura 0,7 s como en el diseño, así que la ventana visible
+   de cada foto es el 25 % del ciclo de 12 s menos el cruce. */
 @keyframes v3-crossfade {
-  0%, 20% { opacity: 1; }
-  25%, 95% { opacity: 0; }
+  0% { opacity: 1; }
+  20% { opacity: 1; }
+  25% { opacity: 0; }
+  95% { opacity: 0; }
   100% { opacity: 1; }
 }
 .v3-hero { position: relative; overflow: hidden; border: 1px solid var(--tema-borde); background: #fff; }
-.v3-hero img {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  animation: v3-crossfade 16s infinite;
+/* Los desfases van en negativo para que las cuatro animaciones estén corriendo
+   desde el primer cuadro. Con desfase positivo, la foto que todavía no empezó
+   se queda en su estado base y las cuatro se ven a la vez: gana la última del
+   DOM y el carrusel arranca por la foto 4. */
+.v3-hero figure {
+  position: absolute; inset: 0; margin: 0; opacity: 0;
+  animation: v3-crossfade 12s infinite;
 }
-.v3-hero img:nth-child(1) { animation-delay: 0s; }
-.v3-hero img:nth-child(2) { animation-delay: 4s; }
-.v3-hero img:nth-child(3) { animation-delay: 8s; }
-.v3-hero img:nth-child(4) { animation-delay: 12s; }
-.v3-hero img:first-child { position: relative; }
+.v3-hero figure:nth-child(1) { animation-delay: 0s; }
+.v3-hero figure:nth-child(2) { animation-delay: -9s; }
+.v3-hero figure:nth-child(3) { animation-delay: -6s; }
+.v3-hero figure:nth-child(4) { animation-delay: -3s; }
+.v3-hero figure:first-child { position: relative; }
+.v3-hero img {
+  width: 100%; height: 100%; display: block;
+  /* El canvas recorta en `center 40%`: con el 50 % por defecto las caras
+     quedaban fuera del cuadro en pantallas anchas. */
+  object-fit: cover; object-position: center 40%;
+}
+/* Rótulo del canvas sobre cada foto, abajo a la izquierda. */
+.v3-hero figcaption {
+  position: absolute; left: 0; bottom: 0;
+  background: var(--color-naranja-600); color: #fff;
+  font-weight: 700; letter-spacing: -0.01em; line-height: 1.1;
+  font-size: clamp(15px, 2.4vw, 26px); padding: 10px 18px;
+}
+
+/* Las fotos de cabecera de cada paso: el canvas las recorta en `center 35%`
+   (y la de confirmación en 45 %) para que las caras entren en el cuadro. */
+[data-flujo="v3"] .v3-foto-paso { object-fit: cover; object-position: center 35%; }
+[data-flujo="v3"] .v3-foto-cierre { object-fit: cover; object-position: center 45%; }
+
+/* La rejilla del canvas: `auto-fit` + `minmax`, que es lo que hace que los
+   recuadros llenen el ancho disponible en vez de quedar en columnas fijas.
+   El mínimo va por variable para que cada bloque elija el suyo. */
+[data-flujo="v3"] .v3-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--v3-min, 220px), 1fr));
+  gap: var(--v3-gap, 14px);
+  align-items: start;
+}
 
 /* La familia base del preflight no pasa por `--font-sans`: se fija directo. */
 [data-flujo="v3"],

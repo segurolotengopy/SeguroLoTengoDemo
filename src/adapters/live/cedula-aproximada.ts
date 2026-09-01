@@ -26,6 +26,7 @@
  * Dicho de otra forma: esto es una lupa, no un notario.
  */
 import type { PaisDocumento } from "../../domain/documento-regional";
+import { nombreLeidoOVacio } from "../../domain/nombre-plausible";
 import { normalizarTexto } from "../../domain/documento-regional";
 import type { LineaReconocida } from "./textract-cedula";
 
@@ -290,16 +291,20 @@ export function extraerCamposAproximados(
 
   // Camino rotulado (formato nuevo) y, si no hay, el nombre corrido del dorso
   // boliviano del formato anterior.
-  let nombres = valorTrasRotulo(textos, rotulos.nombres);
-  let apellidos = valorTrasRotulo(textos, rotulos.apellidos);
+  // Sin MRZ la lectura del frente es una apuesta por posición: si lo que salió
+  // no puede ser un nombre, se deja vacío en vez de presentarlo como dato
+  // (pedido de Andres, 01-sep — la prueba con cédulas reales devolvió «BLI» y
+  // «FECHA DE VENCIMIENTO» y eso llegó hasta el cotejo).
+  let nombres = nombreLeidoOVacio(valorTrasRotulo(textos, rotulos.nombres));
+  let apellidos = nombreLeidoOVacio(valorTrasRotulo(textos, rotulos.apellidos));
 
   if (pais === "BO" && (nombres === null || apellidos === null)) {
     const completo = nombreCompletoBoliviano(textos);
     if (completo) {
       const palabras = completo.split(" ").filter((p) => p !== "");
       const corte = Math.max(1, palabras.length - 2);
-      nombres = nombres ?? palabras.slice(0, corte).join(" ");
-      apellidos = apellidos ?? palabras.slice(corte).join(" ");
+      nombres = nombres ?? nombreLeidoOVacio(palabras.slice(0, corte).join(" "));
+      apellidos = apellidos ?? nombreLeidoOVacio(palabras.slice(corte).join(" "));
     }
   }
 

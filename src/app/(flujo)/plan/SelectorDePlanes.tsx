@@ -1,5 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 import { rutaSiguienteDe } from "@/domain/rutas-flujo";
 import { useState } from "react";
 import type React from "react";
@@ -228,7 +230,8 @@ export function SelectorDePlanes({
 
   return (
     <div className="flex flex-col gap-4">
-      <div role="radiogroup" aria-label="Planes disponibles" className="grid gap-4 pt-2 lg:grid-cols-3">
+      <div role="radiogroup" aria-label="Planes disponibles" className="grid gap-4 pt-2 lg:grid-cols-3 v3-rejilla"
+          style={{ "--v3-min": "220px" } as CSSProperties}>
         {OFERTA_VIGENTE.planes.map((opcion) => (
           <TarjetaPlan
             key={opcion.id}

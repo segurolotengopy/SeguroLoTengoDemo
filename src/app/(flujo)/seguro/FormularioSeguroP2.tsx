@@ -1,5 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 /**
  * Beneficiario + las 5 preguntas + aceptación agrupada 2 del paso 2 (lote F3).
  *
@@ -41,6 +43,21 @@ const MENSAJES: Readonly<Record<string, string>> = {
 
 const CLASE_CAMPO =
   "h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500";
+
+/**
+ * El campo obligatorio que quedó vacío se marca en rojo, como en el canvas
+ * (`falBenefX`). Sin esto, los datos del beneficiario se leían como opcionales
+ * (observación de Andres, 01-sep) y la persona descubría que faltaban recién
+ * al chocar contra el botón.
+ */
+function claseCampo(falta: boolean): string {
+  return falta ? `${CLASE_CAMPO} border-rojo-400 bg-rojo-50 dark:bg-rojo-950` : CLASE_CAMPO;
+}
+
+/** Asterisco rojo de obligatorio, con el mismo criterio que el paso 1. */
+function Obligatorio() {
+  return <span className="text-rojo-700 dark:text-rojo-300"> *</span>;
+}
 
 export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }) {
   const [tipoBeneficiario, setTipoBeneficiario] = useState<"HEREDEROS_LEGALES" | "PERSONA_DESIGNADA">(
@@ -160,19 +177,33 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
           </label>
         </div>
         {tipoBeneficiario === "PERSONA_DESIGNADA" ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <p className="text-xs text-etiqueta">
+            Los marcados con <span className="text-rojo-700 dark:text-rojo-300">*</span> son
+            obligatorios.
+          </p>
+        ) : null}
+        {tipoBeneficiario === "PERSONA_DESIGNADA" ? (
+          <div className="grid gap-3 sm:grid-cols-2 v3-rejilla"
+          style={{ "--v3-min": "250px" } as CSSProperties}>
             <label className="flex flex-col gap-1 text-sm font-semibold text-titulo">
-              Nombre completo del beneficiario
+              <span>
+                Nombre completo del beneficiario
+                <Obligatorio />
+              </span>
               <input
-                className={CLASE_CAMPO}
+                className={claseCampo(mostrarFaltantes && benefNombre.trim() === "")}
+                placeholder="Como figura en su cédula"
                 value={benefNombre}
                 onChange={(e) => setBenefNombre(e.target.value)}
               />
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold text-titulo">
-              Parentesco
+              <span>
+                Parentesco
+                <Obligatorio />
+              </span>
               <select
-                className={CLASE_CAMPO}
+                className={claseCampo(mostrarFaltantes && benefParentesco === "")}
                 value={benefParentesco}
                 onChange={(e) => setBenefParentesco(e.target.value)}
               >
@@ -185,17 +216,26 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold text-titulo sm:col-span-2">
-              Domicilio del beneficiario
+              <span>
+                Domicilio del beneficiario
+                <Obligatorio />
+              </span>
               <input
-                className={CLASE_CAMPO}
+                className={claseCampo(mostrarFaltantes && benefDomicilio.trim() === "")}
+                placeholder="Calle, número, ciudad y departamento"
                 value={benefDomicilio}
                 onChange={(e) => setBenefDomicilio(e.target.value)}
               />
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold text-titulo">
-              Número de cédula (opcional)
+              {/* Opcional a propósito: la Res. SIS 215/2025 num. 11.4 exige
+                  nombre y domicilio, no la cédula de un tercero (CHG-24,
+                  CMP-21). El canvas la pide obligatoria; se deja el criterio
+                  de cumplimiento y se avisa la divergencia. */}
+              Número de cédula del beneficiario (opcional)
               <input
                 className={CLASE_CAMPO}
+                placeholder="Ej.: 3.987.654"
                 value={benefCedula}
                 onChange={(e) => setBenefCedula(e.target.value)}
               />

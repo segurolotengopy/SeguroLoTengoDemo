@@ -11,7 +11,7 @@
  * (capturas, OTP tipeado, panel de demo) y hace inline lo que en v2 era una
  * pantalla propia.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { leerCodigoOtpDelPanel, prepararEscenario } from "../support/demo-panel";
 import {
@@ -22,6 +22,17 @@ import {
   tipearOtp,
   tomarCapturaP5,
 } from "../support/flujo";
+
+/**
+ * Captura la pantalla cuando `CAPTURAS_DISENO` apunta a un directorio. Sirve
+ * para comparar contra el canvas sin tener que recorrer el flujo a mano.
+ */
+async function capturarDiseno(page: Page, nombre: string): Promise<void> {
+  const dir = process.env.CAPTURAS_DISENO;
+  if (!dir) return;
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${dir}/${nombre}.png`, fullPage: true });
+}
 
 test("camino feliz v3: T&C → inscripción → seguro → firma interna → pago → confirmación", async ({
   page,
@@ -78,6 +89,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: /continuar al paso 2/i }).click();
   await expect(page).toHaveURL(/\/seguro$/);
+  await capturarDiseno(page, "paso-2");
 
   // ── Paso 2 · plan (selector v2 como sección) ──────────────────────────
   await esperarHidratacion(page);
@@ -102,6 +114,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: /continuar al paso 3/i }).click();
   await expect(page).toHaveURL(/\/pago-y-firma$/);
+  await capturarDiseno(page, "paso-3");
 
   // ── Paso 3 · la firma interna del cliente ─────────────────────────────
   await esperarHidratacion(page);
@@ -152,6 +165,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await page.getByRole("link", { name: "Ver la confirmación →" }).click();
   await expect(page).toHaveURL(/\/confirmacion$/);
   await expect(page.getByText("¡Listo! Tu familia ya está protegida")).toBeVisible();
+  await capturarDiseno(page, "confirmacion");
 
   // La constancia sigue alcanzable después de pagar: si viviera solo en el
   // paso 3, se perdería en cuanto la persona avanza.
