@@ -89,11 +89,20 @@ modela; lo que los hace inofensivos es que no salen del navegador.
 
 Suite **1244** en verde (una guarda nueva) · batería e2e v3 **10/10**.
 
+### Confirmación (misma sesión, quinta tanda)
+
+Reconstruida al encabezado del canvas: kicker «CONTRATACIÓN ACEPTADA», título
+grande y bajada a la izquierda, y **la foto al costado** en vez de una banda
+sobre todo lo demás. Las tarjetas de documento pasan al dibujo del diseño —
+nombre y detalle a la izquierda, la acción a la derecha y en la misma línea—;
+antes el botón caía debajo y cada documento ocupaba el triple de alto.
+
+La versión de v2 del encabezado se conserva intacta detrás del flag.
+
 ### Queda abierto
 
-- La pantalla de confirmación sigue con estructura propia: el canvas la arma
-  con un kicker, un título grande, la foto al costado, una columna de hitos y
-  tarjetas «Ver PDF». Es la última pantalla sin reconstruir.
+- Nada identificado del canvas sin portar. Lo que siga sale de la revisión de
+  Andres sobre la demo.
 
 ---
 
