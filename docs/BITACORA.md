@@ -38,6 +38,63 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-01 (f) · La comparación exhaustiva contra el canvas, con método
+
+**Rama:** `fix/canvas-textos-faltantes` · **Andres preguntó si se revisó pantalla por pantalla**
+
+### El caso
+
+La respuesta honesta era **no**: se había extraído la estructura del canvas y
+comparado bloque por bloque, pero nunca elemento por elemento. Se hizo ahora,
+con un método reproducible en vez de a ojo.
+
+### El método, y sus dos errores corregidos
+
+1. Se extraen los textos visibles del canvas por pantalla desde la plantilla
+   del Artifact (`canvas-textos.json`, 6 pantallas, 199 textos).
+2. Se comparan contra el producto.
+
+El **primer intento comparó contra el `innerText` de la app** y dio 76
+diferencias — casi todas falsas: los bloques del canvas que todavía no se
+abrieron y los textos dentro de desplegables cerrados no aparecen en
+`innerText`. El **segundo** compara contra el **código fuente**, que contiene
+los textos exista o no la pantalla abierta: 40 diferencias, y de esas, varias
+seguían siendo falsas por textos partidos en varios nodos JSX.
+
+La lección: comparar contra lo renderizado sobre-reporta, y hay que verificar
+cada candidato antes de llamarlo faltante. Se verificaron uno por uno.
+
+### Qué se agregó (faltaba de verdad)
+
+- **Inicio**: botón «Ver qué datos usamos y para qué», junto a los términos.
+- **Paso 1**: el subtítulo del bloque de documento («Fotografiá tu cédula
+  vigente y hacé una selfie en vivo…»), el aviso de correos con el texto del
+  canvas («Los dos correos todavía no coinciden — revisalos con calma.») y la
+  explicación de por qué se piden los datos complementarios («Los pide la
+  normativa de conocimiento del cliente…»).
+- **Paso 2**: los botones «Ver coberturas, exclusiones y carencias (PDF)» y
+  «Ver condiciones generales de la póliza», que no existían.
+
+### Divergencias deliberadas del canvas (no se copian)
+
+- **Datos de contacto inventados** del canvas (+595 21 000 000,
+  `ayuda@interseguros.com.py`, mesas de ayuda): `higiene-de-citas.test.ts`
+  pone la suite en rojo con datos de contacto inventados. El producto muestra
+  «[dato oficial pendiente]».
+- **«producto inscrito SIS-VID-ONC-001/2026 · Res. SS.SG. N° 250/2026»**:
+  resolución inventada; el producto usa marcadores.
+- **«La firma se realiza con el proveedor de firma electrónica»**: en v3 la
+  firma del cliente es **interna** (D1). El canvas quedó desactualizado ahí.
+- **«CASO-2026-004518»**: número de caso de maqueta.
+
+### Verificaciones
+
+Suite **1247** en verde · e2e v3 **10/10**. El camino feliz vuelca ahora el
+texto de cada pantalla además de la captura (`CAPTURAS_DISENO`), que es lo que
+hace repetible esta comparación.
+
+---
+
 ## 2026-09-01 (e) · Apertura progresiva, el archivo firmado que nunca llegaba, y la evidencia completa
 
 **Rama:** `fix/canvas-paso1-y-evidencia` · **Andres pidió el análisis pantalla por pantalla y priorizó**

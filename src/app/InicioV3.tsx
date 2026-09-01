@@ -6,6 +6,7 @@
  * definitiva. El endpoint y el caso de uso son los mismos de F2.
  */
 import { useState } from "react";
+import { EnlaceAclaracion } from "@/components/shared";
 import {
   GUIA_TERMINOS_ACEPTADOS,
   GUIA_TERMINOS_PENDIENTES,
@@ -51,6 +52,11 @@ export function AceptacionInicioV3() {
         />
         <span>{aceptados ? "✓ Términos y condiciones aceptados" : ROTULO_TERMINOS_INICIO}</span>
       </label>
+      {/* El canvas ofrece acá el detalle de qué datos se usan, junto a los
+          términos: sin eso, aceptar es a ciegas. */}
+      <EnlaceAclaracion documento="avisoPrivacidad" className="btn btn-secondary w-fit">
+        Ver qué datos usamos y para qué
+      </EnlaceAclaracion>
       <button
         type="button"
         disabled={!aceptados || enProceso}
