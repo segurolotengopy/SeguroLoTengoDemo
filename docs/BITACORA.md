@@ -107,10 +107,18 @@ e2e de v2 dependen de esa semántica.
   dimensionan con utilidades: «ESTADO DE LA CONTRATACIÓN» salía a 32 px. Se
   conservan familia, peso, interlínea y `letter-spacing`.
 
+### Tarjetas de captura (cuarta tanda)
+
+`IlustracionCaptura.tsx`: los tres dibujos del canvas —frente con retrato y
+renglones, dorso con la banda del MRZ, encuadre de la selfie— copiados trazo
+por trazo del Artifact. Heredan `currentColor`, así que siguen el estado de la
+tarjeta sin recibir props de color. Antes las tarjetas eran solo texto y no se
+distinguía de un vistazo cuál de las tres fotos tocaba.
+
 ### Queda abierto
 
-- Las tarjetas de captura del paso 1: el canvas las ilustra con dibujos de la
-  cédula y la selfie, y acá son tarjetas de texto.
+- Nada identificado del canvas sin portar. Lo que siga sale de una revisión
+  nueva de Andres sobre la demo desplegada.
 - El canvas pide la cédula del beneficiario obligatoria; Andres confirmó que
   **no** lo es, así que queda opcional y la divergencia se cierra a favor del
   cumplimiento.
