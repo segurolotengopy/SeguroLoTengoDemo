@@ -131,7 +131,7 @@ export default async function PantallaPagoYFirma() {
 
       {/* La píldora del canvas que avisa dónde está el botón principal. */}
       <AvisoCtaFlotante />
-      <PieLegal />
+      <PieLegal colapsable={flujoV3Activo()} />
     </div>
   );
 }

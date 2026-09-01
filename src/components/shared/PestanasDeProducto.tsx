@@ -45,10 +45,51 @@ const ICONO_PRODUCTO: Readonly<Record<string, string>> = {
 
 export function PestanasDeProducto({
   etiquetaProximamente = "PRÓXIMAMENTE",
+  canvas = false,
 }: {
   /** «PRÓXIMAMENTE» en el flujo v2; «PRONTO» en el paso 2 del v3. */
   etiquetaProximamente?: string;
+  /**
+   * Dibujo del canvas (v3): pestañas subrayadas sobre una línea, sin caja ni
+   * ícono. El de v2 son solapas con borde, que es otra cosa.
+   */
+  canvas?: boolean;
 }) {
+  if (canvas) {
+    return (
+      <div
+        role="presentation"
+        className="mt-4 mb-5 flex overflow-x-auto"
+        style={{ borderBottom: "1px solid var(--color-divider)" }}
+      >
+        {PRODUCTOS.map((producto) => (
+          <span
+            key={producto.id}
+            className="flex-none whitespace-nowrap"
+            style={{
+              padding: "12px 18px 11px",
+              fontSize: "12.5px",
+              fontWeight: producto.disponible ? 700 : 500,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: producto.disponible
+                ? "var(--color-accent-700)"
+                : "var(--color-neutral-400)",
+              borderBottom: `3px solid ${producto.disponible ? "var(--color-accent)" : "transparent"}`,
+            }}
+          >
+            {producto.nombre}
+            {producto.disponible ? null : (
+              <span style={{ fontSize: "9.5px", letterSpacing: "0.08em", marginLeft: "7px" }}>
+                {etiquetaProximamente}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap gap-1 border-b-2 border-naranja-500" role="presentation">
       {PRODUCTOS.map((producto) => (

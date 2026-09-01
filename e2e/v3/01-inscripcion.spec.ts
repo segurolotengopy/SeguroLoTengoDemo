@@ -50,7 +50,10 @@ test("los T&C del inicio crean el expediente y habilitan la sección de identida
 
   // Con el expediente creado (INICIADO), la sección 1 queda activa…
   await expect(page.getByRole("heading", { name: /empecemos por tu cédula/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /tomar fotografía/i }).first()).toBeVisible();
+  // Los rótulos son los del canvas: «Tocá acá para fotografiar el frente».
+  await expect(
+    page.getByRole("button", { name: /fotografiar el frente/i }).first(),
+  ).toBeVisible();
 
   // …y las secciones 2 y 3 dicen qué falta, sin dibujarse.
   await expect(page.getByText("Se habilita cuando confirmes tus datos de identidad.")).toBeVisible();

@@ -208,8 +208,19 @@ export async function declararCorreo(page: Page, persona: PersonaDemo): Promise<
 export async function tomarCapturaP5(page: Page, toma: "FRENTE" | "DORSO" | "SELFIE"): Promise<void> {
   const enTarjeta =
     toma === "SELFIE"
-      ? page.getByRole("button", { name: "Tomar selfie", exact: true })
-      : page.getByRole("button", { name: "Tomar fotografía", exact: true }).first();
+      ? page
+          .getByRole("button", { name: "Tocá acá para tomar tu selfie", exact: true })
+          .or(page.getByRole("button", { name: "Tocá acá para iniciar la verificación", exact: true }))
+          .first()
+      : page
+          .getByRole("button", {
+            name:
+              toma === "FRENTE"
+                ? "Tocá acá para fotografiar el frente"
+                : "Tocá acá para fotografiar el dorso",
+            exact: true,
+          })
+          .first();
   await enTarjeta.click();
 
   const obturador = page.getByRole("button", {

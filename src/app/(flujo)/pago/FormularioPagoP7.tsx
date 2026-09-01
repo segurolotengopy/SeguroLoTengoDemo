@@ -863,8 +863,13 @@ export function FormularioPagoP7({
       {/* ------------------------------------------------------------------ */}
       {/* Debajo del botón: plazo, secuencia y seguridad                       */}
       {/* ------------------------------------------------------------------ */}
-      <div className="grid gap-4 lg:grid-cols-3 lg:items-start v3-rejilla"
-          style={{ "--v3-min": "220px" } as CSSProperties}>
+      {/* El canvas no dibuja estos tres como tarjetas grandes de color: el
+          plazo va en la introducción del pago y lo demás en el pie de su
+          ventana. No se quitan —el plazo es D-10 y las viñetas de seguridad
+          son la fila 24 de la matriz— pero pasan a texto chico en una caja,
+          que es el peso que el diseño les da. */}
+      <div className="v3-rejilla text-[11px]"
+          style={{ "--v3-min": "220px", "--v3-gap": "10px" } as CSSProperties}>
         {/* Plazo para pagar (D-10) */}
         <div className="flex flex-col gap-1 rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2.5 dark:border-naranja-700 dark:bg-naranja-950">
           <p className="text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:text-naranja-200">

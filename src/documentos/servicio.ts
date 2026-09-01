@@ -690,9 +690,35 @@ export async function archivarDocumentosFirmados(
   const yaGuardado = await deps.archivos.obtenerArchivo(clave);
   if (yaGuardado !== null) return { ok: true, clave };
 
-  // Una firma interna no tiene nada que descargar: el PDF firmado lo produce
-  // SeguroLoTengo, no un tercero. Se corta acá en vez de pedirle al proveedor
-  // un documento de un acto que nunca abrió.
+  // Con la firma **interna** (D1) no hay nada que descargarle a nadie: el acto
+  // no modifica los bytes del PDF —lo que prueba la firma es el registro de
+  // evidencia, no un archivo distinto (`domain/firma-cliente.ts`)—, así que el
+  // documento firmado **es** el paquete cerrado. Se archiva bajo la clave de
+  // firmado para que P9 tenga qué servir, con la misma verificación de huella
+  // que se le exige al proveedor: si el cerrado no coincide con la huella que
+  // quedó registrada al firmar, no se guarda nada.
+  //
+  // Sin esto, en el flujo v3 el paquete firmado **no se podía descargar
+  // nunca**: la pantalla de confirmación se quedaba en «Preparando el archivo
+  // firmado…» para siempre (reportado por Andres, 01-sep).
+  if (firma.origen === "INTERNA") {
+    const cerrado = await deps.archivos.obtenerArchivo(
+      claveDocumento(expediente.id, paquete.codigo, paquete.version),
+    );
+    if (!cerrado) return { ok: false, motivo: "PROVEEDOR_SIN_DOCUMENTOS" };
+    const huellaCerrado = sha256Hex(cerrado);
+    if (huellaCerrado !== firma.hashDocumentoFirmado) {
+      return {
+        ok: false,
+        motivo: "HUELLA_NO_COINCIDE",
+        detalle:
+          `El paquete cerrado de ${paquete.codigo} no coincide con la huella registrada al ` +
+          `firmar: ${huellaCerrado} ≠ ${firma.hashDocumentoFirmado}.`,
+      };
+    }
+    await deps.archivos.guardarArchivo(clave, cerrado, CONTENT_TYPE_PDF);
+    return { ok: true, clave };
+  }
   if (firma.origen !== "PROVEEDOR") return { ok: false, motivo: "SIN_DESCARGA_DE_PROVEEDOR" };
 
   const bytes = await deps.firmas.descargarDocumentoFirmado(firma.referenciaActo);

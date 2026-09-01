@@ -158,7 +158,7 @@ export default async function PantallaP9Confirmacion() {
         </footer>
       </main>
 
-      <PieLegal />
+      <PieLegal colapsable={flujoV3Activo()} />
     </div>
   );
 }

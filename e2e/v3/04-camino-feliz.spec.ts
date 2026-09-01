@@ -56,9 +56,13 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await tomarCapturaP5(page, "DORSO");
   await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(2);
   await tomarCapturaP5(page, "SELFIE");
+
+  // El canvas pide la lectura con su propio botón: no arranca sola al
+  // completar la tercera captura, y los datos aparecen recién después.
+  await page.getByRole("button", { name: /leer los datos de mi cédula/i }).click();
   await expect(
     page.getByText("Datos extraídos de la cédula y confirmados con la selfie en vivo."),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 20_000 });
 
   await page.getByLabel(/Autorizo la captura y comparación/).check();
   await page.locator("#p5-sexo").selectOption("Femenino");

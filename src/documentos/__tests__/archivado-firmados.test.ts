@@ -23,7 +23,7 @@ import {
   expedienteEnPaqueteGenerado,
   firmasInstitucionalesFixture,
 } from "../../domain/__tests__/fixtures";
-import { archivarDocumentosFirmados, claveDocumentoFirmado } from "../servicio";
+import { archivarDocumentosFirmados, claveDocumento, claveDocumentoFirmado } from "../servicio";
 
 /** Repositorio de archivos en memoria que cuenta las escrituras. */
 function archivosEnMemoria() {
@@ -111,6 +111,56 @@ describe("archivarDocumentosFirmados", () => {
     const bytes = archivos.guardados.get(resultado.clave)!;
     const hash = createHash("sha256").update(bytes).digest("hex");
     expect(hash).toBe(expediente.firma!.hashDocumentoFirmado);
+  });
+
+  /**
+   * D1 · con la firma **interna** no hay proveedor al que pedirle nada: el
+   * acto no modifica los bytes, así que el documento firmado **es** el paquete
+   * cerrado. Sin esto, en v3 el paquete firmado no se podía descargar nunca y
+   * la confirmación se quedaba en «Preparando el archivo firmado…» para
+   * siempre (reportado por Andres, 01-sep).
+   */
+  it("con firma interna archiva el paquete cerrado, verificando su huella", async () => {
+    const { expediente, firmas } = await expedienteFirmado();
+    const paquete = expediente.paqueteDocumental!;
+    const archivos = archivosEnMemoria();
+
+    // El cerrado está guardado y su huella es la que quedó al firmar.
+    const cerrado = new TextEncoder().encode("%PDF-1.7 paquete cerrado\n");
+    const huella = createHash("sha256").update(cerrado).digest("hex");
+    await archivos.guardarArchivo(
+      claveDocumento(expediente.id, paquete.codigo, paquete.version),
+      cerrado,
+    );
+
+    const interno: Expediente = {
+      ...expediente,
+      firma: { ...expediente.firma!, origen: "INTERNA", hashDocumentoFirmado: huella },
+    };
+
+    const resultado = await archivarDocumentosFirmados({ archivos, firmas }, interno);
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.clave).toContain("-firmado.pdf");
+    expect(archivos.guardados.get(resultado.clave)).toEqual(cerrado);
+  });
+
+  it("con firma interna no archiva si el cerrado no coincide con la huella firmada", async () => {
+    const { expediente, firmas } = await expedienteFirmado();
+    const paquete = expediente.paqueteDocumental!;
+    const archivos = archivosEnMemoria();
+    await archivos.guardarArchivo(
+      claveDocumento(expediente.id, paquete.codigo, paquete.version),
+      new TextEncoder().encode("otro contenido"),
+    );
+
+    const interno: Expediente = {
+      ...expediente,
+      firma: { ...expediente.firma!, origen: "INTERNA", hashDocumentoFirmado: "a".repeat(64) },
+    };
+
+    const resultado = await archivarDocumentosFirmados({ archivos, firmas }, interno);
+    expect(resultado).toMatchObject({ ok: false, motivo: "HUELLA_NO_COINCIDE" });
   });
 
   it("no pisa el PDF cerrado: son claves distintas", async () => {
