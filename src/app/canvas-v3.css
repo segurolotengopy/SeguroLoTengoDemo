@@ -82,18 +82,14 @@
 [data-flujo="v3"] .grayscale {filter:grayscale(1) contrast(1.08)}
 [data-flujo="v3"] *, [data-flujo="v3"] *::before, [data-flujo="v3"] *::after { box-sizing: border-box; }
 [data-flujo="v3"] body { margin: 0; font-size: 15px; line-height: 1.55; font-weight: 400; }
+/* Familia y ritmo del canvas, pero **sin su escala de tamaños**: el diseño
+   fija el tamaño de cada encabezado en la pantalla (con `clamp`), y la escala
+   global agrandaba los rótulos de sección que acá se dimensionan con
+   utilidades. */
 [data-flujo="v3"] h1, [data-flujo="v3"] h2, [data-flujo="v3"] h3, [data-flujo="v3"] h4, [data-flujo="v3"] h5, [data-flujo="v3"] h6 {
   font-family: var(--font-heading); font-weight: var(--font-heading-weight);
-  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--space-2);
+  line-height: 1.12; letter-spacing: -0.015em;
 }
-[data-flujo="v3"] h1 { font-size: 42px; }
-[data-flujo="v3"] h2 { font-size: 32px; }
-[data-flujo="v3"] h3 { font-size: 25px; }
-[data-flujo="v3"] h4 { font-size: 20px; }
-[data-flujo="v3"] h5 { font-size: 16px; }
-[data-flujo="v3"] h6 { font-size: 13px; }
-[data-flujo="v3"] h6 { letter-spacing: 0.08em; text-transform: uppercase; }
-[data-flujo="v3"] p { margin: 0 0 var(--space-3); }
 [data-flujo="v3"] a:not([class]) { color: var(--color-accent); text-underline-offset: 3px; }
 [data-flujo="v3"] img { display: block; max-width: 100%; }
 [data-flujo="v3"] figure { margin: 0; }
@@ -311,3 +307,41 @@
 /* La flecha de la píldora flotante, como en el canvas. */
 @keyframes v3-baja { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
 [data-flujo="v3"] .v3-cta-flecha { display: inline-block; animation: v3-baja 1.4s ease-in-out infinite; }
+
+/*
+ * Los campos del flujo, con la especificación `.input` del canvas.
+ *
+ * Las pantallas ya tenían la misma estructura que el diseño —una etiqueta y
+ * su control—, pero dibujaban el control con clases propias: más alto, con
+ * otro fondo y otro borde. Esto aplica la medida del canvas a todos los
+ * campos de v3 de una vez, en vez de repetirla componente por componente.
+ * Las casillas y los radios quedan afuera: el canvas les da su propio dibujo.
+ */
+[data-flujo="v3"] main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-flujo="v3"] main select,
+[data-flujo="v3"] main textarea {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 14px;
+  color: var(--color-text);
+  caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+}
+[data-flujo="v3"] main input:not([type="checkbox"]):not([type="radio"]):hover,
+[data-flujo="v3"] main select:hover,
+[data-flujo="v3"] main textarea:hover {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+[data-flujo="v3"] main input:focus-visible,
+[data-flujo="v3"] main select:focus-visible,
+[data-flujo="v3"] main textarea:focus-visible {
+  border-color: var(--color-accent);
+  outline-offset: 0;
+}
+/* La etiqueta del canvas: chica, en mayúsculas y con menos contraste. */
+[data-flujo="v3"] main label {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
