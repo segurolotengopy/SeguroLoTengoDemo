@@ -191,8 +191,24 @@ export interface SesionFirmaMock {
   /** `null` hasta que la persona abre el enlace y Code100 emite el código. */
   otp: OtpDeFirma | null;
   firma: Firma | null;
-  /** El PDF firmado. Se escribe en la misma asignación que `firma`. */
-  documentoFirmado: Uint8Array | null;
+  /**
+   * El PDF firmado, en base64. Se escribe en la misma asignación que `firma`.
+   *
+   * **Base64 y no bytes, y no es un capricho de formato.** El almacén de
+   * estado demo es "colección + clave + JSON" (`AlmacenEstadoDemo`); un
+   * `Uint8Array` acá viajaba a DynamoDB como atributo Binary y volvía como
+   * una vista sobre el buffer de 64 KB de la respuesta HTTP del SDK. El modo
+   * desarrollo de Next serializa como información de depuración del payload
+   * RSC **los valores de todos los awaits** de un Server Component —también
+   * los intermedios, como la respuesta cruda del SDK—, y React Flight encola
+   * sin copiar los chunks binarios de más de 2 KB: al intentar transferir esa
+   * vista, Node tira `ArrayBuffer is not detachable and could not be cloned`,
+   * el stream muere y `GET /demo-panel` devolvía 500 apenas existía una firma
+   * (escenario E2E 07). Con base64 el documento es un string y no hay binario
+   * que el debug de dev pueda encolar. Los bytes se recuperan por
+   * `descargarDocumentoFirmado`, que decodifica.
+   */
+  documentoFirmadoBase64: string | null;
   fallo: { readonly motivo: MotivoNoFirmado; readonly detalle: string | null } | null;
   actualizadoEn: string;
 }
@@ -483,7 +499,7 @@ export function crearSignatureProviderMock(
         urlActoDeFirma: `https://firmador.simulado.code100.com.py/sign/${idCode100}`,
         otp: null,
         firma: null,
-        documentoFirmado: null,
+        documentoFirmadoBase64: null,
         fallo: null,
         actualizadoEn: enviado.toISOString(),
       };
@@ -499,7 +515,12 @@ export function crearSignatureProviderMock(
     },
 
     async descargarDocumentoFirmado(idCode100: string): Promise<Uint8Array | null> {
-      return (await leerSesion(idCode100))?.documentoFirmado ?? null;
+      const base64 = (await leerSesion(idCode100))?.documentoFirmadoBase64 ?? null;
+      if (base64 === null) return null;
+      // Copia con buffer propio: un Buffer del pool es una vista compartida,
+      // y devolver vistas compartidas es exactamente lo que este campo dejó
+      // de hacer (ver `documentoFirmadoBase64`).
+      return new Uint8Array(Buffer.from(base64, "base64"));
     },
 
     async confirmarResultado(idCode100: string): Promise<ResultadoFirma> {
@@ -696,7 +717,7 @@ export async function firmarEnCode100Mock(
   };
 
   sesion.firma = firma;
-  sesion.documentoFirmado = bytes;
+  sesion.documentoFirmadoBase64 = Buffer.from(bytes).toString("base64");
   sesion.otp = null; // Uso único: el código no sirve para nada más.
   sesion.actualizadoEn = firmadoEn;
   await guardarSesion(sesion);
@@ -722,10 +743,30 @@ export async function cerrarSinFirmarMock(
   return true;
 }
 
+/**
+ * Lo que el panel de demo puede ver de una sesión: todo menos el documento
+ * firmado, que se pide por `descargarDocumentoFirmado` cuando hace falta.
+ *
+ * Es higiene de tamaño y de alcance —el panel muestra metadata del acto, no
+ * el PDF—, no la defensa contra el 500 de `/demo-panel`: esa vive en que
+ * `documentoFirmadoBase64` sea un string y no bytes (ver su comentario en
+ * `SesionFirmaMock`). Excluirlo acá **solo** no alcanzaba, y se comprobó: el
+ * debug del modo dev de Next serializa también los awaits intermedios (la
+ * respuesta cruda del SDK de DynamoDB), así que el binario reventaba el
+ * stream RSC antes de que este recorte llegara a ejecutarse.
+ */
+export type SesionFirmaVisiblePanel = Omit<SesionFirmaMock, "documentoFirmadoBase64">;
+
 /** Sesiones simuladas vivas en esta instancia, de la más nueva a la más vieja. */
-export async function listarSesionesFirmaMock(): Promise<readonly Readonly<SesionFirmaMock>[]> {
+export async function listarSesionesFirmaMock(): Promise<readonly Readonly<SesionFirmaVisiblePanel>[]> {
   const todas = await almacen().listar<SesionFirmaMock>(COLECCION_SESIONES);
-  return [...todas].sort((a, b) => (a.enlaceEnviadoEn < b.enlaceEnviadoEn ? 1 : -1));
+  return [...todas]
+    .sort((a, b) => (a.enlaceEnviadoEn < b.enlaceEnviadoEn ? 1 : -1))
+    .map((sesion) => {
+      const visible: Partial<SesionFirmaMock> = { ...sesion };
+      delete visible.documentoFirmadoBase64;
+      return visible as SesionFirmaVisiblePanel;
+    });
 }
 
 export async function obtenerSesionFirmaMock(

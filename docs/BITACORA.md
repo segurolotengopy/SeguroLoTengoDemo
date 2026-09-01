@@ -38,6 +38,112 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-31 (e) · El 500 de /demo-panel tras la firma: binario en el estado demo contra el debug RSC de dev
+
+**Rama:** `claude/eager-blackburn-166061` (worktree `review-pending-prs-e227dd`) · **Arreglo de bug preexistente**
+
+### El caso
+
+Andres reportó que `e2e/07-firma-atomica.spec.ts` (línea 33, «si las firmas
+institucionales no llegan, el cobro sigue inhabilitado») fallaba de forma
+reproducible: `GET /demo-panel` devolvía 500 con `TypeError: ArrayBuffer is
+not detachable and could not be cloned`, «Invalid state: ReadableStream is
+already closed» y «failed to pipe response, page: /demo-panel». Verificado por
+él también sobre main limpio (worktree en `ffa1900`): preexistente, no
+regresión de los lotes F4.
+
+### El diagnóstico, con su prueba
+
+La cadena completa, verificada paso a paso:
+
+1. Al firmar el cliente, el mock de Code100 guardaba el PDF firmado
+   (`documentoFirmado: Uint8Array`, la constancia real pesa **2567 bytes**) en
+   la sesión simulada, que con `DYNAMODB_TABLE` puesto vive en DynamoDB
+   (`AlmacenEstadoDemo`). Por eso el 500 empezaba exactamente en la primera
+   lectura del panel posterior a la firma.
+2. `/demo-panel` hace `await` de esas sesiones en un Server Component. **El
+   modo dev de Next serializa como debug info del payload RSC los valores de
+   todos los awaits, incluidos los intermedios** (la respuesta cruda del SDK).
+   Prueba: el HTML del panel en dev contiene `urlActoDeFirma` y otros campos
+   de la sesión que la página jamás renderiza.
+3. React Flight copia los chunks binarios de hasta 2048 bytes, pero **los
+   mayores los encola crudos** en su stream de bytes. El Uint8Array que
+   devuelve el SDK es una vista sobre el buffer de 64 KB de la respuesta HTTP
+   (se capturó con instrumentación: `byteLength:2567, byteOffset:22728,
+   bufferByteLength:65536`), y el `enqueue` de un byte-stream transfiere el
+   ArrayBuffer subyacente — Node se niega a transferir una vista compartida y
+   tira el TypeError. El stream muere, y de ahí los errores secundarios y el 500.
+4. Repro mínima bidireccional (tabla efímera + ítem sintético + GET):
+   sesión con documento de 2567 bytes → 500; sin documento → 200; con
+   documento de 1400 bytes → 200 (por el umbral de copia de 2048). El fallo no
+   era aleatorio: dependía del tamaño del documento.
+5. **Filtrar el campo a la salida de `listarSesionesFirmaMock` no alcanzó** —
+   se implementó y el 500 siguió, porque el debug captura el await interno del
+   SDK antes de que el recorte exista. Esto descartó la primera hipótesis y es
+   lo que obligó al arreglo de fondo.
+
+### Qué cambió
+
+`src/adapters/mock/signature-provider.ts`, tres cosas:
+
+- `SesionFirmaMock.documentoFirmado: Uint8Array | null` →
+  `documentoFirmadoBase64: string | null`. El almacén de estado demo es
+  «colección + clave + JSON» por contrato; el binario era un polizón. Sin
+  atributo Binary no hay vista intransferible que el debug de dev pueda
+  encolar, en ninguna página presente o futura.
+- `descargarDocumentoFirmado` decodifica y devuelve una copia con buffer
+  propio. El round-trip base64 conserva los bytes exactos, así que la
+  verificación de huella de `archivarDocumentosFirmados` sigue intacta.
+- `listarSesionesFirmaMock` devuelve `SesionFirmaVisiblePanel`
+  (`Omit<…, "documentoFirmadoBase64">`): higiene de alcance — el panel muestra
+  metadata del acto, no el documento — con el comentario explicando que esto
+  solo **no** es la defensa.
+
+Sesiones viejas ya persistidas con el campo binario no se migran: son estado
+efímero de proveedor simulado con TTL de 48 h, no evidencia (regla #10 no
+aplica); pierden la descarga del PDF firmado y se van solas.
+
+### Qué hizo Andres
+
+Reportó el bug con los digests y la verificación sobre main limpio que ahorró
+la mitad del diagnóstico. No hubo decisiones nuevas de producto: el arreglo no
+toca reglas inviolables (el hash de la firma, que es lo probatorio, vive en el
+expediente y no cambió).
+
+### Verificaciones
+
+- Reproducción real: 2 corridas del escenario 07 con el 500 idéntico al
+  reporte, más la repro mínima sintética en ambos sentidos (500 con bytes
+  >2048, 200 sin bytes y con bytes ≤2048).
+- Tras el arreglo: repro sintética con documento de 2567 bytes en base64 →
+  `GET /demo-panel` 200; `npx tsc --noEmit` limpio; `npm run lint` limpio;
+  `npm test` **1195 tests, 88 archivos, todo verde**; el escenario 07 completo
+  contra servidor limpio (resultado en la sección de abajo si difiere).
+- La instrumentación usada (wrapper de `ReadableByteStreamController.enqueue`
+  y `ArrayBuffer.prototype.transfer` precargado con `NODE_OPTIONS`) fue
+  temporal y no quedó en el repositorio.
+
+### Queda abierto
+
+- **Carrera del OTP de firma en dev** (la destapó este diagnóstico, 3 veces de
+  6 corridas con la máquina cargada): el efecto de `BloqueOtpFirma` que emite
+  el código corre dos veces por el doble montaje de StrictMode, cada `ABRIR`
+  regenera el OTP incondicionalmente, y el hash en la sesión y el código del
+  panel son dos escrituras separadas — intercaladas dejan un código que nunca
+  valida (`CODIGO_INCORRECTO` con el código correcto a la vista). Además el
+  OTP de firma hoy no aplica el «reenvío bloqueado 60 s» de la regla #1, que
+  es justamente lo que cerraría la carrera. **Se abrió como tarea aparte y se
+  está resolviendo en la rama `claude/silly-rhodes-75e3d9`**, con `ABRIR`
+  idempotente mientras el código vigente no cumpla los 60 s, reusando el
+  `COOLDOWN_REENVIO_MS` que ya rige para los otros OTP. Su propia entrada
+  documenta el cierre.
+- El escenario 07 sigue expuesto a esa carrera en corridas con carga (falló
+  por eso, no por el 500, en varias corridas de este diagnóstico) hasta que esa
+  rama se integre.
+
+
+---
+
 ## 2026-08-31 (d) · Lote F5d: correcciones reales — drill-down, confirmación y la tarjeta de la selfie
 
 **Rama:** `feat/f5d-correcciones-reales` · **Segundo feedback de Andres con documentos reales**
