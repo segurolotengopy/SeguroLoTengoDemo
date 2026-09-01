@@ -198,31 +198,25 @@ function TarjetaDescarga({
   }&descargar=1`;
 
   return (
-    <article className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie-suave p-3">
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h3 className="text-sm font-bold text-titulo">{nombre}</h3>
-          <code className="font-mono text-xs font-semibold text-azul-700 dark:text-azul-200">
-            {codigo}
-          </code>
-        </div>
-        <p className="text-xs text-cuerpo">{detalle}</p>
+    // Tarjeta del canvas: el nombre y su detalle a la izquierda, la acción a
+    // la derecha y en la misma línea. Antes el botón caía debajo y cada
+    // documento ocupaba el triple de alto.
+    <article className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-borde-sutil bg-superficie p-3 px-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-titulo">{nombre}</p>
+        <p className="text-xs text-etiqueta">
+          <code className="font-mono">{codigo}</code> · {detalle}
+          {huella ? <> · SHA-256 registrado</> : null}
+        </p>
       </div>
 
       {disponible ? (
-        <a
-          href={url}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-azul-300 px-4 text-xs font-bold tracking-wide text-azul-800 uppercase transition-colors hover:bg-azul-50 sm:self-start dark:border-azul-600 dark:text-azul-200 dark:hover:bg-azul-950"
-        >
+        <a href={url} className="btn btn-secondary shrink-0" style={{ borderRadius: "999px", padding: "9px 18px" }}>
           {BOTON_DESCARGAR_P9}
         </a>
       ) : (
-        <p className="text-xs text-etiqueta">{pendiente ?? "Preparando el archivo…"}</p>
+        <p className="shrink-0 text-xs text-etiqueta">{pendiente ?? "Preparando el archivo…"}</p>
       )}
-
-      {huella ? (
-        <p className="font-mono text-[11px] break-all text-etiqueta">SHA-256 {huella}</p>
-      ) : null}
     </article>
   );
 }
