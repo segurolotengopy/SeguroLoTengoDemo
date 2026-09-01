@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Isologo de Alianza Garantía">
+  <!-- Recreación vectorial del isologo de Alianza Garantía (chevrón azul con
+       triángulo verde). Ver docs/GUIA_DE_ESTILOS.md → "Logos e isologos". -->
+  <path
+    d="M 12 82 L 50 18 L 88 82"
+    fill="none"
+    stroke="#2b5a9e"
+    stroke-width="17"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 50 48 L 30 83 L 70 83 Z"
+    fill="#8dc63f"
+    stroke="#8dc63f"
+    stroke-width="7"
+    stroke-linejoin="round"
+  />
+</svg>
