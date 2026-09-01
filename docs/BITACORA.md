@@ -105,10 +105,28 @@ un problema de negocio». Queda a decisión de Andres.
 - Batería e2e v3 **10/10**. El camino feliz gana `CAPTURAS_DISENO`, que
   guarda una captura por pantalla para comparar contra el canvas.
 
+### Validación contra el canvas de las pantallas restantes (01-sep, tarde)
+
+El canvas tiene **seis** pantallas: bienvenida, los tres pasos, confirmación y
+revisión manual. **No trae solicitud vencida**: esa pantalla es del sistema y
+no tiene contraparte en el diseño.
+
+- **Revisión manual**: los textos del canvas están todos («Tu solicitud queda
+  en buenas manos», el párrafo de que no es un rechazo, «Nada se movió de tu
+  bolsillo»), y la pantalla agrega el detalle operativo que el canvas no
+  modela —número de caso, estado, qué se envió al análisis, contactos—. Se
+  conservó: quitarlo sería perder información de cumplimiento para parecerse
+  más a una maqueta.
+- **Bienvenida**: el canvas **no dibuja stepper** ahí (`enPasos` lo esconde) y
+  la cabecera del inicio suma un tercer bloque, el canal digital. La raíz de
+  v3 mostraba «P0 · INFORMACIÓN / FUERA DEL CONTADOR 1-3», nomenclatura de v2
+  —donde esa pantalla existía— y se retiró.
+
 ### Queda abierto
 
-- Validar contra el canvas las pantallas que no están en el recorrido feliz
-  (revisión manual y solicitud vencida).
+- El tercer bloque de cabecera del canvas en la bienvenida (CANAL DIGITAL ·
+  SeguroLoTengo.com) no se agregó: la cabecera es un componente compartido por
+  las doce pantallas y tocarla afecta a todas.
 - Los dos campos de beneficiario del canvas, si Andres los quiere.
 
 ---

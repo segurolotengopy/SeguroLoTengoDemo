@@ -4,7 +4,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
-import { HeaderInstitucional, PieLegal, StepperPasos } from "@/components/shared";
+import { HeaderInstitucional, PieLegal } from "@/components/shared";
 import { sufijoTitulo } from "@/domain/entidades";
 import { flujoV3Activo } from "@/domain/flujo-vigente";
 import { destinoDelExpediente } from "@/domain/rutas-flujo";
@@ -81,7 +81,10 @@ export default async function Raiz() {
 
   return (
     <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional indicador={<StepperPasos variante="p0" />} />
+      {/* Sin indicador de paso: el canvas no dibuja stepper en la bienvenida
+          —empieza en el paso 1— y «P0 · INFORMACIÓN / FUERA DEL CONTADOR»
+          es nomenclatura de v2, donde esa pantalla existía. */}
+      <HeaderInstitucional />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="grid items-center gap-6 lg:grid-cols-2">
