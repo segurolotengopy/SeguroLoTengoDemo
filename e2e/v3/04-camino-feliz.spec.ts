@@ -125,6 +125,18 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
     page.getByText("✓ Documento firmado · cliente + Interseguros + Alianza Garantía"),
   ).toBeVisible({ timeout: 20_000 });
 
+  // La constancia de la firma: el cliente firma con la firma no cualificada
+  // del portal (D1), así que no hay certificado de prestador que abrir — lo
+  // que la respalda es su evidencia, y tiene que poder verla.
+  await clickearHidratado(page.getByRole("button", { name: "Ver la evidencia de mi firma" }));
+  const constancia = page.getByRole("dialog", { name: "Constancia de tu firma" });
+  await expect(constancia.getByText(/firma electrónica simple, no cualificada/i)).toBeVisible();
+  await expect(constancia.getByText("Qué firmaste")).toBeVisible();
+  await expect(constancia.getByText("Desde dónde y cuándo")).toBeVisible();
+  await expect(constancia.getByText(/Res\. SS\.SG\. N\.º 210\/2025/)).toBeVisible();
+  await constancia.getByRole("button", { name: "Cerrar" }).click();
+  await expect(constancia).toBeHidden();
+
   // ── Paso 3 · el pago (formulario v2 como sección, gated por FIRMADO) ──
   await page.locator("#p7-acepta-certificado").check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
@@ -140,4 +152,11 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await page.getByRole("link", { name: "Ver la confirmación →" }).click();
   await expect(page).toHaveURL(/\/confirmacion$/);
   await expect(page.getByText("¡Listo! Tu familia ya está protegida")).toBeVisible();
+
+  // La constancia sigue alcanzable después de pagar: si viviera solo en el
+  // paso 3, se perdería en cuanto la persona avanza.
+  await clickearHidratado(page.getByRole("button", { name: "Ver la evidencia de mi firma" }));
+  await expect(
+    page.getByRole("dialog", { name: "Constancia de tu firma" }).getByText("Quién firmó"),
+  ).toBeVisible();
 });

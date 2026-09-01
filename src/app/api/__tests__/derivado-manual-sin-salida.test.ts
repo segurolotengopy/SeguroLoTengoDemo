@@ -758,6 +758,10 @@ describe("3. Inventario de rutas de la API", () => {
       // Remite el caso a Alianza (simulado): solo agrega evidencia
       // append-only al expediente, nunca lo transiciona ni lo edita.
       "admin-consola/enviar-alianza",
+      // Proyecta la constancia de la firma del cliente para quien firmó: lee
+      // el expediente y su evidencia, y no escribe nada — mirar lo que
+      // respalda la propia firma no es un hecho que haya que asentar.
+      "p8/evidencia-firma",
       "demo-panel/persona",
       // Actúan sobre el estado en memoria del Code100 simulado y sobre el
       // plazo que se le va a poner a los próximos pagos: no leen ni escriben
