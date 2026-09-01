@@ -24,7 +24,12 @@ test("sin trámite listo para firmar, ofrece la puerta a la inscripción", async
   await expect(page.getByText(/firmás primero y pagás después/i)).toBeVisible();
 });
 
-test("el stepper anuncia el paso 3 de 3", async ({ page }) => {
+test("la banda de pasos marca el paso 3 como actual", async ({ page }) => {
   await page.goto("/pago-y-firma");
-  await expect(page.getByText(/paso 3 de 3/i)).toBeVisible();
+  // El canvas dibuja los tres pasos a lo ancho y marca el actual con
+  // `aria-current`, en vez del rótulo «Paso N de 3» que tenía esta
+  // implementación y el diseño nunca tuvo.
+  const banda = page.getByRole("navigation", { name: "Progreso" });
+  await expect(banda).toBeVisible();
+  await expect(banda.locator('[aria-current="step"]')).toContainText("Pagá y firmá");
 });

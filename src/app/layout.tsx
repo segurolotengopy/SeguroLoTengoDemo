@@ -6,6 +6,8 @@ import { AvisoCookies } from "@/components/shared/AvisoCookies";
 import { SCRIPT_TEMA_INICIAL } from "@/components/shared/tema";
 import { flujoV3Activo } from "@/domain/flujo-vigente";
 import "./globals.css";
+// El sistema de diseño del canvas, portado tal cual y scopeado a v3.
+import "./canvas-v3.css";
 
 // DM Sans: la tipografía del sitio institucional interseguros360.com
 // (docs/GUIA_DE_ESTILOS.md → "Tipografía").

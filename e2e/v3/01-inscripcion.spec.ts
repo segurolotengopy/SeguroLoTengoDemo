@@ -64,7 +64,12 @@ test("los T&C del inicio crean el expediente y habilitan la sección de identida
   await expect(page.getByRole("link", { name: /ir al inicio/i })).toHaveCount(0);
 });
 
-test("el stepper anuncia el paso 1 de 3", async ({ page }) => {
+test("la banda de pasos marca el paso 1 como actual", async ({ page }) => {
   await page.goto("/inscripcion");
-  await expect(page.getByText(/paso 1 de 3/i)).toBeVisible();
+  // El canvas dibuja los tres pasos a lo ancho y marca el actual con
+  // `aria-current`, en vez del rótulo «Paso N de 3» que tenía esta
+  // implementación y el diseño nunca tuvo.
+  const banda = page.getByRole("navigation", { name: "Progreso" });
+  await expect(banda).toBeVisible();
+  await expect(banda.locator('[aria-current="step"]')).toContainText("Inscribite");
 });
