@@ -79,8 +79,6 @@ export default async function PantallaPagoYFirma() {
       <BandaPasosV3 slug="/pago-y-firma" />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
-        <BarraPlanDelExpediente enlaceTexto="cambiar plan" enlaceHref="/seguro" />
-
         <div className="overflow-hidden border border-borde-sutil bg-superficie" aria-hidden="true">
           {/* Foto del canvas para este paso (lote F5b). */}
           <img
@@ -90,6 +88,9 @@ export default async function PantallaPagoYFirma() {
             style={{ height: "clamp(140px, 20vw, 210px)" }}
           />
         </div>
+
+        {/* El canvas pone la barra del plan debajo de la foto, no encima. */}
+        <BarraPlanDelExpediente enlaceTexto="cambiar plan" enlaceHref="/seguro" />
 
         <header className="flex flex-col gap-1">
           <h1 className="text-xl font-bold text-titulo sm:text-2xl">

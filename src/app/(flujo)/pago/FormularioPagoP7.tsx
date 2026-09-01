@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { CODIGOS_RESPUESTA_BANCARD } from "@/ports/payment-provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatearGuaranies } from "@/domain/catalogo";
+import { ModalBancard } from "./ModalBancard";
 import { VentanaBancardSimulada } from "./VentanaBancardSimulada";
 // Desde `textos-p7`, no desde el caso de uso: este es un componente de cliente
 // e importar `pago-p7.ts` arrastraría `node:crypto` al bundle.
@@ -649,49 +650,41 @@ export function FormularioPagoP7({
           <p className="text-xs text-etiqueta">{NOTA_MOMENTOS_DISTINTOS_P7}</p>
         </div>
 
-        <fieldset className="flex flex-col gap-2" disabled={confirmado}>
+        {/* Los tres medios como botones chicos del canvas, no como tarjetas
+            de radio con viñetas: el diseño los pone en una fila y deja el
+            peso visual en el botón de pagar. */}
+        <fieldset className="flex flex-wrap gap-2.5" disabled={confirmado}>
           <legend className="sr-only">{TITULO_BLOQUE_MEDIOS_P7}</legend>
           {TEXTOS_MEDIOS_DE_PAGO_P7.map((opcion) => (
-            <label
+            <button
               key={opcion.medio}
-              className={`flex cursor-pointer flex-col gap-1.5 rounded-lg border-2 p-3 ${
-                medio === opcion.medio
-                  ? "border-naranja-500 bg-naranja-50 dark:bg-naranja-950"
-                  : "border-borde-sutil bg-superficie-suave"
-              }`}
+              type="button"
+              role="radio"
+              aria-checked={medio === opcion.medio}
+              onClick={() => {
+                setMedio(opcion.medio);
+                // Cambiar de medio abre un intento distinto: lo que se había
+                // generado para el anterior deja de aplicar.
+                setInstruccion(null);
+                setReferenciaBancard(null);
+                setError(null);
+              }}
+              className={`btn ${medio === opcion.medio ? "btn-primary" : "btn-secondary"}`}
+              style={{ borderRadius: "999px", padding: "10px 18px" }}
             >
-              <span className="flex items-start gap-2.5">
-                <input
-                  type="radio"
-                  name="p7-medio"
-                  value={opcion.medio}
-                  checked={medio === opcion.medio}
-                  onChange={() => {
-                    setMedio(opcion.medio);
-                    // Cambiar de medio abre un intento distinto: lo que se
-                    // había generado para el anterior deja de aplicar.
-                    setInstruccion(null);
-                    setReferenciaBancard(null);
-                    setError(null);
-                  }}
-                  className="mt-1 h-4 w-4 shrink-0 accent-naranja-500"
-                />
-                <span className="flex flex-col">
-                  <span className="text-sm font-bold tracking-wide text-titulo uppercase">
-                    {opcion.titulo}
-                  </span>
-                  <span className="text-xs font-semibold text-etiqueta">{opcion.momento}</span>
-                </span>
-              </span>
-              <ul className="flex list-disc flex-col gap-1 pl-9 text-sm text-cuerpo">
-                {opcion.vinetas.map((vineta) => (
-                  <li key={vineta}>{vineta}</li>
-                ))}
-              </ul>
-            </label>
+              {opcion.titulo}
+            </button>
           ))}
         </fieldset>
-
+        {/* Lo que implica el medio elegido, en una línea y no en una lista
+            por tarjeta: el canvas no repite las viñetas de los tres. */}
+        {textoMedio ? (
+          <ul className="flex flex-col gap-0.5 text-xs text-cuerpo">
+            {textoMedio.vinetas.map((vineta) => (
+              <li key={vineta}>· {vineta}</li>
+            ))}
+          </ul>
+        ) : null}
         {medio === "TARJETA_CREDITO" ? (
           <div className="flex flex-col gap-1 rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2.5">
             <p className="text-[11px] font-bold tracking-wide text-etiqueta uppercase">
@@ -741,11 +734,18 @@ export function FormularioPagoP7({
       {/* ------------------------------------------------------------------ */}
       {/* Resultado de Bancard                                                */}
       {/* ------------------------------------------------------------------ */}
+      {/* El entorno de Bancard va en una ventana modal, como el canvas: en
+          producción la persona sale del portal a pagar y vuelve, y dibujarlo
+          como una sección más contaba mal lo que pasa. */}
       {instruccion && !confirmado ? (
-        <section
-          aria-live="polite"
-          className="flex flex-col items-start gap-3 rounded-lg border border-borde-sutil bg-superficie p-4"
+        <ModalBancard
+          importeFormateado={importe}
+          alCerrar={() => {
+            setInstruccion(null);
+            setError(null);
+          }}
         >
+          <div aria-live="polite" className="flex flex-col items-start gap-3">
           {instruccion.tipo === "QR" ? (
             <>
               <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
@@ -831,7 +831,8 @@ export function FormularioPagoP7({
             </p>
           ) : null}
           <MensajeDeError texto={origenError === "SONDEO" ? error : null} />
-        </section>
+        </div>
+        </ModalBancard>
       ) : null}
 
       {confirmado ? (
