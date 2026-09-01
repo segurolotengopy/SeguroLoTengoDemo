@@ -95,9 +95,11 @@ actualizaron a los rótulos del canvas y al botón de lectura explícito.
   `/api/p5/identidad`. Es cambio de dominio: queda para después de la demo.
 - Beneficiario: faltan los dos campos del canvas (fecha de nacimiento y
   celular), que tocan el expediente y la Solicitud.
-- «Intento N» de la entrega necesita rótulo: se lee sin contexto.
-- Confirmación: el canvas agrupa en «Tus documentos» y usa una columna de
-  hitos; hoy hay dos bloques y una tarjeta de estado.
+- ~~«Intento N»~~ y ~~la confirmación~~: resueltos en la misma sesión. El
+  contador dice ahora «3.º intento de envío» —a secas se leía como un intento
+  fallido de la persona—; los documentos se agrupan bajo «TUS DOCUMENTOS» y
+  «Y ESTOS TE LLEGAN EN BREVE», y los cuatro hitos pasaron de tarjeta con
+  título a la fila entre filetes del canvas.
 
 ---
 

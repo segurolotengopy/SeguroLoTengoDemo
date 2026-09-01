@@ -397,18 +397,17 @@ export function ContratacionAceptada({
       {/* ------------------------------------------------------------------ */}
       {/* ESTADO DE LA CONTRATACIÓN — un solo recuadro para los cuatro hitos   */}
       {/* ------------------------------------------------------------------ */}
+      {/* El canvas no encierra los hitos en una tarjeta con título: los pone
+          como una fila entre dos filetes, cada uno con su ✓, su rótulo y su
+          detalle. La tarjeta con encabezado era invención de esta pantalla. */}
       <section
         aria-labelledby="p9-estado"
-        className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-3"
+        className="flex flex-col gap-2 border-y border-borde-sutil py-3"
       >
-        <h2
-          id="p9-estado"
-          className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
-        >
+        <h2 id="p9-estado" className="sr-only">
           {TITULO_ESTADO_CONTRATACION}
         </h2>
-        <ol className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4 v3-rejilla"
-          style={{ "--v3-min": "230px" } as CSSProperties}>
+        <ol className="v3-rejilla" style={{ "--v3-min": "150px", "--v3-gap": "16px" } as CSSProperties}>
           {HITOS_CONTRATACION.map((hito, indice) => {
             // El tercero cuelga del certificado y no del resumen: un expediente
             // legado, cobrado antes de D-12, llega acá sin certificado y ese
@@ -704,9 +703,13 @@ export function ContratacionAceptada({
                         {ROTULO_ESTADO_ENTREGA[entrega.estado] ?? entrega.estado}
                       </span>
                       {/* El número de intento solo aparece cuando hubo más de
-                          uno: en el camino normal es ruido. */}
+                          uno: en el camino normal es ruido. Y dice de qué es:
+                          «intento 3» a secas se leía como un intento fallido
+                          de la persona, no del envío (Andres, 01-sep). */}
                       {entrega.intentos > 1 && entrega.estado !== "ACUSADO" ? (
-                        <span className="text-etiqueta">intento {entrega.intentos}</span>
+                        <span className="text-etiqueta">
+                          {entrega.intentos}.º intento de envío
+                        </span>
                       ) : null}
                       {entrega.acusadaEn ? (
                         <span className="text-etiqueta tabular-nums">{hora(entrega.acusadaEn)}</span>
