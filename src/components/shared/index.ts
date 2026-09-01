@@ -45,3 +45,4 @@ export {
   SCRIPT_TEMA_INICIAL,
 } from "./tema";
 export type { Tema } from "./tema";
+export { ModalEvidenciaFirma } from "./ModalEvidenciaFirma";

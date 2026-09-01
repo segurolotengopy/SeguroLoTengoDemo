@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ModalEvidenciaFirma } from "@/components/shared";
 import {
   AVISOS_IMPORTANTE_P9,
   BAJADA_AYUDA_P9,
@@ -224,8 +225,14 @@ function TarjetaDescarga({
   );
 }
 
-export function ContratacionAceptada() {
+export function ContratacionAceptada({
+  evidenciaFirmaDisponible,
+}: {
+  /** Solo con firma interna hay constancia que mostrar (D1). */
+  readonly evidenciaFirmaDisponible: boolean;
+}) {
   const [resumen, setResumen] = useState<Resumen | null>(null);
+  const [verEvidenciaFirma, setVerEvidenciaFirma] = useState(false);
   const [documentosDisponibles, setDocumentosDisponibles] = useState(false);
   const [estadoPoliza, setEstadoPoliza] = useState<string | null>(null);
   const [estadoFactura, setEstadoFactura] = useState<string | null>(null);
@@ -612,6 +619,20 @@ export function ContratacionAceptada() {
             <p className="rounded-lg border border-borde-sutil bg-superficie-suave px-3 py-2 text-sm font-bold text-titulo">
               {LEYENDA_SIN_NOTA_DE_COBERTURA}
             </p>
+
+            {/* La firma del cliente es no cualificada y la genera el portal
+                (D1): no hay certificado de prestador que descargar, así que no
+                es una tarjeta de descarga más — es la evidencia que la
+                respalda, y se lee acá. */}
+            {evidenciaFirmaDisponible ? (
+              <button
+                type="button"
+                onClick={() => setVerEvidenciaFirma(true)}
+                className="inline-flex h-10 w-fit items-center rounded-lg border border-azul-300 px-4 text-xs font-bold tracking-wide text-azul-800 uppercase transition-colors hover:bg-azul-50 dark:border-azul-600 dark:text-azul-200 dark:hover:bg-azul-950"
+              >
+                Ver la evidencia de mi firma
+              </button>
+            ) : null}
           </section>
 
           <section
@@ -773,6 +794,10 @@ export function ContratacionAceptada() {
           ))}
         </dl>
       </section>
+
+      {verEvidenciaFirma ? (
+        <ModalEvidenciaFirma alCerrar={() => setVerEvidenciaFirma(false)} />
+      ) : null}
     </div>
   );
 }
