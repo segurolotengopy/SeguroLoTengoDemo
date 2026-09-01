@@ -57,9 +57,9 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   // ── Paso 1 · sección identidad (el formulario v2 montado como sección) ─
   await expect(page.getByRole("heading", { name: /empecemos por tu cédula/i })).toBeVisible();
   await tomarCapturaP5(page, "FRENTE");
-  await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(1);
   await tomarCapturaP5(page, "DORSO");
-  await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(2);
   await tomarCapturaP5(page, "SELFIE");
 
   // El canvas pide la lectura con su propio botón: no arranca sola al
