@@ -243,6 +243,253 @@ describe("MockSignatureProvider · el tercer OTP del flujo", () => {
   });
 });
 
+/**
+ * La carrera de la bitácora 2026-08-31: el doble montaje de StrictMode dispara
+ * dos ABRIR casi simultáneos y el segundo **regeneraba el código**, así que
+ * quien leía el del panel entre los dos montajes tipeaba uno ya reemplazado y
+ * recibía `CODIGO_INCORRECTO` con el código que la pantalla mostraba.
+ *
+ * Lo que lo cierra es la deduplicación del montaje: dentro del minuto, abrir
+ * de nuevo devuelve el código vigente en vez de acuñar otro. La serialización
+ * de aperturas es defensa aparte, para el almacén desplegado —ver el
+ * comentario de `APERTURAS_EN_CURSO`—; en memoria no hay caso que falle sin
+ * ella, así que los tests de acá no la prueban y no pretenden hacerlo.
+ */
+describe("MockSignatureProvider · dos ABRIR concurrentes (bitácora 2026-08-31)", () => {
+  /**
+   * Un almacén que suelta el event loop en cada operación, para darle al
+   * segundo ABRIR todas las oportunidades de colarse entre la lectura y las
+   * escrituras del primero — el intercalado que en `next dev` producía el
+   * doble montaje.
+   */
+  function almacenQueCedeElTurno() {
+    const datos = new Map<string, Map<string, unknown>>();
+    const coleccionDe = (n: string) => {
+      const e = datos.get(n);
+      if (e) return e;
+      const nueva = new Map<string, unknown>();
+      datos.set(n, nueva);
+      return nueva;
+    };
+    const cederElTurno = () => new Promise<void>((resolver) => setTimeout(resolver, 0));
+    return {
+      async obtener<T>(c: string, k: string) {
+        await cederElTurno();
+        return (coleccionDe(c).get(k) as T | undefined) ?? null;
+      },
+      async guardar(c: string, k: string, v: unknown) {
+        await cederElTurno();
+        coleccionDe(c).set(k, v);
+      },
+      async listar<T>(c: string) {
+        return [...coleccionDe(c).values()] as T[];
+      },
+      async borrar(c: string, k: string) {
+        await cederElTurno();
+        coleccionDe(c).delete(k);
+      },
+    };
+  }
+
+  afterEach(() => {
+    configurarAlmacenFirmaDemo(null);
+  });
+
+  it("dos ABRIR de montaje intercalados: un solo código, y el visible firma", async () => {
+    configurarAlmacenFirmaDemo(almacenQueCedeElTurno());
+    const iniciada = await crearProveedor().iniciarFirma(ENTRADA);
+
+    const [primera, segunda] = await Promise.all([
+      abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+        retenerCodigoParaPanelDemo: true,
+        origen: "MONTAJE_DE_PANTALLA",
+      }),
+      abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+        retenerCodigoParaPanelDemo: true,
+        origen: "MONTAJE_DE_PANTALLA",
+      }),
+    ]);
+
+    expect(primera.ok).toBe(true);
+    expect(segunda.ok).toBe(true);
+    if (!primera.ok || !segunda.ok) return;
+    // El segundo no acuñó otro código: mismo vencimiento, mismo OTP.
+    expect(segunda.expiraEn).toBe(primera.expiraEn);
+
+    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+    expect(codigo).toMatch(/^\d{6}$/);
+    expect((await firmarEnCode100Mock(iniciada.idCode100, codigo)).ok).toBe(true);
+  });
+
+  /**
+   * Fija el invariante para el caso que **no** se deduplica: dos pedidos
+   * explícitos simultáneos acuñan código, y el que queda en el panel es el que
+   * firma. Con el almacén en memoria esto ya se cumplía sin la serialización
+   * (misma referencia de sesión, escrituras en lockstep), así que no es la
+   * prueba de que el candado haga falta — es el invariante que no se puede
+   * perder si alguien cambia el almacén.
+   */
+  it("dos ABRIR explícitos intercalados no desincronizan panel y sesión", async () => {
+    configurarAlmacenFirmaDemo(almacenQueCedeElTurno());
+    const iniciada = await crearProveedor().iniciarFirma(ENTRADA);
+
+    await Promise.all([
+      abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: true }),
+      abrirEnlaceDeFirmaMock(iniciada.idCode100, { retenerCodigoParaPanelDemo: true }),
+    ]);
+
+    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+    expect(codigo).toMatch(/^\d{6}$/);
+    expect((await firmarEnCode100Mock(iniciada.idCode100, codigo)).ok).toBe(true);
+  });
+
+  it("dentro del minuto, el montaje es idempotente: mismo código, mismo vencimiento", async () => {
+    const emision = new Date("2026-08-09T15:00:00.000Z");
+    const proveedor = crearProveedor(() => emision);
+    const iniciada = await proveedor.iniciarFirma(ENTRADA);
+
+    const primera = await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      ahora: () => emision,
+      retenerCodigoParaPanelDemo: true,
+      origen: "MONTAJE_DE_PANTALLA",
+    });
+    const codigoOriginal = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+
+    const casiUnMinuto = new Date(emision.getTime() + 59_000);
+    const segunda = await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      ahora: () => casiUnMinuto,
+      retenerCodigoParaPanelDemo: true,
+      origen: "MONTAJE_DE_PANTALLA",
+    });
+
+    expect(primera.ok && segunda.ok).toBe(true);
+    if (!primera.ok || !segunda.ok) return;
+    expect(segunda.expiraEn).toBe(primera.expiraEn);
+    expect((await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo).toBe(codigoOriginal);
+  });
+
+  it("pasado el minuto, hasta el montaje rota el código con vigencia nueva", async () => {
+    const emision = new Date("2026-08-09T15:00:00.000Z");
+    const proveedor = crearProveedor(() => emision);
+    const iniciada = await proveedor.iniciarFirma(ENTRADA);
+
+    await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      ahora: () => emision,
+      retenerCodigoParaPanelDemo: true,
+      origen: "MONTAJE_DE_PANTALLA",
+    });
+
+    const pasadoElMinuto = new Date(emision.getTime() + 61_000);
+    const reapertura = await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      ahora: () => pasadoElMinuto,
+      retenerCodigoParaPanelDemo: true,
+      origen: "MONTAJE_DE_PANTALLA",
+    });
+
+    expect(reapertura.ok).toBe(true);
+    if (!reapertura.ok) return;
+    expect(new Date(reapertura.expiraEn).getTime() - pasadoElMinuto.getTime()).toBe(VIGENCIA_OTP_MS);
+
+    // El código rotado es el que firma; el panel y la sesión rotaron juntos.
+    const codigo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+    const resultado = await firmarEnCode100Mock(iniciada.idCode100, codigo, {
+      ahora: () => pasadoElMinuto,
+    });
+    expect(resultado.ok).toBe(true);
+  });
+
+  it("con OTP remoto, el doble montaje no manda dos WhatsApp", async () => {
+    const proveedor = crearProveedor();
+    const iniciada = await proveedor.iniciarFirma(ENTRADA);
+    const solicitudes: string[] = [];
+    const remoto: OtpFirmaRemoto = {
+      async solicitar(destino) {
+        solicitudes.push(destino);
+        return { ok: true, otpId: "otp-remoto-1", expiraEn: "2099-01-01T00:00:00.000Z" };
+      },
+      async verificar() {
+        return { ok: true };
+      },
+    };
+
+    await Promise.all([
+      abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+        otpRemoto: remoto,
+        origen: "MONTAJE_DE_PANTALLA",
+      }),
+      abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+        otpRemoto: remoto,
+        origen: "MONTAJE_DE_PANTALLA",
+      }),
+    ]);
+
+    expect(solicitudes).toEqual([ENTRADA.destino]);
+  });
+});
+
+/**
+ * La condición con la que Andres aceptó pedir el código dentro de la pantalla:
+ * que siempre se pueda pedir otro. `e2e/09-firma-reintento-codigo.spec.ts` la
+ * recorre entera por la UI; esto la fija en el adaptador, que es donde una
+ * deduplicación bien intencionada la rompió una vez.
+ */
+describe("MockSignatureProvider · pedir un código nuevo siempre emite", () => {
+  it("rota aunque hayan pasado segundos, no un minuto (divergencia declarada de la regla #1)", async () => {
+    const emision = new Date("2026-08-09T15:00:00.000Z");
+    const iniciada = await crearProveedor(() => emision).iniciarFirma(ENTRADA);
+    await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      ahora: () => emision,
+      retenerCodigoParaPanelDemo: true,
+      origen: "MONTAJE_DE_PANTALLA",
+    });
+    const primero = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+
+    const dosSegundosDespues = new Date(emision.getTime() + 2_000);
+    await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      ahora: () => dosSegundosDespues,
+      retenerCodigoParaPanelDemo: true,
+      origen: "PEDIDO_EXPLICITO",
+    });
+
+    const segundo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+    expect(segundo).not.toBe(primero);
+    // Y el viejo dejó de servir: rotar es rotar.
+    const conElViejo = await firmarEnCode100Mock(iniciada.idCode100, primero, {
+      ahora: () => dosSegundosDespues,
+    });
+    expect(conElViejo.ok).toBe(false);
+    expect(
+      (await firmarEnCode100Mock(iniciada.idCode100, segundo, { ahora: () => dosSegundosDespues }))
+        .ok,
+    ).toBe(true);
+  });
+
+  it("con los tres intentos agotados hay salida inmediata, no un minuto de espera", async () => {
+    const iniciada = await crearProveedor().iniciarFirma(ENTRADA);
+    await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      retenerCodigoParaPanelDemo: true,
+      origen: "MONTAJE_DE_PANTALLA",
+    });
+    const primero = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+    const equivocado = primero === "000000" ? "111111" : "000000";
+
+    for (let i = 0; i < INTENTOS_MAXIMOS_OTP; i += 1) {
+      await firmarEnCode100Mock(iniciada.idCode100, equivocado);
+    }
+    expect((await firmarEnCode100Mock(iniciada.idCode100, primero)).ok).toBe(false);
+
+    // Pedir uno nuevo desbloquea en el acto: código nuevo, contador en cero.
+    await abrirEnlaceDeFirmaMock(iniciada.idCode100, {
+      retenerCodigoParaPanelDemo: true,
+      origen: "PEDIDO_EXPLICITO",
+    });
+    const segundo = (await obtenerCodigoFirmaDemo(iniciada.idCode100))?.codigo ?? "";
+
+    expect(segundo).not.toBe(primero);
+    expect((await firmarEnCode100Mock(iniciada.idCode100, segundo)).ok).toBe(true);
+  });
+});
+
 describe("MockSignatureProvider · vigencia del enlace y cierres", () => {
   it("el enlace vive 24 horas por defecto (fila 41 de la matriz)", async () => {
     const instante = new Date("2026-08-09T15:00:00.000Z");

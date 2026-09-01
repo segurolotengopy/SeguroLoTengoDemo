@@ -38,6 +38,126 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-08-31 (f) · La carrera del OTP de firma simulado, cerrada
+
+**Rama:** worktree `upbeat-swirles-88c054` (`claude/silly-rhodes-75e3d9`) · **Arreglo puntual**
+
+### El caso
+
+En dev, `POST /api/p8/firmador-simulado` devolvía `CODIGO_INCORRECTO` con el
+código que mostraba el panel de demo.
+
+**El mecanismo real no es el que traía el diagnóstico de entrada.** Este quedó
+anotado como un intercalado de escrituras (sesión=hash_B con panel=código_A), y
+al intentar reproducirlo se vio que con el almacén en memoria —el de `next dev`
+y el de los tests— eso no puede pasar: `obtener` devuelve **la misma
+referencia** de sesión a las dos aperturas y las escrituras van en lockstep, así
+que gana la última en las dos colecciones y el estado queda consistente solo.
+
+Lo que sí pasaba, y alcanza de sobra: el doble montaje de StrictMode dispara dos
+ABRIR y el segundo **regeneraba el código**. Quien leyó el panel entre los dos
+montajes tipeó uno ya reemplazado. Sin ninguna escritura intercalada de por
+medio: bastaba con regenerar.
+
+### Qué cambió
+
+- `abrirEnlaceDeFirmaMock` recibe el **origen** de la apertura. Un
+  `MONTAJE_DE_PANTALLA` con el código vigente de menos de 60 s es idempotente
+  (devuelve su `expiraEn` sin acuñar otro): eso cierra el síntoma y, con
+  `INTEGRATION_OTP=live`, deja de mandar dos WhatsApp por una pantalla abierta
+  una sola vez. Un `PEDIDO_EXPLICITO` —el valor por defecto— **siempre rota**.
+- El Route Handler gana la acción `REEMITIR`, distinta de `ABRIR`: la pantalla
+  manda `ABRIR` al montarse y `REEMITIR` desde *Pedir un código nuevo*.
+- Serialización de aperturas por `idCode100` (`APERTURAS_EN_CURSO`). Queda como
+  defensa del almacén **desplegado**, que es DynamoDB: ahí cada lectura devuelve
+  una copia y cada escritura es una llamada de red con latencia propia, así que
+  el orden entre las dos colecciones sí puede cruzarse. En memoria no hay caso
+  que falle sin ella, y el código y los tests lo dicen en vez de sugerir lo
+  contrario.
+- Seis tests en `signature-provider.test.ts`, incluidos los dos que faltaban:
+  que el pedido explícito rota a los dos segundos, y que con los tres intentos
+  agotados hay salida inmediata.
+
+### Qué hizo Andres
+
+- Eligió la dirección **combinada** (idempotencia dentro de los 60 s +
+  rotación después) entre tres opciones.
+- Revisada la implementación a pedido suyo, apareció que esa idempotencia
+  rompía *Pedir un código nuevo*: dentro del minuto devolvía el mismo código
+  con `ok: true`, lo que dejaba `e2e/09-firma-reintento-codigo.spec.ts` en rojo
+  y —con los 3 intentos agotados— convertía el botón en un callejón sin salida
+  de hasta un minuto, que responde que anduvo sin emitir nada. Eso contradecía
+  la condición con la que él había aceptado pedir el código dentro de la
+  pantalla (21-ago-2026). **Elegió distinguir el montaje del pedido explícito**,
+  sabiendo el precio: el «reenvío bloqueado 60 s» de la regla inviolable #1 no
+  rige para el botón de este tercer OTP. Es una **divergencia declarada**, no un
+  olvido; la regla sigue entera para los OTP de canal, donde `OtpRepository` la
+  aplica con `REENVIO_BLOQUEADO`.
+- Se verificó antes que la matriz de cumplimiento **no** exige el cooldown (las
+  filas de OTP —13, 22, 42, 68, 75— hablan de control de canal y evidencia): el
+  respaldo del «reenvío bloqueado 60 s» es la regla #1 de CLAUDE.md, decisión de
+  la casa, no obligación legal.
+
+### Verificaciones
+
+- **Una prueba que se cayó, y queda anotada porque es la lección**: el primer
+  test del intercalado «falló 2 de 3 corridas» con el arreglo neutralizado, y
+  eso se leyó como que reproducía la carrera. No era: fallaba por la aserción de
+  idempotencia (`expiraEn` igual), que sin el cooldown falla siempre, y pasaba
+  1 de 3 cuando los dos códigos se acuñaban dentro del mismo milisegundo y los
+  vencimientos coincidían por casualidad. Neutralizando **solo** el candado, el
+  test de intercalado pasa 3 de 3: no hay caso en memoria que lo necesite.
+- La regresión del reintento sí se comprobó con un test descartable: dentro del
+  minuto el código no cambiaba (`primero=769297 segundo=769297`) y, con los
+  intentos agotados, firmar con el «nuevo» daba `INTENTOS_AGOTADOS`.
+- Con el arreglo: 33 tests del adaptador en verde. Cadena completa: typecheck +
+  lint + **1229 tests** (89 archivos).
+- **E2E 09 en verde (1.4 m)**, que es el que la primera versión rompía. Su paso
+  prueba además que el camino nuevo es el que corrió: si el servidor hubiera
+  rechazado la acción `REEMITIR`, el código no habría rotado y el test caía en
+  el `poll`.
+- **E2E 01 (camino feliz) en verde** (3.8 m con 07). De los cinco escenarios que
+  abren el acto de firma, los otros tres (06, 07, 98) usan el mismo helper y el
+  mismo camino que 01 y 09 recorren.
+- **E2E 07 falla, y no es de este cambio.** Falla en `GET /demo-panel` con 500,
+  dos corridas de dos. La causa, capturada del servidor: `TypeError: ArrayBuffer
+  is not detachable and could not be cloned` → `failed to pipe response`. Es el
+  500 preexistente que la entrada anterior dejó anotado con sesión propia, y
+  ahora tiene mecanismo: `/demo-panel` es un Server Component que hace `await`
+  sobre `listarSesionesFirmaMock()` (`page.demo.tsx:116`), y esas sesiones
+  llevan `documentoFirmado: Uint8Array` —el PDF firmado, de varios KB— apenas el
+  cliente firmó. El canal de depuración RSC de `next dev` encola crudo cualquier
+  `Uint8Array` grande que se awaitee y revienta al clonarlo. Por eso 07 lo pega
+  (firma y después abre el panel) y 09 no (abre el panel antes de firmar). Este
+  cambio no agrega ni mueve bytes.
+
+### Queda abierto
+
+- **El 500 de `/demo-panel` ya lo está arreglando otra sesión**, y no hay que
+  tocarlo desde acá: el worktree `review-pending-prs-e227dd` (rama
+  `claude/eager-blackburn-166061`) tiene sin commitear el cambio de
+  `documentoFirmado: Uint8Array` a `documentoFirmadoBase64: string`, con su
+  entrada `2026-08-31 (e)`. El diagnóstico de esta sesión y el de esa coinciden
+  en el mecanismo, llegando por caminos distintos. **Los dos cambios conviven**:
+  la fusión a tres bandas de `signature-provider.ts` contra el ancestro común
+  real da limpio, porque ellos tocan el campo del PDF y la descarga, y esta
+  sesión la apertura del acto. Lo que sí choca es `docs/BITACORA.md`, un
+  conflicto por anteponer entrada los dos; por eso esta se numeró `(f)`, ya que
+  `main` ocupa hasta la `(d)` y `(e)` está reservada por ellos.
+- **Falta correr los E2E que no se tocaron**: 06 y 98 usan el mismo helper de
+  firma y no se ejecutaron acá; 06 además pasa por el panel, así que puede pegar
+  el mismo 500 preexistente.
+- La divergencia declarada de la regla #1 vive hoy solo en el comentario del
+  adaptador y en esta entrada. Si Andres quiere que quede en CLAUDE.md junto a
+  la regla, es una línea.
+- Los cambios siguen **sin commitear** en el worktree, que además quedó **10
+  commits atrás de `main`** (entraron F5b, F5c y F5d mientras tanto). Entre lo
+  que avanzó está `e2e/support/flujo.ts`, que es el helper con el que se
+  corrieron los E2E de acá: conviene rehacer 01 y 09 después de mergear `main`,
+  no antes.
+
+---
+
 ## 2026-08-31 (e) · El 500 de /demo-panel tras la firma: binario en el estado demo contra el debug RSC de dev
 
 **Rama:** `claude/eager-blackburn-166061` (worktree `review-pending-prs-e227dd`) · **Arreglo de bug preexistente**
@@ -127,19 +247,18 @@ expediente y no cambió).
 
 - **Carrera del OTP de firma en dev** (la destapó este diagnóstico, 3 veces de
   6 corridas con la máquina cargada): el efecto de `BloqueOtpFirma` que emite
-  el código corre dos veces por el doble montaje de StrictMode, cada `ABRIR`
-  regenera el OTP incondicionalmente, y el hash en la sesión y el código del
-  panel son dos escrituras separadas — intercaladas dejan un código que nunca
-  valida (`CODIGO_INCORRECTO` con el código correcto a la vista). Además el
-  OTP de firma hoy no aplica el «reenvío bloqueado 60 s» de la regla #1, que
-  es justamente lo que cerraría la carrera. **Se abrió como tarea aparte y se
-  está resolviendo en la rama `claude/silly-rhodes-75e3d9`**, con `ABRIR`
-  idempotente mientras el código vigente no cumpla los 60 s, reusando el
-  `COOLDOWN_REENVIO_MS` que ya rige para los otros OTP. Su propia entrada
-  documenta el cierre.
-- El escenario 07 sigue expuesto a esa carrera en corridas con carga (falló
-  por eso, no por el 500, en varias corridas de este diagnóstico) hasta que esa
-  rama se integre.
+  el código corre dos veces por el doble montaje de StrictMode y cada `ABRIR`
+  regeneraba el OTP, así que quien leía el código del panel entre los dos
+  montajes tipeaba uno ya reemplazado (`CODIGO_INCORRECTO` con el código
+  correcto a la vista). **Cerrada en la entrada (f) de este mismo día**, que se
+  integra en el mismo PR que esta.
+- **Corrección a este diagnóstico:** acá quedó anotado que el mecanismo era un
+  intercalado de escrituras (sesión con un hash y panel con otro código). La
+  entrada (f) lo desmintió con pruebas: con el almacén en memoria —el de
+  `next dev` y el de los tests— las dos aperturas comparten la misma
+  referencia de sesión, así que gana la última en las dos colecciones y el
+  estado queda consistente. Bastaba con regenerar el código; el intercalado
+  solo es alcanzable con el almacén desplegado.
 
 
 ---
