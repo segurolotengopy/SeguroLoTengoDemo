@@ -26,6 +26,17 @@
 import type { EstadoExpediente } from "./tipos";
 import { flujoV3Activo } from "./flujo-vigente";
 
+/**
+ * A dónde vuelve quien cierra el trámite (botón *Finalizar*).
+ *
+ * En v2 es el paso 1, `/plan`. En v3 es la **raíz**, que es la página de
+ * inicio del canvas con los tres pasos y la aceptación que crea un trámite
+ * nuevo: mandar a `/plan` reenviaba a `/seguro`, y ahí quien acababa de
+ * terminar caía en un paso 2 sin inscripción, que no es una pantalla del
+ * diseño para ese momento.
+ */
+export const RUTA_CIERRE_DE_TRAMITE = flujoV3Activo() ? "/" : "/plan";
+
 export const RUTA_ASISTENCIA_IDENTIDAD = "/asistencia-identidad";
 export const RUTA_REVISION_MANUAL = "/revision-manual";
 export const RUTA_SOLICITUD_VENCIDA = "/solicitud-vencida";

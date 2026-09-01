@@ -1,10 +1,13 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 import { nombrePortal } from "@/domain/entidades";
 import { useRouter } from "next/navigation";
 import { CODIGOS_RESPUESTA_BANCARD } from "@/ports/payment-provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatearGuaranies } from "@/domain/catalogo";
+import { VentanaBancardSimulada } from "./VentanaBancardSimulada";
 // Desde `textos-p7`, no desde el caso de uso: este es un componente de cliente
 // e importar `pago-p7.ts` arrastraría `node:crypto` al bundle.
 import {
@@ -523,7 +526,8 @@ export function FormularioPagoP7({
     <div className="flex flex-col gap-4">
       {/* En pantallas anchas: factura a la izquierda, medio de pago y botón a
           la derecha; plazo, secuencia y seguridad debajo del botón. */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start v3-rejilla"
+          style={{ "--v3-min": "330px" } as CSSProperties}>
       {/* ------------------------------------------------------------------ */}
       {/* Bloque 1 — Datos para la factura                                    */}
       {/* ------------------------------------------------------------------ */}
@@ -535,7 +539,8 @@ export function FormularioPagoP7({
           <span className="text-xs text-etiqueta">{NOTA_FACTURA_A_NOMBRE_DEL_ASEGURADO_P7}</span>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 v3-rejilla"
+          style={{ "--v3-min": "250px" } as CSSProperties}>
           <div className="flex flex-col gap-1">
             <label htmlFor="p7-nombre" className="text-xs font-semibold text-etiqueta">
               {ROTULO_NOMBRE_A_FACTURAR_P7}
@@ -762,6 +767,12 @@ export function FormularioPagoP7({
             </>
           ) : (
             <>
+              {/* El formulario aparece acá y no detrás de un enlace a otra
+                  pestaña: el canvas lo modela como la ventana de Bancard
+                  dentro de la pantalla, y en una demostración un enlace que
+                  saca a la persona del recorrido esconde justo el paso que hay
+                  que mostrar. Los datos de la tarjeta no salen del navegador
+                  (regla inviolable #6). */}
               <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
                 Completá el pago en el formulario seguro de Bancard
               </h2>
@@ -769,14 +780,13 @@ export function FormularioPagoP7({
                 Los datos de tu tarjeta se ingresan en Bancard. {nombrePortal()} no los recibe ni los
                 guarda.
               </p>
-              <a
-                href={instruccion.urlFormularioSeguro}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex h-11 items-center justify-center rounded-lg border-2 border-naranja-500 px-6 text-sm font-bold tracking-wide text-naranja-700 uppercase hover:bg-naranja-50 dark:text-naranja-300 dark:hover:bg-naranja-950"
-              >
-                Abrir formulario seguro ↗
-              </a>
+              <VentanaBancardSimulada
+                importeFormateado={importe}
+                titularSugerido={resumen?.nombreAFacturar ?? ""}
+                procesando={marcandoPagado}
+                datosDeEjemploDisponibles={pagoSimuladoDisponible}
+                alPagar={() => void marcarPagado()}
+              />
             </>
           )}
           {/* El contador no es decoración: sin él, treinta segundos y cinco
@@ -792,7 +802,10 @@ export function FormularioPagoP7({
               demostración en la que el dinero entra sin que nadie haga nada no
               muestra el paso que más importa. El contador da el momento: cinco
               segundos, lo que tarda alguien en escanear. */}
-          {pagoSimuladoDisponible ? (
+          {/* Solo con QR: en tarjeta el botón de pagar vive dentro de la
+              ventana simulada de Bancard, y dos botones que hacen lo mismo se
+              leen como dos cobros. */}
+          {pagoSimuladoDisponible && instruccion.tipo === "QR" ? (
             <div className="flex flex-col gap-1.5">
               <button
                 type="button"
@@ -849,7 +862,8 @@ export function FormularioPagoP7({
       {/* ------------------------------------------------------------------ */}
       {/* Debajo del botón: plazo, secuencia y seguridad                       */}
       {/* ------------------------------------------------------------------ */}
-      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start v3-rejilla"
+          style={{ "--v3-min": "220px" } as CSSProperties}>
         {/* Plazo para pagar (D-10) */}
         <div className="flex flex-col gap-1 rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2.5 dark:border-naranja-700 dark:bg-naranja-950">
           <p className="text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:text-naranja-200">

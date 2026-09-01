@@ -1,4 +1,5 @@
 import { COOKIE_EXPEDIENTE, COOKIE_OTP, respuestaRedireccion } from "@/app/api/_http/contexto-peticion";
+import { RUTA_CIERRE_DE_TRAMITE } from "@/domain/rutas-flujo";
 
 /**
  * Cierra el trámite **en este navegador** y devuelve a la selección de plan.
@@ -37,7 +38,7 @@ import { COOKIE_EXPEDIENTE, COOKIE_OTP, respuestaRedireccion } from "@/app/api/_
  * cerrando, y dejarla viva no le sirve a nadie.
  */
 export function POST(): Response {
-  return respuestaRedireccion("/plan", {
+  return respuestaRedireccion(RUTA_CIERRE_DE_TRAMITE, {
     cookies: [
       { nombre: COOKIE_EXPEDIENTE, valor: "", maxAge: 0 },
       { nombre: COOKIE_OTP, valor: "", maxAge: 0 },

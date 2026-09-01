@@ -38,6 +38,81 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-01 (b) · El diseño del canvas, aplicado de verdad a las tres pantallas
+
+**Rama:** `fix/diseno-canvas-3-pantallas` · **Feedback de Andres probando la demo**
+
+### El caso
+
+Andres reportó que el diseño no estaba aplicado en `/seguro`, `/pago-y-firma`
+ni `/confirmacion`: los recuadros no llenaban la pantalla, las fotos cortaban
+las caras, el carrusel del inicio arrancaba por la foto 4, y el pago abría un
+enlace a otra pestaña. Instrucción explícita: **seguir el canvas, no
+improvisar**.
+
+El canvas se volvió a leer del Artifact (`ce0c8332…`), extrayendo su plantilla
+y su manifiesto: de ahí salen los números que se aplicaron, no de la memoria.
+
+### Qué cambió
+
+- **Rejillas del canvas** — el diseño usa
+  `repeat(auto-fit, minmax(Npx, 1fr))` en todos lados; el código tenía
+  `sm:grid-cols-2` / `lg:grid-cols-3`, que a anchos intermedios colapsan a una
+  columna y dejan media pantalla vacía. Se agregó `.v3-rejilla` (scopeada a
+  `[data-flujo="v3"]`, así v2 no se toca) y se aplicó en los nueve bloques,
+  cada uno con el mínimo que declara el canvas.
+- **Recorte de las fotos** — el canvas recorta en `object-position: center 35%`
+  (pasos), `40%` (carrusel) y `45%` (cierre); sin eso el 50 % por defecto
+  cortaba las caras. Alto `clamp(140px, 20vw, 210px)`, como el diseño.
+- **Carrusel del inicio** — arrancaba por la foto 4 porque los desfases
+  positivos dejan a las que no empezaron en su estado base (opacidad 1) y
+  ganaba la última del DOM. Ahora `opacity: 0` de base y desfases **negativos**:
+  arranca por la foto 1 y rota 1→2→3→4, 3 s cada una (pedido de Andres; el
+  canvas usaba 4,5 s). Se agregaron los rótulos sobre cada foto.
+- **Pago con tarjeta** — desapareció el enlace «Abrir formulario seguro ↗» a
+  otra pestaña; ahora aparece la ventana simulada de Bancard dentro de la
+  pantalla (`VentanaBancardSimulada.tsx`), con los campos, el botón de
+  completar con datos de ejemplo y el de pagar, como el modal del canvas. Los
+  datos de la tarjeta **no salen del navegador** (regla inviolable #6): el
+  componente no los manda a ningún endpoint y `alPagar` no los recibe.
+- **Casilla de confirmación de identidad** — pasó **arriba** del botón y el
+  botón queda desactivado hasta marcarla (antes quedaba habilitado y repetía
+  el mismo rechazo). Entró a la lista de faltantes con su ancla.
+- **Nombres del OCR** — `nombre-plausible.ts` (dominio, con tests): si lo que
+  la lectura del frente devuelve no puede ser un nombre, el campo queda
+  **vacío**. Sin MRZ la lectura adivina por posición y devolvía «BLI» y «FECHA
+  DE VENCIMIENTO» como nombre y apellido. No es un diccionario de nombres —eso
+  dejaría afuera nombres legítimos raros—: descarta lo que no puede ser uno.
+- **Botón *Finalizar*** — redirigía a `/plan`, que en v3 reenvía a `/seguro`, y
+  quien terminaba caía en un paso 2 sin inscripción. Ahora
+  `RUTA_CIERRE_DE_TRAMITE` manda a la raíz en v3 y sigue en `/plan` en v2.
+- **Beneficiario** — nombre, parentesco y domicilio quedan marcados con `*` y
+  se pintan en rojo cuando faltan, como el canvas.
+
+### Divergencia declarada con el canvas
+
+El canvas pide la **cédula del beneficiario obligatoria** (y suma fecha de
+nacimiento y celular). Se mantuvo **opcional**: la Res. SIS 215/2025 num. 11.4
+exige nombre y domicilio, no el documento de un tercero, y exigirlo sería pedir
+más que la norma (CHG-24, CMP-21). Los dos campos que el canvas agrega no se
+crearon: tocan el modelo del expediente y la Solicitud, y «cada campo extra es
+un problema de negocio». Queda a decisión de Andres.
+
+### Verificaciones
+
+- Suite **1243** en verde (5 tests nuevos de `nombre-plausible`, con los
+  valores reales que devolvió el OCR de la cédula de Rodrigo).
+- Batería e2e v3 **10/10**. El camino feliz gana `CAPTURAS_DISENO`, que
+  guarda una captura por pantalla para comparar contra el canvas.
+
+### Queda abierto
+
+- Validar contra el canvas las pantallas que no están en el recorrido feliz
+  (revisión manual y solicitud vencida).
+- Los dos campos de beneficiario del canvas, si Andres los quiere.
+
+---
+
 ## 2026-09-01 · La constancia de la firma del cliente
 
 **Rama:** `feat/constancia-firma-cliente` · **Pedido de Andres**

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -28,6 +29,17 @@ export const metadata: Metadata = {
   description:
     "Seguro de Vida Oncológico CONFÍO: protegé a tu familia en 3 pasos, desde tu celular.",
 };
+
+/**
+ * Las cuatro fotos del carrusel, en el orden del canvas y con el rótulo que
+ * el diseño imprime sobre cada una.
+ */
+const FOTOS_DEL_INICIO = [
+  { archivo: "hero-inscribite.jpg", rotulo: "Inscribite con nosotros" },
+  { archivo: "hero-seguro.jpg", rotulo: "Elegí tu seguro" },
+  { archivo: "hero-paga-firma.jpg", rotulo: "Pagá y firmá" },
+  { archivo: "hero-protege.jpg", rotulo: "Protege a tu familia" },
+] as const;
 
 const PASOS_EXPLICADOS = [
   {
@@ -82,16 +94,19 @@ export default async function Raiz() {
               intermediado por Interseguros.
             </p>
           </header>
-          {/* Las cuatro fotos del canvas, rotando en crossfade (globals.css). */}
+          {/* Las cuatro fotos del canvas con su rótulo, rotando en crossfade
+              cada 3 s y en el orden del diseño (globals.css). */}
           <div className="v3-hero aspect-[16/10] w-full" aria-hidden="true">
-            <img src="/v3/hero-protege.jpg" alt="" />
-            <img src="/v3/hero-inscribite.jpg" alt="" />
-            <img src="/v3/hero-seguro.jpg" alt="" />
-            <img src="/v3/hero-paga-firma.jpg" alt="" />
+            {FOTOS_DEL_INICIO.map((foto) => (
+              <figure key={foto.archivo}>
+                <img src={`/v3/${foto.archivo}`} alt="" />
+                <figcaption>{foto.rotulo}</figcaption>
+              </figure>
+            ))}
           </div>
         </div>
 
-        <section aria-label="Los tres pasos" className="grid gap-3 sm:grid-cols-3">
+        <section aria-label="Los tres pasos" className="v3-rejilla" style={{ "--v3-min": "220px" } as CSSProperties}>
           {PASOS_EXPLICADOS.map((paso) => (
             <div
               key={paso.numero}

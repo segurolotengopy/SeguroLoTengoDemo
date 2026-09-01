@@ -1,5 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 /**
  * Orquestador del paso 2 (lote F3), patrón de `Inscripcion.tsx`.
  *
@@ -76,7 +78,8 @@ export function Seguro(props: SeguroProps) {
             Qué cubre y desde cuándo
           </p>
           <h2 className="text-lg font-bold text-titulo">Tu plan {plan.nombre}, en claro</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 v3-rejilla"
+          style={{ "--v3-min": "250px" } as CSSProperties}>
             {coberturasEnClaro(props.planElegido).map((cobertura) => (
               <div key={cobertura.rotulo} className="rounded-lg border border-borde-tenue p-3">
                 <p className="text-sm font-bold text-titulo">{cobertura.rotulo}</p>

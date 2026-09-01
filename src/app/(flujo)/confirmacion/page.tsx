@@ -91,7 +91,8 @@ export default async function PantallaP9Confirmacion() {
             <img
               src="/v3/familia-confirmacion.jpg"
               alt="Familia abrazándose junto a la póliza emitida"
-              className="h-40 w-full object-cover sm:h-52"
+              className="v3-foto-cierre w-full"
+              style={{ height: "clamp(140px, 20vw, 210px)" }}
             />
           </div>
         ) : null}

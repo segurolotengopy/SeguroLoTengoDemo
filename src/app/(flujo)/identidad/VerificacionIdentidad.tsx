@@ -140,7 +140,7 @@ const MENSAJES: Readonly<Record<string, string>> = {
   // es repetir la captura, no seguir escribiendo.
   CORRECCION_NO_COINCIDE:
     "Lo que escribiste no se parece a lo que la lectura automática leyó de tu cédula. Si lo " +
-    "escribiste tal como figura en el documento, marcá la confirmación de abajo y volvé a " +
+    "escribiste tal como figura en el documento, marcá la casilla de confirmación y volvé a " +
     "validar.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",
 };
@@ -413,6 +413,10 @@ export function VerificacionIdentidad({
     correoCoincide &&
     complementariosCompletos &&
     sexoElegido !== "" &&
+    // Cuando el servidor pidió confirmar una corrección que no coteja, validar
+    // de nuevo sin marcarla repetiría el mismo rechazo: la casilla es el
+    // requisito que falta, no un adorno al lado del botón.
+    (!pideConfirmacion || confirmaCorrecciones) &&
     enProceso === null;
 
   // F5c · el patrón de faltantes del canvas: una lista que nombra qué falta,
@@ -426,6 +430,12 @@ export function VerificacionIdentidad({
   if (sexoElegido === "") faltantes.push({ texto: "elegir tu sexo", ancla: "p5-sexo" });
   if (!paisYEstadoCivilCompletos) faltantes.push({ texto: "completar país y estado civil", ancla: "p5-pais" });
   if (!correoCoincide) faltantes.push({ texto: "escribir tu correo dos veces igual", ancla: "p5-correo" });
+  if (pideConfirmacion && !confirmaCorrecciones) {
+    faltantes.push({
+      texto: "confirmar que escribiste tus datos como figuran en la cédula",
+      ancla: "p5-confirmar-correccion",
+    });
+  }
   if (!complementariosCompletos) {
     const primerVacio =
       domicilio.trim() === "" ? "p5-domicilio"
@@ -1337,22 +1347,11 @@ export function VerificacionIdentidad({
         </p>
 
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (!puedeContinuar) {
-                irAlPrimerFaltante();
-                return;
-              }
-              void confirmar();
-            }}
-            aria-disabled={!puedeContinuar}
-            className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
-          >
-            {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
-          </button>
           {pideConfirmacion ? (
-            <label className="flex items-start gap-2 rounded-lg border border-naranja-300 bg-naranja-50 p-3 text-sm text-cuerpo dark:border-naranja-700 dark:bg-naranja-950">
+            <label
+              id="p5-confirmar-correccion"
+              className="flex items-start gap-2 rounded-lg border border-naranja-300 bg-naranja-50 p-3 text-sm text-cuerpo dark:border-naranja-700 dark:bg-naranja-950"
+            >
               <input
                 type="checkbox"
                 checked={confirmaCorrecciones}
@@ -1366,6 +1365,20 @@ export function VerificacionIdentidad({
               </span>
             </label>
           ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              if (!puedeContinuar) {
+                irAlPrimerFaltante();
+                return;
+              }
+              void confirmar();
+            }}
+            aria-disabled={!puedeContinuar}
+            className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 aria-disabled:cursor-not-allowed aria-disabled:bg-superficie-suave aria-disabled:text-etiqueta aria-disabled:opacity-60 aria-disabled:hover:bg-superficie-suave sm:w-auto sm:self-start"
+          >
+            {enProceso === "CONFIRMACION" ? "Validando…" : "Validar identidad y continuar →"}
+          </button>
           {error ? (
             <p
               role="alert"

@@ -1,5 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ModalEvidenciaFirma } from "@/components/shared";
 import {
@@ -411,7 +413,8 @@ export function ContratacionAceptada({
         >
           {TITULO_ESTADO_CONTRATACION}
         </h2>
-        <ol className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-4 v3-rejilla"
+          style={{ "--v3-min": "230px" } as CSSProperties}>
           {HITOS_CONTRATACION.map((hito, indice) => {
             // El tercero cuelga del certificado y no del resumen: un expediente
             // legado, cobrado antes de D-12, llega acá sin certificado y ese
@@ -463,7 +466,8 @@ export function ContratacionAceptada({
       {/* es la más larga, y repartir a ojo dejaba media carilla en blanco     */}
       {/* al lado de ella.                                                     */}
       {/* ------------------------------------------------------------------ */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start v3-rejilla"
+          style={{ "--v3-min": "330px" } as CSSProperties}>
         <div className="flex flex-col gap-4">
           {/* ---------------------------------------------------------------- */}
           {/* RESUMEN DE LA CONTRATACIÓN                                        */}
@@ -764,7 +768,8 @@ export function ContratacionAceptada({
         ) : null}
         </div>
 
-        <dl className="grid flex-1 gap-2 lg:grid-cols-2">
+        <dl className="grid flex-1 gap-2 lg:grid-cols-2 v3-rejilla"
+          style={{ "--v3-min": "230px" } as CSSProperties}>
           {contactosInstitucionales().map((contacto) => (
             <div
               key={contacto.entidad.razonSocial}

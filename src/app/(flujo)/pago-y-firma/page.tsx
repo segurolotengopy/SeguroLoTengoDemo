@@ -79,7 +79,12 @@ export default async function PantallaPagoYFirma() {
 
         <div className="overflow-hidden border border-borde-sutil bg-superficie" aria-hidden="true">
           {/* Foto del canvas para este paso (lote F5b). */}
-          <img src="/v3/familia-paso-3.jpg" alt="Familia paraguaya reunida" className="h-40 w-full object-cover sm:h-52" />
+          <img
+            src="/v3/familia-paso-3.jpg"
+            alt="Familia paraguaya reunida"
+            className="v3-foto-paso w-full"
+            style={{ height: "clamp(140px, 20vw, 210px)" }}
+          />
         </div>
 
         <header className="flex flex-col gap-1">
