@@ -100,6 +100,233 @@ respalda su propia firma.
   entregable, es otro documento del motor (con huella y QR), no este panel.
 - Sigue pendiente el fix del 500 del demo-panel, que Andres está validando.
 
+---
+
+## 2026-08-31 (f) · La carrera del OTP de firma simulado, cerrada
+
+**Rama:** worktree `upbeat-swirles-88c054` (`claude/silly-rhodes-75e3d9`) · **Arreglo puntual**
+
+### El caso
+
+En dev, `POST /api/p8/firmador-simulado` devolvía `CODIGO_INCORRECTO` con el
+código que mostraba el panel de demo.
+
+**El mecanismo real no es el que traía el diagnóstico de entrada.** Este quedó
+anotado como un intercalado de escrituras (sesión=hash_B con panel=código_A), y
+al intentar reproducirlo se vio que con el almacén en memoria —el de `next dev`
+y el de los tests— eso no puede pasar: `obtener` devuelve **la misma
+referencia** de sesión a las dos aperturas y las escrituras van en lockstep, así
+que gana la última en las dos colecciones y el estado queda consistente solo.
+
+Lo que sí pasaba, y alcanza de sobra: el doble montaje de StrictMode dispara dos
+ABRIR y el segundo **regeneraba el código**. Quien leyó el panel entre los dos
+montajes tipeó uno ya reemplazado. Sin ninguna escritura intercalada de por
+medio: bastaba con regenerar.
+
+### Qué cambió
+
+- `abrirEnlaceDeFirmaMock` recibe el **origen** de la apertura. Un
+  `MONTAJE_DE_PANTALLA` con el código vigente de menos de 60 s es idempotente
+  (devuelve su `expiraEn` sin acuñar otro): eso cierra el síntoma y, con
+  `INTEGRATION_OTP=live`, deja de mandar dos WhatsApp por una pantalla abierta
+  una sola vez. Un `PEDIDO_EXPLICITO` —el valor por defecto— **siempre rota**.
+- El Route Handler gana la acción `REEMITIR`, distinta de `ABRIR`: la pantalla
+  manda `ABRIR` al montarse y `REEMITIR` desde *Pedir un código nuevo*.
+- Serialización de aperturas por `idCode100` (`APERTURAS_EN_CURSO`). Queda como
+  defensa del almacén **desplegado**, que es DynamoDB: ahí cada lectura devuelve
+  una copia y cada escritura es una llamada de red con latencia propia, así que
+  el orden entre las dos colecciones sí puede cruzarse. En memoria no hay caso
+  que falle sin ella, y el código y los tests lo dicen en vez de sugerir lo
+  contrario.
+- Seis tests en `signature-provider.test.ts`, incluidos los dos que faltaban:
+  que el pedido explícito rota a los dos segundos, y que con los tres intentos
+  agotados hay salida inmediata.
+
+### Qué hizo Andres
+
+- Eligió la dirección **combinada** (idempotencia dentro de los 60 s +
+  rotación después) entre tres opciones.
+- Revisada la implementación a pedido suyo, apareció que esa idempotencia
+  rompía *Pedir un código nuevo*: dentro del minuto devolvía el mismo código
+  con `ok: true`, lo que dejaba `e2e/09-firma-reintento-codigo.spec.ts` en rojo
+  y —con los 3 intentos agotados— convertía el botón en un callejón sin salida
+  de hasta un minuto, que responde que anduvo sin emitir nada. Eso contradecía
+  la condición con la que él había aceptado pedir el código dentro de la
+  pantalla (21-ago-2026). **Elegió distinguir el montaje del pedido explícito**,
+  sabiendo el precio: el «reenvío bloqueado 60 s» de la regla inviolable #1 no
+  rige para el botón de este tercer OTP. Es una **divergencia declarada**, no un
+  olvido; la regla sigue entera para los OTP de canal, donde `OtpRepository` la
+  aplica con `REENVIO_BLOQUEADO`.
+- Se verificó antes que la matriz de cumplimiento **no** exige el cooldown (las
+  filas de OTP —13, 22, 42, 68, 75— hablan de control de canal y evidencia): el
+  respaldo del «reenvío bloqueado 60 s» es la regla #1 de CLAUDE.md, decisión de
+  la casa, no obligación legal.
+
+### Verificaciones
+
+- **Una prueba que se cayó, y queda anotada porque es la lección**: el primer
+  test del intercalado «falló 2 de 3 corridas» con el arreglo neutralizado, y
+  eso se leyó como que reproducía la carrera. No era: fallaba por la aserción de
+  idempotencia (`expiraEn` igual), que sin el cooldown falla siempre, y pasaba
+  1 de 3 cuando los dos códigos se acuñaban dentro del mismo milisegundo y los
+  vencimientos coincidían por casualidad. Neutralizando **solo** el candado, el
+  test de intercalado pasa 3 de 3: no hay caso en memoria que lo necesite.
+- La regresión del reintento sí se comprobó con un test descartable: dentro del
+  minuto el código no cambiaba (`primero=769297 segundo=769297`) y, con los
+  intentos agotados, firmar con el «nuevo» daba `INTENTOS_AGOTADOS`.
+- Con el arreglo: 33 tests del adaptador en verde. Cadena completa: typecheck +
+  lint + **1229 tests** (89 archivos).
+- **E2E 09 en verde (1.4 m)**, que es el que la primera versión rompía. Su paso
+  prueba además que el camino nuevo es el que corrió: si el servidor hubiera
+  rechazado la acción `REEMITIR`, el código no habría rotado y el test caía en
+  el `poll`.
+- **E2E 01 (camino feliz) en verde** (3.8 m con 07). De los cinco escenarios que
+  abren el acto de firma, los otros tres (06, 07, 98) usan el mismo helper y el
+  mismo camino que 01 y 09 recorren.
+- **E2E 07 falla, y no es de este cambio.** Falla en `GET /demo-panel` con 500,
+  dos corridas de dos. La causa, capturada del servidor: `TypeError: ArrayBuffer
+  is not detachable and could not be cloned` → `failed to pipe response`. Es el
+  500 preexistente que la entrada anterior dejó anotado con sesión propia, y
+  ahora tiene mecanismo: `/demo-panel` es un Server Component que hace `await`
+  sobre `listarSesionesFirmaMock()` (`page.demo.tsx:116`), y esas sesiones
+  llevan `documentoFirmado: Uint8Array` —el PDF firmado, de varios KB— apenas el
+  cliente firmó. El canal de depuración RSC de `next dev` encola crudo cualquier
+  `Uint8Array` grande que se awaitee y revienta al clonarlo. Por eso 07 lo pega
+  (firma y después abre el panel) y 09 no (abre el panel antes de firmar). Este
+  cambio no agrega ni mueve bytes.
+
+### Queda abierto
+
+- **El 500 de `/demo-panel` ya lo está arreglando otra sesión**, y no hay que
+  tocarlo desde acá: el worktree `review-pending-prs-e227dd` (rama
+  `claude/eager-blackburn-166061`) tiene sin commitear el cambio de
+  `documentoFirmado: Uint8Array` a `documentoFirmadoBase64: string`, con su
+  entrada `2026-08-31 (e)`. El diagnóstico de esta sesión y el de esa coinciden
+  en el mecanismo, llegando por caminos distintos. **Los dos cambios conviven**:
+  la fusión a tres bandas de `signature-provider.ts` contra el ancestro común
+  real da limpio, porque ellos tocan el campo del PDF y la descarga, y esta
+  sesión la apertura del acto. Lo que sí choca es `docs/BITACORA.md`, un
+  conflicto por anteponer entrada los dos; por eso esta se numeró `(f)`, ya que
+  `main` ocupa hasta la `(d)` y `(e)` está reservada por ellos.
+- **Falta correr los E2E que no se tocaron**: 06 y 98 usan el mismo helper de
+  firma y no se ejecutaron acá; 06 además pasa por el panel, así que puede pegar
+  el mismo 500 preexistente.
+- La divergencia declarada de la regla #1 vive hoy solo en el comentario del
+  adaptador y en esta entrada. Si Andres quiere que quede en CLAUDE.md junto a
+  la regla, es una línea.
+- Los cambios siguen **sin commitear** en el worktree, que además quedó **10
+  commits atrás de `main`** (entraron F5b, F5c y F5d mientras tanto). Entre lo
+  que avanzó está `e2e/support/flujo.ts`, que es el helper con el que se
+  corrieron los E2E de acá: conviene rehacer 01 y 09 después de mergear `main`,
+  no antes.
+
+---
+
+## 2026-08-31 (e) · El 500 de /demo-panel tras la firma: binario en el estado demo contra el debug RSC de dev
+
+**Rama:** `claude/eager-blackburn-166061` (worktree `review-pending-prs-e227dd`) · **Arreglo de bug preexistente**
+
+### El caso
+
+Andres reportó que `e2e/07-firma-atomica.spec.ts` (línea 33, «si las firmas
+institucionales no llegan, el cobro sigue inhabilitado») fallaba de forma
+reproducible: `GET /demo-panel` devolvía 500 con `TypeError: ArrayBuffer is
+not detachable and could not be cloned`, «Invalid state: ReadableStream is
+already closed» y «failed to pipe response, page: /demo-panel». Verificado por
+él también sobre main limpio (worktree en `ffa1900`): preexistente, no
+regresión de los lotes F4.
+
+### El diagnóstico, con su prueba
+
+La cadena completa, verificada paso a paso:
+
+1. Al firmar el cliente, el mock de Code100 guardaba el PDF firmado
+   (`documentoFirmado: Uint8Array`, la constancia real pesa **2567 bytes**) en
+   la sesión simulada, que con `DYNAMODB_TABLE` puesto vive en DynamoDB
+   (`AlmacenEstadoDemo`). Por eso el 500 empezaba exactamente en la primera
+   lectura del panel posterior a la firma.
+2. `/demo-panel` hace `await` de esas sesiones en un Server Component. **El
+   modo dev de Next serializa como debug info del payload RSC los valores de
+   todos los awaits, incluidos los intermedios** (la respuesta cruda del SDK).
+   Prueba: el HTML del panel en dev contiene `urlActoDeFirma` y otros campos
+   de la sesión que la página jamás renderiza.
+3. React Flight copia los chunks binarios de hasta 2048 bytes, pero **los
+   mayores los encola crudos** en su stream de bytes. El Uint8Array que
+   devuelve el SDK es una vista sobre el buffer de 64 KB de la respuesta HTTP
+   (se capturó con instrumentación: `byteLength:2567, byteOffset:22728,
+   bufferByteLength:65536`), y el `enqueue` de un byte-stream transfiere el
+   ArrayBuffer subyacente — Node se niega a transferir una vista compartida y
+   tira el TypeError. El stream muere, y de ahí los errores secundarios y el 500.
+4. Repro mínima bidireccional (tabla efímera + ítem sintético + GET):
+   sesión con documento de 2567 bytes → 500; sin documento → 200; con
+   documento de 1400 bytes → 200 (por el umbral de copia de 2048). El fallo no
+   era aleatorio: dependía del tamaño del documento.
+5. **Filtrar el campo a la salida de `listarSesionesFirmaMock` no alcanzó** —
+   se implementó y el 500 siguió, porque el debug captura el await interno del
+   SDK antes de que el recorte exista. Esto descartó la primera hipótesis y es
+   lo que obligó al arreglo de fondo.
+
+### Qué cambió
+
+`src/adapters/mock/signature-provider.ts`, tres cosas:
+
+- `SesionFirmaMock.documentoFirmado: Uint8Array | null` →
+  `documentoFirmadoBase64: string | null`. El almacén de estado demo es
+  «colección + clave + JSON» por contrato; el binario era un polizón. Sin
+  atributo Binary no hay vista intransferible que el debug de dev pueda
+  encolar, en ninguna página presente o futura.
+- `descargarDocumentoFirmado` decodifica y devuelve una copia con buffer
+  propio. El round-trip base64 conserva los bytes exactos, así que la
+  verificación de huella de `archivarDocumentosFirmados` sigue intacta.
+- `listarSesionesFirmaMock` devuelve `SesionFirmaVisiblePanel`
+  (`Omit<…, "documentoFirmadoBase64">`): higiene de alcance — el panel muestra
+  metadata del acto, no el documento — con el comentario explicando que esto
+  solo **no** es la defensa.
+
+Sesiones viejas ya persistidas con el campo binario no se migran: son estado
+efímero de proveedor simulado con TTL de 48 h, no evidencia (regla #10 no
+aplica); pierden la descarga del PDF firmado y se van solas.
+
+### Qué hizo Andres
+
+Reportó el bug con los digests y la verificación sobre main limpio que ahorró
+la mitad del diagnóstico. No hubo decisiones nuevas de producto: el arreglo no
+toca reglas inviolables (el hash de la firma, que es lo probatorio, vive en el
+expediente y no cambió).
+
+### Verificaciones
+
+- Reproducción real: 2 corridas del escenario 07 con el 500 idéntico al
+  reporte, más la repro mínima sintética en ambos sentidos (500 con bytes
+  >2048, 200 sin bytes y con bytes ≤2048).
+- Tras el arreglo: repro sintética con documento de 2567 bytes en base64 →
+  `GET /demo-panel` 200; `npx tsc --noEmit` limpio; `npm run lint` limpio;
+  `npm test` **1195 tests, 88 archivos, todo verde**; el escenario 07 completo
+  contra servidor limpio (resultado en la sección de abajo si difiere).
+- La instrumentación usada (wrapper de `ReadableByteStreamController.enqueue`
+  y `ArrayBuffer.prototype.transfer` precargado con `NODE_OPTIONS`) fue
+  temporal y no quedó en el repositorio.
+
+### Queda abierto
+
+- **Carrera del OTP de firma en dev** (la destapó este diagnóstico, 3 veces de
+  6 corridas con la máquina cargada): el efecto de `BloqueOtpFirma` que emite
+  el código corre dos veces por el doble montaje de StrictMode y cada `ABRIR`
+  regeneraba el OTP, así que quien leía el código del panel entre los dos
+  montajes tipeaba uno ya reemplazado (`CODIGO_INCORRECTO` con el código
+  correcto a la vista). **Cerrada en la entrada (f) de este mismo día**, que se
+  integra en el mismo PR que esta.
+- **Corrección a este diagnóstico:** acá quedó anotado que el mecanismo era un
+  intercalado de escrituras (sesión con un hash y panel con otro código). La
+  entrada (f) lo desmintió con pruebas: con el almacén en memoria —el de
+  `next dev` y el de los tests— las dos aperturas comparten la misma
+  referencia de sesión, así que gana la última en las dos colecciones y el
+  estado queda consistente. Bastaba con regenerar el código; el intercalado
+  solo es alcanzable con el almacén desplegado.
+
+
+---
+
 ## 2026-08-31 (d) · Lote F5d: correcciones reales — drill-down, confirmación y la tarjeta de la selfie
 
 **Rama:** `feat/f5d-correcciones-reales` · **Segundo feedback de Andres con documentos reales**

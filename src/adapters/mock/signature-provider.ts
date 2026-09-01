@@ -58,7 +58,7 @@ import type {
   SignatureProvider,
 } from "../../ports/signature-provider";
 import { ErrorCode100 } from "../../ports/signature-provider";
-import { INTENTOS_MAXIMOS_OTP, VIGENCIA_OTP_MS } from "../../domain/reglas-otp";
+import { COOLDOWN_REENVIO_MS, INTENTOS_MAXIMOS_OTP, VIGENCIA_OTP_MS } from "../../domain/reglas-otp";
 import { generarCodigoOtp } from "../../repositories/otp-hash";
 import type { CanalFirma, DocumentoCerrado, Firma } from "../../domain/tipos";
 import { estadoCompartidoDemo } from "./estado-compartido";
@@ -191,8 +191,24 @@ export interface SesionFirmaMock {
   /** `null` hasta que la persona abre el enlace y Code100 emite el código. */
   otp: OtpDeFirma | null;
   firma: Firma | null;
-  /** El PDF firmado. Se escribe en la misma asignación que `firma`. */
-  documentoFirmado: Uint8Array | null;
+  /**
+   * El PDF firmado, en base64. Se escribe en la misma asignación que `firma`.
+   *
+   * **Base64 y no bytes, y no es un capricho de formato.** El almacén de
+   * estado demo es "colección + clave + JSON" (`AlmacenEstadoDemo`); un
+   * `Uint8Array` acá viajaba a DynamoDB como atributo Binary y volvía como
+   * una vista sobre el buffer de 64 KB de la respuesta HTTP del SDK. El modo
+   * desarrollo de Next serializa como información de depuración del payload
+   * RSC **los valores de todos los awaits** de un Server Component —también
+   * los intermedios, como la respuesta cruda del SDK—, y React Flight encola
+   * sin copiar los chunks binarios de más de 2 KB: al intentar transferir esa
+   * vista, Node tira `ArrayBuffer is not detachable and could not be cloned`,
+   * el stream muere y `GET /demo-panel` devolvía 500 apenas existía una firma
+   * (escenario E2E 07). Con base64 el documento es un string y no hay binario
+   * que el debug de dev pueda encolar. Los bytes se recuperan por
+   * `descargarDocumentoFirmado`, que decodifica.
+   */
+  documentoFirmadoBase64: string | null;
   fallo: { readonly motivo: MotivoNoFirmado; readonly detalle: string | null } | null;
   actualizadoEn: string;
 }
@@ -483,7 +499,7 @@ export function crearSignatureProviderMock(
         urlActoDeFirma: `https://firmador.simulado.code100.com.py/sign/${idCode100}`,
         otp: null,
         firma: null,
-        documentoFirmado: null,
+        documentoFirmadoBase64: null,
         fallo: null,
         actualizadoEn: enviado.toISOString(),
       };
@@ -499,7 +515,12 @@ export function crearSignatureProviderMock(
     },
 
     async descargarDocumentoFirmado(idCode100: string): Promise<Uint8Array | null> {
-      return (await leerSesion(idCode100))?.documentoFirmado ?? null;
+      const base64 = (await leerSesion(idCode100))?.documentoFirmadoBase64 ?? null;
+      if (base64 === null) return null;
+      // Copia con buffer propio: un Buffer del pool es una vista compartida,
+      // y devolver vistas compartidas es exactamente lo que este campo dejó
+      // de hacer (ver `documentoFirmadoBase64`).
+      return new Uint8Array(Buffer.from(base64, "base64"));
     },
 
     async confirmarResultado(idCode100: string): Promise<ResultadoFirma> {
@@ -530,10 +551,91 @@ export type ResultadoAperturaDemo =
   | { readonly ok: false; readonly motivo: "NO_ENCONTRADA" | "YA_CERRADA" | "EXPIRADA" | "ERROR_ENVIO" };
 
 /**
+ * Aperturas en curso, para que dos ABRIR sobre el mismo acto corran una
+ * después de la otra y no intercaladas.
+ *
+ * **No es lo que arregló el síntoma de desarrollo** —eso lo hace la
+ * deduplicación del montaje, más abajo—, y conviene no confundirlos. Abrir
+ * escribe dos veces: el HMAC en la sesión y el código en claro para el panel,
+ * con `await`s en el medio. Que el intercalado deje sesión=hash_B con
+ * panel=código_A depende del almacén:
+ *
+ * - Con el almacén en memoria (`next dev`, tests), `obtener` devuelve **la
+ *   misma referencia** de sesión a las dos aperturas y las escrituras van en
+ *   lockstep, así que gana la última en las dos colecciones: queda consistente
+ *   solo. Ahí este candado no cambia nada, y no hay test que pruebe que haga
+ *   falta, porque no lo hay que falle sin él.
+ * - Desplegado, `AlmacenFirmaDemo` es DynamoDB
+ *   (`estado-demo-repository.ts`): cada lectura devuelve una **copia** y cada
+ *   escritura es una llamada de red con latencia propia, así que las dos
+ *   colecciones pueden ordenarse distinto y el estado inconsistente sí es
+ *   alcanzable. Para eso está.
+ *
+ * El candado es por proceso —igual que el pepper—, así que cierra la ventana
+ * dentro de una instancia y no entre instancias; eso exigiría escrituras
+ * condicionales que este almacén no modela.
+ */
+const APERTURAS_EN_CURSO = estadoCompartidoDemo(
+  "firma.aperturas-en-curso",
+  () => new Map<string, Promise<void>>(),
+);
+
+async function conAperturaEnSerie<T>(idCode100: string, tarea: () => Promise<T>): Promise<T> {
+  const anterior = APERTURAS_EN_CURSO.get(idCode100) ?? Promise.resolve();
+  // Corre cuando la anterior suelte el turno, haya terminado como haya terminado.
+  const propia = anterior.then(tarea, tarea);
+  const cola = propia.then(
+    () => undefined,
+    () => undefined,
+  );
+  APERTURAS_EN_CURSO.set(idCode100, cola);
+  try {
+    return await propia;
+  } finally {
+    if (APERTURAS_EN_CURSO.get(idCode100) === cola) APERTURAS_EN_CURSO.delete(idCode100);
+  }
+}
+
+/**
+ * Quién pidió abrir el acto, que es lo que decide si el código rota.
+ *
+ * - `MONTAJE_DE_PANTALLA`: lo disparó el efecto de la pantalla al aparecer,
+ *   no una persona. Es el único caso que se deduplica.
+ * - `PEDIDO_EXPLICITO`: alguien tocó *Pedir un código nuevo* (o el botón del
+ *   panel). Siempre rota, y es el valor por defecto: la deduplicación es la
+ *   excepción y hay que pedirla.
+ */
+export type OrigenApertura = "MONTAJE_DE_PANTALLA" | "PEDIDO_EXPLICITO";
+
+/**
  * La persona abre el enlace: Code100 emite el OTP de firma y lo pide en su
  * pantalla. Con `otpRemoto` (WhatsApp-Modular) y canal WHATSAPP, el código
  * viaja de verdad por WhatsApp y acá solo queda su identificador; si no, se
  * emite localmente y el código en claro solo llega al registro del panel.
+ *
+ * ## Por qué el origen cambia el resultado
+ *
+ * Un ABRIR de `MONTAJE_DE_PANTALLA` cuyo código vigente tenga menos de 60
+ * segundos es **idempotente**: devuelve su vencimiento sin acuñar otro. Con eso
+ * el doble montaje de StrictMode deja de acuñar dos códigos, y con
+ * `INTEGRATION_OTP=live` deja de mandar dos WhatsApp por una pantalla que se
+ * abrió una sola vez.
+ *
+ * Esta es la parte que arregla el `CODIGO_INCORRECTO` de la bitácora del
+ * 31-ago-2026: el segundo montaje regeneraba el código, así que quien había
+ * leído el del panel entre los dos montajes tipeaba uno ya reemplazado. No
+ * hacía falta ninguna escritura intercalada para producirlo — bastaba con
+ * regenerar.
+ *
+ * Un ABRIR de `PEDIDO_EXPLICITO` **siempre rota**, aunque sea al segundo del
+ * anterior. Es una divergencia declarada del "reenvío bloqueado 60 segundos"
+ * de la regla inviolable #1, decidida por Andres el 31-ago-2026, y tiene dos
+ * motivos: la condición con la que aceptó pedir el código dentro de la pantalla
+ * fue que siempre se pudiera pedir otro (`e2e/09-firma-reintento-codigo.spec.ts`
+ * la fija), y bloquear el reenvío convertía los 3 intentos agotados en un
+ * callejón sin salida de hasta un minuto — con un botón que respondía `ok` sin
+ * emitir nada. La regla #1 sigue rigiendo entera para los OTP de canal, donde
+ * `OtpRepository` la aplica con su `REENVIO_BLOQUEADO`.
  */
 export async function abrirEnlaceDeFirmaMock(
   idCode100: string,
@@ -541,7 +643,20 @@ export async function abrirEnlaceDeFirmaMock(
     readonly ahora?: () => Date;
     readonly retenerCodigoParaPanelDemo?: boolean;
     readonly otpRemoto?: OtpFirmaRemoto | null;
+    readonly origen?: OrigenApertura;
   } = {},
+): Promise<ResultadoAperturaDemo> {
+  return conAperturaEnSerie(idCode100, () => abrirEnlaceDeFirma(idCode100, opciones));
+}
+
+async function abrirEnlaceDeFirma(
+  idCode100: string,
+  opciones: {
+    readonly ahora?: () => Date;
+    readonly retenerCodigoParaPanelDemo?: boolean;
+    readonly otpRemoto?: OtpFirmaRemoto | null;
+    readonly origen?: OrigenApertura;
+  },
 ): Promise<ResultadoAperturaDemo> {
   const ahora = opciones.ahora ?? (() => new Date());
   const retener = opciones.retenerCodigoParaPanelDemo ?? process.env.DEMO_MODE === "true";
@@ -557,6 +672,18 @@ export async function abrirEnlaceDeFirmaMock(
     sesion.actualizadoEn = emitidoEn;
     await guardarSesion(sesion);
     return { ok: false, motivo: "EXPIRADA" };
+  }
+
+  // El doble montaje de la pantalla no acuña un código nuevo mientras el
+  // vigente tenga menos de un minuto — ver el comentario de
+  // `abrirEnlaceDeFirmaMock`. Un pedido explícito nunca entra acá: rota
+  // siempre, y por eso los intentos agotados tienen salida inmediata.
+  if (
+    (opciones.origen ?? "PEDIDO_EXPLICITO") === "MONTAJE_DE_PANTALLA" &&
+    sesion.otp &&
+    instante.getTime() - new Date(sesion.otp.emitidoEn).getTime() < COOLDOWN_REENVIO_MS
+  ) {
+    return { ok: true, expiraEn: sesion.otp.expiraEn };
   }
 
   // Camino remoto: WhatsApp-Modular emite el código con propósito
@@ -585,7 +712,7 @@ export async function abrirEnlaceDeFirmaMock(
   if (retener) {
     await almacen().guardar(COLECCION_CODIGOS, idCode100, {
       origen: "PROVEEDOR" as const,
-    referenciaActo: idCode100,
+      referenciaActo: idCode100,
       codigo,
       destino: sesion.destino,
       emitidoEn,
@@ -696,7 +823,7 @@ export async function firmarEnCode100Mock(
   };
 
   sesion.firma = firma;
-  sesion.documentoFirmado = bytes;
+  sesion.documentoFirmadoBase64 = Buffer.from(bytes).toString("base64");
   sesion.otp = null; // Uso único: el código no sirve para nada más.
   sesion.actualizadoEn = firmadoEn;
   await guardarSesion(sesion);
@@ -722,10 +849,30 @@ export async function cerrarSinFirmarMock(
   return true;
 }
 
+/**
+ * Lo que el panel de demo puede ver de una sesión: todo menos el documento
+ * firmado, que se pide por `descargarDocumentoFirmado` cuando hace falta.
+ *
+ * Es higiene de tamaño y de alcance —el panel muestra metadata del acto, no
+ * el PDF—, no la defensa contra el 500 de `/demo-panel`: esa vive en que
+ * `documentoFirmadoBase64` sea un string y no bytes (ver su comentario en
+ * `SesionFirmaMock`). Excluirlo acá **solo** no alcanzaba, y se comprobó: el
+ * debug del modo dev de Next serializa también los awaits intermedios (la
+ * respuesta cruda del SDK de DynamoDB), así que el binario reventaba el
+ * stream RSC antes de que este recorte llegara a ejecutarse.
+ */
+export type SesionFirmaVisiblePanel = Omit<SesionFirmaMock, "documentoFirmadoBase64">;
+
 /** Sesiones simuladas vivas en esta instancia, de la más nueva a la más vieja. */
-export async function listarSesionesFirmaMock(): Promise<readonly Readonly<SesionFirmaMock>[]> {
+export async function listarSesionesFirmaMock(): Promise<readonly Readonly<SesionFirmaVisiblePanel>[]> {
   const todas = await almacen().listar<SesionFirmaMock>(COLECCION_SESIONES);
-  return [...todas].sort((a, b) => (a.enlaceEnviadoEn < b.enlaceEnviadoEn ? 1 : -1));
+  return [...todas]
+    .sort((a, b) => (a.enlaceEnviadoEn < b.enlaceEnviadoEn ? 1 : -1))
+    .map((sesion) => {
+      const visible: Partial<SesionFirmaMock> = { ...sesion };
+      delete visible.documentoFirmadoBase64;
+      return visible as SesionFirmaVisiblePanel;
+    });
 }
 
 export async function obtenerSesionFirmaMock(

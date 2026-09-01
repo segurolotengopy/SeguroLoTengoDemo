@@ -53,7 +53,13 @@ import { crearExpedienteRepository } from "@/repositories";
 
 export const dynamic = "force-dynamic";
 
-const ACCIONES = ["ABRIR", "FIRMAR", "RECHAZAR"] as const;
+/**
+ * `ABRIR` y `REEMITIR` hacen lo mismo salvo en una cosa, y por eso son dos
+ * acciones y no un booleano: `ABRIR` lo manda la pantalla al montarse —así que
+ * puede llegar duplicado por el doble montaje de StrictMode y se deduplica—,
+ * mientras que `REEMITIR` lo manda *Pedir un código nuevo* y siempre acuña otro.
+ */
+const ACCIONES = ["ABRIR", "REEMITIR", "FIRMAR", "RECHAZAR"] as const;
 type Accion = (typeof ACCIONES)[number];
 
 function esAccion(valor: unknown): valor is Accion {
@@ -90,8 +96,11 @@ export async function POST(request: Request): Promise<Response> {
 
   const otpRemoto = obtenerOtpFirmaRemoto();
 
-  if (cuerpo.accion === "ABRIR") {
-    const resultado = await abrirEnlaceDeFirmaMock(acto.idCode100, { otpRemoto });
+  if (cuerpo.accion === "ABRIR" || cuerpo.accion === "REEMITIR") {
+    const resultado = await abrirEnlaceDeFirmaMock(acto.idCode100, {
+      otpRemoto,
+      origen: cuerpo.accion === "ABRIR" ? "MONTAJE_DE_PANTALLA" : "PEDIDO_EXPLICITO",
+    });
     return resultado.ok
       ? respuestaJson({ ok: true, expiraEn: resultado.expiraEn }, { cookies })
       : respuestaJson({ ok: false, motivo: resultado.motivo }, { status: 409, cookies });

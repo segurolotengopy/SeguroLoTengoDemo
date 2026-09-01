@@ -114,7 +114,10 @@ export function BloqueOtpFirma({
   }, []);
 
   const pedir = useCallback(
-    async (accion: "ABRIR" | "FIRMAR", codigoTipeado?: string): Promise<RespuestaFirmador> => {
+    async (
+      accion: "ABRIR" | "REEMITIR" | "FIRMAR",
+      codigoTipeado?: string,
+    ): Promise<RespuestaFirmador> => {
       const respuesta = await fetch("/api/p8/firmador-simulado", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -128,13 +131,22 @@ export function BloqueOtpFirma({
     [],
   );
 
-  /** Emite el código apenas el acto existe, y al pedir uno nuevo. */
-  const emitir = useCallback(async () => {
+  /**
+   * Emite el código apenas el acto existe, y al pedir uno nuevo.
+   *
+   * La acción distingue las dos cosas y no es un detalle: el montaje llega
+   * duplicado por StrictMode y el servidor lo deduplica dentro del minuto,
+   * mientras que *Pedir un código nuevo* tiene que acuñar otro sí o sí — si se
+   * deduplicara, tres intentos errados dejarían a la persona esperando un
+   * minuto con un botón que dice que anduvo.
+   */
+  const emitir = useCallback(
+    async (accion: "ABRIR" | "REEMITIR" = "ABRIR") => {
     setEmitiendo(true);
     setError(null);
     setCodigo("");
     try {
-      const datos = await pedir("ABRIR");
+      const datos = await pedir(accion);
       if (!vigente.current) return;
       if (!datos.ok) setError(MENSAJES[datos.motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO);
     } catch {
@@ -142,10 +154,12 @@ export function BloqueOtpFirma({
     } finally {
       if (vigente.current) setEmitiendo(false);
     }
-  }, [pedir]);
+    },
+    [pedir],
+  );
 
   useEffect(() => {
-    void emitir();
+    void emitir("ABRIR");
   }, [emitir, idCode100]);
 
   /**
@@ -218,7 +232,7 @@ export function BloqueOtpFirma({
         </button>
         <button
           type="button"
-          onClick={() => void emitir()}
+          onClick={() => void emitir("REEMITIR")}
           disabled={emitiendo || firmando}
           className="text-xs font-semibold text-azul-700 underline underline-offset-2 disabled:opacity-40 dark:text-azul-300"
         >
