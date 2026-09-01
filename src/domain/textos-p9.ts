@@ -154,7 +154,7 @@ export const AVISOS_IMPORTANTE_P9: readonly string[] = [
 // Documentos
 // ---------------------------------------------------------------------------
 
-export const TITULO_DOCUMENTOS_QUE_RECIBIRAS = "DOCUMENTOS QUE RECIBIRÁS EN BREVES MOMENTOS";
+export const TITULO_DOCUMENTOS_QUE_RECIBIRAS = "Y ESTOS TE LLEGAN EN BREVE";
 
 export const BADGE_EN_EMISION = "EN EMISIÓN";
 export const BADGE_EMITIDA = "EMITIDA";
@@ -175,7 +175,12 @@ export const DOCUMENTOS_POR_RECIBIR: readonly DocumentoPorRecibir[] = [
   },
 ];
 
-export const TITULO_DOCUMENTOS_PARA_DESCARGAR = "DOCUMENTOS DISPONIBLES PARA DESCARGAR";
+/**
+ * El canvas agrupa todo bajo «Tus documentos» y no separa lo descargable de
+ * lo que llega después: para quien mira son sus documentos, y el estado de
+ * cada uno lo dice la tarjeta (observación de Andres, 01-sep).
+ */
+export const TITULO_DOCUMENTOS_PARA_DESCARGAR = "TUS DOCUMENTOS";
 
 /** D-11 · un solo documento firmado para descargar: Solicitud + FIPF. */
 export const NOMBRE_DOCUMENTO_P9 = "Solicitud de Seguro de Vida Oncológico y FIPF (firmado)";
