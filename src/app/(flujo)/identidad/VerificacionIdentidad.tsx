@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CapturaConCamara, type ResultadoEnvioCaptura } from "./CapturaConCamara";
 import { PanelPruebaDeVida } from "./PanelPruebaDeVida";
 import { EnlaceAclaracion } from "@/components/shared";
+import { IlustracionCaptura } from "./IlustracionCaptura";
 // Desde `catalogo-identidad` y no desde el caso de uso: este es un componente
 // de cliente, e importar `verificacion-identidad.ts` arrastraría `node:crypto`
 // al bundle.
@@ -830,6 +831,11 @@ export function VerificacionIdentidad({
                         : "border-borde-sutil bg-superficie-suave"
                   }`}
                 >
+                  {/* La ilustración del canvas: de un vistazo se ve cuál de
+                      las tres fotos toca. */}
+                  <div className="flex justify-center py-1 text-etiqueta">
+                    <IlustracionCaptura tipo={tipo} />
+                  </div>
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="text-sm font-bold text-titulo">
                       {numero}. {titulo}
