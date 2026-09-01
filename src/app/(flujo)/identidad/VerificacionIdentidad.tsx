@@ -253,6 +253,15 @@ async function postear(ruta: string, cuerpo: unknown): Promise<RespuestaAnalisis
 
 export interface VerificacionIdentidadProps {
   /**
+   * Dibujo y recorrido del canvas (flujo v3): una sola columna, la lectura de
+   * la cédula pedida con su propio botón y los datos abiertos recién después.
+   *
+   * **v2 conserva su pantalla**, que es la de producción: allí la lectura se
+   * dispara al completar la tercera captura y los bloques conviven en dos
+   * columnas. Sin esta separación, portar el canvas rompía el flujo vigente.
+   */
+  canvas?: boolean;
+  /**
    * `true` si el backend tiene prueba de vida por streaming (AWS Rekognition
    * Face Liveness). Lo decide el servidor y baja como prop: la pantalla no
    * tiene por qué adivinar en qué modo corre el backend, y en modo mock el
@@ -325,6 +334,7 @@ export function VerificacionIdentidad({
   subidaDeArchivoDisponible = false,
   onCompletado,
   onAsistencia,
+  canvas = false,
 }: VerificacionIdentidadProps = {}) {
   const [capturas, setCapturas] = useState<Capturas>({});
   /** Toma de cámara abierta; mientras exista, el visor ocupa la pantalla. */
@@ -629,8 +639,10 @@ export function VerificacionIdentidad({
         return;
       }
 
-      // La lectura ya no arranca sola: la pide la persona con su botón, como
-      // en el canvas.
+      // En v2 la lectura arranca al completar la tercera captura; en el canvas
+      // la pide la persona con su botón.
+      const completas = TARJETAS.every(({ tipo }) => siguientes[tipo]?.aprobada);
+      if (!canvas && completas) await analizar(siguientes);
     } catch {
       setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
     } finally {
@@ -725,7 +737,8 @@ export function VerificacionIdentidad({
 
       setCamaraAbierta(null);
 
-      // La lectura la pide la persona con su botón (canvas).
+      const completas = TARJETAS.every(({ tipo: t }) => siguientes[t]?.aprobada);
+      if (!canvas && completas) await analizar(siguientes);
       return { ok: true };
     } catch {
       return { ok: false, mensaje: "No pudimos conectarnos. Revisá tu conexión e intentá de nuevo." };
@@ -798,11 +811,10 @@ export function VerificacionIdentidad({
       {/* Maqueta p.4: a la izquierda las tomas y, debajo, los datos que las
           tomas completan; a la derecha el correo, la advertencia y la acción.
           Los bloques informativos van debajo de las dos columnas. */}
-      {/* Una sola columna: el canvas **pide de a poco** — primero las tres
-          capturas, y los datos aparecen recién cuando se leyó la cédula. En
-          dos columnas se pedía todo junto, que es otra experiencia
-          (observación de Andres, 01-sep). */}
-      <div className="flex flex-col gap-4">
+      {/* El canvas **pide de a poco** —primero las tres capturas y los datos
+          recién con la lectura— y para eso apila los bloques en una columna.
+          v2 conserva sus dos columnas. */}
+      <div className={canvas ? "flex flex-col gap-4" : "grid gap-4 lg:grid-cols-2 lg:items-start"}>
       {/* Columna izquierda: primero las tomas y debajo lo que las tomas
           completan. El orden cuenta la historia de arriba hacia abajo —se
           fotografía, y de ahí salen los datos— y es el de la maqueta
@@ -848,28 +860,22 @@ export function VerificacionIdentidad({
                   <div className="flex justify-center py-1 text-etiqueta">
                     <IlustracionCaptura tipo={tipo} />
                   </div>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="text-sm font-bold text-titulo">
-                      {numero}. {titulo}
+                  {/* Sin numerar: el canvas nombra las tres tomas («Cédula ·
+                      frente») y el orden lo da la posición. Y no lleva chip de
+                      estado mientras está pendiente —lo que hay que hacer lo
+                      dice el botón—; el estado aparece recién cuando hay algo
+                      que decir. */}
+                  <p className="text-sm font-bold text-titulo">{titulo}</p>
+                  {aprobada && !noCoincide ? (
+                    <p className="text-[13px] font-bold text-naranja-700 dark:text-naranja-300">
+                      ✓ Aprobada
                     </p>
-                    <span
-                      className={`text-[11px] font-bold tracking-wide uppercase ${
-                        aprobada && !noCoincide
-                          ? "text-verde-700 dark:text-verde-300"
-                          : rechazada || noCoincide
-                            ? "text-rojo-700 dark:text-rojo-300"
-                            : "text-etiqueta"
-                      }`}
-                    >
-                      {noCoincide
-                        ? "No coincide"
-                        : aprobada
-                          ? "Aprobada"
-                          : rechazada
-                            ? "Rechazada"
-                            : "Pendiente"}
-                    </span>
-                  </div>
+                  ) : null}
+                  {noCoincide || rechazada ? (
+                    <p className="text-[13px] font-bold text-rojo-700 dark:text-rojo-300">
+                      {noCoincide ? "No coincide" : "Rechazada"}
+                    </p>
+                  ) : null}
 
                   <p className="text-xs text-cuerpo">{detalle}</p>
                   {noCoincide ? (
@@ -976,7 +982,7 @@ export function VerificacionIdentidad({
         {/* El canvas pide la lectura con un botón propio en vez de dispararla
             sola al completar la tercera captura: es el acto que la persona
             decide, y con él aparecen los datos. */}
-        {datos === null ? (
+        {canvas && datos === null ? (
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -998,17 +1004,21 @@ export function VerificacionIdentidad({
                   : "Primero completá las tres capturas de arriba."}
             </span>
           </div>
-        ) : (
+        ) : canvas ? (
           <p className="text-sm font-semibold text-verde-800 dark:text-verde-200">
             ✓ Leímos tu cédula y tu selfie coincide. Revisá abajo lo que extrajimos: podés corregir
             todo, salvo el número de cédula y la fecha de nacimiento, que quedan tal como figuran
             en el documento.
           </p>
-        )}
+        ) : enProceso === "ANALISIS" ? (
+          <p role="status" className="text-sm font-semibold text-azul-700 dark:text-azul-200">
+            Analizando el documento y comparando con la selfie…
+          </p>
+        ) : null}
 
-        {/* El canvas muestra los datos recién cuando se leyó la cédula: antes
-            no hay nada que revisar y pedirlo todo junto es otra experiencia. */}
-        {datos !== null ? (
+        {/* El canvas muestra los datos recién cuando se leyó la cédula; en v2
+            conviven desde el principio, como estaban. */}
+        {!canvas || datos !== null ? (
         <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
@@ -1222,9 +1232,7 @@ export function VerificacionIdentidad({
 
       {/* Columna derecha: el correo primero (CHG-14), después la
           advertencia del documento y la acción. */}
-      {/* El canvas muestra los datos recién cuando se leyó la cédula: antes
-            no hay nada que revisar y pedirlo todo junto es otra experiencia. */}
-      {datos !== null ? (
+      {!canvas || datos !== null ? (
       <div className="flex flex-col gap-3">
         <section className="flex flex-col gap-3 rounded-lg border border-borde-sutil bg-superficie p-4">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">

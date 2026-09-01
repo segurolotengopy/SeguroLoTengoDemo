@@ -185,6 +185,7 @@ export function Inscripcion(props: InscripcionProps) {
         resumenCompleta="Leímos tu cédula y tu selfie coincide. Tus datos quedaron confirmados."
       >
         <VerificacionIdentidad
+          canvas
           pruebaDeVidaEnVivoDisponible={props.pruebaDeVidaEnVivoDisponible}
           subidaDeArchivoDisponible={props.subidaDeArchivoDisponible}
           onCompletado={() => router.refresh()}

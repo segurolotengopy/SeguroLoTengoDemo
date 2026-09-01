@@ -38,6 +38,41 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-01 (g) · Las tarjetas de captura, y el susto de haber roto producción
+
+**Rama:** `fix/canvas-tarjetas-captura` · **Pedido de Andres**
+
+### Qué cambió
+
+Las tarjetas de captura dejan de numerar («1. Cédula · frente» → «Cédula ·
+frente»: el canvas nombra las tomas y el orden lo da la posición) y dejan el
+chip de estado en mayúsculas. Mientras está pendiente **no muestran chip** —lo
+que hay que hacer lo dice el botón—; aprobada muestra «✓ Aprobada» en acento,
+como el canvas, y el rojo queda para «No coincide» y «Rechazada».
+
+### El hallazgo importante: se había roto v2, que es producción
+
+`VerificacionIdentidad` es **compartida por los dos flujos**, y los cambios de
+la tanda anterior —columna única, botón propio de lectura, bloques de datos
+abiertos recién con la lectura— se habían aplicado a las dos. El e2e de v2
+(`01-camino-feliz`) lo delató: `#p5-correo` ya no existía al llegar, porque el
+correo había quedado detrás de la lectura de la cédula.
+
+**`main` despliega a producción con el flag apagado**, así que eso era romper
+el flujo vigente para portar el diseño del nuevo.
+
+Se acotó con una prop `canvas` en el componente: v3 recibe la reestructura y
+**v2 conserva su pantalla** —dos columnas, lectura automática al completar la
+tercera captura, bloques desde el principio—. Los textos de las tarjetas sí se
+comparten: son una mejora y los helpers de e2e los contemplan.
+
+### Verificaciones
+
+Suite **1247** en verde · e2e v3 **10/10** · **e2e v2 `01-camino-feliz` en
+verde**, que es la prueba de que producción quedó como estaba.
+
+---
+
 ## 2026-09-01 (f) · La comparación exhaustiva contra el canvas, con método
 
 **Rama:** `fix/canvas-textos-faltantes` · **Andres preguntó si se revisó pantalla por pantalla**

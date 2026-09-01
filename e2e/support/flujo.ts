@@ -281,10 +281,10 @@ export async function completarP5Aprobado(page: Page): Promise<void> {
   await esperarHidratacion(page);
 
   await tomarCapturaP5(page, "FRENTE");
-  await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(1);
 
   await tomarCapturaP5(page, "DORSO");
-  await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(2);
 
   await tomarCapturaP5(page, "SELFIE");
 
@@ -315,9 +315,9 @@ export async function completarCapturasP5(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/identidad$/);
   await esperarHidratacion(page);
   await tomarCapturaP5(page, "FRENTE");
-  await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(1);
   await tomarCapturaP5(page, "DORSO");
-  await expect(page.getByText("Aprobada", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(2);
   await tomarCapturaP5(page, "SELFIE");
   // La comparación facial rechaza: el aviso rojo de P5 avisa que hay que
   // repetir la captura, nunca editar los campos a mano.
