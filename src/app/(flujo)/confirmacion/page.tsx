@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
+import { crearExpedienteRepository } from "@/repositories";
 import { sufijoTitulo } from "@/domain/entidades";
 import { flujoV3Activo } from "@/domain/flujo-vigente";
 import type { Metadata } from "next";
@@ -51,6 +54,24 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * ¿La firma del cliente la generó el portal (D1)? De eso depende que tenga
+ * sentido ofrecer la constancia: sobre una firma de proveedor la evidencia que
+ * respalda es otra, y el panel citaría los artículos de la firma simple sobre
+ * un acto que se produjo de otra manera. Si la consulta falla, no se ofrece:
+ * es mejor no mostrar el botón que mostrarlo roto.
+ */
+async function firmaInternaDelExpediente(): Promise<boolean> {
+  const expedienteId = (await cookies()).get(COOKIE_EXPEDIENTE)?.value;
+  if (!expedienteId) return false;
+  try {
+    const expediente = await crearExpedienteRepository().obtenerPorId(expedienteId);
+    return expediente?.firma?.origen === "INTERNA";
+  } catch {
+    return false;
+  }
+}
+
 export default async function PantallaP9Confirmacion() {
   // Esta pantalla es dueña de dos estados, no de uno: `PAGO_CONFIRMADO` —el
   // cobro entró y el certificado existe— y `EMITIDO`, que es a donde llega
@@ -58,6 +79,7 @@ export default async function PantallaP9Confirmacion() {
   // ("Este expediente todavía no llegó a la contratación aceptada") sin decir
   // qué hacer ni a dónde ir.
   const enOtroPaso = await expedienteEnOtroPaso("/confirmacion", ["PAGO_CONFIRMADO"]);
+  const firmaInterna = await firmaInternaDelExpediente();
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/confirmacion" />} />
@@ -95,7 +117,7 @@ export default async function PantallaP9Confirmacion() {
             modoDemo={esModoDemo()}
           />
         ) : (
-          <ContratacionAceptada />
+          <ContratacionAceptada evidenciaFirmaDisponible={firmaInterna} />
         )}
 
         {/* ---------------------------------------------------------------- */}

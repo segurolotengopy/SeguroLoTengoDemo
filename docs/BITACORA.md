@@ -38,6 +38,68 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-01 · La constancia de la firma del cliente
+
+**Rama:** `feat/constancia-firma-cliente` · **Pedido de Andres**
+
+### El caso
+
+Andres pidió dos cosas: confirmar que el flujo v3 usa la solución **interna**
+de firma no cualificada, y poner un botón donde se puedan ver las evidencias
+de esa firma.
+
+Lo primero está confirmado en código: `/pago-y-firma` monta `FirmaInternaV3`,
+que llama a `solicitarOtpDeFirmaCliente` y `registrarActoDeFirmaCliente`
+(`src/domain/firma-cliente.ts`), y la firma se asienta con
+`origen: "INTERNA"` y `referenciaActo` = el OTP consumido. Code100 (mock)
+queda solo para las cualificadas de Interseguros y Alianza, aplicadas después
+por el sondeo de siempre. Coincide con D1 y con el CLAUDE.md.
+
+Lo segundo no existía, y su ausencia era el agujero real: **como la firma no
+es cualificada, no hay certificado de un prestador que la persona pueda
+abrir**. Lo que la respalda es el registro de evidencia, y ese registro vivía
+únicamente en la consola interna. Quien firmaba no tenía forma de ver qué
+respalda su propia firma.
+
+### Qué cambió
+
+- **`src/domain/constancia-firma.ts`** (nuevo): proyección pura del Expediente
+  + su historial de evidencia. Agrupa los hechos por los **tres requisitos de
+  la Res. SS.SG. 210/2025 art. 4** —identificación, integridad, trazabilidad—
+  en vez de volcar una lista de registros que no le dice nada a nadie, e
+  incluye lo que el art. 9 manda conservar (IP, fecha y hora, códigos de
+  validación). Declara explícitamente la naturaleza de la firma
+  (`SIMPLE_NO_CUALIFICADA`, emisor `SEGUROLOTENGO`) para que la constancia no
+  se lea como un certificado cualificado.
+- **Solo constata la firma interna.** Sobre `origen: "PROVEEDOR"` devuelve
+  `null`: citar los artículos de la firma simple sobre un acto producido de
+  otra manera sería falso.
+- **`GET /api/p8/evidencia-firma`** (nuevo): lectura pura sobre el expediente
+  de la cookie. No escribe evidencia — mirar lo que respalda la propia firma
+  no es un hecho que haya que asentar, y sería una escritura por apertura.
+  Registrado en `SOLO_LECTURA` del inventario de rutas.
+- **`ModalEvidenciaFirma`** (compartido) + botón **«Ver la evidencia de mi
+  firma»** en dos lugares: la sección de firma del paso 3 y la pantalla de
+  confirmación. En confirmación va gateado por `firma.origen === "INTERNA"`,
+  que la página resuelve en el servidor: la pantalla es compartida con v2 y
+  ahí el botón habría mostrado un panel que miente.
+- Nunca sale el código del OTP (regla #2: viaja su referencia) ni datos de
+  salud o PEP (regla #7); el canal va enmascarado.
+
+### Verificaciones
+
+- Suite: **1231 tests** en verde (6 nuevos en `constancia-firma.test.ts`,
+  incluido uno que serializa la proyección y comprueba que no filtre).
+- Batería e2e v3: **10/10**, con el camino feliz extendido — abre el panel
+  tras firmar, comprueba los tres pilares y la cita de la norma, y vuelve a
+  abrirlo en confirmación para probar que sigue alcanzable después de pagar.
+
+### Queda abierto
+
+- La constancia no se descarga como PDF. Si Legal la quiere como instrumento
+  entregable, es otro documento del motor (con huella y QR), no este panel.
+- Sigue pendiente el fix del 500 del demo-panel, que Andres está validando.
+
 ## 2026-08-31 (d) · Lote F5d: correcciones reales — drill-down, confirmación y la tarjeta de la selfie
 
 **Rama:** `feat/f5d-correcciones-reales` · **Segundo feedback de Andres con documentos reales**

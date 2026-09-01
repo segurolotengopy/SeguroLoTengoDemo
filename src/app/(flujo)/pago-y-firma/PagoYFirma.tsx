@@ -10,7 +10,9 @@
  * nuevo; el pago no navega al confirmar (muestra el enlace a la confirmación,
  * como en v2).
  */
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ModalEvidenciaFirma } from "@/components/shared";
 import type { EstadoExpediente } from "@/domain/tipos";
 import {
   BLOQUEO_PAGO,
@@ -30,6 +32,7 @@ export interface PagoYFirmaProps {
 
 export function PagoYFirma(props: PagoYFirmaProps) {
   const router = useRouter();
+  const [verEvidencia, setVerEvidencia] = useState(false);
   const firmado = props.estado === "FIRMADO";
   const con = (frase: string) =>
     props.nombrePila ? `${props.nombrePila}, ${frase}` : frase.charAt(0).toUpperCase() + frase.slice(1);
@@ -49,9 +52,21 @@ export function PagoYFirma(props: PagoYFirmaProps) {
           <h2 className="text-lg font-bold text-titulo">{con(TITULO_SECCION_FIRMA)}</h2>
         </header>
         {firmado ? (
-          <p className="text-sm font-semibold text-verde-700 dark:text-verde-300">
-            {CONFIRMACION_FIRMADO}
-          </p>
+          <>
+            <p className="text-sm font-semibold text-verde-700 dark:text-verde-300">
+              {CONFIRMACION_FIRMADO}
+            </p>
+            {/* Tu firma es no cualificada y la genera el portal (D1): no hay
+                certificado de un prestador que abrir, así que lo que la
+                respalda —y lo que esto muestra— es su evidencia. */}
+            <button
+              type="button"
+              onClick={() => setVerEvidencia(true)}
+              className="inline-flex h-10 w-fit items-center rounded-lg border border-azul-300 px-4 text-xs font-bold tracking-wide text-azul-800 uppercase transition-colors hover:bg-azul-50 dark:border-azul-600 dark:text-azul-200 dark:hover:bg-azul-950"
+            >
+              Ver la evidencia de mi firma
+            </button>
+          </>
         ) : (
           <FirmaInternaV3 onCompletado={() => router.refresh()} />
         )}
@@ -80,6 +95,8 @@ export function PagoYFirma(props: PagoYFirmaProps) {
           <p className="text-sm text-etiqueta">{BLOQUEO_PAGO}</p>
         )}
       </section>
+
+      {verEvidencia ? <ModalEvidenciaFirma alCerrar={() => setVerEvidencia(false)} /> : null}
     </div>
   );
 }
