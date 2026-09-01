@@ -19,6 +19,7 @@
  * allá y acá queda solo el gating por estado.
  */
 import { useState } from "react";
+import { EnlaceAclaracion } from "@/components/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { EstadoExpediente } from "@/domain/tipos";
@@ -157,11 +158,22 @@ export function Inscripcion(props: InscripcionProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <aside className="rounded-xl border border-verde-300 bg-verde-50 p-4 text-sm text-cuerpo dark:border-verde-700 dark:bg-verde-950">
-        <span className="font-bold">IMPORTANTE · </span>
-        El código de verificación que te pediremos vence en 5 minutos y nadie te lo va a pedir
-        por llamada. Las fotos de tu cédula y tu selfie viajan cifradas y tus datos los ven
-        únicamente Interseguros y Alianza Garantía.
+      {/* Como en el canvas: tarjeta neutra, el rótulo arriba y el botón de
+          privacidad a la derecha —no un bloque verde con el texto corrido. */}
+      <aside className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-borde-sutil bg-superficie p-4 sm:p-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold tracking-[0.08em] text-naranja-700 uppercase dark:text-naranja-300">
+            Importante
+          </p>
+          <p className="mt-1.5 text-sm leading-relaxed text-cuerpo">
+            El código de verificación que te pediremos vence en 5 minutos y nadie te lo va a pedir
+            por llamada. Las fotos de tu cédula y tu selfie viajan cifradas y tus datos los ven
+            únicamente Interseguros y Alianza Garantía.
+          </p>
+        </div>
+        <EnlaceAclaracion documento="avisoPrivacidad" className="btn btn-secondary shrink-0">
+          Ver cómo cuidamos tus datos
+        </EnlaceAclaracion>
       </aside>
 
       <Seccion

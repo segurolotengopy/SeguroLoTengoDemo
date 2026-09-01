@@ -112,6 +112,28 @@ describe("constancia de la firma del cliente", () => {
     }
   });
 
+  /**
+   * La constancia es la del propio titular: sin su nombre, su cédula y su
+   * fecha de nacimiento probaría que *alguien* firmó, no que firmó él. Y la
+   * biometría entra por su resultado y la huella de cada captura, porque las
+   * imágenes no se guardan (pedido de Andres, 01-sep).
+   */
+  it("identifica al titular y muestra la biometría que respaldó la firma", () => {
+    const constancia = proyectarConstanciaFirma(conFirmaInterna(), HISTORIAL);
+    if (!constancia) throw new Error("debería proyectar la constancia");
+
+    const todos = constancia.pilares.flatMap((p) => p.hechos);
+    const valorDe = (etiqueta: string) => todos.find((h) => h.etiqueta === etiqueta)?.valor;
+    const identidad = expedienteFirmado().identidad!;
+
+    expect(valorDe("Titular")).toBe(`${identidad.nombres} ${identidad.apellidos}`);
+    expect(valorDe("Cédula de identidad")).toBe(identidad.numeroCedula);
+    expect(valorDe("Fecha de nacimiento")).toBe(identidad.fechaNacimiento);
+    expect(valorDe("IP de la verificación de identidad")).toBe("200.1.2.3");
+    expect(valorDe("Prueba de vida")).toBe("Aprobada");
+    expect(valorDe("Huella de la selfie")).toBe(identidad.captura.hashSelfie);
+  });
+
   it("no filtra el código del OTP ni datos sensibles (reglas #2 y #7)", () => {
     const constancia = proyectarConstanciaFirma(conFirmaInterna(), HISTORIAL);
     const serializada = JSON.stringify(constancia);

@@ -91,7 +91,7 @@ export default async function PantallaSeguro() {
           </h1>
         </header>
 
-        <PestanasDeProducto etiquetaProximamente="PRONTO" />
+        <PestanasDeProducto etiquetaProximamente="PRONTO" canvas />
         <p className="text-xs text-etiqueta">
           {NOMBRE_PRODUCTO} · producto inscrito {REGISTRO_PRODUCTO.codigo} · acto{" "}
           {REGISTRO_PRODUCTO.acto}. Los importes son premios anuales finales, IVA incluido.
@@ -128,7 +128,7 @@ export default async function PantallaSeguro() {
 
       {/* La píldora del canvas que avisa dónde está el botón principal. */}
       <AvisoCtaFlotante />
-      <PieLegal />
+      <PieLegal colapsable={flujoV3Activo()} />
     </div>
   );
 }

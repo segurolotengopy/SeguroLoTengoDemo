@@ -38,6 +38,69 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-01 (e) · Apertura progresiva, el archivo firmado que nunca llegaba, y la evidencia completa
+
+**Rama:** `fix/canvas-paso1-y-evidencia` · **Andres pidió el análisis pantalla por pantalla y priorizó**
+
+### El caso
+
+Andres señaló que **cambié el UX**: el canvas pide de a poco —primero las tres
+capturas y recién después los datos— y la implementación pedía todo junto en
+dos columnas. Además reportó tres cosas concretas: el paquete firmado se queda
+en «Preparando el archivo firmado…» para siempre, no se entiende qué es el
+«Intento 3», y la evidencia de la firma no identifica a la persona.
+
+### Qué cambió
+
+- **Paso 1 en columna única con apertura progresiva**: las tres capturas, un
+  botón propio «Tocá acá para leer los datos de mi cédula →» —la lectura ya no
+  se dispara sola al completar la tercera—, y los datos aparecen recién con la
+  lectura. Rótulos de las tarjetas, los del canvas.
+- **El archivo firmado, arreglado.** `archivarDocumentosFirmados` le pedía el
+  PDF a un proveedor; con la firma interna (D1) **no hay proveedor**, devolvía
+  `SIN_DESCARGA_DE_PROVEEDOR` y el botón no aparecía nunca. Como el acto
+  interno no modifica los bytes —lo que prueba la firma es el registro—, el
+  documento firmado **es** el paquete cerrado: se archiva bajo la clave de
+  firmado, con la misma verificación de huella que se le exige al proveedor.
+  Dos tests nuevos, uno de ellos sobre el caso en que la huella no coincide.
+- **Evidencia de la firma completa**: titular, cédula, fecha de nacimiento, IP
+  de la verificación de identidad, resultado de prueba de vida y coincidencia
+  facial, y la huella de las tres capturas. **La foto no se puede mostrar**:
+  las imágenes no se persisten, solo su SHA-256 y la referencia del proveedor.
+- **Pie legal colapsable** («INFORMACIÓN LEGAL Y REGULATORIA ▾») desde el paso
+  1, como el canvas; la bienvenida lo deja abierto.
+- **Bloque IMPORTANTE** con el dibujo del canvas y el botón «Ver cómo cuidamos
+  tus datos» a la derecha.
+- **Pestañas de ramos** subrayadas, no cajas.
+- Los tres bloques bajo el botón de pago (plazo, secuencia, seguridad) pasan a
+  texto chico: **no se quitan** —el plazo es D-10 y las viñetas de seguridad
+  son la fila 24 de la matriz— pero dejan de ocupar media pantalla.
+
+### Corrección a la lista anterior
+
+Se había reportado que faltaba el bloque «QUÉ CUBRE Y DESDE CUÁNDO». **Existe**
+desde el lote F3; el dato era falso.
+
+### Verificaciones
+
+Suite **1247** en verde · e2e v3 **10/10**. Los specs de identidad se
+actualizaron a los rótulos del canvas y al botón de lectura explícito.
+
+### Queda abierto
+
+- **Orden de bloques del paso 1**: el canvas va documento → identidad →
+  canales → complementarios → aceptación. Hoy el correo y los complementarios
+  viajan en la misma llamada que la identidad, y el OTP exige
+  `IDENTIDAD_VERIFICADA`; para el orden del canvas hay que **partir**
+  `/api/p5/identidad`. Es cambio de dominio: queda para después de la demo.
+- Beneficiario: faltan los dos campos del canvas (fecha de nacimiento y
+  celular), que tocan el expediente y la Solicitud.
+- «Intento N» de la entrega necesita rótulo: se lee sin contexto.
+- Confirmación: el canvas agrupa en «Tus documentos» y usa una columna de
+  hitos; hoy hay dos bloques y una tarjeta de estado.
+
+---
+
 ## 2026-09-01 (d) · Los modales de Bancard y los mecanismos del canvas
 
 **Rama:** `fix/canvas-modales-bancard` · **Andres, molesto y con razón**

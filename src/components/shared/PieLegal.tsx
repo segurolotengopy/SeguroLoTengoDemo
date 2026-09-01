@@ -21,11 +21,20 @@ import { CORREO_RETRACTO_Y_DATOS } from "@/domain/entidades";
  * versión, y está pendiente de aprobación de Legal
  * (`docs/plan/PROPUESTAS_TEXTOS_LEGALES_L6.md`).
  */
-export function PieLegal({ className = "" }: { className?: string }) {
-  return (
-    <footer
-      className={`border-t border-borde-tenue bg-superficie-suave px-4 py-3 sm:px-6 ${className}`}
-    >
+export function PieLegal({
+  className = "",
+  colapsable = false,
+}: {
+  className?: string;
+  /**
+   * Pie **colapsable** del canvas: desde la segunda pantalla el diseño lo
+   * esconde detrás de «INFORMACIÓN LEGAL Y REGULATORIA ▾» en vez de dejar
+   * cuatro párrafos de letra chica al pie de cada pantalla (observación de
+   * Andres, 01-sep). El contenido no cambia: cambia si está abierto.
+   */
+  colapsable?: boolean;
+}) {
+  const cuerpo = (
       <div className="mx-auto flex w-full max-w-pantalla flex-col gap-2">
         <p className="text-[11px] leading-relaxed text-etiqueta">{IDENTIFICACION_CANAL}</p>
 
@@ -56,6 +65,26 @@ export function PieLegal({ className = "" }: { className?: string }) {
           </a>
         </div>
       </div>
+  );
+
+  if (!colapsable) {
+    return (
+      <footer
+        className={`border-t border-borde-tenue bg-superficie-suave px-4 py-3 sm:px-6 ${className}`}
+      >
+        {cuerpo}
+      </footer>
+    );
+  }
+
+  return (
+    <footer className={`border-t border-borde-tenue px-4 py-3 sm:px-6 ${className}`}>
+      <details className="mx-auto w-full max-w-pantalla">
+        <summary className="cursor-pointer list-none text-[11px] font-bold tracking-[0.08em] text-etiqueta uppercase">
+          Información legal y regulatoria ▾
+        </summary>
+        <div className="pt-3">{cuerpo}</div>
+      </details>
     </footer>
   );
 }

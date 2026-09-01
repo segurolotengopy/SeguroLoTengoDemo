@@ -128,6 +128,13 @@ export function proyectarConstanciaFirma(
   const envioOtp = ultimoExitoso(historial, PASO_EVIDENCIA_OTP_FIRMA_ENVIO);
   const identidad = ultimoExitoso(historial, PASO_EVIDENCIA_VERIFICACION_P5);
   const destino = delDetalle(acto, "destino");
+  const biometria = expediente.identidad?.captura ?? {
+    hashFrenteCedula: "",
+    hashDorsoCedula: "",
+    hashSelfie: "",
+    pruebaDeVidaAprobada: false,
+    coincidenciaFacialAprobada: false,
+  };
 
   const pilares: readonly PilarDeLaConstancia[] = [
     {
@@ -136,7 +143,38 @@ export function proyectarConstanciaFirma(
       explicacion:
         "Tu identidad se verificó antes de firmar, y el código de un solo uso se envió al canal que ya habías verificado.",
       hechos: [
+        // Quién es la persona, con lo que quedó en el expediente. Es su propia
+        // constancia: sin el nombre, la cédula y la fecha de nacimiento, el
+        // panel prueba que *alguien* firmó, no que firmó ella (pedido de
+        // Andres, 01-sep).
+        ...hecho(
+          "Titular",
+          expediente.identidad
+            ? `${expediente.identidad.nombres} ${expediente.identidad.apellidos}`.trim()
+            : null,
+        ),
+        ...hecho("Cédula de identidad", expediente.identidad?.numeroCedula ?? null),
+        ...hecho("Fecha de nacimiento", expediente.identidad?.fechaNacimiento ?? null),
         ...hecho("Identidad verificada el", identidad?.fecha ?? null),
+        ...hecho("IP de la verificación de identidad", identidad?.ip ?? null),
+        // La biometría, por su resultado y por la huella de cada captura: las
+        // imágenes no se guardan (solo su SHA-256 y la referencia del
+        // proveedor), así que esto es lo que hay para probarla.
+        ...hecho(
+          "Prueba de vida",
+          expediente.identidad ? (biometria.pruebaDeVidaAprobada ? "Aprobada" : "No aprobada") : null,
+        ),
+        ...hecho(
+          "Coincidencia facial con la cédula",
+          expediente.identidad
+            ? biometria.coincidenciaFacialAprobada
+              ? "Aprobada"
+              : "No aprobada"
+            : null,
+        ),
+        ...hecho("Huella de la foto del frente", biometria.hashFrenteCedula),
+        ...hecho("Huella de la foto del dorso", biometria.hashDorsoCedula),
+        ...hecho("Huella de la selfie", biometria.hashSelfie),
         ...hecho("Canal del código", destino ?? null),
         ...hecho("Código de validación (referencia)", firma.referenciaActo),
         ...hecho("Código enviado el", envioOtp?.fecha ?? null),
