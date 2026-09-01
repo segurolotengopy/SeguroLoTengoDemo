@@ -217,41 +217,55 @@ export function FirmaInternaV3({ onCompletado }: { onCompletado: () => void }) {
         </button>
       </div>
 
-      <label className="flex items-start gap-2 text-sm text-cuerpo">
-        <input
-          type="checkbox"
-          checked={aceptada}
-          onChange={(evento) => setAceptada(evento.target.checked)}
-          disabled={otpId !== null}
-          className="mt-1 h-4 w-4"
-        />
-        <span>{ROTULO_ACEPTACION_FIRMA}</span>
-      </label>
-      <button
-        type="button"
-        onClick={() => setVerItems((v) => !v)}
-        className="self-start text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 dark:text-azul-200"
+      {/* El canvas la pone dentro de un recuadro destacado con «* TE FALTA
+          ESTO» mientras no esté marcada, y el enlace del detalle en la misma
+          línea. Suelta, se leía como un click escondido (observación de
+          Andres, 01-sep). */}
+      <div
+        data-falta={aceptada ? undefined : "1"}
+        className="flex flex-col gap-2 rounded-xl border border-borde-sutil bg-superficie p-4"
       >
-        {verItems ? "Ocultar el detalle" : "Ver todo lo que aceptás"}
-      </button>
-      {verItems ? (
-        <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm text-cuerpo">
-          {ITEMS_ACEPTACION_FIRMA.map((item) => (
-            <li key={item.slice(0, 40)}>{item}</li>
-          ))}
-        </ol>
-      ) : null}
-
+        <label className="flex items-start gap-2.5 text-sm text-cuerpo">
+          <input
+            type="checkbox"
+            checked={aceptada}
+            onChange={(evento) => setAceptada(evento.target.checked)}
+            disabled={otpId !== null}
+            className="mt-0.5 h-5 w-5 shrink-0"
+          />
+          <span>
+            <span className="font-bold text-titulo">{ROTULO_ACEPTACION_FIRMA}</span>{" "}
+            <button
+              type="button"
+              onClick={() => setVerItems((v) => !v)}
+              className="font-semibold text-azul-700 underline underline-offset-2 dark:text-azul-300"
+            >
+              {verItems ? "Ocultar el detalle" : "Ver todo lo que aceptás"}
+            </button>
+          </span>
+        </label>
+        {verItems ? (
+          <ol className="ml-7 flex list-decimal flex-col gap-1.5 text-xs text-cuerpo">
+            {ITEMS_ACEPTACION_FIRMA.map((item) => (
+              <li key={item.slice(0, 40)}>{item}</li>
+            ))}
+          </ol>
+        ) : null}
+      </div>
       {otpId === null ? (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-cuerpo">{INTRO_CANAL_FIRMA}</p>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          {/* Apilados y grandes, como el canvas: son la acción principal de
+              la pantalla, no dos opciones chicas en una fila. */}
+          <div className="flex flex-col gap-2.5">
             {resumen.canalWhatsappEnmascarado ? (
               <button
                 type="button"
                 disabled={!aceptada || enProceso}
                 onClick={() => void pedirCodigo("WHATSAPP")}
-                className="h-11 flex-1 rounded-lg bg-naranja-600 px-4 text-sm font-bold text-white disabled:opacity-40"
+                data-cta="Acá abajo pedís el enlace para firmar"
+                className="btn btn-primary w-fit"
+                style={{ borderRadius: "999px", padding: "14px 24px", fontSize: "15px" }}
               >
                 Tocá acá para firmar por WhatsApp · {resumen.canalWhatsappEnmascarado}
               </button>
@@ -261,7 +275,8 @@ export function FirmaInternaV3({ onCompletado }: { onCompletado: () => void }) {
                 type="button"
                 disabled={!aceptada || enProceso}
                 onClick={() => void pedirCodigo("EMAIL")}
-                className="h-11 flex-1 rounded-lg border border-naranja-600 px-4 text-sm font-bold text-naranja-700 disabled:opacity-40 dark:text-naranja-300"
+                className="btn btn-secondary w-fit"
+                style={{ borderRadius: "999px", padding: "14px 24px", fontSize: "15px" }}
               >
                 Tocá acá para firmar por correo · {resumen.canalEmailEnmascarado}
               </button>

@@ -353,15 +353,45 @@ describe("P7 · ningún campo de tarjeta en la superficie de entrada", () => {
       "utf8",
     );
 
-    // Los únicos inputs de la pantalla son el nombre (bloqueado), el RUC, el
-    // checkbox de origen lícito y los radios del medio de pago.
+    // Los únicos inputs de la pantalla son el nombre (bloqueado), el RUC y el
+    // checkbox de origen lícito. El medio de pago dejó de ser un grupo de
+    // radios al portarse el dibujo del canvas: son botones, y por eso ya no
+    // aparece `p7-medio` en esta lista.
     const inputs = [...fuente.matchAll(/<input[\s\S]*?\/>/g)].map((m) => m[0]);
     const ids = inputs.flatMap((input) => [...input.matchAll(/(?:id|name)="([^"]+)"/g)].map((m) => m[1]));
 
-    expect(ids.sort()).toEqual(["p7-acepta-certificado", "p7-medio", "p7-nombre", "p7-ruc"]);
+    expect(ids.sort()).toEqual(["p7-acepta-certificado", "p7-nombre", "p7-ruc"]);
     for (const input of inputs) {
       expect(input).not.toMatch(/autoComplete="cc-/i);
     }
+  });
+
+  /**
+   * La ventana simulada de Bancard **sí** tiene campos de tarjeta: es la
+   * demostración de lo que en producción ocurre del otro lado, y el canvas la
+   * modela así. Lo que la hace inofensiva no es que no existan los campos,
+   * sino que **sus valores no salen del navegador**: el componente no llama a
+   * ningún endpoint ni recibe una función que se los lleve.
+   *
+   * Esto lo comprueba leyendo el código, porque el día que alguien conecte ese
+   * formulario a un `fetch` los tipos no van a decir nada — y ese sería
+   * exactamente el camino por el que un PAN llegaría al servidor.
+   */
+  it("la ventana simulada de Bancard no manda los datos de la tarjeta a ningún lado", () => {
+    const fuente = readFileSync(
+      join(process.cwd(), "src/app/(flujo)/pago/VentanaBancardSimulada.tsx"),
+      "utf8",
+    );
+    const codigo = soloCodigo(fuente);
+
+    // Ni red, ni almacenamiento, ni logs.
+    expect(codigo, "la ventana simulada llama a la red").not.toMatch(/\bfetch\s*\(|XMLHttpRequest|navigator\.sendBeacon/);
+    expect(codigo, "la ventana simulada persiste en el navegador").not.toMatch(/localStorage|sessionStorage|document\.cookie|indexedDB/);
+    expect(codigo, "la ventana simulada escribe a console").not.toMatch(/\bconsole\s*\./);
+
+    // `alPagar` avisa que se apretó pagar; no puede recibir los valores.
+    expect(codigo, "alPagar recibe argumentos").toMatch(/alPagar:\s*\(\)\s*=>\s*void/);
+    expect(codigo, "alPagar se invoca con datos").toMatch(/alPagar\(\)/);
   });
 
   it("ni el caso de uso ni el adaptador escriben a un log plano", () => {

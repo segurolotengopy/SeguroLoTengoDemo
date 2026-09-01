@@ -38,6 +38,65 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-01 (d) · Los modales de Bancard y los mecanismos del canvas
+
+**Rama:** `fix/canvas-modales-bancard` · **Andres, molesto y con razón**
+
+### El caso
+
+Andres preguntó, literal: «COMO TENGO QUE DECIRTE QUE SE RESPETE PRIMERO EL
+DISEÑO, explícame qué debo decir». La respuesta honesta es que **no tiene que
+decirlo distinto**: lo pidió bien desde el principio. El método estaba mal.
+
+Lo que se venía haciendo era **trabajar por diferencias**: comparar la pantalla
+propia con el canvas, arreglar lo señalado, y a la ronda siguiente aparecían
+más diferencias, porque el armazón seguía siendo el propio. Cada tanda tapaba
+un síntoma.
+
+Lo que señaló esta vez: el QR y la tarjeta aparecían **como una sección más
+abajo** en vez de en un modal; la tarjeta no simulaba el entorno de Bancard ni
+dejaba llenar datos; la aceptación de firma era «un click oculto» donde el
+canvas tiene un recuadro grande; y los medios de pago eran tarjetas de radio
+con viñetas donde el canvas pone tres botones chicos.
+
+### Qué cambió
+
+- **`ModalBancard.tsx`**: la ventana del canvas — los tres puntos, la barra con
+  `vpos.bancard.com.py` y el candado, la cabecera «Bancard · vPOS» con el
+  comercio y el importe. El QR y el formulario de tarjeta viven **adentro**.
+  No es solo estética: dibujarlo como una sección contaba mal lo que pasa,
+  porque sugiere que el cobro ocurre dentro del portal.
+- **Medios de pago**: tres botones del canvas en una fila, y el peso visual en
+  el botón de pagar. Antes eran tres tarjetas de radio con viñetas cada una.
+- **`data-falta`**: se descubrió que el canvas trae su **propio mecanismo** —
+  un atributo que pinta el recuadro y escribe «* TE FALTA ESTO» desde el CSS—
+  y ya estaba en el port sin usarse. Reemplaza a la versión a mano en las cinco
+  preguntas y en las dos aceptaciones. Además, el canvas marca lo que falta
+  **desde el principio**, no recién al chocar contra el botón.
+- **Botones de firma**: apilados y grandes, como la acción principal que son.
+- **Barra del plan**: pasa debajo de la foto, que es donde el canvas la pone.
+
+### Regla #6, revisada al agregar los campos de tarjeta
+
+El test de guarda saltó al cambiar los radios por botones (`p7-medio` dejó de
+ser un `<input>`). Se corrigió la lista **y se le agregó una guarda nueva**
+para la ventana simulada: comprueba, leyendo el código, que no llame a la red,
+no persista en el navegador, no escriba a `console` y que `alPagar` **no pueda
+recibir** los valores de la tarjeta. Los campos existen porque el canvas los
+modela; lo que los hace inofensivos es que no salen del navegador.
+
+### Verificaciones
+
+Suite **1244** en verde (una guarda nueva) · batería e2e v3 **10/10**.
+
+### Queda abierto
+
+- La pantalla de confirmación sigue con estructura propia: el canvas la arma
+  con un kicker, un título grande, la foto al costado, una columna de hitos y
+  tarjetas «Ver PDF». Es la última pantalla sin reconstruir.
+
+---
+
 ## 2026-09-01 (c) · El sistema de diseño del canvas, portado de verdad
 
 **Rama:** `fix/canvas-sistema-de-diseno` · **Andres, con capturas lado a lado**

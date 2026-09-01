@@ -269,23 +269,19 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
         {PREGUNTAS_SEGURO_V3.map((pregunta) => {
           const valor = respuestas[pregunta.clave];
           const incompatible = valor !== null && valor !== pregunta.habilita;
-          const falta = mostrarFaltantes && valor === null;
+          // El canvas marca lo que falta **desde el principio** (`data-falta`),
+          // no recién cuando alguien choca contra el botón: así se ve qué
+          // queda por responder antes de intentar avanzar.
+          const falta = valor === null;
           return (
             <div
               key={pregunta.clave}
-              className={`flex flex-col gap-2 rounded-xl border p-3 ${
-                falta
-                  ? "border-naranja-500 bg-naranja-50 dark:border-naranja-600 dark:bg-naranja-950"
-                  : "border-borde-sutil bg-superficie"
-              }`}
+              // `data-falta` es el mecanismo del canvas: pinta el recuadro y
+              // escribe «* TE FALTA ESTO» desde su propio CSS, igual en las
+              // cinco preguntas, en la aceptación y en los campos.
+              data-falta={falta ? "1" : undefined}
+              className="flex flex-col gap-2 rounded-xl border border-borde-sutil bg-superficie p-3"
             >
-              {/* El rótulo del canvas: dice qué falta arriba de la pregunta,
-                  no con un asterisco perdido al final del texto. */}
-              {falta ? (
-                <p className="text-[10.5px] font-bold tracking-[0.09em] text-naranja-700 uppercase dark:text-naranja-300">
-                  * Te falta esto
-                </p>
-              ) : null}
               <p className="text-sm text-cuerpo">
                 <span className="font-semibold">{pregunta.titulo}. </span>
                 {pregunta.texto}
@@ -337,8 +333,15 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
       </section>
 
       {/* ── Aceptación agrupada 2 ────────────────────────────────────── */}
-      <section aria-label="Aceptación" className="flex flex-col gap-3">
-        <label className="flex items-start gap-2 text-sm text-cuerpo">
+      {/* Recuadro destacado del canvas mientras la aceptación no esté marcada
+          (`data-falta`), y el enlace del detalle en la misma línea: suelta se
+          leía como un click escondido. */}
+      <section
+        aria-label="Aceptación"
+        data-falta={aceptada ? undefined : "1"}
+        className="flex flex-col gap-3 rounded-xl border border-borde-sutil bg-superficie p-4"
+      >
+        <label className="flex items-start gap-2.5 text-sm text-cuerpo">
           <input
             type="checkbox"
             checked={aceptada}
