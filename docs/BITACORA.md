@@ -85,11 +85,20 @@ canvas pone botones, acá había radios que «no se ven».
   el rótulo que el canvas no tiene. Ahora comprueban la banda y su
   `aria-current`.
 
+### Tarjetas de plan (misma sesión, después del primer despliegue)
+
+Portadas al dibujo del canvas detrás de una prop `canvas` en
+`SelectorDePlanes`, para no tocar la maqueta de v2: cabecera a la izquierda sin
+escudo, precio grande debajo del nombre, importe apilado sobre el concepto,
+rótulo «✓ SELECCIONADO» en vez de la cinta, y el control como botón declarado
+(«Tocá acá para elegir este plan» / «✓ Plan elegido»). **Conserva
+`role="radio"` y `aria-checked`**: la elección sigue siendo una de tres y los
+e2e de v2 dependen de esa semántica.
+
 ### Queda abierto
 
-- Falta portar con la misma fidelidad las tarjetas de plan (el canvas usa un
-  botón por tarjeta y el estado «✓ SELECCIONADO», no un radio), los campos del
-  paso 1 y la pantalla de confirmación.
+- Falta portar con la misma fidelidad los campos del paso 1 y la pantalla de
+  confirmación.
 - El canvas pide la cédula del beneficiario obligatoria; Andres confirmó que
   **no** lo es, así que queda opcional y la divergencia se cierra a favor del
   cumplimiento.

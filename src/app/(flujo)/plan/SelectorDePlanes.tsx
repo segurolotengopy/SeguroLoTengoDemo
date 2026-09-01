@@ -99,32 +99,59 @@ function TarjetaPlan({
   plan,
   elegido,
   onElegir,
+  canvas = false,
 }: {
   plan: Plan;
   elegido: boolean;
   onElegir: () => void;
+  /**
+   * Dibujo del canvas del flujo v3: tarjeta con fondo de acento cuando está
+   * elegida y un botón declarado («Tocá acá para elegir este plan»), en vez
+   * del radio de la maqueta de v2, que se leía como un cuadradito.
+   * El rol sigue siendo `radio`: la elección es una de tres, y los e2e de v2
+   * dependen de esa semántica.
+   */
+  canvas?: boolean;
 }) {
   return (
     <article
-      className={`relative flex flex-col gap-2 rounded-xl border-2 p-4 pt-5 transition-colors ${
+      className={`relative flex flex-col gap-2 border p-5 transition-colors ${
+        canvas ? "rounded-2xl" : "rounded-xl border-2 p-4 pt-5"
+      } ${
         elegido
-          ? "border-naranja-500 bg-naranja-50/40 dark:border-naranja-400 dark:bg-naranja-950"
-          : "border-borde-sutil bg-superficie"
+          ? canvas
+            ? "border-borde-sutil bg-naranja-50 dark:bg-naranja-950"
+            : "border-naranja-500 bg-naranja-50/40 dark:border-naranja-400 dark:bg-naranja-950"
+          : canvas
+            ? "border-borde-sutil bg-white dark:bg-superficie"
+            : "border-borde-sutil bg-superficie"
       }`}
     >
-      {/* Cinta de la maqueta sobre la tarjeta elegida. */}
-      {elegido ? (
+      {/* Cinta de la maqueta de v2 sobre la tarjeta elegida. */}
+      {elegido && !canvas ? (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-naranja-500 bg-superficie px-3 py-0.5 text-[10px] font-bold tracking-wide whitespace-nowrap text-naranja-700 uppercase dark:text-naranja-300">
           {CINTA_PLAN_SELECCIONADO}
         </span>
       ) : null}
 
-      {/* Cabecera: escudo, nombre y el premio grande. */}
-      <header className="flex flex-col items-center gap-0.5 text-center">
-        <IconoEscudo destacado={elegido} />
-        <h3 className="text-lg font-bold text-titulo">{plan.nombre}</h3>
+      {/* Cabecera. El canvas la alinea a la izquierda, sin escudo y con el
+          precio grande debajo del nombre; v2 conserva la suya centrada. */}
+      <header
+        className={
+          canvas ? "flex flex-col gap-0.5" : "flex flex-col items-center gap-0.5 text-center"
+        }
+      >
+        {canvas ? null : <IconoEscudo destacado={elegido} />}
+        {canvas && elegido ? (
+          <p className="mb-1 text-[11px] font-bold tracking-[0.08em] text-naranja-700 uppercase dark:text-naranja-300">
+            ✓ Seleccionado
+          </p>
+        ) : null}
+        <h3 className={canvas ? "text-xl font-bold text-titulo" : "text-lg font-bold text-titulo"}>
+          {plan.nombre}
+        </h3>
         <p
-          className={`text-2xl font-bold tabular-nums ${
+          className={`font-bold tabular-nums ${canvas ? "text-[26px]" : "text-2xl"} ${
             elegido ? "text-naranja-700 dark:text-naranja-300" : "text-azul-800 dark:text-azul-200"
           }`}
         >
@@ -133,16 +160,28 @@ function TarjetaPlan({
         <p className="text-[11px] text-etiqueta">{LEYENDA_PREMIO_TARJETA}</p>
       </header>
 
-      <dl className="flex flex-col divide-y divide-borde-tenue border-t border-borde-tenue">
-        {COBERTURAS.map(({ etiqueta, valor }) => (
-          <div key={etiqueta} className="flex items-baseline justify-between gap-3 py-1.5">
-            <dt className="text-xs text-cuerpo">{etiqueta}</dt>
-            <dd className="shrink-0 text-right text-xs font-bold text-azul-800 tabular-nums dark:text-azul-200">
-              {valor(plan)}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      {/* El canvas apila el importe sobre el concepto; v2 los enfrenta. */}
+      {canvas ? (
+        <dl className="grid gap-2 border-t border-borde-tenue pt-3 text-[13px] leading-snug">
+          {COBERTURAS.map(({ etiqueta, valor }) => (
+            <div key={etiqueta}>
+              <dd className="font-bold text-titulo tabular-nums">{valor(plan)}</dd>
+              <dt className="text-cuerpo">{etiqueta}</dt>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <dl className="flex flex-col divide-y divide-borde-tenue border-t border-borde-tenue">
+          {COBERTURAS.map(({ etiqueta, valor }) => (
+            <div key={etiqueta} className="flex items-baseline justify-between gap-3 py-1.5">
+              <dt className="text-xs text-cuerpo">{etiqueta}</dt>
+              <dd className="shrink-0 text-right text-xs font-bold text-azul-800 tabular-nums dark:text-azul-200">
+                {valor(plan)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       {/* El enlace rojo de la maqueta. Abre el documento de coberturas (D-15). */}
       <EnlaceAclaracion
@@ -152,7 +191,19 @@ function TarjetaPlan({
         {ENLACE_INFO_COBERTURAS}
       </EnlaceAclaracion>
 
-      {/* Radio de la maqueta: `Elegir esta opción` → `Plan seleccionado`. */}
+      {/* Canvas: un botón declarado. v2: el radio de su maqueta. */}
+      {canvas ? (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={elegido}
+          onClick={onElegir}
+          className={`btn ${elegido ? "btn-primary" : "btn-secondary"} mt-auto w-full`}
+          style={{ borderRadius: "999px", padding: "11px 18px" }}
+        >
+          {elegido ? "✓ Plan elegido" : "Tocá acá para elegir este plan"}
+        </button>
+      ) : (
       <button
         type="button"
         role="radio"
@@ -172,6 +223,7 @@ function TarjetaPlan({
         </span>
         {elegido ? RADIO_PLAN_SELECCIONADO : RADIO_ELEGIR_PLAN}
       </button>
+      )}
     </article>
   );
 }
@@ -179,8 +231,11 @@ function TarjetaPlan({
 export function SelectorDePlanes({
   entreTarjetasYPie,
   onCompletado,
+  canvas = false,
 }: {
   entreTarjetasYPie?: React.ReactNode;
+  /** Dibujo del canvas (flujo v3). v2 conserva su maqueta. */
+  canvas?: boolean;
   /**
    * Al guardar el plan, en vez de navegar al paso siguiente (el default, para
    * la página v2). Lo usa la página del paso 2 del flujo v3 para avanzar el
@@ -231,10 +286,11 @@ export function SelectorDePlanes({
   return (
     <div className="flex flex-col gap-4">
       <div role="radiogroup" aria-label="Planes disponibles" className="grid gap-4 pt-2 lg:grid-cols-3 v3-rejilla"
-          style={{ "--v3-min": "220px" } as CSSProperties}>
+          style={{ "--v3-min": "250px", "--v3-gap": "16px" } as CSSProperties}>
         {OFERTA_VIGENTE.planes.map((opcion) => (
           <TarjetaPlan
             key={opcion.id}
+            canvas={canvas}
             plan={opcion}
             elegido={opcion.id === planElegido}
             onElegir={() => {

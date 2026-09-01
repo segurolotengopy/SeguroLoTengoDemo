@@ -46,6 +46,7 @@ export function Seguro(props: SeguroProps) {
       >
         {eligiendoPlan ? (
           <SelectorDePlanes
+            canvas
             onCompletado={() => {
               setEditandoPlan(false);
               router.refresh();
