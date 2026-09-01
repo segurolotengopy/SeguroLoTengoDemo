@@ -1,0 +1,313 @@
+/*
+ * SeguroLoTengo — Tokens de diseño para el proyecto de Lovable
+ * ============================================================
+ *
+ * Extraídos el 01-sep-2026 de `src/app/globals.css` (paleta de marca,
+ * fuente de verdad: docs/GUIA_DE_ESTILOS.md) y de `src/app/canvas-v3.css`
+ * (la «piel» del flujo de 3 pasos, portada del canvas de Claude Design).
+ *
+ * CÓMO USAR EN LOVABLE
+ * --------------------
+ * Pegar este archivo COMPLETO en `src/index.css` (o `src/styles.css`) del
+ * proyecto de Lovable, debajo del `@import "tailwindcss";`. Los nombres de
+ * los tokens NO se cambian: son los mismos que usa el repositorio de
+ * producción, y el porteo posterior a Next.js depende de que coincidan.
+ *
+ * Hay DOS capas:
+ *   A) La paleta de marca (naranja / azul / verde / rojo / hueso) y los
+ *      tokens semánticos. Es la base que rige hoy en producción (flujo v2).
+ *   B) La piel «v3» del canvas de 3 pasos: Archivo 800, acento rojo
+ *      #ec3013, esquinas rectas, fondo #f3f2f2. Es lo que corre hoy en la
+ *      demo del rediseño detrás del flag FLUJO_V3.
+ *
+ * El rediseño en Lovable PARTE de la capa B (es la última aprobada) y puede
+ * proponer valores nuevos, pero SIEMPRE dentro de estos nombres: si un color
+ * cambia, cambia el valor de `--color-naranja-600`, no se inventa un
+ * `--color-primary-brand`. Así el porteo es un `diff` de valores, no una
+ * traducción de nombres.
+ */
+
+/* =====================================================================
+ * A) PALETA DE MARCA — escalas 50…950 (convención Tailwind)
+ * ===================================================================== */
+@theme {
+  /* Azul Alianza Garantía — ancla 600 = #2b5a9e (isologo). Uso: institucional. */
+  --color-azul-50: #f0f5fb;
+  --color-azul-100: #dce8f5;
+  --color-azul-200: #b9d0e9;
+  --color-azul-300: #8fb2da;
+  --color-azul-400: #6591c7;
+  --color-azul-500: #4173b1;
+  --color-azul-600: #2b5a9e;
+  --color-azul-700: #254a80;
+  --color-azul-800: #203c65;
+  --color-azul-900: #1b304f;
+  --color-azul-950: #111f34;
+
+  /* Naranja Interseguros — 500 = isologo, 600 = primario de interseguros360.com.
+     Uso: acciones primarias y alertas. NUNCA para éxito. */
+  --color-naranja-50: #fdf4ec;
+  --color-naranja-100: #fbe3cd;
+  --color-naranja-200: #f6c69c;
+  --color-naranja-300: #f0a264;
+  --color-naranja-400: #e88135;
+  --color-naranja-500: #e2660f;
+  --color-naranja-600: #bd550f;
+  --color-naranja-700: #98450e;
+  --color-naranja-800: #7a380f;
+  --color-naranja-900: #642f10;
+  --color-naranja-950: #371806;
+
+  /* Verde Alianza — ancla 400 = #8dc63f (isologo). Uso: confirmación y
+     seguridad. 600+ para texto con contraste AA. NUNCA para acciones. */
+  --color-verde-50: #f6faec;
+  --color-verde-100: #e9f3d1;
+  --color-verde-200: #d2e8a6;
+  --color-verde-300: #b4d872;
+  --color-verde-400: #8dc63f;
+  --color-verde-500: #71a828;
+  --color-verde-600: #55811d;
+  --color-verde-700: #436519;
+  --color-verde-800: #385118;
+  --color-verde-900: #2f4417;
+  --color-verde-950: #17250a;
+
+  /* Rojo — bloqueos y faltantes. */
+  --color-rojo-50: #fdeeee;
+  --color-rojo-100: #fbd8d8;
+  --color-rojo-200: #f6b4b4;
+  --color-rojo-300: #ee8686;
+  --color-rojo-400: #e35b5b;
+  --color-rojo-500: #d33636;
+  --color-rojo-600: #b32424;
+  --color-rojo-700: #8f1d1d;
+  --color-rojo-800: #711c1c;
+  --color-rojo-900: #5e1c1c;
+  --color-rojo-950: #330b0b;
+
+  /* Hueso — neutros (nombre histórico; hoy es la escala de grises del sitio). */
+  --color-hueso-50: #fafafa;
+  --color-hueso-100: #f4f2ef;
+  --color-hueso-200: #e0e0e0;
+  --color-hueso-300: #c9c8c5;
+  --color-hueso-400: #adaca8;
+  --color-hueso-500: #8f8e8a;
+  --color-hueso-600: #6b6b6b;
+  --color-hueso-700: #545454;
+  --color-hueso-800: #474747;
+  --color-hueso-900: #333333;
+  --color-hueso-950: #1a1a1a;
+
+  /* Borde fino de tarjeta (token único). */
+  --color-borde-tarjeta: #171717;
+
+  /* Forma y layout (v2). */
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --container-pantalla: 1400px;
+  --spacing-tap: 44px; /* blanco táctil mínimo, WCAG 2.5.5 */
+
+  /* Escala tipográfica fluida 360 px → 1456 px. */
+  --text-display: clamp(1.75rem, 1.15rem + 2.6vw, 3rem);
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.015em;
+  --text-display--font-weight: 700;
+  --text-h1: clamp(1.5rem, 1.1rem + 1.8vw, 2.25rem);
+  --text-h1--line-height: 1.2;
+  --text-h1--letter-spacing: -0.01em;
+  --text-h1--font-weight: 700;
+  --text-h2: clamp(1.25rem, 1.05rem + 0.9vw, 1.5rem);
+  --text-h2--line-height: 1.25;
+  --text-h2--font-weight: 700;
+  --text-h3: clamp(1.05rem, 0.98rem + 0.4vw, 1.2rem);
+  --text-h3--line-height: 1.3;
+  --text-h3--font-weight: 600;
+}
+
+/* Tokens semánticos — los ÚNICOS que el tema oscuro reescribe.
+   Para estructura usar siempre estos: bg-fondo, bg-superficie,
+   bg-superficie-suave, border-borde-sutil, border-borde-tenue,
+   text-titulo, text-cuerpo, text-etiqueta. */
+:root {
+  color-scheme: light;
+  --tema-fondo: var(--color-hueso-50);
+  --tema-superficie: #ffffff;
+  --tema-superficie-suave: var(--color-hueso-100);
+  --tema-borde: color-mix(in srgb, var(--color-borde-tarjeta) 15%, transparent);
+  --tema-borde-tenue: color-mix(in srgb, var(--color-borde-tarjeta) 10%, transparent);
+  --tema-titulo: var(--color-hueso-900);
+  --tema-cuerpo: var(--color-hueso-800);
+  --tema-etiqueta: var(--color-hueso-600);
+}
+
+/* Tema oscuro: grafito neutro. Se activa con `data-tema="oscuro"` en <html>,
+   NO con prefers-color-scheme (la preferencia se resuelve una vez y el
+   usuario la puede cambiar con el botón de la cabecera). */
+[data-tema="oscuro"] {
+  color-scheme: dark;
+  --tema-fondo: #141414;
+  --tema-superficie: #1e1e1e;
+  --tema-superficie-suave: #262626;
+  --tema-borde: color-mix(in srgb, var(--color-hueso-100) 22%, transparent);
+  --tema-borde-tenue: color-mix(in srgb, var(--color-hueso-100) 12%, transparent);
+  --tema-titulo: var(--color-hueso-100);
+  --tema-cuerpo: #cfcecb;
+  --tema-etiqueta: #a5a4a0;
+}
+
+@theme inline {
+  --color-background: var(--tema-fondo);
+  --color-foreground: var(--tema-titulo);
+  --color-fondo: var(--tema-fondo);
+  --color-superficie: var(--tema-superficie);
+  --color-superficie-suave: var(--tema-superficie-suave);
+  --color-borde-sutil: var(--tema-borde);
+  --color-borde-tenue: var(--tema-borde-tenue);
+  --color-titulo: var(--tema-titulo);
+  --color-cuerpo: var(--tema-cuerpo);
+  --color-etiqueta: var(--tema-etiqueta);
+}
+
+/* Variante `dark:` gobernada por el atributo, igual que en producción. */
+@custom-variant dark (&:where([data-tema="oscuro"], [data-tema="oscuro"] *));
+
+/* =====================================================================
+ * B) PIEL «v3» — el canvas de 3 pasos, tal como corre hoy en la demo.
+ *    En producción cuelga de `[data-flujo="v3"]` en <html>. En Lovable,
+ *    poner `data-flujo="v3"` en <html> desde el arranque: es el punto de
+ *    partida del rediseño.
+ * ===================================================================== */
+[data-flujo="v3"] {
+  /* Tipografía: Archivo en todo, títulos en 800. */
+  --font-sans: "Archivo", system-ui, sans-serif;
+  --font-heading: "Archivo", system-ui, sans-serif;
+  --font-heading-weight: 800;
+  --font-body: "Archivo", system-ui, sans-serif;
+  --text-display--font-weight: 800;
+  --text-h1--font-weight: 800;
+  --text-h2--font-weight: 800;
+
+  /* Esquinas rectas. */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+
+  /* Tokens propios del canvas. */
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #ec3013;
+  --color-accent-2: #e15b47;
+  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-accent-100: #fff2ef;
+  --color-accent-200: #ffe0d9;
+  --color-accent-300: #ffc4b8;
+  --color-accent-400: #ff9783;
+  --color-accent-500: #ff563c;
+  --color-accent-600: #dd2b0f;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+  --color-accent-900: #4d170e;
+
+  --color-accent-2-100: #fff2ef;
+  --color-accent-2-200: #ffe0da;
+  --color-accent-2-300: #ffc4b9;
+  --color-accent-2-400: #ff9784;
+  --color-accent-2-500: #ef6853;
+  --color-accent-2-600: #c94b39;
+  --color-accent-2-700: #9e3526;
+  --color-accent-2-800: #71261b;
+  --color-accent-2-900: #471d16;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+
+  /* El acento del canvas REEMPLAZA al naranja en los MISMOS tokens: así
+     cada `bg-naranja-600` del árbol pasa a ser el rojo primario sin editar
+     componentes. Esta es la regla de oro del porteo. */
+  --color-naranja-50: #fff2ef;
+  --color-naranja-100: #fff2ef;
+  --color-naranja-200: #ffe0d9;
+  --color-naranja-300: #ffc4b8;
+  --color-naranja-400: #ff9783;
+  --color-naranja-500: #ff563c;
+  --color-naranja-600: #dd2b0f;
+  --color-naranja-700: #ae1800;
+  --color-naranja-800: #7c1405;
+  --color-naranja-900: #4d170e;
+  --color-naranja-950: #4d170e;
+}
+
+[data-flujo="v3"]:not([data-tema="oscuro"]) {
+  --tema-fondo: #f3f2f2;
+  --tema-superficie: #ffffff;
+  --tema-superficie-suave: #eae9e9;
+  --tema-borde: color-mix(in srgb, #201e1d 40%, transparent);
+  --tema-borde-tenue: color-mix(in srgb, #201e1d 18%, transparent);
+  --tema-titulo: #201e1d;
+  --tema-cuerpo: #444141;
+  --tema-etiqueta: #605d5d;
+}
+
+[data-flujo="v3"] body {
+  background: var(--tema-fondo);
+  color: var(--tema-titulo);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+[data-flujo="v3"] h1,
+[data-flujo="v3"] h2,
+[data-flujo="v3"] h3,
+[data-flujo="v3"] h4 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+}
+
+/* Base global que aplica a los dos flujos (copiada de producción). */
+body {
+  font-variant-numeric: tabular-nums; /* importes en Gs. alineados entre planes */
+  font-feature-settings: "tnum" 1;
+}
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-azul-600);
+  outline-offset: 2px;
+}
+[data-flujo="v3"] :focus-visible { outline-color: var(--color-accent); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Las clases de componente del canvas (.btn, .input, .field, .seg, .radio,
+   .card, .tag, .hr, la rejilla auto-fit y el carrusel del inicio) están en
+   `referencia-canvas-v3.css`, con sus valores exactos. Lovable puede
+   reinterpretarlas —para eso es el rediseño— pero debe partir de ellas. */

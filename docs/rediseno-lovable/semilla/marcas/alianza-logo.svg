@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 100" role="img" aria-label="Alianza Garantía Seguros y Reaseguros S.A.">
+  <!-- Logo horizontal aproximado: isologo + tipografía del sistema. Cuando el
+       archivo vectorial oficial esté disponible, reemplazar este SVG sin
+       cambiar el nombre del archivo. -->
+  <path
+    d="M 15.5 78.2 L 47 25.1 L 78.5 78.2"
+    fill="none"
+    stroke="#2b5a9e"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 47 50 L 30.4 79 L 63.6 79 Z"
+    fill="#8dc63f"
+    stroke="#8dc63f"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <text x="96" y="47" font-family="'DM Sans', Arial, Helvetica, sans-serif" font-size="33" font-weight="800" font-style="italic" fill="#2b5a9e">alianza garantía</text>
+  <text x="99" y="72" font-family="'DM Sans', Arial, Helvetica, sans-serif" font-size="13.5" font-weight="600" letter-spacing="2.4" fill="#6b6b6b">SEGUROS Y REASEGUROS S.A.</text>
+</svg>

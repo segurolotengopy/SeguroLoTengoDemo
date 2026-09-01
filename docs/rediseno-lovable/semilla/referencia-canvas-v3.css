@@ -1,0 +1,347 @@
+/*
+ * Sistema de diseño del canvas «Seguro lo tengo: Flujo de 3 pasos»
+ * (Artifact ce0c8332), portado tal cual.
+ *
+ * **Es una copia, no una interpretación.** Los tokens y las clases de
+ * componente (`.btn`, `.input`, `.field`, `.seg`, `.radio`, `.card`, `.tag`)
+ * salen del CSS que publica el diseño. Lo anterior tomaba prestados los
+ * colores y la tipografía y volvía a dibujar los componentes con Tailwind:
+ * eso es lo que hacía que las pantallas no se parecieran al canvas.
+ *
+ * Todo cuelga de `[data-flujo="v3"]`, así que el flujo v2 no lo ve. Las
+ * `@font-face` del canvas se quitaron (Archivo entra por `next/font`) y las
+ * variables de familia se redirigen a la que carga la aplicación.
+ */
+[data-flujo="v3"] {
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #ec3013;
+  --color-accent-2: #e15b47;
+  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+
+  /* Tonal ramps — generated in OKLCH on one shared lightness scale, so the
+     same step of any role matches the others in visual value. */
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-accent-100: #fff2ef;
+  --color-accent-200: #ffe0d9;
+  --color-accent-300: #ffc4b8;
+  --color-accent-400: #ff9783;
+  --color-accent-500: #ff563c;
+  --color-accent-600: #dd2b0f;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+  --color-accent-900: #4d170e;
+
+  --color-accent-2-100: #fff2ef;
+  --color-accent-2-200: #ffe0da;
+  --color-accent-2-300: #ffc4b9;
+  --color-accent-2-400: #ff9784;
+  --color-accent-2-500: #ef6853;
+  --color-accent-2-600: #c94b39;
+  --color-accent-2-700: #9e3526;
+  --color-accent-2-800: #71261b;
+  --color-accent-2-900: #471d16;
+
+  --font-heading: "Archivo", system-ui, sans-serif;
+  --font-heading-weight: 800;
+  --font-body: "Archivo", system-ui, sans-serif;
+
+  --space-1: 4.0px;
+  --space-2: 8.0px;
+  --space-3: 12.0px;
+  --space-4: 16.0px;
+  --space-6: 24.0px;
+  --space-8: 32.0px;
+
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+
+  /* Elevation — derived from the ground: soft ink-tinted shadows on a
+     light theme, a hairline edge + ambient darkness on a dark one. */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+}
+[data-flujo="v3"] body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+[data-flujo="v3"] h1, [data-flujo="v3"] h2, [data-flujo="v3"] h3, [data-flujo="v3"] h4 { font-family: var(--font-heading); font-weight: var(--font-heading-weight); }
+[data-flujo="v3"] .grayscale {filter:grayscale(1) contrast(1.08)}
+[data-flujo="v3"] *, [data-flujo="v3"] *::before, [data-flujo="v3"] *::after { box-sizing: border-box; }
+[data-flujo="v3"] body { margin: 0; font-size: 15px; line-height: 1.55; font-weight: 400; }
+/* Familia y ritmo del canvas, pero **sin su escala de tamaños**: el diseño
+   fija el tamaño de cada encabezado en la pantalla (con `clamp`), y la escala
+   global agrandaba los rótulos de sección que acá se dimensionan con
+   utilidades. */
+[data-flujo="v3"] h1, [data-flujo="v3"] h2, [data-flujo="v3"] h3, [data-flujo="v3"] h4, [data-flujo="v3"] h5, [data-flujo="v3"] h6 {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  line-height: 1.12; letter-spacing: -0.015em;
+}
+[data-flujo="v3"] a:not([class]) { color: var(--color-accent); text-underline-offset: 3px; }
+[data-flujo="v3"] img { display: block; max-width: 100%; }
+[data-flujo="v3"] figure { margin: 0; }
+[data-flujo="v3"] figcaption {
+  font-size: 11px; margin-top: var(--space-1);
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+[data-flujo="v3"] .text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+[data-flujo="v3"] :focus { outline: none; }
+[data-flujo="v3"] :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+[data-flujo="v3"] ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+[data-flujo="v3"] .hr {
+  height: 2px; border: 0; margin: var(--space-4) 0;
+  background: var(--color-divider);
+}
+[data-flujo="v3"] .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--color-text); /* matches the .input's 14px —
+     the pair sits side by side in sign-up rows */
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: var(--radius-md);
+}
+[data-flujo="v3"] .btn svg { display: block; }
+[data-flujo="v3"] .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+[data-flujo="v3"] .btn-primary { background: var(--color-accent); color: var(--color-bg); }
+[data-flujo="v3"] .btn-primary:hover { background: var(--color-accent-600); }
+[data-flujo="v3"] .btn-primary:active { background: var(--color-accent-700); }
+[data-flujo="v3"] .btn-secondary { border-color: var(--color-divider); }
+[data-flujo="v3"] .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+[data-flujo="v3"] .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+[data-flujo="v3"] .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+[data-flujo="v3"] .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+[data-flujo="v3"] .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+[data-flujo="v3"] .btn-icon { width: 36px; height: 36px; padding: 0; }
+[data-flujo="v3"] .btn-block { width: 100%; margin-top: var(--space-2); justify-content: flex-start; text-align: left; }
+[data-flujo="v3"] .field > label {
+  display: block; font-size: 12px; margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+[data-flujo="v3"] .input {
+  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+[data-flujo="v3"] .input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+[data-flujo="v3"] .input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+[data-flujo="v3"] textarea.input { min-height: 90px; resize: vertical; }
+[data-flujo="v3"] .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+[data-flujo="v3"] .radio input, [data-flujo="v3"] .seg-opt input {
+  position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+}
+[data-flujo="v3"] .radio .dot {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 1.5px solid var(--color-divider);
+}
+[data-flujo="v3"] .radio:hover .dot { border-color: var(--color-accent); }
+[data-flujo="v3"] .radio input:checked + .dot {
+  border-color: var(--color-accent); background: var(--color-accent);
+  box-shadow: inset 0 0 0 4px var(--color-bg);
+}
+[data-flujo="v3"] .radio input:focus-visible + .dot { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+[data-flujo="v3"] .seg {
+  display: inline-flex; overflow: hidden;
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+[data-flujo="v3"] .seg-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; font-size: 13px; cursor: pointer;
+}
+[data-flujo="v3"] .seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+[data-flujo="v3"] .seg-opt:has(input:checked) { background: var(--color-accent); color: var(--color-bg); }
+[data-flujo="v3"] .seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+[data-flujo="v3"] .seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+[data-flujo="v3"] .card {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
+}
+[data-flujo="v3"] .card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); }
+[data-flujo="v3"] .card-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 17px; line-height: 1.2;
+}
+[data-flujo="v3"] .card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
+[data-flujo="v3"] .card-meta {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+[data-flujo="v3"] .elev-sm { box-shadow: var(--shadow-sm); }
+[data-flujo="v3"] .elev-md { box-shadow: var(--shadow-md); }
+[data-flujo="v3"] .elev-lg { box-shadow: var(--shadow-lg); }
+[data-flujo="v3"] .tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px;
+  border-radius: calc(var(--radius-md) * 0.75);
+}
+[data-flujo="v3"] .tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+[data-flujo="v3"] .tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+[data-flujo="v3"] .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+[data-flujo="v3"] .tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+[data-flujo="v3"] .nav {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 2px solid var(--color-divider);
+}
+[data-flujo="v3"] .nav-brand {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 18px; margin-right: auto;
+}
+[data-flujo="v3"] .nav a { color: inherit; text-decoration: none; font-size: 14px; }
+[data-flujo="v3"] .nav a:hover, [data-flujo="v3"] .nav a[aria-current='page'] { color: var(--color-accent); }
+[data-flujo="v3"] .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+[data-flujo="v3"] .table th {
+  text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding: var(--space-2); border-bottom: 2px solid var(--color-divider);
+}
+[data-flujo="v3"] .table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
+}
+[data-flujo="v3"] .table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+[data-flujo="v3"] .dialog-backdrop {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+}
+[data-flujo="v3"] .dialog {
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); border-radius: var(--radius-lg);
+  background: var(--color-surface); box-shadow: var(--shadow-lg);
+}
+[data-flujo="v3"] .dialog-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 20px;
+}
+[data-flujo="v3"] .dialog-body { font-size: 14px; opacity: 0.85; }
+[data-flujo="v3"] .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+[data-flujo="v3"] {
+      --font-heading:'DM Sans',system-ui,sans-serif; --font-body:'DM Sans',system-ui,sans-serif;
+      --font-heading-weight:600; --font-mono:'Geist Mono',ui-monospace,monospace;
+      --color-bg:#fafafa; --color-surface:#ffffff; --color-text:#333333; --color-divider:#e0e0e0;
+      --color-accent:#e2660f; --color-accent-100:#fdf4ec; --color-accent-200:#fbe3cd;
+      --color-accent-300:#f0a264; --color-accent-600:#bd550f; --color-accent-700:#98450e;
+      --color-neutral-100:#f4f2ef; --color-neutral-200:#f0eeea; --color-neutral-300:#e0e0e0;
+      --color-neutral-400:#a5a4a0; --color-neutral-500:#6b6b6b; --color-neutral-600:#6b6b6b;
+      --color-neutral-700:#474747; --color-neutral-800:#333333; --color-neutral-900:#1a1a1a;
+      --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
+      --azul:#2b5a9e; --verde:#8dc63f; --verde-600:#55811d;
+    }
+[data-flujo="v3"] html, [data-flujo="v3"] body {margin:0;padding:0;background:var(--color-bg);}
+[data-flujo="v3"] body {font-family:'DM Sans',system-ui,sans-serif;font-variant-numeric:tabular-nums;}
+[data-flujo="v3"] a:not([class]) {color:var(--color-accent-600);text-decoration:underline;text-underline-offset:2px;}
+[data-flujo="v3"] a:hover {color:var(--color-accent-700);}
+[data-flujo="v3"] :focus-visible {outline:2px solid var(--azul);outline-offset:2px;}
+[data-flujo="v3"] .btn {border-radius:12px;justify-content:center;text-align:center;letter-spacing:0;
+      font-family:'DM Sans',system-ui,sans-serif;font-weight:600;min-height:44px;
+      padding:11px 20px;border:1px solid transparent;}
+[data-flujo="v3"] .btn-primary {background:var(--color-accent-600);border-color:var(--color-accent-600);color:#fff;}
+[data-flujo="v3"] .btn-primary:hover:not(:disabled) {background:var(--color-accent-700);border-color:var(--color-accent-700);}
+[data-flujo="v3"] .btn-primary:active:not(:disabled) {background:var(--color-accent-700);}
+[data-flujo="v3"] .btn-secondary {background:var(--sup);border:1px solid var(--color-accent-600);color:var(--color-accent-600);}
+[data-flujo="v3"] .btn-secondary:hover:not(:disabled) {background:var(--color-accent-100);}
+[data-flujo="v3"] .btn-ghost {background:transparent;border:1px solid var(--color-divider);color:var(--color-neutral-700);padding-inline:16px;}
+[data-flujo="v3"] .btn-ghost:hover:not(:disabled) {background:var(--color-neutral-100);color:var(--color-accent-700);}
+[data-flujo="v3"] .input {border-radius:10px;border:1px solid var(--color-divider);background:var(--sup);min-height:44px;padding:9px 12px;}
+[data-flujo="v3"] .input:hover {border-color:var(--color-neutral-400);}
+[data-flujo="v3"] .input:focus-visible {border-color:var(--azul);outline:2px solid var(--azul);outline-offset:0;}
+[data-flujo="v3"] .field > label {font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;color:var(--color-neutral-500);}
+[data-flujo="v3"] .field:has(.input[style*="--falta"]) > label, [data-flujo="v3"] .field:has(.input[style*="accent-100"]) > label {color:var(--color-accent);}
+[data-flujo="v3"] .field:has(.input[style*="--falta"]) > label::after, [data-flujo="v3"] .field:has(.input[style*="accent-100"]) > label::after {content:" *";font-weight:700;}
+[data-flujo="v3"] div.field {display:flex;flex-direction:column;justify-content:flex-end;}
+[data-flujo="v3"] .input[style*="--falta"], [data-flujo="v3"] .input[style*="accent-100"] {box-shadow:0 0 0 3px var(--color-accent-200);}
+[data-flujo="v3"] [data-falta="1"] {border-color:var(--color-accent)!important;border-width:2px!important;background:var(--color-accent-100)!important;box-shadow:0 0 0 3px var(--color-accent-200);}
+[data-flujo="v3"] [data-falta="1"]::before {content:"* TE FALTA ESTO";display:block;font-size:10.5px;letter-spacing:0.09em;font-weight:700;color:var(--color-accent);margin-bottom:8px;}
+[data-flujo="v3"] 0%, [data-flujo="v3"] 100% {box-shadow:0 0 0 3px var(--color-accent-200);}
+[data-flujo="v3"] 50% {box-shadow:0 0 0 8px var(--color-accent-300);}
+[data-flujo="v3"] .pulso {animation:pulsoFalta 0.7s ease 2;}
+[data-flujo="v3"] input::placeholder {color:var(--color-neutral-400);}
+[data-flujo="v3"] input[type="checkbox"], [data-flujo="v3"] input[type="radio"] {accent-color:var(--color-accent-600);}
+[data-flujo="v3"] ::selection {background:var(--color-accent-200);}
+[data-flujo="v3"] [data-tema] {--sup:#ffffff;}
+[data-flujo="v3"] [data-tema] select.input, [data-flujo="v3"] [data-tema] input.input {background:var(--sup);color:var(--color-text);}
+[data-flujo="v3"] [data-tema="noche"] {
+      --sup:#1e1e1e;--color-bg:#141414;--color-surface:#1e1e1e;--color-text:#f4f2ef;--color-divider:#333333;
+      --color-neutral-100:#262626;--color-neutral-200:#2b2b2b;--color-neutral-300:#333333;
+      --color-neutral-400:#6f6e6b;--color-neutral-500:#a5a4a0;--color-neutral-600:#a5a4a0;
+      --color-neutral-700:#cfcecb;--color-neutral-800:#e6e4e0;
+      --color-accent:#e2660f;--color-accent-100:#3a1c08;--color-accent-200:#4a2409;
+      --color-accent-600:#e2660f;--color-accent-700:#f0a264;
+      background:var(--color-bg);color:var(--color-text);
+    }
+[data-flujo="v3"] 0%, [data-flujo="v3"] 100% {transform:translateY(0);}
+[data-flujo="v3"] 50% {transform:translateY(4px);}
+[data-flujo="v3"] #__claude_design_branding {position:fixed;right:16px;bottom:16px;z-index:2147483646;display:flex;align-items:center;gap:7px;height:30px;padding:0 5px 0 10px;border-radius:999px;font-family:"Anthropic Sans",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:12.5px;font-weight:400;line-height:1;letter-spacing:normal;text-transform:none;color:#141413;background:rgba(255,255,255,.86);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 0 0 .5px rgba(31,30,29,.14),0 2px 10px rgba(0,0,0,.09)}
+[data-flujo="v3"] #__claude_design_branding * {box-sizing:border-box;margin:0}
+[data-flujo="v3"] #__claude_design_branding a {color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+[data-flujo="v3"] #__claude_design_branding a:hover span {text-decoration:underline}
+[data-flujo="v3"] #__claude_design_branding svg {flex:none}
+[data-flujo="v3"] #__claude_design_branding a svg {color:#D97757}
+[data-flujo="v3"] #__claude_design_branding button {width:20px;height:20px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:currentColor;opacity:.55;border:0;background:none;cursor:pointer;flex:none;font:inherit;transition:opacity .14s}
+[data-flujo="v3"] #__claude_design_branding button:hover {opacity:1;background:rgba(127,127,127,.22)}
+[data-flujo="v3"] #__claude_design_branding {display:none}
+/* La familia la carga next/font; el canvas la nombraba por @font-face. */
+[data-flujo="v3"] {
+  /* El canvas usa `--verde` para el filete de los pasos ya cumplidos. */
+  --verde-stepper: #2e7d32;
+  --font-heading: var(--font-archivo), system-ui, sans-serif;
+  --font-body: var(--font-archivo), system-ui, sans-serif;
+}
+
+/* La flecha de la píldora flotante, como en el canvas. */
+@keyframes v3-baja { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+[data-flujo="v3"] .v3-cta-flecha { display: inline-block; animation: v3-baja 1.4s ease-in-out infinite; }
+
+/*
+ * Los campos del flujo, con la especificación `.input` del canvas.
+ *
+ * Las pantallas ya tenían la misma estructura que el diseño —una etiqueta y
+ * su control—, pero dibujaban el control con clases propias: más alto, con
+ * otro fondo y otro borde. Esto aplica la medida del canvas a todos los
+ * campos de v3 de una vez, en vez de repetirla componente por componente.
+ * Las casillas y los radios quedan afuera: el canvas les da su propio dibujo.
+ */
+[data-flujo="v3"] main input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-flujo="v3"] main select,
+[data-flujo="v3"] main textarea {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 14px;
+  color: var(--color-text);
+  caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+}
+[data-flujo="v3"] main input:not([type="checkbox"]):not([type="radio"]):hover,
+[data-flujo="v3"] main select:hover,
+[data-flujo="v3"] main textarea:hover {
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+[data-flujo="v3"] main input:focus-visible,
+[data-flujo="v3"] main select:focus-visible,
+[data-flujo="v3"] main textarea:focus-visible {
+  border-color: var(--color-accent);
+  outline-offset: 0;
+}
+/* La etiqueta del canvas: chica, en mayúsculas y con menos contraste. */
+[data-flujo="v3"] main label {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
