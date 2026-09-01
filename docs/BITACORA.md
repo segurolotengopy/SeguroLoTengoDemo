@@ -95,10 +95,22 @@ rótulo «✓ SELECCIONADO» en vez de la cinta, y el control como botón declar
 `role="radio"` y `aria-checked`**: la elección sigue siendo una de tres y los
 e2e de v2 dependen de esa semántica.
 
+### Campos y encabezados (misma sesión, tercera tanda)
+
+- **Campos**: la especificación `.input` del canvas aplicada a todos los
+  campos de v3 de una vez —alto, fondo, borde, foco y etiqueta chica— en vez
+  de repetirla componente por componente. La estructura ya era la del diseño
+  (etiqueta + control); lo que difería era el dibujo.
+- **Encabezados**: se quitó del port la **escala global de tamaños** del canvas
+  (h1 42px … h6 13px). El diseño fija el tamaño de cada encabezado dentro de
+  su pantalla, y la escala global agrandaba los rótulos de sección que acá se
+  dimensionan con utilidades: «ESTADO DE LA CONTRATACIÓN» salía a 32 px. Se
+  conservan familia, peso, interlínea y `letter-spacing`.
+
 ### Queda abierto
 
-- Falta portar con la misma fidelidad los campos del paso 1 y la pantalla de
-  confirmación.
+- Las tarjetas de captura del paso 1: el canvas las ilustra con dibujos de la
+  cédula y la selfie, y acá son tarjetas de texto.
 - El canvas pide la cédula del beneficiario obligatoria; Andres confirmó que
   **no** lo es, así que queda opcional y la divergencia se cierra a favor del
   cumplimiento.
