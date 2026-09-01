@@ -812,6 +812,11 @@ export function VerificacionIdentidad({
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
             Captura documental y biométrica
           </h2>
+          <p className="text-sm text-cuerpo">
+            Fotografiá tu cédula vigente y hacé una selfie en vivo. De la cédula leemos
+            automáticamente tus datos y después los revisás. Solo cédula paraguaya y únicamente a
+            tu nombre.
+          </p>
 
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -1275,7 +1280,7 @@ export function VerificacionIdentidad({
                   ? "Repetí la dirección para confirmarla."
                   : correoCoincide
                     ? "Las dos direcciones coinciden."
-                    : "Las dos direcciones no coinciden todavía."}
+                    : "Los dos correos todavía no coinciden — revisalos con calma."}
               </p>
             </div>
           </div>
@@ -1295,7 +1300,12 @@ export function VerificacionIdentidad({
             </h2>
             <p className="text-xs text-cuerpo">Los marcados con * son obligatorios.</p>
           </div>
-
+          {/* Por qué se piden, con el texto del canvas: sin esto la sección se
+              lee como burocracia y no como lo que es. */}
+          <p className="text-sm text-cuerpo">
+            Los pide la normativa de conocimiento del cliente. Elegí la opción que mejor te
+            describa.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1 sm:col-span-2">
               <label htmlFor="p5-domicilio" className="text-xs font-semibold text-etiqueta">

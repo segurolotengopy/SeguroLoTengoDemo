@@ -13,6 +13,7 @@ import type { CSSProperties } from "react";
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { EnlaceAclaracion } from "@/components/shared";
 import { SelectorDePlanes } from "../plan/SelectorDePlanes";
 import type { EstadoExpediente, PlanId } from "@/domain/tipos";
 import { PLANES, formatearGuaranies } from "@/domain/catalogo";
@@ -90,6 +91,19 @@ export function Seguro(props: SeguroProps) {
                 <p className="text-xs text-cuerpo">{cobertura.detalle}</p>
               </div>
             ))}
+          </div>
+          {/* Los dos botones del canvas, que faltaban: llevan al detalle de
+              coberturas y a las condiciones generales. */}
+          <div className="flex flex-wrap gap-2.5">
+            <EnlaceAclaracion documento="coberturas" className="btn btn-secondary">
+              Ver coberturas, exclusiones y carencias (PDF)
+            </EnlaceAclaracion>
+            <EnlaceAclaracion
+              documento="documentacionPrecontractual"
+              className="btn btn-secondary"
+            >
+              Ver condiciones generales de la póliza
+            </EnlaceAclaracion>
           </div>
           <p className="text-xs text-etiqueta">{LEYENDA_EDAD_Y_RENOVACION}</p>
         </section>

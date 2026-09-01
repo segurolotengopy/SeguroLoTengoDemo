@@ -11,6 +11,7 @@
  * (capturas, OTP tipeado, panel de demo) y hace inline lo que en v2 era una
  * pantalla propia.
  */
+import { writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
 import { leerCodigoOtpDelPanel, prepararEscenario } from "../support/demo-panel";
@@ -32,6 +33,10 @@ async function capturarDiseno(page: Page, nombre: string): Promise<void> {
   if (!dir) return;
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${dir}/${nombre}.png`, fullPage: true });
+  // Además del cuadro, el texto: sirve para diferenciar contra el canvas sin
+  // mirar capturas una por una.
+  const texto = await page.evaluate(() => document.body.innerText);
+  writeFileSync(`${dir}/${nombre}.txt`, texto, "utf8");
 }
 
 test("camino feliz v3: T&C → inscripción → seguro → firma interna → pago → confirmación", async ({
@@ -92,6 +97,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await expect(page.getByText(/aceptá lo necesario para inscribirte/i)).toBeVisible();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: /continuar al paso 2/i }).click();
+  await capturarDiseno(page, "paso-1-completo");
   await expect(page).toHaveURL(/\/seguro$/);
   await capturarDiseno(page, "paso-2");
 
@@ -116,6 +122,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
       .click();
   }
   await page.getByRole("checkbox").check();
+  await capturarDiseno(page, "paso-2-completo");
   await page.getByRole("button", { name: /continuar al paso 3/i }).click();
   await expect(page).toHaveURL(/\/pago-y-firma$/);
   await capturarDiseno(page, "paso-3");
@@ -155,6 +162,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await expect(constancia).toBeHidden();
 
   // ── Paso 3 · el pago (formulario v2 como sección, gated por FIRMADO) ──
+  await capturarDiseno(page, "paso-3-completo");
   await page.locator("#p7-acepta-certificado").check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
   await expect(page.getByText("Escaneá el QR con tu app de banco")).toBeVisible();
