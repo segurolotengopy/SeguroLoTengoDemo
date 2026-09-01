@@ -712,7 +712,7 @@ async function abrirEnlaceDeFirma(
   if (retener) {
     await almacen().guardar(COLECCION_CODIGOS, idCode100, {
       origen: "PROVEEDOR" as const,
-    referenciaActo: idCode100,
+      referenciaActo: idCode100,
       codigo,
       destino: sesion.destino,
       emitidoEn,
