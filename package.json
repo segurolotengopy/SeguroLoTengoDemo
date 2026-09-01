@@ -27,7 +27,7 @@
     "@aws-sdk/client-textract": "^3.1115.0",
     "@aws-sdk/lib-dynamodb": "^3.1115.0",
     "aws-amplify": "^6.20.0",
-    "next": "15.5.23",
+    "next": "15.5.24",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
