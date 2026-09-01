@@ -7,9 +7,10 @@ import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
 import {
   BarraPlanDelExpediente,
+  AvisoCtaFlotante,
+  BandaPasosV3,
   HeaderInstitucional,
   PieLegal,
-  StepperPasos,
   TramiteEnOtroPaso,
 } from "@/components/shared";
 import { flujoV3Activo } from "@/domain/flujo-vigente";
@@ -72,7 +73,10 @@ export default async function PantallaPagoYFirma() {
 
   return (
     <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional indicador={<StepperPasos slug="/pago-y-firma" />} />
+      {/* El canvas pone el progreso en una banda a lo ancho debajo de la
+          cabecera, no como rótulo dentro de ella. */}
+      <HeaderInstitucional />
+      <BandaPasosV3 slug="/pago-y-firma" />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <BarraPlanDelExpediente enlaceTexto="cambiar plan" enlaceHref="/seguro" />
@@ -124,6 +128,8 @@ export default async function PantallaPagoYFirma() {
         )}
       </main>
 
+      {/* La píldora del canvas que avisa dónde está el botón principal. */}
+      <AvisoCtaFlotante />
       <PieLegal />
     </div>
   );

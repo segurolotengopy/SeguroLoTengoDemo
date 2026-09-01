@@ -147,35 +147,45 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
         <p className="text-sm text-cuerpo">
           ¿Quién recibiría la cobertura por fallecimiento? Elegí una de las dos opciones.
         </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <label className="flex flex-1 items-start gap-2 rounded-lg border border-borde-sutil p-3 text-sm text-cuerpo">
-            <input
-              type="radio"
-              name="seguro-beneficiario"
-              checked={tipoBeneficiario === "HEREDEROS_LEGALES"}
-              onChange={() => setTipoBeneficiario("HEREDEROS_LEGALES")}
-              className="mt-1"
-            />
-            <span>
-              <span className="font-semibold">Opción por defecto: mis herederos legales.</span>{" "}
-              La cobertura la reciben según el Código Civil paraguayo — cónyuge, hijos, padres —
-              en el orden y la proporción que la ley establece. No hay datos que completar.
-            </span>
-          </label>
-          <label className="flex flex-1 items-start gap-2 rounded-lg border border-borde-sutil p-3 text-sm text-cuerpo">
-            <input
-              type="radio"
-              name="seguro-beneficiario"
-              checked={tipoBeneficiario === "PERSONA_DESIGNADA"}
-              onChange={() => setTipoBeneficiario("PERSONA_DESIGNADA")}
-              className="mt-1"
-            />
-            <span>
-              <span className="font-semibold">Quiero designar a una persona</span>, que cobra el
-              100% de la cobertura por fallecimiento antes que mis herederos legales.
-            </span>
-          </label>
+        {/* Dos botones, como el canvas: los radios se veían como cuadraditos
+            que no se distinguían de una casilla (observación de Andres, 01-sep). */}
+        <div className="mb-3 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            className={
+              tipoBeneficiario === "HEREDEROS_LEGALES" ? "btn btn-primary" : "btn btn-secondary"
+            }
+            aria-pressed={tipoBeneficiario === "HEREDEROS_LEGALES"}
+            onClick={() => setTipoBeneficiario("HEREDEROS_LEGALES")}
+          >
+            Opción por defecto: mis herederos legales
+          </button>
+          <button
+            type="button"
+            className={
+              tipoBeneficiario === "PERSONA_DESIGNADA" ? "btn btn-primary" : "btn btn-secondary"
+            }
+            aria-pressed={tipoBeneficiario === "PERSONA_DESIGNADA"}
+            onClick={() => setTipoBeneficiario("PERSONA_DESIGNADA")}
+          >
+            Quiero designar a una persona
+          </button>
         </div>
+        {/* La explicación de lo elegido, en la cita al margen del canvas. */}
+        <p className="mb-3.5 max-w-[66ch] border-l-2 border-borde-sutil pl-3 text-[13px] leading-relaxed text-cuerpo">
+          {tipoBeneficiario === "HEREDEROS_LEGALES" ? (
+            <>
+              Elegiste la opción por defecto: <strong>no designás a nadie en particular</strong>. La
+              cobertura la reciben tus herederos según el Código Civil paraguayo —cónyuge, hijos,
+              padres— en el orden y la proporción que la ley establece. No hay datos que completar.
+            </>
+          ) : (
+            <>
+              Elegiste designar a <strong>una persona concreta</strong>, que cobra el 100% de la
+              cobertura por fallecimiento antes que tus herederos legales. Completá sus datos abajo.
+            </>
+          )}
+        </p>
         {tipoBeneficiario === "PERSONA_DESIGNADA" ? (
           <p className="text-xs text-etiqueta">
             Los marcados con <span className="text-rojo-700 dark:text-rojo-300">*</span> son
@@ -255,6 +265,7 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
           Estas respuestas integran tu propuesta y su FIPF. Respondé con total tranquilidad — se
           firman recién en el paso 3.
         </p>
+        <div className="v3-rejilla" style={{ "--v3-min": "330px", "--v3-gap": "12px" } as CSSProperties}>
         {PREGUNTAS_SEGURO_V3.map((pregunta) => {
           const valor = respuestas[pregunta.clave];
           const incompatible = valor !== null && valor !== pregunta.habilita;
@@ -263,9 +274,18 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
             <div
               key={pregunta.clave}
               className={`flex flex-col gap-2 rounded-xl border p-3 ${
-                falta ? "border-rojo-400" : "border-borde-sutil"
-              } bg-superficie`}
+                falta
+                  ? "border-naranja-500 bg-naranja-50 dark:border-naranja-600 dark:bg-naranja-950"
+                  : "border-borde-sutil bg-superficie"
+              }`}
             >
+              {/* El rótulo del canvas: dice qué falta arriba de la pregunta,
+                  no con un asterisco perdido al final del texto. */}
+              {falta ? (
+                <p className="text-[10.5px] font-bold tracking-[0.09em] text-naranja-700 uppercase dark:text-naranja-300">
+                  * Te falta esto
+                </p>
+              ) : null}
               <p className="text-sm text-cuerpo">
                 <span className="font-semibold">{pregunta.titulo}. </span>
                 {pregunta.texto}
@@ -313,6 +333,7 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
             </div>
           );
         })}
+        </div>
       </section>
 
       {/* ── Aceptación agrupada 2 ────────────────────────────────────── */}
@@ -346,6 +367,11 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
       <div className="flex flex-col gap-2">
         <button
           type="button"
+          data-cta={
+            hayIncompatibles
+              ? "Acá abajo enviás tu caso a un asesor"
+              : "Acá abajo está el botón para pasar al paso 3"
+          }
           disabled={enProceso || carenciasRechazadas}
           onClick={() => void enviar()}
           className={`h-11 rounded-lg px-4 text-sm font-bold text-white disabled:opacity-40 ${

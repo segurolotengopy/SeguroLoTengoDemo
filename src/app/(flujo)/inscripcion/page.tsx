@@ -5,7 +5,10 @@ import { notFound } from "next/navigation";
 import { obtenerIdentityProvider } from "@/adapters/registro";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
-import { HeaderInstitucional, PieLegal, StepperPasos, TramiteEnOtroPaso } from "@/components/shared";
+import {
+  AvisoCtaFlotante,
+  BandaPasosV3,
+  HeaderInstitucional, PieLegal, TramiteEnOtroPaso } from "@/components/shared";
 import { flujoV3Activo } from "@/domain/flujo-vigente";
 import { PANTALLA_POR_ESTADO } from "@/domain/rutas-flujo";
 import { DETALLE_INSCRIPCION_COMPLETA } from "@/domain/textos-reencaminado";
@@ -86,7 +89,10 @@ export default async function PantallaInscripcion() {
 
   return (
     <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional indicador={<StepperPasos slug="/inscripcion" />} />
+      {/* El canvas pone el progreso en una banda a lo ancho debajo de la
+          cabecera, no como rótulo dentro de ella. */}
+      <HeaderInstitucional />
+      <BandaPasosV3 slug="/inscripcion" />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <div className="overflow-hidden border border-borde-sutil bg-superficie" aria-hidden="true">
@@ -129,6 +135,8 @@ export default async function PantallaInscripcion() {
         )}
       </main>
 
+      {/* La píldora del canvas que avisa dónde está el botón principal. */}
+      <AvisoCtaFlotante />
       <PieLegal />
     </div>
   );

@@ -38,6 +38,64 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-01 (c) · El sistema de diseño del canvas, portado de verdad
+
+**Rama:** `fix/canvas-sistema-de-diseno` · **Andres, con capturas lado a lado**
+
+### El caso
+
+Andres puso las capturas del canvas contra las de la demo: «SON MUY
+DIFERENTES EN ESTILO». Y tenía razón. Lo que se había hecho hasta acá era
+tomar del canvas **los colores, la tipografía y las fotos** y seguir dibujando
+los componentes con Tailwind. Eso no es importar un diseño: es pintarle encima
+al que ya había.
+
+Su segundo mensaje precisó que no es solo CSS: faltaban **los mensajes, los
+tamaños, las posiciones y las ayudas al cliente** —el ejemplo que dio es la
+píldora «Acá abajo está el botón…», que el canvas tiene en las cinco pantallas
+y acá no existía—, y sobraban mensajes propios. Y los controles: donde el
+canvas pone botones, acá había radios que «no se ven».
+
+### Qué cambió
+
+- **`src/app/canvas-v3.css`**: el CSS del canvas portado **tal cual** desde el
+  Artifact —tokens, `.btn`, `.input`, `.field`, `.seg`, `.radio`, `.card`,
+  `.tag`, tipografía y escalas—, encapsulado bajo `[data-flujo="v3"]` para que
+  v2 no lo vea. Se le quitaron las `@font-face` (Archivo entra por
+  `next/font`) y se acotó la regla de enlaces a `a:not([class])`: sin eso
+  pintaba de rojo y subrayaba hasta los botones.
+- **`BandaPasosV3`**: la banda de tres columnas del canvas, a lo ancho y bajo
+  la cabecera, con el filete de color y el ✓ de los pasos cumplidos. Reemplaza
+  al «Paso N de 3» con puntitos, que **el diseño nunca tuvo**.
+- **`AvisoCtaFlotante`**: la píldora del canvas. No sabe de pantallas: busca
+  los botones con `data-cta`, toma el primero que quedó bajo el borde y muestra
+  su mensaje. Los CTA de los pasos 2 y 3 ya lo declaran.
+- **Beneficiario**: dos botones, como el canvas, en vez de radios; y la
+  explicación de lo elegido en la cita al margen del diseño.
+- **Declaraciones**: en la rejilla `minmax(330px, 1fr)` del canvas y con el
+  rótulo «* TE FALTA ESTO» arriba de la pregunta, no un asterisco al final.
+- **Carrusel**: la primera foto estaba en flujo y las otras tres absolutas, así
+  que su rótulo quedaba más arriba y el carrusel «saltaba». Ahora las cuatro
+  son absolutas y el alto lo da el contenedor.
+
+### Verificaciones
+
+- Suite **1243** en verde · batería e2e v3 **10/10**.
+- Los tres tests del stepper se reescribieron: asertaban «Paso N de 3», que es
+  el rótulo que el canvas no tiene. Ahora comprueban la banda y su
+  `aria-current`.
+
+### Queda abierto
+
+- Falta portar con la misma fidelidad las tarjetas de plan (el canvas usa un
+  botón por tarjeta y el estado «✓ SELECCIONADO», no un radio), los campos del
+  paso 1 y la pantalla de confirmación.
+- El canvas pide la cédula del beneficiario obligatoria; Andres confirmó que
+  **no** lo es, así que queda opcional y la divergencia se cierra a favor del
+  cumplimiento.
+
+---
+
 ## 2026-09-01 (b) · El diseño del canvas, aplicado de verdad a las tres pantallas
 
 **Rama:** `fix/diseno-canvas-3-pantallas` · **Feedback de Andres probando la demo**

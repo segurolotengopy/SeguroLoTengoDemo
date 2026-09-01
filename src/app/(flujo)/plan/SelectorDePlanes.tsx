@@ -258,6 +258,7 @@ export function SelectorDePlanes({
           {NOTA_LEGAL_PLAN}
         </p>
         <button
+          data-cta="Acá abajo está el botón para pasar al paso 2"
           type="button"
           onClick={continuar}
           disabled={!plan || enProceso}
