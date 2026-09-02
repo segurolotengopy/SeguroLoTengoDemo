@@ -1,6 +1,7 @@
 # Especificación de pantallas — SeguroLoTengo (fuente de verdad)
 
 **Adenda del 01-sep-2026 integrada (canvas ce0c8332).**
+**Textos del prototipo incorporados el 02-sep-2026** (auditoría P8).
 
 **Reescrita el 29-ago-2026** contra el diseño aprobado del **flujo de 3 pasos**
 (canvas de Claude Design importado en `docs/plan/IMPORTACION_DISENO_3_PASOS.md`,
@@ -522,6 +523,81 @@ flujo anterior; la información enviada y la autorización ya otorgada se
 conservan como datos del caso visibles en la consola.
 
 ---
+
+## Textos del prototipo incorporados (02-sep-2026)
+
+Estos textos nacieron en el prototipo de Lovable durante el porteo del canvas y
+**no estaban en este documento**. La auditoría de cierre (P8) los reportó como
+«textos sin fuente», que es exactamente lo que eran. Se incorporan acá para que
+la especificación vuelva a ser suficiente por sí sola: **son texto exigido, no
+sugerencias del proveedor.**
+
+Ninguno contradice una regla vigente; varios la hacen visible por primera vez
+(el aviso del RUC materializa CHG-34, y el rótulo de las carencias materializa
+DI-4).
+
+### Píldora flotante — texto por pantalla
+
+El mecanismo ya estaba descrito (aparece cuando el botón de avance queda bajo el
+borde inferior); **lo que faltaba era el texto de cada una**, que cambia según lo
+que el botón hace:
+
+| Pantalla | Texto |
+| :--- | :--- |
+| Inicio | `Acá abajo está el botón para empezar ↓` |
+| Paso 1 · antes de leer la cédula | `Acá abajo está el botón para leer tu cédula ↓` |
+| Paso 1 · en canales | `Acá abajo pedís tu código por WhatsApp ↓` |
+| Paso 1 · al final | `Acá abajo está el botón para pasar al paso 2 ↓` |
+| Paso 2 · camino normal | `Acá abajo está el botón para continuar ↓` |
+| Paso 2 · con respuesta incompatible | `Acá abajo enviás tu caso a un asesor ↓` |
+| Paso 3 · antes de firmar | `Acá abajo pedís el enlace para firmar ↓` |
+| Paso 3 · con la firma hecha | `Acá abajo está el botón para pagar ↓` |
+
+### Paso 1 — estados del código de WhatsApp
+
+Los tres estados del bloque de casillas. El primero es el que además **repite la
+advertencia contra el fraude telefónico**, y por eso no es prescindible:
+
+- En espera: `Enviado a {celular enmascarado} · se verifica solo al completar los 6 dígitos. Nadie de SeguroLoTengo, Interseguros o Alianza te lo va a pedir por llamada.`
+- Vencido: `El código venció. Pedí uno nuevo para seguir.`
+- Incorrecto: `Ese código no coincide — revisalo con calma o pedí uno nuevo.`
+
+Los tres dicen **qué hacer**, no solo qué pasó.
+
+### Paso 2 — rótulo de las carencias
+
+Debajo de las cuatro coberturas: `Las carencias (180 / 30 / 1 días) son
+parámetros provisionales, pendientes del dato oficial de Alianza Garantía.`
+Es DI-4 hecho visible: los plazos se muestran, pero rotulados como provisionales
+hasta el dato oficial.
+
+### Paso 3 — aviso del RUC y los tres bloques
+
+Bajo los datos de factura: `Si el RUC queda vacío, la factura se emite con la
+cédula del asegurado ({cédula}).` — es CHG-34, que este documento ya exigía
+(«la pantalla lo dice») sin dar el literal.
+
+Los **tres bloques chicos** bajo el pago, con su rótulo y su cuerpo:
+
+| Rótulo | Contenido |
+| :--- | :--- |
+| `PLAZO` | La cuenta regresiva, y debajo: `24 horas desde las firmas institucionales para completar el pago.` |
+| `SECUENCIA` | `Firmás primero y pagás después: así solo te cobramos algo que ya aceptaste.` |
+| `SEGURIDAD` | `La tarjeta va por el entorno de Bancard: el portal nunca ve ni guarda el número ni el código de seguridad.` |
+
+El de `SEGURIDAD` es la regla inviolable #6 dicha en palabras del cliente.
+
+### Confirmación — descarga y publicidad
+
+- Al tocar una descarga en modo demostración: `Descarga simulada: {documento}. En
+  esta demostración no se baja ningún archivo.` **Solo con `DEMO_MODE=true`**; en
+  producción la descarga es real y este texto no existe.
+- Bajo la casilla de comunicaciones comerciales, según su estado:
+  `Registramos tu autorización con fecha, hora y la versión del texto.` /
+  `Hoy no autorizaste publicidad.` Es la evidencia de DI-11 hecha visible.
+
+---
+
 
 ## Pantallas que se conservan del flujo anterior
 
