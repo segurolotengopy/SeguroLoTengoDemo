@@ -286,6 +286,50 @@ una pantalla fuera del contador; dos `[dato oficial pendiente]` y **cero**
 teléfonos o correos inventados.
 
 
+### P6 · Revisión manual — enviado y verificado. Las seis pantallas, completas
+
+El hueco que importaba: **el prompt no decía que la pantalla es terminal**, que
+es lo único que de verdad la define. Un agente que venía de armar cinco
+pantallas con CTA hacia adelante tenía todo para agregarle un «reintentar» o un
+«volver al paso 2» — caminos que no existen (regla #5) y que además le
+sugerirían a la persona que puede cambiar su respuesta para pasar. Los otros
+tres: enmascarar los canales, aclarar que el número de caso es propio y distinto
+del correlativo, y el pie legal (sexta de seis).
+
+Lovable implementó en `5ea7f11` (`RevisionManual.tsx`, 70 líneas). Verificado:
+**un solo `<Link>` en todo el archivo, hacia `/`** — ningún CTA que avance el
+flujo—; `CASO-00000001` sin reutilizar `PROP-`; canales enmascarados; `PieLegal`
+presente y `BandaPasos` ausente. El mensaje del commit dice «/rev-manual», pero
+es descuido de redacción: la ruta declarada es `/revision-manual` y en
+`routeTree.gen.ts` están las seis correctas más `/design-system`.
+
+**Nota de método, porque casi reporto tres problemas inexistentes.** Los greps
+de verificación marcaron `BandaPasos`, «rojo» y un correo sin enmascarar. Los
+tres eran falsos positivos: los dos primeros aparecían solo en comentarios que
+dicen que **no** van, y el correo sí estaba enmascarado como `a••@ejemplo.com`
+—la máscara canónica del Knowledge para `ana@ejemplo.com`—, mientras que el
+patrón buscado venía del ejemplo de otra pantalla. Grep sobre un archivo que
+documenta sus propias reglas en comentarios sobre-reporta siempre: hay que abrir
+cada coincidencia antes de llamarla incumplimiento. Es la misma lección de la
+entrada del 01-sep (f), donde comparar contra `innerText` dio 76 diferencias y
+casi todas eran falsas.
+
+### El balance de los seis prompts
+
+**Los seis venían con omisiones**, y el patrón fue consistente: la semilla se
+escribió asumiendo componentes compartidos ya puestos y valores ya sabidos.
+`BandaPasos` y pie legal faltaban en **seis de seis**. Los huecos con
+consecuencia real fueron cuatro: los importes de los planes sin nombrar (P3), las
+cinco declaraciones tratadas como iguales cuando la 5 detiene en vez de derivar
+(P3), el formulario de tarjeta descrito sin decir qué no se puede hacer con esos
+datos (P4, regla inviolable #6), y las tres tarjetas de documento que eran cuatro
+con la póliza como estado (P5, D-05).
+
+**Contrastar cada prompt contra la especificación antes de enviarlo encontró algo
+las seis veces.** Es el método que conviene conservar para P7 y P8, y para
+cualquier prompt que se agregue después.
+
+
 ### Queda abierto
 
 - ~~**Lovable: Knowledge v2 y P0-bis**~~ — **hecho por MCP**. El Knowledge
