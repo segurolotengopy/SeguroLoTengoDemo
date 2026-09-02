@@ -97,6 +97,8 @@ interface CapturaGuardada {
   readonly bytes: Uint8Array;
   readonly aprobada: boolean;
   readonly lineas: readonly LineaReconocida[];
+  /** Las que alcanzan el umbral de confianza; las únicas que se leen como datos. */
+  readonly lineasConfiables: readonly LineaReconocida[];
   readonly senales: SenalesDocumento;
 }
 
@@ -201,7 +203,7 @@ export function crearIdentityProviderCamaraDemo(
     };
 
     function rechazo(motivo: string, autenticidad: boolean): ResultadoCapturaCedula {
-      sesion.frente = { imagen, bytes, aprobada: false, lineas: [], senales: senalesVacias };
+      sesion.frente = { imagen, bytes, aprobada: false, lineas: [], lineasConfiables: [], senales: senalesVacias };
       return { calidadAprobada: false, autenticidadAprobada: autenticidad, imagen, motivoRechazo: motivo };
     }
 
@@ -236,7 +238,7 @@ export function crearIdentityProviderCamaraDemo(
     // retrato de una cédula fotografiada nunca alcanza la nitidez de una
     // selfie, y exigírsela rechaza documentos perfectamente legibles.
     const calidad = evaluarCalidadRetratoDocumento(rostro.medicion);
-    sesion.frente = { imagen, bytes, aprobada: calidad.aprobada, lineas: ocr.lineas, senales };
+    sesion.frente = { imagen, bytes, aprobada: calidad.aprobada, lineas: ocr.lineas, lineasConfiables: ocr.lineasConfiables, senales };
 
     return {
       calidadAprobada: calidad.aprobada,
@@ -271,7 +273,7 @@ export function crearIdentityProviderCamaraDemo(
     const mrz = buscarMrzTd1(ocr.lineas, ahora());
 
     if (!mrz.encontrado && mrz.motivo === "MRZ_INVALIDO") {
-      sesion.dorso = { imagen, bytes, aprobada: false, lineas: ocr.lineas, senales };
+      sesion.dorso = { imagen, bytes, aprobada: false, lineas: ocr.lineas, lineasConfiables: ocr.lineasConfiables, senales };
       sesion.mrz = null;
       return {
         calidadAprobada: true,
@@ -284,7 +286,7 @@ export function crearIdentityProviderCamaraDemo(
     // Un MRZ válido hace reconocible al dorso por definición: sus dígitos
     // verificadores son una prueba más fuerte que cualquier marcador impreso.
     const reconocido = mrz.encontrado || senales.pais !== null;
-    sesion.dorso = { imagen, bytes, aprobada: reconocido, lineas: ocr.lineas, senales };
+    sesion.dorso = { imagen, bytes, aprobada: reconocido, lineas: ocr.lineas, lineasConfiables: ocr.lineasConfiables, senales };
     sesion.mrz = mrz.encontrado ? mrz.datos : null;
 
     return {
@@ -353,8 +355,12 @@ export function crearIdentityProviderCamaraDemo(
       // Camino de demostración: sin MRZ, se adivina con heurísticas de rótulo.
       // Producción devuelve vacío acá (regla inviolable #8); esto es lo que
       // hace que este adaptador no sea el de producción.
+      // Solo lo leído con confianza: la lectura del frente devolvía fragmentos
+      // sueltos —«BLI» con 30 %, «R'P» con 14 %— que competían con los valores
+      // reales. El MRZ del dorso se busca aparte y sobre todas las líneas,
+      // porque su validación son sus propios dígitos verificadores.
       const campos = extraerCamposAproximados(
-        [...sesion.frente.lineas, ...sesion.dorso.lineas],
+        [...sesion.frente.lineasConfiables, ...sesion.dorso.lineasConfiables],
         pais,
       );
       const numeroCedula = sesion.frente.senales.numeroDetectado;

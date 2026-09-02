@@ -35,7 +35,7 @@ function clienteConBloques(bloques: unknown[]): ClienteTextract {
 }
 
 function linea(texto: string, confianza: number): LineaReconocida {
-  return { texto, confianza };
+  return { texto, confianza, caja: null };
 }
 
 describe("leerTextoDocumento", () => {

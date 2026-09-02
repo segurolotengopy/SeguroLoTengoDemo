@@ -8,11 +8,70 @@
 import { describe, expect, it } from "vitest";
 import { extraerCamposAproximados } from "../cedula-aproximada";
 
+/** Líneas sin geometría: el proveedor no siempre la informa. */
 function lineas(...textos: readonly string[]) {
-  return textos.map((texto) => ({ texto, confianza: 99 }));
+  return textos.map((texto) => ({ texto, confianza: 99, caja: null }));
+}
+
+/**
+ * Líneas **con** geometría, como las devuelve Textract. Cada entrada es
+ * `[texto, izquierda, arriba]` en la escala 0–1 del proveedor.
+ */
+function lineasUbicadas(...items: readonly (readonly [string, number, number])[]) {
+  return items.map(([texto, izquierda, arriba]) => ({
+    texto,
+    confianza: 99,
+    caja: { izquierda, arriba, ancho: 0.1, alto: 0.02 },
+  }));
 }
 
 describe("extraerCamposAproximados", () => {
+  /**
+   * El caso real que rompía: la cédula paraguaya tiene dos columnas y Textract
+   * devuelve las líneas en orden de lectura, saltando de una a la otra. Las
+   * coordenadas son las que devolvió Textract sobre el documento de la prueba
+   * del 01-sep-2026 (fixture D-21).
+   *
+   * Leyendo «la línea siguiente», APELLIDOS tomaba «FECHA DE VENCIMIENTO» —que
+   * está en la columna derecha— y NOMBRES tomaba «BLI», un fragmento suelto.
+   */
+  it("asocia cada rótulo con el valor de su columna, no con la línea siguiente", () => {
+    const campos = extraerCamposAproximados(
+      lineasUbicadas(
+        ["APELLIDOS", 0.332, 0.222],
+        ["FECHA DE VENCIMIENTO", 0.714, 0.224],
+        ["FERNANDEZ ECHAZU", 0.34, 0.259],
+        ["29-10-2026", 0.74, 0.262],
+        ["NOMBRES", 0.331, 0.364],
+        ["BLI", 0.434, 0.282],
+        ["RODRIGO", 0.34, 0.397],
+        ["FECHA DE NACIMIENTO", 0.33, 0.757],
+        ["15-09-1974", 0.339, 0.792],
+      ),
+      "PY",
+    );
+
+    expect(campos.apellidos).toBe("FERNANDEZ ECHAZU");
+    expect(campos.nombres).toBe("RODRIGO");
+    expect(campos.fechaNacimiento).toBe("1974-09-15");
+  });
+
+  /**
+   * Con cajas y sin nada debajo del rótulo, no se adivina con el orden: es
+   * preferible el campo vacío a un valor de otra columna.
+   */
+  it("con geometría, no toma un valor lejano cuando no hay nada bajo el rótulo", () => {
+    const campos = extraerCamposAproximados(
+      lineasUbicadas(
+        ["NOMBRES", 0.33, 0.36],
+        ["ALGO EN OTRA COLUMNA", 0.72, 0.37],
+      ),
+      "PY",
+    );
+
+    expect(campos.nombres).toBeNull();
+  });
+
   it("toma el valor de la línea siguiente al rótulo", () => {
     const campos = extraerCamposAproximados(
       lineas("NOMBRES", "MÓNICA MARIANA", "APELLIDOS", "GORENA TAPIA"),

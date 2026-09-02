@@ -255,6 +255,69 @@ diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
 
 ---
 
+## 2026-09-01 (h) · Por qué el frente de la cédula se leía mal: eran las columnas
+
+**Rama:** `fix/ocr-frente-por-geometria` · **Pedido de Andres**
+
+### El caso
+
+Andres pidió revisar por qué la lectura del frente devolvía basura —«BLI» como
+nombre, «FECHA DE VENCIMIENTO» como apellido— y si convenía sacar los datos del
+MRZ. Se investigó con Textract sobre la cédula real (fixture D-21).
+
+### El hallazgo: Textract lee bien; la asociación estaba mal
+
+El frente devuelve **todos los datos correctos y con alta confianza**:
+`FERNANDEZ ECHAZU` (99,8 %), `RODRIGO` (99,9 %), `15-09-1974` (99,6 %),
+`MASCULINO` (100 %), `N° 9288883` (82,8 %).
+
+El error era nuestro: `valorTrasRotulo` tomaba **la línea siguiente en la
+lista**, y la cédula tiene **dos columnas**. Textract devuelve las líneas en
+orden de lectura, saltando de una a la otra, así que después de `APELLIDOS`
+venía `FECHA DE VENCIMIENTO` —columna derecha— y después de `NOMBRES` venía
+`BLI`, un fragmento leído con 30 % de confianza.
+
+La geometría lo confirma: el valor comparte borde izquierdo con su rótulo
+(0,33–0,34) y cae unas centésimas más abajo; `FECHA DE VENCIMIENTO` está en
+0,714 y `BLI` en 0,434, desalineado de todo.
+
+### Qué cambió
+
+- `LineaReconocida` conserva la **caja** que Textract ya devolvía y se estaba
+  descartando.
+- `valorTrasRotulo` asocia **por posición**: el candidato más cercano por
+  debajo del rótulo y dentro de su columna. Sin cajas —proveedor que no las
+  informe— cae al comportamiento anterior. Con cajas y sin candidato debajo
+  **no adivina**: prefiere el campo vacío.
+- El adaptador de cámara pasa a usar `lineasConfiables` (umbral 90) para leer
+  el frente. El MRZ se sigue buscando sobre **todas** las líneas: su validación
+  son sus propios dígitos verificadores.
+
+### Sobre el MRZ (lo que Andres preguntó primero)
+
+El código **ya prefiere el MRZ**: si está, todo sale de ahí. En este documento
+el MRZ existe y Textract lo lee, pero llega con líneas de 27 y 29 caracteres
+—recorta el relleno `<`— y el parser exige 30. Rellenando, los verificadores de
+**cada campo** validan (documento, nacimiento `740915`, vencimiento) y solo
+falla el **compuesto**; se probaron todas las reconstrucciones posibles del
+relleno y ninguna lo hace cerrar, así que hay además un carácter mal leído.
+
+Dato útil: la fecha `15/09/1974` que el frente daba **era correcta** — el MRZ la
+confirma con su dígito verificador.
+
+Queda pendiente y **es decisión de Andres**: si aceptar del MRZ los campos con
+verificador propio (fecha de nacimiento, número) cuando el compuesto no cierra.
+Los nombres no, porque solo los protege el compuesto.
+
+### Verificaciones
+
+- Contra el documento real, con Textract: `RODRIGO`, `FERNANDEZ ECHAZU`,
+  `1974-09-15`, `M`. Antes: «BLI» y «FECHA DE VENCIMIENTO».
+- Dos tests nuevos con las coordenadas exactas que devolvió Textract.
+- `npm run verify` en verde (1249 tests) · e2e v3 **10/10**.
+
+---
+
 ## 2026-09-01 (g) · Las tarjetas de captura, y el susto de haber roto producción
 
 **Rama:** `fix/canvas-tarjetas-captura` · **Pedido de Andres**
