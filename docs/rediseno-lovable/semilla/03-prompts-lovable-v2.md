@@ -286,6 +286,40 @@ especificación; adenda §E: el expandible del FIPF usa el texto de la
 especificación (Formulario de Identificación de Persona Física), no el del
 canvas.
 
+**Con `BandaPasos` en la posición 3 y con pie legal.** Cabecera de dos bloques.
+
+**Cuatro reglas de esta pantalla que no se pueden interpretar:**
+
+1. **Nunca se guarda ni se muestra un número de tarjeta completo ni un código
+   de seguridad.** El formulario de tarjeta vive dentro de la ventana simulada
+   de Bancard y su contenido **no sale de ahí**: no lo escribas en
+   `localStorage`, no lo mandes a ningún servicio, no lo imprimas en consola y
+   no lo muestres de vuelta en la pantalla del paso 3. Si en algún lado hay que
+   mostrar la tarjeta usada, va enmascarada: `•••• •••• •••• 1234`.
+2. **El enlace de firma se manda a los canales ya verificados, y el destino
+   sale del expediente, nunca de un campo que la persona escriba.** Los dos
+   botones muestran el destino **enmascarado**: «Tocá acá para firmar por
+   WhatsApp · +595 ••• ••• 000» y «Tocá acá para firmar por correo ·
+   m••••••@…», con la leyenda «Solo se envía a los canales que ya verificaste.
+   Ningún operador te va a pedir ese código.»
+3. **Ninguna pantalla nombra al proveedor de firma.** El texto dice «el
+   proveedor de firma electrónica», genérico. Si el canvas trae un nombre
+   propio, no se copia.
+4. **El PDF se ve pero no se descarga antes de firmar** (`Ver PDF` abre el
+   visor modal; no hay botón de descarga en este paso).
+
+**Datos para la factura: tres campos, ni uno más.** `Factura a nombre de`
+(autocompletado con el asegurado, porque solo el titular contrata) ·
+`Documento para la factura` · `RUC (opcional)`. Si el RUC queda vacío viaja la
+cédula del asegurado, **y la pantalla lo dice**.
+
+**Liquidación: tres líneas** — `Prima neta anual` · `IVA` · `Premio total
+anual` — con la leyenda `Apertura provisional hasta el desglose oficial de
+Alianza.` (la prima neta se calcula premio ÷ 1,1 y es igual de provisional).
+
+**La aceptación agrupada 3 tiene TRES ítems** (no cinco ni siete como las de
+los pasos anteriores), con el texto literal de la especificación.
+
 Reproducí: título, encabezado, foto `hero-paga-firma.jpg`, barra TU PLAN
 debajo de la foto; sección de firma con el párrafo, el expandible, la
 tarjeta del documento `PROP-00000001` con «Ver PDF» (ModalVisorPdf con el
@@ -303,7 +337,8 @@ tres puntos, barra #151a20 con candado y `vpos.bancard.com.py/pago-seguro`,
 con «Mostrame qué me falta», botones (demo), leyenda de ventana simulada.
 Al «pagar», navegar a /confirmacion.
 
-Al terminar: capturas, textos, diferencias.
+Al terminar: capturas, textos, diferencias, y confirmame que ningún dato de
+tarjeta se guarda, se registra ni se muestra fuera de la ventana simulada.
 ```
 
 ## P5 · Confirmación `/confirmacion`
