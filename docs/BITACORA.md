@@ -38,6 +38,137 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-02 · El intento de publicar el canvas en el repo de Lovable, y por qué no se pudo
+
+**Rama:** `docs/rediseno-lovable-canvas` · **Pedido de Andres** (seis pasos:
+publicar el commit del canvas en el repo de diseño, limpiar, integrar la adenda
+en la especificación, agregar el MCP de Lovable, actualizar `CLAUDE.md`,
+verificar y cerrar)
+
+### El caso
+
+Una sesión anterior de **Cowork** había preparado el commit `4771f03` («Canvas
+aprobado ce0c8332 como fuente visual…», sobre `955fd0e`) para
+`github.com/segurolotengo-diseno/slt-diseno-v3`, pero su sandbox no le permitió
+empujarlo; lo dejó como *bundle* de git en `~/segurolotengo-demo/_lovable-push/`
+con un clon parcial en `~/slt-diseno-lovable`. Esta sesión tenía que retomar
+desde ahí.
+
+**No pudo: esta sesión corre en un contenedor distinto y vacío.** El sandbox de
+Cowork no es el mismo entorno, y lo que quedó allí no viajó. Verificado, no
+supuesto:
+
+| Insumo esperado | Resultado |
+| :--- | :--- |
+| `~/segurolotengo-demo/_lovable-push/slt-diseno-v3.bundle` | No existe. `find / -name '*.bundle'` no devuelve nada. |
+| `~/slt-diseno-lovable` | No existe. `find / -type d -name 'slt-diseno*'` vacío. |
+| Commit `4771f03` en algún objeto local | No existe: `git log --all` de este repo no lo conoce, y no hay otro repositorio en disco. |
+| `docs/rediseno-lovable/GUIA_REDISENO_LOVABLE_v2-desde-fase3.md` | No existe ni en el árbol ni en la historia. Solo está `GUIA_REDISENO_LOVABLE.md` (01-sep). |
+| `docs/rediseno-lovable/semilla/pantallas/ESPECIFICACION_PANTALLAS-ADENDA-2026-09-01.md` | No existe ni en el árbol ni en la historia (`git log --all -- '*ADENDA*'` vacío). |
+
+`HOME` acá es `/root` y el único directorio bajo `/home/user` es el clon de
+`SeguroLoTengoDemo`. No hay forma de reconstruir el commit sin sus archivos: el
+canvas que lo compone (`docs/canvas/canvas-plantilla.html`, `canvas-estilos.css`,
+`canvas-logica.js`, `canvas-textos.md`, `canvas-modales.md`,
+`canvas-reglas-visuales.md` y las capturas) tampoco está en este repositorio.
+
+**Lo que no se hizo, y por qué no se improvisó.** Rehacer el commit a mano
+habría significado inventar el contenido del canvas y de la adenda, que es
+exactamente lo que `CLAUDE.md` prohíbe («No inventes campos, pasos, validaciones
+ni textos»). Se prefirió frenar y reportar.
+
+El hallazgo de las dos capas del canvas —que el pedido ubica en el §0 de la guía
+v2— **no se pudo verificar ni citar**: esa guía no está en el repositorio. El §0
+de la guía que sí existe trata otra cosa (por qué el plan no puede ser
+«repo1 → repo2 → Lovable»: Lovable no importa repositorios y el stack Next.js es
+incompatible con TanStack Start / Vite).
+
+### Qué cambió
+
+Solo el paso 5, que era el único con todos sus insumos en este repositorio:
+
+- **`CLAUDE.md`, sección «Convenciones de UI»**: se agregó el párrafo de
+  `docs/rediseno-lovable/CLAUDE.md-fragmento.md`, con `<org>` →
+  `segurolotengo-diseno`, `<repo-diseno>` → `slt-diseno-v3` y `<fecha>` →
+  02-sep-2026. Como el tag `diseno-v1-aprobado` todavía no existe, en su lugar
+  quedó «(pendiente de aprobación; hasta entonces, rama `main`)», según la
+  instrucción de Andres. Declara al prototipo de Lovable como fuente visual del
+  flujo v3, prohíbe fusionarlo con este repositorio y fija el método de porteo
+  de `semilla/04-mapa-porteo.md`.
+
+**Advertencia sobre ese párrafo:** apunta a `segurolotengo-diseno/slt-diseno-v3`,
+cuyo estado esta sesión **no pudo verificar** (ver abajo). Si el push del canvas
+nunca ocurrió, el puntero describe un repositorio que existe pero sin el canvas
+aprobado adentro.
+
+### Lo que quedó sin hacer, paso por paso
+
+1. **Publicar `4771f03`** — imposible: el commit no existe en este entorno.
+   Además, el acceso de GitHub de esta sesión está acotado a
+   `segurolotengopy/segurolotengodemo`; el intento de sumar
+   `segurolotengo-diseno/slt-diseno-v3` fue **denegado por el clasificador de
+   permisos**, así que tampoco se pudo leer el repositorio remoto para saber si
+   el canvas ya está publicado. `gh` no está instalado acá.
+2. **Limpiar `_lovable-push/`** — nada que borrar: el directorio no existe y
+   `git status` estaba limpio antes de tocar `CLAUDE.md`.
+3. **Integrar la adenda en `ESPECIFICACION_PANTALLAS.md`** — no se hizo: el
+   archivo de la adenda no existe, y sus cinco secciones (§A pie legal y tabla
+   de modales, §B cabecera con «(provisional)», §C rótulos del carrusel, §D
+   paleta y tipografía, §E divergencias) contienen texto literal que no se puede
+   reconstruir sin inventarlo. `docs/ESPECIFICACION_PANTALLAS.md` quedó intacta
+   y **sin** la línea de revisión, que habría afirmado una integración que no
+   ocurrió.
+4. **MCP de Lovable** — no se ejecutó `claude mcp add` en este contenedor: es
+   efímero y remoto, la configuración no llegaría al equipo de Andres y el OAuth
+   por navegador no puede completarse desde acá. Por lo mismo, no se pudo leer
+   `src/index.css` del proyecto de Lovable ni comprobar si conserva «Archivo»,
+   «#ec3013» o «radius: 0» (los rastros que corrige P0-bis).
+
+### Qué hizo Andres
+
+- Encargó los seis pasos y autorizó la rama `docs/rediseno-lovable-canvas`.
+- Avisó a mitad de sesión que la ejecución corre en la nube y podía cortarse, por
+  lo que se adelantó el commit y el push.
+- Pendiente de su parte: el OAuth de Lovable y los comandos del *bundle*, que
+  tienen que correr en su equipo (ver «Queda abierto»).
+
+### Verificaciones
+
+- `npm run verify` en verde sobre el árbol con `CLAUDE.md` modificado:
+  **1247 tests, 91 archivos de test**, `tsc --noEmit` sin errores, ESLint con
+  **0 errores y 6 advertencias** (las preexistentes: `<img>` en cinco pantallas
+  y una variable sin usar en `VerificacionIdentidad.tsx`). Ningún cambio de
+  código en esta sesión.
+- Ausencia de insumos verificada con `find /`, `git log --all -- <patrón>` y
+  `git ls-remote`, no por inspección de un solo directorio.
+
+### Queda abierto
+
+- **El push del canvas, en el equipo de Andres.** Los comandos del pedido siguen
+  siendo los correctos, pero hay que correrlos donde está el *bundle*:
+  `git clone ~/segurolotengo-demo/_lovable-push/slt-diseno-v3.bundle ~/slt-diseno-lovable`,
+  `git -C ~/slt-diseno-lovable checkout -B main origin/main`,
+  `git -C ~/slt-diseno-lovable remote set-url origin https://github.com/segurolotengo-diseno/slt-diseno-v3.git`,
+  `git -C ~/slt-diseno-lovable push origin main`, y verificar con
+  `git ls-remote --heads origin main` que devuelve `4771f03`. Si la sesión de
+  Cowork ya se cerró y el sandbox se recicló, el *bundle* se perdió y el canvas
+  hay que volver a exportarlo desde el Artifact `ce0c8332`.
+- **La adenda del 01-sep y la guía v2**: no están versionadas en este
+  repositorio. Si viven solo en la sesión de Cowork, hay que traerlas antes de
+  poder integrarlas. Decisión de Andres.
+- **Alcance de GitHub**: para que una sesión pueda operar sobre
+  `segurolotengo-diseno/slt-diseno-v3` hay que habilitar esa organización en el
+  acceso de Claude (y aun así el clasificador de permisos puede bloquearla).
+- **Lovable**: pegar el *Knowledge v2* en el proyecto y enviar el prompt
+  **P0-bis** (el que corrige «Archivo», «#ec3013» y «radius: 0» en
+  `src/index.css`). Sin el MCP conectado, no se pudo comprobar si esos rastros
+  siguen ahí.
+- **El puntero de `CLAUDE.md`** queda apuntando a la rama `main` del repo de
+  diseño; cuando exista el tag `diseno-v1-aprobado` hay que reemplazar
+  «(pendiente de aprobación; hasta entonces, rama `main`)» por la etiqueta.
+
+---
+
 ## 2026-09-01 (g) · Las tarjetas de captura, y el susto de haber roto producción
 
 **Rama:** `fix/canvas-tarjetas-captura` · **Pedido de Andres**
