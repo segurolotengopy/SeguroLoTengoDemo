@@ -165,6 +165,46 @@ propio archivo: P0-bis debería reemplazar también ese bloque. La nota de
 corrección que agregó `4771f03` está en `docs/01-tokens.css` del repo de
 diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
 
+### El choque de sesiones, y el worktree
+
+Dos sesiones sobre el mismo árbol se pisaron **tres veces** en el día. La
+tercera tuvo consecuencia: el árbol estaba en `main` —no en la rama del
+rediseño— cuando se commiteó la corrección de P2, así que `db03a63` quedó
+sobre `main`; entre dos comandos, la otra sesión branchó desde ahí y pusheó, y
+el commit de documentación terminó **dentro del PR #98** (`fix(identidad): la
+fecha del corte de edad sale del MRZ verificado`), abierto. `origin/main` nunca
+se movió, así que **no hubo despliegue accidental**.
+
+**Decisión de Andres:** dejarlo ahí —es documentación y no afecta al fix— y
+**pasar a un worktree propio**. Creado en `~/slt-rediseno` sobre
+`docs/rediseno-lovable-canvas`. De acá en más el rediseño se trabaja ahí.
+
+La lección: verificar la rama **antes de cada commit**, no solo al abrir la
+sesión. Un `git status` del arranque no dice nada quince minutos después si hay
+otro agente en el mismo directorio.
+
+### P2 · Paso 1 — enviado y verificado
+
+Antes de enviarlo se contrastó P2 contra la sección «Paso 1» de la
+especificación y aparecieron **cuatro omisiones del prompt**, corregidas en la
+semilla: no pedía `BandaPasos` ni pie legal; no decía que **el sexo se elige y
+no lo completa el OCR** (decisión vigente que ya se había perdido una vez);
+decía «ocho campos» sin nombrarlos, dejando que el proveedor los inventara; y
+«OTP acepta 123456» podía terminar impreso en pantalla como ayuda.
+
+Lovable implementó en `004b314` «Finalizado el Paso 1 de Inscripción»
+(`Inscripcion.tsx`, 638 líneas). Verificado leyendo el código: `BandaPasos`
+recibe **slug**, no número; `PieLegal` presente; cabecera de **dos** bloques;
+cédula y fecha de nacimiento con candado «· no editable»; **el sexo es un
+select y `rellenarDemo` no lo toca**; `123456` aparece solo en la comparación y
+en ningún texto de pantalla; los ocho campos complementarios exactos, sin
+ninguno de más; los siete ítems literales; el ítem 5 dice «el proveedor de
+firma electrónica que utilice Interseguros» y **cero menciones** a Code100,
+Entrust, Infobip u Onfido; correo con doble tipeo, sin OTP, con el mensaje
+literal de la especificación. El contenido del modal «Cómo cuidamos tus datos»
+es literal de `canvas-modales.md` §`cuidado`.
+
+
 ### Queda abierto
 
 - ~~**Lovable: Knowledge v2 y P0-bis**~~ — **hecho por MCP**. El Knowledge
