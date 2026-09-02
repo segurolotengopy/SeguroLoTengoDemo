@@ -127,8 +127,12 @@ Corregí lo que ya construiste, sin crear pantallas todavía:
    siete enlaces que abren `AclaracionModal` con el contenido de
    `docs/canvas/canvas-modales.md` (pie «Texto de muestra para la
    demostración del flujo.»; datos de contacto como [dato oficial
-   pendiente]). Sin URLs. En el Inicio el pie NO se muestra (el canvas lo
-   condiciona a `noEsInicio`).
+   pendiente]). Sin URLs. **El pie se muestra en TODAS las pantallas, el
+   Inicio incluido**: la especificación dice «Pie legal (todas las
+   pantallas)» y ante diferencia con el canvas manda la especificación. El
+   canvas lo condiciona a `noEsInicio`, pero esa divergencia no está en la
+   adenda §E, así que no vale (corregido el 02-sep-2026 por decisión de
+   Andres).
 5. `/design-system`: actualizá para que muestre los valores nuevos, los tres
    botones, el input en sus estados y un bloque con data-falta.
 
@@ -150,7 +154,8 @@ de la especificación + ADENDA §C (rótulo de la cuarta foto: «Protege a tu
 familia»).
 
 Reproducí, con los mismos valores que el HTML del canvas:
-- Cabecera con tres bloques (solo acá). Sin BandaPasos. Sin pie legal.
+- Cabecera con tres bloques (solo acá). Sin BandaPasos. **Con pie legal**
+  (va en todas las pantallas; ver P0-bis punto 4).
 - Hero: columna de texto flex 1 1 340px con H1 clamp(34px,5vw,58px) 700
   line-height 1.04 max-width 18ch y bajada 17px neutral-700 max-width 52ch;
   columna de foto flex 1.7 1 480px con el cuadro 16/9 radio 16 borde

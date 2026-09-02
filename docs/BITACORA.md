@@ -198,8 +198,31 @@ diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
   aprobar el plan y quedó implementado (`src/pages/Inicio.tsx:138`). El tercer
   bloque de cabecera (CANAL DIGITAL con el sello SLT) **sí** es exclusivo del
   Inicio: eso viene de la adenda §B y es correcto.
-  **Pendiente: corregir el punto 4 de P0-bis en la semilla**, que sigue
-  diciendo lo del `noEsInicio`.
+  **Corregido en la semilla** el 02-sep: el punto 4 de P0-bis ya no dice lo
+  del `noEsInicio`, y P1 pasó de «Sin pie legal» a «Con pie legal». El mismo
+  error estaba en los dos prompts.
+
+- **La revisión del Inicio renderizado, y qué era de quién.** Andres miró el
+  prototipo y dijo que no se parecía al diseño de 3 pasos. Tenía razón, pero
+  **casi nada de eso era de P0-bis**, que decía «sin crear pantallas todavía»
+  y solo tocaba tokens, tres compartidos y `/design-system`. El cuerpo del
+  Inicio lo había construido el P0 original y le corresponde a P1. Lo que sí
+  estaba en alcance quedó bien, verificado en código: `HeaderInstitucional`
+  con los tres bloques, los sufijos `(provisional)`, los tres enlaces y el
+  sello SLT solo en el Inicio (adenda §B), montada en `Inicio.tsx:58`.
+
+  Seis incumplimientos concretos de la adenda, encontrados leyendo
+  `src/pages/Inicio.tsx` y no la captura: rótulos del carrusel en mayúsculas
+  y truncados (`INSCRIBITE` en vez de «Inscribite con nosotros»); **textos
+  `alt` inventados**, que el Knowledge prohíbe; sin los cuatro puntos
+  indicadores; `aspect-4/5` y `21/9` en vez de **16/9**; `rounded-2xl` en vez
+  de radio **16**; y «ANTES DE EMPEZAR» convertido en un **botón que abre un
+  modal**. Este último es el que importa: ese texto avisa para qué se usan el
+  WhatsApp y el correo, y esconderlo detrás de un clic no es una decisión de
+  dibujo. Acertó, en cambio, la cadencia de 3 s y el cruce de 0,7 s.
+
+- **P1 enviado** con las seis correcciones incorporadas y la del pie legal.
+  Lovable volvió a planificar (3,3 créditos) y se aprobó el plan.
 - ~~**P0-bis conviene ampliarlo**~~ — **hecho**: `semilla/03-prompts-lovable-v2.md`
   ahora ataca el comentario de cabecera de `src/index.css` (paso 0 del prompt),
   trae los valores de la capa 2 copiados literales con el tema noche completo,
