@@ -172,8 +172,12 @@ diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
   (`semilla/03-prompts-lovable-v2.md`). El prerrequisito ya está cumplido:
   `docs/canvas/*` y `docs/pantallas/*` viven en el repo de diseño desde el
   push de esta sesión, así que Lovable puede leerlos.
-- **P0-bis conviene ampliarlo** a lo que se midió arriba: no alcanza con los
-  tres marcadores.
+- ~~**P0-bis conviene ampliarlo**~~ — **hecho**: `semilla/03-prompts-lovable-v2.md`
+  ahora ataca el comentario de cabecera de `src/index.css` (paso 0 del prompt),
+  trae los valores de la capa 2 copiados literales con el tema noche completo,
+  e inventaria todo lo que hay que borrar, incluido el bloque que sobrescribe
+  `--color-naranja-*` con la escala roja. Sincronizado al repo de diseño
+  (`841ac87`), que es donde Lovable lo lee.
 - **ESLint sobre el canvas vendoreado**: conviene excluir
   `docs/rediseno-lovable/semilla/canvas/` de `eslint.config.js`. Es un artefacto
   de referencia; lintearlo solo produce ruido.
