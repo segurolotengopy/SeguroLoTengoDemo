@@ -221,8 +221,23 @@ diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
   WhatsApp y el correo, y esconderlo detrás de un clic no es una decisión de
   dibujo. Acertó, en cambio, la cadencia de 3 s y el cruce de 0,7 s.
 
-- **P1 enviado** con las seis correcciones incorporadas y la del pie legal.
-  Lovable volvió a planificar (3,3 créditos) y se aprobó el plan.
+- **P1 enviado y ejecutado** (`b0d7f59` «Ajustó canvas de inicio», un archivo,
+  124 inserciones; 3,3 créditos el plan + 6 la implementación). Las seis
+  correcciones, verificadas leyendo `src/pages/Inicio.tsx` y no el reporte del
+  agente: rótulos en caja normal con los textos de la adenda §C; `alt` = rótulo
+  en las cuatro; cuatro indicadores (`naranja-500` el activo, `hueso-400` el
+  resto); `aspect-video` único, o sea **16/9 en todos los tamaños**;
+  `rounded-lg`; y «ANTES DE EMPEZAR» de vuelta como `<h2>` con su párrafo
+  completo a la vista, sin modal. Lo estructural también entró: hero a dos
+  columnas con los valores exactos del canvas (`flex-[1_1_340px]` /
+  `flex-[1.7_1_480px]`, `clamp(34px,5vw,58px)`, 18ch, 52ch), los tres pasos
+  como franja con filetes verticales en vez de tarjetas, la píldora flotante
+  por `data-cta`, el recorte `object-[center_40%]` y `PieLegal` conservado.
+
+  **Se controló que no inventara textos**, que es el riesgo de este proveedor:
+  el contenido nuevo del modal «Qué datos usamos y para qué» resultó ser
+  literal de `canvas-modales.md` §`usoDatos` (las cuatro secciones TUS CANALES
+  / QUIÉNES LOS USAN / CON QUIÉN NO SE COMPARTEN / PUBLICIDAD).
 - ~~**P0-bis conviene ampliarlo**~~ — **hecho**: `semilla/03-prompts-lovable-v2.md`
   ahora ataca el comentario de cabecera de `src/index.css` (paso 0 del prompt),
   trae los valores de la capa 2 copiados literales con el tema noche completo,
