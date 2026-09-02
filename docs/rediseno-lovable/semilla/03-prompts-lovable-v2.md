@@ -346,13 +346,39 @@ tarjeta se guarda, se registra ni se muestra fuera de la ventana simulada.
 ```
 Reproducí **Confirmación**: sección `data-screen-label="Confirmacion"`,
 capturas `04-confirmacion-*.png`. Textos: sección «Confirmación». Sin
-BandaPasos. Kicker «CONTRATACIÓN ACEPTADA», título y bajada a la izquierda,
-foto `familia-confirmacion.jpg` al costado recorte center 45%; cuatro hitos
-en fila entre filetes; «TUS DOCUMENTOS» con tres tarjetas (nombre y detalle
-a la izquierda, «Ver PDF» + descarga a la derecha) y «Y ESTOS TE LLEGAN EN
-BREVE» con la póliza como estado; leyenda del QR; ayuda con rótulos y
+BandaPasos, **con pie legal**.
+
+**Son CUATRO tarjetas, no tres**, y solo TRES se descargan:
+
+1. `Certificado de Cobertura Provisional` — `CPC-00000001 · firmado por
+   Alianza Garantía · SHA-256 registrado` · Ver PDF + descarga.
+2. `Propuesta de Interseguros + FIPF (firmada)` — `PROP-00000001 · cliente,
+   Interseguros y Alianza · SHA-256 registrado` · Ver PDF + descarga.
+3. `Comprobante de pago del premio` — `REC-00000001 · {premio} vía Bancard` ·
+   Ver PDF + descarga. **Sin huella y sin QR**: se genera al pedirlo, así que
+   no lleva SHA-256 impreso.
+4. `Póliza definitiva` — `En emisión por Alianza Garantía · llega por correo y
+   WhatsApp`. Es **vista de estado, NO descarga**: al abrirla, el visor explica
+   que la emite Alianza y que mientras tanto el certificado acredita la
+   cobertura.
+
+La cuarta tarjeta no es un cuarto descargable. Si el canvas las agrupa distinto,
+manda esta estructura.
+
+**La fecha de inicio de cobertura no se calcula en la pantalla**: viene dada
+(son 24 horas exactas sobre el instante del cobro) y se muestra tal cual. En el
+prototipo va un valor fijo de ejemplo; no la derives de `Date.now()`.
+
+Kicker «CONTRATACIÓN ACEPTADA», título y bajada a la izquierda, foto
+`familia-confirmacion.jpg` al costado recorte center 45%; cuatro hitos en fila
+entre filetes; leyenda del QR; ayuda con rótulos y
 `[dato oficial pendiente]`; «COMUNICACIONES COMERCIALES · OPCIONAL» con la
-casilla desmarcada; «Volver al inicio» .btn-ghost.
+casilla **desmarcada** —es la única autorización de publicidad del trámite, es
+opcional y no condiciona el seguro ya contratado—; «Volver al inicio»
+`.btn-ghost`.
+
+Los datos de contacto de las mesas de ayuda **no se inventan**: van como
+`[dato oficial pendiente]`.
 ```
 
 ## P6 · Revisión manual `/revision-manual`
