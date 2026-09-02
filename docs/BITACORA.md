@@ -136,15 +136,44 @@ adenda habría quedado citando un `semilla/canvas/` inexistente en esa rama.
   `docs/rediseno-lovable/semilla/canvas/canvas-logica.js`, que PR #96 vendoreó
   al repo. Es material de referencia, no código del producto.
 
+### El estado real del proyecto de Lovable (medido con el MCP)
+
+Andres completó el OAuth y se leyó `src/index.css` del proyecto
+`slt-diseno-v3` **sin modificar nada** — por dos vías que coinciden:
+`read_file` del MCP y grep sobre `~/slt-diseno-lovable/src/index.css`, que está
+sincronizado (el preview ya corre sobre `4771f034`, o sea que Lovable tomó el
+push). De los tres rastros que busca P0-bis, **dos siguen y uno ya no está**:
+
+| Rastro | Estado |
+| :--- | :--- |
+| «Archivo» | **Sigue** (5 ocurrencias): `--font-sans` / `--font-heading` / `--font-body` en `"Archivo"`, `--font-heading-weight: 800`. Debería ser DM Sans 600. |
+| «#ec3013» | **Sigue** (2): `--color-accent: #ec3013` y el comentario de cabecera. Debería ser `#e2660f` / `#bd550f`. |
+| «radius: 0» | **Ya no está**: radios 8/12/16/20/28, corregidos por `955fd0e` «Redondeó esquinas y fondo claro», anterior al commit del canvas. |
+
+Queda más capa 1 que esos tres marcadores: `--color-bg: #f3f2f2` (debería ser
+`#fafafa`), `--color-divider` al 40 % de `#201e1d` (debería ser `#e0e0e0`), la
+escala `--color-accent-*` entera en rojo, el foco de v3 en el acento en vez del
+azul `#2b5a9e`, y —lo que más daño hace— **`--color-naranja-*` sobrescrito con
+la escala roja**, que propaga el acento equivocado a cada `bg-naranja-600` del
+árbol.
+
+**El problema de fondo no es un valor.** El comentario de cabecera de
+`src/index.css` le *afirma* a Lovable que la capa B es «la última aprobada» y
+que «el rediseño en Lovable PARTE de la capa B». Mientras ese texto siga ahí,
+un prompt que solo cambie valores compite con una instrucción escrita en el
+propio archivo: P0-bis debería reemplazar también ese bloque. La nota de
+corrección que agregó `4771f03` está en `docs/01-tokens.css` del repo de
+diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
+
 ### Queda abierto
 
-- **Andres: completar el OAuth del MCP de Lovable** (`/mcp`). Recién entonces se
-  puede leer `src/index.css` del proyecto `slt-diseno-v3` y comprobar si
-  conserva «Archivo», «#ec3013» o «radius: 0» — los rastros de la capa 1 que
-  corrige el prompt **P0-bis**.
 - **Lovable**: pegar el *Knowledge v2*
   (`semilla/02-knowledge-lovable-v2.md`) en el proyecto y enviar **P0-bis**
-  (`semilla/03-prompts-lovable-v2.md`).
+  (`semilla/03-prompts-lovable-v2.md`). El prerrequisito ya está cumplido:
+  `docs/canvas/*` y `docs/pantallas/*` viven en el repo de diseño desde el
+  push de esta sesión, así que Lovable puede leerlos.
+- **P0-bis conviene ampliarlo** a lo que se midió arriba: no alcanza con los
+  tres marcadores.
 - **ESLint sobre el canvas vendoreado**: conviene excluir
   `docs/rediseno-lovable/semilla/canvas/` de `eslint.config.js`. Es un artefacto
   de referencia; lintearlo solo produce ruido.
