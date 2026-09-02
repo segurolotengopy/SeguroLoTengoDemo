@@ -385,10 +385,18 @@ Los datos de contacto de las mesas de ayuda **no se inventan**: van como
 
 ```
 Reproducí **Revisión manual**: sección `data-screen-label="Revision manual"`,
-capturas `05-revision-*.png`. Textos: sección «Revisión manual». Banda
-«REVISIÓN MANUAL · CASO-00000001», título con «, Ana», el párrafo con «no es
-un rechazo» en negrita, la tarjeta «Nada se movió de tu bolsillo…» (radio 16,
-fondo superficie), «Volver al inicio» .btn-ghost.
+capturas `05-revision-*.png`. Textos: sección «Revisión manual». **Sin
+`BandaPasos`** (fuera del contador), **con pie legal**. Cabecera de dos bloques.
+
+Banda «REVISIÓN MANUAL · CASO-00000001» —el número de caso es **propio y
+distinto** del correlativo `PROP-…`, no lo reutilices—, título con «, Ana», el
+párrafo con «no es un rechazo» en negrita y **el WhatsApp y el correo
+enmascarados** (`+595 ••• ••• 000`, `m••••••@…`), la tarjeta «Nada se movió de
+tu bolsillo…» (radio 16, fondo superficie), «Volver al inicio» `.btn-ghost`.
+
+**Es una pantalla terminal.** El único camino que sale de acá es «Volver al
+inicio»: no agregues botones de reintentar, de volver al paso 2, de pagar, de
+firmar ni de subir documentos. Quien llega acá espera el contacto de un asesor.
 ```
 
 ## P7 · Estados transversales y tema oscuro
