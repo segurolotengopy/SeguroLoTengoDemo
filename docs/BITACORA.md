@@ -205,6 +205,34 @@ literal de la especificación. El contenido del modal «Cómo cuidamos tus datos
 es literal de `canvas-modales.md` §`cuidado`.
 
 
+### P3 · Paso 2 — enviado y verificado
+
+Mismo método que con P2: contrastar el prompt contra la especificación **antes**
+de enviarlo. Dos huecos, los dos de los que invitan a inventar:
+
+- **Los importes.** P3 citaba un solo precio («Gs. 522.500») y dejaba los otros
+  dos planes y las dieciséis sumas aseguradas sin nombrar. Se agregó la tabla
+  completa con la instrucción de no deducir ni redondear.
+- **Las cinco declaraciones tratadas como iguales.** No lo son: 1 a 4 derivan a
+  un asesor con la respuesta incompatible, pero **la 5 en No no deriva,
+  detiene**. Sin esa distinción, la pantalla habría mandado a revisión manual a
+  quien simplemente no aceptó las carencias — un camino que no existe.
+
+Se sumó además `BandaPasos` y pie legal (la misma omisión que traían P1 y P2,
+tres de tres) y un guardarraíl por la regla inviolable #7: salud y PEP solo en
+estado local, sin `localStorage` ni consola.
+
+Lovable implementó en `3162fd4` «Finalizó Paso 2 del flujo» (`Seguro.tsx`, 546
+líneas). Verificado leyendo el código: **los quince valores de la tabla, exactos**
+—319.000 / 522.500 / 726.000 de premio y las doce sumas—, con CONFÍO+
+preseleccionado; la declaración 5 en No muestra el aviso y **no renderiza
+ningún CTA**, con precedencia sobre la derivación, que es exactamente la regla;
+el beneficiario tiene **tres** campos (nombre, parentesco, domicilio) y **cero**
+menciones a cédula, fecha de nacimiento o celular, según la adenda §E; las
+carencias van rotuladas «(provisional)»; `BandaPasos` recibe slug y `PieLegal`
+está. El texto de «EXCLUSIONES PRINCIPALES» es literal de `canvas-modales.md`.
+
+
 ### Queda abierto
 
 - ~~**Lovable: Knowledge v2 y P0-bis**~~ — **hecho por MCP**. El Knowledge
