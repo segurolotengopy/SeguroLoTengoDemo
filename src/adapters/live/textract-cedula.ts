@@ -17,7 +17,7 @@ import { DetectDocumentTextCommand } from "@aws-sdk/client-textract";
 import type { DetectDocumentTextCommandOutput } from "@aws-sdk/client-textract";
 import { CONFIANZA_MINIMA_OCR } from "../../domain/identidad-parametros";
 import { leerMrzTd1, normalizarLineasTd1 } from "../../domain/mrz";
-import type { DatosMrz } from "../../domain/mrz";
+import type { CamposMrzVerificados, DatosMrz } from "../../domain/mrz";
 
 /** Lo mínimo que necesitamos de un cliente de Textract (ver nota en el de Rekognition). */
 export interface ClienteTextract {
@@ -110,7 +110,16 @@ export async function leerTextoDocumento(
 
 export type ResultadoMrzDorso =
   | { readonly encontrado: true; readonly datos: DatosMrz }
-  | { readonly encontrado: false; readonly motivo: "SIN_MRZ" | "MRZ_INVALIDO" };
+  | {
+      readonly encontrado: false;
+      readonly motivo: "SIN_MRZ" | "MRZ_INVALIDO";
+      /**
+       * Con `MRZ_INVALIDO`, los campos cuyo dígito verificador **sí** cerró.
+       * La fecha de nacimiento de acá es preferible a la del frente: la del
+       * frente sale de una heurística de posición, esta de un verificador.
+       */
+      readonly verificados?: CamposMrzVerificados;
+    };
 
 /**
  * Busca y valida el MRZ TD1 entre las líneas leídas del dorso.
@@ -140,10 +149,13 @@ export function buscarMrzTd1(
       if (!normalizarLineasTd1(candidato)) continue;
       const leido = leerMrzTd1(candidato, referencia);
       if (leido.ok) return { encontrado: true, datos: leido.datos };
+      // Tiene forma de MRZ pero algún verificador no cerró. Se informan los
+      // campos que sí, para que quien decida no tenga que elegir entre «todo
+      // el MRZ» y «nada del MRZ».
       // Tiene forma de MRZ pero los verificadores no cierran: eso sí es un
       // problema —OCR mal leído o dorso adulterado— y no hay que seguir
       // buscando como si no lo hubiéramos visto.
-      return { encontrado: false, motivo: "MRZ_INVALIDO" };
+      return { encontrado: false, motivo: "MRZ_INVALIDO", verificados: leido.verificados };
     }
   }
 

@@ -130,9 +130,36 @@ export type MotivoMrzInvalido =
   | "VERIFICADOR_COMPUESTO"
   | "FECHA_INVALIDA";
 
+/**
+ * Campos del MRZ que **verificaron con su propio dígito**, aunque la lectura
+ * completa haya fallado.
+ *
+ * Existe porque los cuatro verificadores del TD1 no son equivalentes: el de la
+ * fecha de nacimiento protege esos seis dígitos y nada más, mientras que el
+ * compuesto abarca casi toda la banda. Un OCR que se come un carácter del
+ * relleno rompe el compuesto sin tocar la fecha —es lo que pasa con la cédula
+ * real (01-sep-2026)—, y descartar entonces una fecha verificada para caer en
+ * una heurística de posición del frente es cambiar evidencia por conjetura.
+ *
+ * **Los nombres no entran acá**: en el TD1 no tienen verificador propio, solo
+ * los cubre el compuesto. Si el compuesto no cierra, no hay nada que respalde
+ * lo que dice la banda sobre ellos.
+ */
+export interface CamposMrzVerificados {
+  /** ISO 8601. Presente solo si su dígito verificador cerró. */
+  readonly fechaNacimiento: string | null;
+  /** Presente solo si su dígito verificador cerró. */
+  readonly numeroDocumento: string | null;
+}
+
 export type ResultadoMrz =
   | { readonly ok: true; readonly datos: DatosMrz }
-  | { readonly ok: false; readonly motivos: readonly MotivoMrzInvalido[] };
+  | {
+      readonly ok: false;
+      readonly motivos: readonly MotivoMrzInvalido[];
+      /** Vacío cuando la banda ni siquiera pudo parsearse. */
+      readonly verificados?: CamposMrzVerificados;
+    };
 
 /**
  * Convierte `AAMMDD` del MRZ a ISO 8601, infiriendo el siglo.
@@ -205,6 +232,29 @@ function texto(campo: string): string {
  */
 const TD1_CODIGOS_DOCUMENTO = /^[IAC]/;
 
+/**
+ * Cuántos caracteres de relleno se admite reponer por línea. Cuatro cubre lo
+ * que recorta el OCR sin llegar a reconstruir un MRZ que no existía.
+ */
+const TD1_MAXIMO_RELLENO = 4;
+
+/**
+ * Completa con `<` una línea TD1 corta, en el lugar donde va el relleno.
+ *
+ * En las líneas 1 y 3 el relleno va al final. En la 2 **no**: su último
+ * carácter es el verificador compuesto, así que el relleno se repone antes de
+ * él. Poner el relleno al final ahí correría el verificador de lugar y todo
+ * fallaría por una razón inventada.
+ */
+function rellenarLineaTd1(linea: string, indice: number): string | null {
+  if (linea.length === TD1_LARGO_LINEA) return linea;
+  const faltan = TD1_LARGO_LINEA - linea.length;
+  if (faltan <= 0 || faltan > TD1_MAXIMO_RELLENO) return null;
+  const relleno = "<".repeat(faltan);
+  if (indice === 1) return linea.slice(0, -1) + relleno + linea.slice(-1);
+  return linea + relleno;
+}
+
 export function normalizarLineasTd1(crudo: string): readonly string[] | null {
   const limpio = crudo.toUpperCase().replace(/[^A-Z0-9<\n]/g, "");
   const porSaltos = limpio
@@ -218,6 +268,27 @@ export function normalizarLineasTd1(crudo: string): readonly string[] | null {
     TD1_CODIGOS_DOCUMENTO.test(porSaltos[0])
   ) {
     return porSaltos;
+  }
+
+  // Relleno de las líneas que el OCR devolvió cortas.
+  //
+  // Textract recorta el relleno `<` del final: sobre la cédula real de la
+  // prueba (01-sep-2026) devolvió líneas de 27, 29 y 30 caracteres, y el
+  // documento se descartaba entero por «no hay MRZ» aunque el MRZ estuviera
+  // impreso y legible.
+  //
+  // Se completa con `<`, que en el cálculo de los verificadores vale 0. **No
+  // es una concesión sobre la validación**: los cuatro dígitos verificadores
+  // se calculan igual sobre lo reconstruido y deciden después. Lo que cambia
+  // es que ahora se los puede calcular.
+  //
+  // El límite de cuánto se rellena existe para no inventar un MRZ donde no lo
+  // hay: una línea a la que le falte más que `TD1_MAXIMO_RELLENO` no se toca.
+  if (porSaltos.length === TD1_CANTIDAD_LINEAS && TD1_CODIGOS_DOCUMENTO.test(porSaltos[0])) {
+    const rellenas = porSaltos.map((linea, indice) => rellenarLineaTd1(linea, indice));
+    if (rellenas.every((linea) => linea !== null)) {
+      return rellenas as readonly string[];
+    }
   }
 
   const corrido = limpio.replace(/\n/g, "");
@@ -299,7 +370,16 @@ export function leerMrzTd1(crudo: string, referencia: Date = new Date()): Result
   if (fechaNacimiento === null || fechaVencimiento === null) motivos.push("FECHA_INVALIDA");
 
   if (motivos.length > 0 || fechaNacimiento === null || fechaVencimiento === null) {
-    return { ok: false, motivos };
+    return {
+      ok: false,
+      motivos,
+      verificados: {
+        fechaNacimiento: motivos.includes("VERIFICADOR_FECHA_NACIMIENTO") ? null : fechaNacimiento,
+        numeroDocumento: motivos.includes("VERIFICADOR_NUMERO_DOCUMENTO")
+          ? null
+          : texto(numeroDocumentoCrudo).replace(/\s/g, ""),
+      },
+    };
   }
 
   const [apellidos = "", nombres = ""] = l3.split("<<");
