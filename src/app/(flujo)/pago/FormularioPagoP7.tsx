@@ -8,6 +8,7 @@ import { CODIGOS_RESPUESTA_BANCARD } from "@/ports/payment-provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatearGuaranies } from "@/domain/catalogo";
 import { ModalBancard } from "./ModalBancard";
+import { QrBancard } from "./QrBancard";
 import { VentanaBancardSimulada } from "./VentanaBancardSimulada";
 // Desde `textos-p7`, no desde el caso de uso: este es un componente de cliente
 // e importar `pago-p7.ts` arrastraría `node:crypto` al bundle.
@@ -158,6 +159,17 @@ const ESPERA_ANTES_DE_PAGADO_MS = 5_000;
 const ESPERA_LARGA_MS = 30_000;
 
 /**
+ * Cuántas veces se deja pedir el pago cuando Bancard no contesta.
+ *
+ * Sin tope, un servicio caído invita a apretar el botón indefinidamente: cada
+ * intento abre otra llamada aguas arriba y, para la persona, la pantalla no
+ * hace nada. Tres alcanzan para descartar un problema momentáneo; a partir de
+ * ahí lo honesto es decir que no es su culpa y que vuelva más tarde —el plazo
+ * de 24 h de D-10 le da margen de sobra—.
+ */
+const INTENTOS_MAXIMOS_SIN_RESPUESTA = 3;
+
+/**
  * Cuántos `PAGO_NO_INICIADO` seguidos se toleran antes de cortar el sondeo.
  *
  * No es un motivo transitorio disfrazado: significa que el proveedor **no
@@ -264,6 +276,8 @@ export function FormularioPagoP7({
   const [medio, setMedio] = useState<MedioDePago>(MEDIO_POR_DEFECTO_P7);
 
   const [generando, setGenerando] = useState(false);
+  /** Intentos consecutivos que no obtuvieron respuesta de Bancard. */
+  const [intentosSinRespuesta, setIntentosSinRespuesta] = useState(0);
   const [instruccion, setInstruccion] = useState<Instruccion | null>(null);
   const [referenciaBancard, setReferenciaBancard] = useState<string | null>(null);
   const [numeroPropuesta, setNumeroPropuesta] = useState<string | null>(null);
@@ -490,7 +504,8 @@ export function FormularioPagoP7({
   }, [referenciaBancard, confirmado, sondear]);
 
   async function generar() {
-    if (generando) return;
+    if (generando || esperandoAlBanco) return;
+    if (intentosSinRespuesta >= INTENTOS_MAXIMOS_SIN_RESPUESTA) return;
 
     setGenerando(true);
     setError(null);
@@ -506,21 +521,39 @@ export function FormularioPagoP7({
       if (!datos.ok) {
         setOrigenError("GENERAR");
         setError(mensajeDeRechazo(datos.motivo, datos.codigoRespuesta));
+        // Un rechazo **es** una respuesta: el banco contestó que no. Lo que se
+        // cuenta acá es el silencio, no la negativa.
+        if (datos.motivo === "BANCARD_NO_DISPONIBLE") {
+          setIntentosSinRespuesta((previo) => previo + 1);
+        }
         return;
       }
 
+      setIntentosSinRespuesta(0);
       setInstruccion(datos.instruccion ?? null);
       setReferenciaBancard(datos.referenciaBancard ?? null);
       setNumeroPropuesta(datos.numeroPropuesta ?? null);
     } catch {
       setOrigenError("GENERAR");
       setError(MENSAJES.BANCARD_NO_DISPONIBLE);
+      setIntentosSinRespuesta((previo) => previo + 1);
     } finally {
       setGenerando(false);
     }
   }
 
   const textoMedio = TEXTOS_MEDIOS_DE_PAGO_P7.find((opcion) => opcion.medio === medio);
+
+  /**
+   * Hay una operación abierta en Bancard y todavía no llegó su respuesta.
+   *
+   * Mientras dure, **nada más se puede tocar**: ni generar otro pago, ni
+   * cambiar de medio, ni volver al plan. El servidor ya era idempotente —la
+   * `idempotencyKey` persistida impide el cobro doble—, pero la pantalla
+   * invitaba a intentar de nuevo, y eso es una mala experiencia aunque el
+   * dinero esté a salvo (Andres, 01-sep-2026).
+   */
+  const esperandoAlBanco = instruccion !== null && !confirmado;
   const importe = resumen ? formatearGuaranies(resumen.montoGs) : "—";
 
   return (
@@ -653,7 +686,7 @@ export function FormularioPagoP7({
         {/* Los tres medios como botones chicos del canvas, no como tarjetas
             de radio con viñetas: el diseño los pone en una fila y deja el
             peso visual en el botón de pagar. */}
-        <fieldset className="flex flex-wrap gap-2.5" disabled={confirmado}>
+        <fieldset className="flex flex-wrap gap-2.5" disabled={confirmado || esperandoAlBanco}>
           <legend className="sr-only">{TITULO_BLOQUE_MEDIOS_P7}</legend>
           {TEXTOS_MEDIOS_DE_PAGO_P7.map((opcion) => (
             <button
@@ -718,7 +751,7 @@ export function FormularioPagoP7({
             <button
               type="button"
               onClick={() => void generar()}
-              disabled={generando || !aceptaCertificado}
+              disabled={generando || !aceptaCertificado || esperandoAlBanco}
               className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-naranja-500 px-6 text-sm font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 disabled:cursor-not-allowed disabled:bg-superficie-suave disabled:text-etiqueta disabled:opacity-60 sm:w-auto sm:self-start"
             >
               {generando ? "Comunicando con Bancard…" : (textoMedio?.botón ?? "Continuar")}
@@ -727,6 +760,20 @@ export function FormularioPagoP7({
                 de la firma este texto habría mentido. */}
             <p className="text-xs font-semibold text-cuerpo">{BOTON_PAGAR_Y_CONTRATAR_P7}</p>
             <MensajeDeError texto={origenError === "GENERAR" ? error : null} />
+            {/* Agotados los intentos, se deja de invitar a reintentar: cada
+                toque abre otra llamada aguas arriba y, para la persona, la
+                pantalla no hace nada. El plazo de 24 h (D-10) da margen. */}
+            {intentosSinRespuesta >= INTENTOS_MAXIMOS_SIN_RESPUESTA ? (
+              <p
+                role="alert"
+                className="rounded-lg border border-naranja-300 bg-naranja-50 px-3 py-2 text-sm text-cuerpo dark:border-naranja-700 dark:bg-naranja-950"
+              >
+                Bancard no está respondiendo y ya lo intentamos{" "}
+                {INTENTOS_MAXIMOS_SIN_RESPUESTA} veces. No es algo que hayas hecho mal y no se
+                cobró nada. Volvé a esta pantalla en unos minutos: tenés 24 horas para completar el
+                pago.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -740,10 +787,13 @@ export function FormularioPagoP7({
       {instruccion && !confirmado ? (
         <ModalBancard
           importeFormateado={importe}
-          alCerrar={() => {
-            setInstruccion(null);
-            setError(null);
-          }}
+          // **No se puede cerrar mientras Bancard no conteste.** Cerrar
+          // descartaba la instrucción en el navegador y la pantalla volvía a
+          // ofrecer «generar el pago», como si nada hubiera pasado — pero la
+          // operación ya estaba abierta del otro lado. La idempotencia del
+          // servidor evitaba el cobro doble; la pantalla igual invitaba a
+          // intentarlo, que es lo que reportó Andres (01-sep-2026).
+          alCerrar={null}
         >
           <div aria-live="polite" className="flex flex-col items-start gap-3">
           {instruccion.tipo === "QR" ? (
@@ -753,14 +803,12 @@ export function FormularioPagoP7({
               </h2>
               {/*
                 La cadena es un `qr_data` **EMVCo de verdad**, con la
-                estructura y el CRC que define el documento de Bancard QR: un
-                lector de QR la parsea. Se muestra como texto en vez de
-                dibujarla porque no hay un pago real detrás; el dibujo lo hace
-                Bancard, que en la API real devuelve además la URL del PNG.
+                estructura y el CRC que define el documento de Bancard QR. Se
+                dibuja con el generador propio del proyecto: mostrarla como
+                texto era correcto y a la vez inútil, porque nadie escanea un
+                párrafo con la cámara del banco (Andres, 01-sep-2026).
               */}
-              <p className="w-full overflow-x-auto rounded-lg border border-borde-sutil bg-superficie-suave px-4 py-3 font-mono text-xs break-all text-cuerpo">
-                {instruccion.qrPayload}
-              </p>
+              <QrBancard payload={instruccion.qrPayload} />
               <p className="text-xs text-etiqueta">
                 El QR vence el {new Date(instruccion.expiraEn).toLocaleString("es-PY")}.
               </p>

@@ -26,15 +26,24 @@ export function ModalBancard({
   children,
 }: {
   readonly importeFormateado: string;
-  readonly alCerrar: () => void;
+  /**
+   * `null` mientras la operación está abierta y esperando respuesta del banco.
+   *
+   * No es una comodidad: cerrar la ventana descartaba la operación en el
+   * navegador y la pantalla volvía a ofrecer «generar el pago» aunque del otro
+   * lado ya hubiera una abierta. La idempotencia del servidor evita el cobro
+   * doble, pero la pantalla no puede invitar a intentarlo.
+   */
+  readonly alCerrar: (() => void) | null;
   readonly children: ReactNode;
 }) {
   const cerrarRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    if (!alCerrar) return;
     cerrarRef.current?.focus();
     function alTeclear(evento: KeyboardEvent) {
-      if (evento.key === "Escape") alCerrar();
+      if (evento.key === "Escape") alCerrar?.();
     }
     document.addEventListener("keydown", alTeclear);
     return () => document.removeEventListener("keydown", alTeclear);
@@ -45,7 +54,7 @@ export function ModalBancard({
       role="dialog"
       aria-modal="true"
       aria-label="Entorno seguro de Bancard"
-      onClick={alCerrar}
+      onClick={alCerrar ?? undefined}
       style={{
         position: "fixed",
         inset: 0,
@@ -107,15 +116,26 @@ export function ModalBancard({
               vpos.bancard.com.py/pago-seguro
             </span>
           </div>
-          <button
-            ref={cerrarRef}
-            type="button"
-            onClick={alCerrar}
-            className="btn btn-ghost"
-            style={{ fontSize: "12px", padding: "5px 10px", flex: "none", color: "#cfd6de", borderColor: "#3a434e" }}
-          >
-            Cerrar ✕
-          </button>
+          {alCerrar ? (
+            <button
+              ref={cerrarRef}
+              type="button"
+              onClick={alCerrar}
+              className="btn btn-ghost"
+              style={{ fontSize: "12px", padding: "5px 10px", flex: "none", color: "#cfd6de", borderColor: "#3a434e" }}
+            >
+              Cerrar ✕
+            </button>
+          ) : (
+            // Sin salida mientras el banco no conteste: cerrar dejaría la
+            // operación abierta y la pantalla ofreciendo pagar de nuevo.
+            <span
+              className="v3-esperando"
+              style={{ fontSize: "11.5px", color: "#cfd6de", flex: "none", whiteSpace: "nowrap" }}
+            >
+              Esperando la respuesta de Bancard…
+            </span>
+          )}
         </div>
 
         <div style={{ background: "var(--color-bg)", borderTop: "1px solid #3a434e" }}>

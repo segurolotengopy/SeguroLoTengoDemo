@@ -255,6 +255,48 @@ diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
 
 ---
 
+## 2026-09-01 (j) · El pago no se puede duplicar ni abandonar por la UX
+
+**Rama:** `fix/pago-sin-duplicados` · **Reporte de Andres**
+
+### El caso
+
+Andres encontró que **cerrar la ventana del QR o de la tarjeta dejaba el
+trámite como si no se hubiera pagado**: la pantalla volvía a ofrecer «generar
+el pago» con una operación ya abierta del otro lado. Pidió además que no se
+pueda hacer nada —ni pagar de nuevo ni volver atrás— hasta que el banco
+conteste, con una espera animada; que el QR se dibuje en vez de imprimirse
+como texto; y que no se pueda insistir indefinidamente cuando un servicio no
+responde.
+
+### Qué cambió
+
+- **La ventana de Bancard no se cierra mientras la operación está abierta.**
+  `alCerrar` pasa a admitir `null`, y en su lugar aparece «Esperando la
+  respuesta de Bancard…» con un punto que late. Cerrar descartaba la
+  instrucción **en el navegador**: el servidor ya era idempotente —la
+  `idempotencyKey` persistida impide el cobro doble— pero la pantalla invitaba
+  a intentarlo, y eso es una mala experiencia aunque el dinero esté a salvo.
+- **El resto de la pantalla queda bloqueado** mientras se espera: los tres
+  medios de pago y el botón de generar se deshabilitan (`esperandoAlBanco`).
+- **El QR se dibuja** (`QrBancard.tsx`), con el generador propio del proyecto
+  —el mismo que imprime el QR de los PDF— sin agregar ninguna librería. El
+  módulo es puro, sin `node:*`, así que corre en el navegador. Se dibuja en SVG
+  y no en canvas: son rectángulos exactos y así escala sin perder nitidez.
+- **Tope de reintentos cuando el banco calla** (`INTENTOS_MAXIMOS_SIN_RESPUESTA`
+  = 3). Un rechazo **no** cuenta: el banco contestó que no. Lo que se cuenta es
+  el silencio. Agotados, la pantalla deja de invitar a reintentar y explica que
+  no se cobró nada y que hay 24 horas de plazo (D-10).
+
+### Verificaciones
+
+- e2e: el camino feliz comprueba que el QR se dibuja como imagen, que **no
+  existe** el botón de cerrar, que se ve «Esperando la respuesta de Bancard…» y
+  que el botón de generar queda deshabilitado.
+- `npm run verify` en verde (**1252 tests**) · batería e2e v3 **10/10**.
+
+---
+
 ## 2026-09-01 (i) · La fecha del corte de edad, desde un campo verificado
 
 **Rama:** `fix/edad-desde-mrz-verificado` · **Decisión de Andres**

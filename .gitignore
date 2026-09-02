@@ -70,3 +70,7 @@ __pycache__/
 # otro repositorio. Se ignora en vez de borrarlo: el archivo sigue en disco
 # hasta que se haya publicado.
 /_lovable-push/
+
+# Copias locales de los documentos de la ICPP: se catalogan en
+# docs/firma-cualificada/referencias/INDICE.md (con URL y SHA-256), no se versionan.
+docs/firma-cualificada/referencias/*.pdf

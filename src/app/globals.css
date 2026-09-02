@@ -326,3 +326,25 @@ body {
   gap: var(--v3-gap, 14px);
   align-items: start;
 }
+
+/* Espera del banco: puntos que laten mientras no hay respuesta.
+   El movimiento es el que distingue «estamos esperando» de «se colgó»; sin él
+   la pantalla bloqueada se lee como una falla. */
+@keyframes v3-latido {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.v3-esperando::after {
+  content: "";
+  display: inline-block;
+  margin-left: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: v3-latido 1.1s ease-in-out infinite;
+  vertical-align: middle;
+}
+@media (prefers-reduced-motion: reduce) {
+  .v3-esperando::after { animation: none; }
+}
