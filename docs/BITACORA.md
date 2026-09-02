@@ -38,6 +38,286 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-02 · El canvas publicado en el repo de Lovable, y la adenda integrada
+
+**Rama:** `docs/rediseno-lovable-canvas` · **Pedido de Andres** (seis pasos:
+publicar el commit del canvas en el repo de diseño, limpiar, integrar la adenda
+en la especificación, agregar el MCP de Lovable, actualizar `CLAUDE.md`,
+verificar y cerrar)
+
+### El caso
+
+Una sesión de **Cowork** había preparado el commit `4771f03` («Canvas aprobado
+ce0c8332 como fuente visual…», sobre `955fd0e`) para
+`github.com/segurolotengo-diseno/slt-diseno-v3`, pero su sandbox no le permitió
+empujarlo: lo dejó como *bundle* de git en `_lovable-push/` con un clon parcial
+en `~/slt-diseno-lovable`.
+
+El hallazgo que motiva todo esto está en `semilla/canvas/canvas-reglas-visuales.md`
+§1 y en el §0 de la guía v2: **el canvas tiene dos capas de estilo y el repo
+portó la equivocada**. La capa 1 «Modernist» (Archivo 800, acento `#ec3013`,
+radios 0, fondo `#f3f2f2`) es la base de Claude Design y está **tapada** por la
+capa 2 «SeguroLoTengo» (DM Sans 600, naranja `#e2660f`/`#bd550f`, radios
+8/12/16, fondo `#fafafa`, foco azul `#2b5a9e`, botón 44 px r12), que es la que
+gana por cascada — y que usa exactamente la paleta de `GUIA_DE_ESTILOS.md`.
+`src/app/canvas-v3.css` había copiado la capa 1 entera y nada de la 2. Ese es el
+origen del «v3 se ve MALO»: no fue mal gusto, fue construir sobre la base que el
+propio diseño tapa. Además, la mitad del dibujo vive en estilos **inline** del
+HTML, que tampoco entraron.
+
+**Un primer intento, desde la web, no pudo hacer nada de esto**: corrió en un
+contenedor distinto y vacío, sin el bundle, sin el clon y sin la adenda, y dejó
+constancia de ello (commit `eeca5fd`). Esta sesión corre en el equipo de Andres,
+donde los insumos sí estaban, y retomó desde ahí.
+
+### Dos sesiones sobre el mismo directorio
+
+Mientras esta sesión trabajaba, **otra sesión de Cowork operó el mismo árbol**:
+entre las 21:41 y las 21:45 creó `chore/material-rediseno`, commiteó el material
+(`9e747cb`) y lo mergeó a `main` como **PR #96**, dejando el directorio
+*checkouteado en `main`* con la rama del pedido atrás. Se detectó por el reflog,
+no por casualidad. Consecuencia práctica: `docs/rediseno-lovable-canvas` tenía el
+párrafo de `CLAUDE.md` pero no el canvas, y `main` tenía el canvas pero no el
+párrafo. Se mergeó `main` en la rama del pedido antes de seguir — sin eso, la
+adenda habría quedado citando un `semilla/canvas/` inexistente en esa rama.
+
+### Qué cambió
+
+- **El canvas está publicado.** `4771f03` empujado a
+  `segurolotengo-diseno/slt-diseno-v3`; `main` remoto pasó de `955fd0e` a
+  `4771f03` en avance rápido.
+- **`_lovable-push/` borrado del disco.** Su propio LEEME lo pedía una vez
+  publicado; PR #96 ya lo había agregado a `.gitignore`, así que nunca entró al
+  repo de producción.
+- **Adenda integrada en `docs/ESPECIFICACION_PANTALLAS.md`** (86 líneas nuevas,
+  16 reemplazadas, seis hunks, ningún otro texto tocado):
+  §A el pie legal con su redacción literal y la tabla de los siete modales; §B
+  los tres bloques de cabecera con el sufijo `(provisional)` y el tercero
+  **solo en el Inicio**; §C la tabla de rótulos del carrusel con la cadencia de
+  3 s; §D el párrafo «Paleta, tipografía y dibujo», que ahora nombra al canvas
+  como fuente del dibujo y advierte que Archivo, el rojo y las esquinas rectas
+  son la capa tapada; §E la subsección «Divergencias con el canvas que se
+  mantienen», para que nadie las «corrija» hacia el canvas. Encabezado con la
+  línea de revisión «Adenda del 01-sep-2026 integrada (canvas ce0c8332)».
+- **MCP de Lovable agregado** en el ámbito de usuario
+  (`~/.claude.json`): `lovable → https://mcp.lovable.dev` (HTTP). Reporta
+  `Needs authentication`; el OAuth lo tiene que completar Andres.
+- **`CLAUDE.md` sin cambios**: el párrafo que dejó `eeca5fd` se contrastó línea
+  por línea contra `docs/rediseno-lovable/CLAUDE.md-fragmento.md` y coincide,
+  con las sustituciones previstas (`segurolotengo-diseno`, `slt-diseno-v3`,
+  02-sep-2026, y «(pendiente de aprobación; hasta entonces, rama `main`)» en
+  lugar del tag `diseno-v1-aprobado`, que todavía no existe).
+
+### Qué hizo Andres
+
+- Encargó los seis pasos y autorizó la rama `docs/rediseno-lovable-canvas`.
+- Aportó el equipo donde vivían el bundle y el clon, y la sesión de `gh` de
+  `segurolotengopy` (scopes `repo`, `read:org`, `workflow`) con la que se
+  empujó al repo de la organización de diseño.
+- **Pendiente de su parte:** el OAuth de Lovable (`/mcp`), sin el cual no se
+  puede leer `src/index.css` del proyecto.
+
+### Verificaciones
+
+- `git ls-remote --heads origin main` sobre
+  `segurolotengo-diseno/slt-diseno-v3` devuelve **`4771f03`**.
+- `gh api …/contents/docs/canvas` lista las **siete** entradas esperadas:
+  `canvas-plantilla.html`, `canvas-estilos.css`, `canvas-logica.js`,
+  `canvas-textos.md`, `canvas-modales.md`, `canvas-reglas-visuales.md` y
+  `capturas/`.
+- `git bundle verify` dio «bundle está bien / historia completa» **antes** de
+  borrarlo, y el clon quedó con árbol limpio y `origin` apuntando a GitHub, así
+  que borrar el bundle no dejó al clon dependiendo de él.
+- `npm run verify` en verde: **1247 tests, 91 archivos**, `tsc --noEmit` sin
+  errores, ESLint **0 errores y 8 advertencias**. Sin cambios de código.
+- Las 8 advertencias son 6 preexistentes (`<img>` en cinco pantallas y una
+  variable sin usar en `VerificacionIdentidad.tsx`) **más 2 nuevas que no son
+  de esta sesión**: ESLint entró a lintear
+  `docs/rediseno-lovable/semilla/canvas/canvas-logica.js`, que PR #96 vendoreó
+  al repo. Es material de referencia, no código del producto.
+
+### El estado real del proyecto de Lovable (medido con el MCP)
+
+Andres completó el OAuth y se leyó `src/index.css` del proyecto
+`slt-diseno-v3` **sin modificar nada** — por dos vías que coinciden:
+`read_file` del MCP y grep sobre `~/slt-diseno-lovable/src/index.css`, que está
+sincronizado (el preview ya corre sobre `4771f034`, o sea que Lovable tomó el
+push). De los tres rastros que busca P0-bis, **dos siguen y uno ya no está**:
+
+| Rastro | Estado |
+| :--- | :--- |
+| «Archivo» | **Sigue** (5 ocurrencias): `--font-sans` / `--font-heading` / `--font-body` en `"Archivo"`, `--font-heading-weight: 800`. Debería ser DM Sans 600. |
+| «#ec3013» | **Sigue** (2): `--color-accent: #ec3013` y el comentario de cabecera. Debería ser `#e2660f` / `#bd550f`. |
+| «radius: 0» | **Ya no está**: radios 8/12/16/20/28, corregidos por `955fd0e` «Redondeó esquinas y fondo claro», anterior al commit del canvas. |
+
+Queda más capa 1 que esos tres marcadores: `--color-bg: #f3f2f2` (debería ser
+`#fafafa`), `--color-divider` al 40 % de `#201e1d` (debería ser `#e0e0e0`), la
+escala `--color-accent-*` entera en rojo, el foco de v3 en el acento en vez del
+azul `#2b5a9e`, y —lo que más daño hace— **`--color-naranja-*` sobrescrito con
+la escala roja**, que propaga el acento equivocado a cada `bg-naranja-600` del
+árbol.
+
+**El problema de fondo no es un valor.** El comentario de cabecera de
+`src/index.css` le *afirma* a Lovable que la capa B es «la última aprobada» y
+que «el rediseño en Lovable PARTE de la capa B». Mientras ese texto siga ahí,
+un prompt que solo cambie valores compite con una instrucción escrita en el
+propio archivo: P0-bis debería reemplazar también ese bloque. La nota de
+corrección que agregó `4771f03` está en `docs/01-tokens.css` del repo de
+diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
+
+### Queda abierto
+
+- ~~**Lovable: Knowledge v2 y P0-bis**~~ — **hecho por MCP**. El Knowledge
+  cargado seguía siendo el v1 y decía que «Archivo 800 es el punto de partida
+  (piel v3)», o sea lo contrario de P0-bis: se reemplazó por el v2 (Andres
+  autorizó el reemplazo) y recién entonces se envió el prompt. Lovable entró en
+  modo plan, se le aprobó el plan **con una corrección** (ver abajo) e
+  implementó en `b0f1cb79` «Ajustó capa 2 de diseño»: 9 archivos, 283
+  inserciones. Costo total 15,2 créditos (3,3 el plan + 11,9 la
+  implementación).
+
+  **Verificado sobre el código, no sobre lo que dijo el agente** (`git show
+  origin/main:src/index.css`): los diez rastros de la capa 1 en cero
+  —`Archivo`, `ec3013`, `e15b47`, `ff563c`, `dd2b0f`, `ae1800`, `f3f2f2`,
+  `201e1d`, `eae9e9`, `radius-sm: 0`—; y lo que quedó es lo correcto: DM Sans
+  y Geist Mono, `--color-naranja-500/600/700` de vuelta en `#e2660f` /
+  `#bd550f` / `#98450e` (el bloque de la «regla de oro» que los pisaba con la
+  escala roja ya no existe), fondo `#fafafa`, divisor `#e0e0e0`, foco
+  `outline: 2px solid var(--azul)`, y el comentario de cabecera reescrito:
+  ahora declara la capa 2 como fuente visual y dice que la capa 1 «queda
+  tapada por la cascada del artefacto y no se aplica». No se pudo inspeccionar
+  la vista previa renderizada: es privada y redirige al login.
+
+- **Una divergencia que apareció al aprobar el plan, y cómo se resolvió.**
+  P0-bis (heredado de la sesión de Cowork) le pedía a Lovable **no** mostrar
+  el pie legal en el Inicio, porque el canvas lo condiciona a `noEsInicio`
+  (`canvas-plantilla.html:1007`). Pero `ESPECIFICACION_PANTALLAS.md:81` dice
+  «Pie legal (**todas las pantallas**)», y la adenda §E —única lista válida de
+  divergencias— no la registra. **Decisión de Andres: manda la
+  especificación**, así que el pie va también en el Inicio; se corrigió al
+  aprobar el plan y quedó implementado (`src/pages/Inicio.tsx:138`). El tercer
+  bloque de cabecera (CANAL DIGITAL con el sello SLT) **sí** es exclusivo del
+  Inicio: eso viene de la adenda §B y es correcto.
+  **Corregido en la semilla** el 02-sep: el punto 4 de P0-bis ya no dice lo
+  del `noEsInicio`, y P1 pasó de «Sin pie legal» a «Con pie legal». El mismo
+  error estaba en los dos prompts.
+
+- **La revisión del Inicio renderizado, y qué era de quién.** Andres miró el
+  prototipo y dijo que no se parecía al diseño de 3 pasos. Tenía razón, pero
+  **casi nada de eso era de P0-bis**, que decía «sin crear pantallas todavía»
+  y solo tocaba tokens, tres compartidos y `/design-system`. El cuerpo del
+  Inicio lo había construido el P0 original y le corresponde a P1. Lo que sí
+  estaba en alcance quedó bien, verificado en código: `HeaderInstitucional`
+  con los tres bloques, los sufijos `(provisional)`, los tres enlaces y el
+  sello SLT solo en el Inicio (adenda §B), montada en `Inicio.tsx:58`.
+
+  Seis incumplimientos concretos de la adenda, encontrados leyendo
+  `src/pages/Inicio.tsx` y no la captura: rótulos del carrusel en mayúsculas
+  y truncados (`INSCRIBITE` en vez de «Inscribite con nosotros»); **textos
+  `alt` inventados**, que el Knowledge prohíbe; sin los cuatro puntos
+  indicadores; `aspect-4/5` y `21/9` en vez de **16/9**; `rounded-2xl` en vez
+  de radio **16**; y «ANTES DE EMPEZAR» convertido en un **botón que abre un
+  modal**. Este último es el que importa: ese texto avisa para qué se usan el
+  WhatsApp y el correo, y esconderlo detrás de un clic no es una decisión de
+  dibujo. Acertó, en cambio, la cadencia de 3 s y el cruce de 0,7 s.
+
+- **P1 enviado y ejecutado** (`b0d7f59` «Ajustó canvas de inicio», un archivo,
+  124 inserciones; 3,3 créditos el plan + 6 la implementación). Las seis
+  correcciones, verificadas leyendo `src/pages/Inicio.tsx` y no el reporte del
+  agente: rótulos en caja normal con los textos de la adenda §C; `alt` = rótulo
+  en las cuatro; cuatro indicadores (`naranja-500` el activo, `hueso-400` el
+  resto); `aspect-video` único, o sea **16/9 en todos los tamaños**;
+  `rounded-lg`; y «ANTES DE EMPEZAR» de vuelta como `<h2>` con su párrafo
+  completo a la vista, sin modal. Lo estructural también entró: hero a dos
+  columnas con los valores exactos del canvas (`flex-[1_1_340px]` /
+  `flex-[1.7_1_480px]`, `clamp(34px,5vw,58px)`, 18ch, 52ch), los tres pasos
+  como franja con filetes verticales en vez de tarjetas, la píldora flotante
+  por `data-cta`, el recorte `object-[center_40%]` y `PieLegal` conservado.
+
+  **Se controló que no inventara textos**, que es el riesgo de este proveedor:
+  el contenido nuevo del modal «Qué datos usamos y para qué» resultó ser
+  literal de `canvas-modales.md` §`usoDatos` (las cuatro secciones TUS CANALES
+  / QUIÉNES LOS USAN / CON QUIÉN NO SE COMPARTEN / PUBLICIDAD).
+- ~~**P0-bis conviene ampliarlo**~~ — **hecho**: `semilla/03-prompts-lovable-v2.md`
+  ahora ataca el comentario de cabecera de `src/index.css` (paso 0 del prompt),
+  trae los valores de la capa 2 copiados literales con el tema noche completo,
+  e inventaria todo lo que hay que borrar, incluido el bloque que sobrescribe
+  `--color-naranja-*` con la escala roja. Sincronizado al repo de diseño
+  (`841ac87`), que es donde Lovable lo lee.
+- **ESLint sobre el canvas vendoreado**: conviene excluir
+  `docs/rediseno-lovable/semilla/canvas/` de `eslint.config.js`. Es un artefacto
+  de referencia; lintearlo solo produce ruido.
+- **El puntero de `CLAUDE.md`** sigue en la rama `main` del repo de diseño;
+  cuando exista el tag `diseno-v1-aprobado` hay que reemplazar «(pendiente de
+  aprobación; hasta entonces, rama `main`)» por la etiqueta.
+- **Coordinación de sesiones**: dos sesiones sobre el mismo árbol se pisaron hoy.
+  Conviene una sola sesión por directorio, o worktrees separados.
+
+---
+
+## 2026-09-01 (h) · Por qué el frente de la cédula se leía mal: eran las columnas
+
+**Rama:** `fix/ocr-frente-por-geometria` · **Pedido de Andres**
+
+### El caso
+
+Andres pidió revisar por qué la lectura del frente devolvía basura —«BLI» como
+nombre, «FECHA DE VENCIMIENTO» como apellido— y si convenía sacar los datos del
+MRZ. Se investigó con Textract sobre la cédula real (fixture D-21).
+
+### El hallazgo: Textract lee bien; la asociación estaba mal
+
+El frente devuelve **todos los datos correctos y con alta confianza**:
+`FERNANDEZ ECHAZU` (99,8 %), `RODRIGO` (99,9 %), `15-09-1974` (99,6 %),
+`MASCULINO` (100 %), `N° 9288883` (82,8 %).
+
+El error era nuestro: `valorTrasRotulo` tomaba **la línea siguiente en la
+lista**, y la cédula tiene **dos columnas**. Textract devuelve las líneas en
+orden de lectura, saltando de una a la otra, así que después de `APELLIDOS`
+venía `FECHA DE VENCIMIENTO` —columna derecha— y después de `NOMBRES` venía
+`BLI`, un fragmento leído con 30 % de confianza.
+
+La geometría lo confirma: el valor comparte borde izquierdo con su rótulo
+(0,33–0,34) y cae unas centésimas más abajo; `FECHA DE VENCIMIENTO` está en
+0,714 y `BLI` en 0,434, desalineado de todo.
+
+### Qué cambió
+
+- `LineaReconocida` conserva la **caja** que Textract ya devolvía y se estaba
+  descartando.
+- `valorTrasRotulo` asocia **por posición**: el candidato más cercano por
+  debajo del rótulo y dentro de su columna. Sin cajas —proveedor que no las
+  informe— cae al comportamiento anterior. Con cajas y sin candidato debajo
+  **no adivina**: prefiere el campo vacío.
+- El adaptador de cámara pasa a usar `lineasConfiables` (umbral 90) para leer
+  el frente. El MRZ se sigue buscando sobre **todas** las líneas: su validación
+  son sus propios dígitos verificadores.
+
+### Sobre el MRZ (lo que Andres preguntó primero)
+
+El código **ya prefiere el MRZ**: si está, todo sale de ahí. En este documento
+el MRZ existe y Textract lo lee, pero llega con líneas de 27 y 29 caracteres
+—recorta el relleno `<`— y el parser exige 30. Rellenando, los verificadores de
+**cada campo** validan (documento, nacimiento `740915`, vencimiento) y solo
+falla el **compuesto**; se probaron todas las reconstrucciones posibles del
+relleno y ninguna lo hace cerrar, así que hay además un carácter mal leído.
+
+Dato útil: la fecha `15/09/1974` que el frente daba **era correcta** — el MRZ la
+confirma con su dígito verificador.
+
+Queda pendiente y **es decisión de Andres**: si aceptar del MRZ los campos con
+verificador propio (fecha de nacimiento, número) cuando el compuesto no cierra.
+Los nombres no, porque solo los protege el compuesto.
+
+### Verificaciones
+
+- Contra el documento real, con Textract: `RODRIGO`, `FERNANDEZ ECHAZU`,
+  `1974-09-15`, `M`. Antes: «BLI» y «FECHA DE VENCIMIENTO».
+- Dos tests nuevos con las coordenadas exactas que devolvió Textract.
+- `npm run verify` en verde (1249 tests) · e2e v3 **10/10**.
+
+---
+
 ## 2026-09-01 (g) · Las tarjetas de captura, y el susto de haber roto producción
 
 **Rama:** `fix/canvas-tarjetas-captura` · **Pedido de Andres**

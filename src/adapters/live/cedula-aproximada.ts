@@ -208,16 +208,38 @@ function nombreCompletoBoliviano(textos: readonly string[]): string | null {
   return null;
 }
 
+/** Diferencia máxima de borde izquierdo para considerar dos líneas en la misma columna. */
+const TOLERANCIA_COLUMNA = 0.06;
+/** Hasta dónde puede estar el valor por debajo de su rótulo (fracción del alto). */
+const DISTANCIA_MAXIMA_DEBAJO = 0.12;
+
 /**
- * Busca el valor que sigue a un rótulo: primero en la misma línea, después en
- * la siguiente.
+ * Busca el valor de un rótulo: primero en la misma línea, y si no, **el que
+ * cae debajo y en su misma columna**.
+ *
+ * **Por qué la geometría y no el orden.** La cédula paraguaya tiene dos
+ * columnas y Textract devuelve las líneas en orden de lectura, saltando de una
+ * a la otra. Tomando «la línea siguiente», al rótulo `APELLIDOS` le seguía
+ * `FECHA DE VENCIMIENTO` —que está a la derecha— y a `NOMBRES` le seguía un
+ * fragmento suelto; el documento real de la prueba devolvía «FECHA DE
+ * VENCIMIENTO» como apellido y «BLI» como nombre (01-sep-2026).
+ *
+ * El valor comparte el borde izquierdo con su rótulo y está unas centésimas
+ * más abajo; eso es lo que se busca. Sin cajas —un proveedor que no las
+ * informe— se cae al comportamiento anterior, que es mejor que nada.
  */
 function valorTrasRotulo(
-  lineas: readonly string[],
+  lineas: readonly LineaReconocida[],
   rotulos: readonly string[],
 ): string | null {
-  for (let i = 0; i < lineas.length; i += 1) {
-    const linea = lineas[i];
+  const normalizadas = lineas.map((linea) => ({
+    texto: normalizarTexto(linea.texto),
+    caja: linea.caja,
+  }));
+
+  for (let i = 0; i < normalizadas.length; i += 1) {
+    const { texto: linea, caja } = normalizadas[i];
+    if (linea === "") continue;
 
     // Se prueba **un solo rótulo por línea**: el primero que matchee. Los
     // rótulos vienen del más largo al más corto ("NOMBRES" antes que
@@ -230,7 +252,27 @@ function valorTrasRotulo(
     const resto = linea.slice(linea.indexOf(rotulo) + rotulo.length).replace(/^[\s:.-]+/, "").trim();
     if (resto !== "" && !NO_ES_VALOR.has(resto)) return resto;
 
-    const siguiente = (lineas[i + 1] ?? "").trim();
+    if (caja) {
+      // El candidato más cercano por debajo, dentro de la misma columna.
+      let mejor: { texto: string; distancia: number } | null = null;
+      for (const otra of normalizadas) {
+        if (otra.texto === "" || !otra.caja || otra === normalizadas[i]) continue;
+        const distancia = otra.caja.arriba - caja.arriba;
+        if (distancia <= 0 || distancia > DISTANCIA_MAXIMA_DEBAJO) continue;
+        if (Math.abs(otra.caja.izquierda - caja.izquierda) > TOLERANCIA_COLUMNA) continue;
+        if (NO_ES_VALOR.has(otra.texto)) continue;
+        if (rotulos.some((r) => otra.texto.includes(r))) continue;
+        if (mejor === null || distancia < mejor.distancia) {
+          mejor = { texto: otra.texto, distancia };
+        }
+      }
+      if (mejor) return mejor.texto;
+      // Con cajas y sin candidato debajo, no se adivina con el orden: eso es
+      // lo que producía basura.
+      continue;
+    }
+
+    const siguiente = (normalizadas[i + 1]?.texto ?? "").trim();
     if (siguiente !== "" && !NO_ES_VALOR.has(siguiente)) return siguiente;
   }
 
@@ -274,12 +316,12 @@ export function extraerCamposAproximados(
     }
   }
 
-  const fechaRotulada = valorTrasRotulo(textos, rotulos.fechaNacimiento);
+  const fechaRotulada = valorTrasRotulo(lineas, rotulos.fechaNacimiento);
   const desdeRotulo = fechaRotulada === null ? null : fechaDeTexto(fechaRotulada);
   const fechaNacimiento =
     desdeRotulo ?? (fechasEncontradas.length > 0 ? [...fechasEncontradas].sort()[0] : null);
 
-  const sexoCrudo = valorTrasRotulo(textos, rotulos.sexo);
+  const sexoCrudo = valorTrasRotulo(lineas, rotulos.sexo);
   const sexo =
     sexoCrudo === null
       ? null
@@ -295,8 +337,8 @@ export function extraerCamposAproximados(
   // no puede ser un nombre, se deja vacío en vez de presentarlo como dato
   // (pedido de Andres, 01-sep — la prueba con cédulas reales devolvió «BLI» y
   // «FECHA DE VENCIMIENTO» y eso llegó hasta el cotejo).
-  let nombres = nombreLeidoOVacio(valorTrasRotulo(textos, rotulos.nombres));
-  let apellidos = nombreLeidoOVacio(valorTrasRotulo(textos, rotulos.apellidos));
+  let nombres = nombreLeidoOVacio(valorTrasRotulo(lineas, rotulos.nombres));
+  let apellidos = nombreLeidoOVacio(valorTrasRotulo(lineas, rotulos.apellidos));
 
   if (pais === "BO" && (nombres === null || apellidos === null)) {
     const completo = nombreCompletoBoliviano(textos);

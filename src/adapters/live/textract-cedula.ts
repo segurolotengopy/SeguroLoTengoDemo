@@ -24,10 +24,27 @@ export interface ClienteTextract {
   send(comando: DetectDocumentTextCommand): Promise<DetectDocumentTextCommandOutput>;
 }
 
+/**
+ * Dónde cayó la línea en la imagen, en la escala 0–1 de Textract.
+ *
+ * Se conserva porque **la cédula tiene dos columnas** y el orden de lectura
+ * salta de una a la otra: leyendo por orden, al rótulo `APELLIDOS` le seguía
+ * `FECHA DE VENCIMIENTO`, que está a la derecha. El valor de un rótulo es el
+ * que cae **debajo y en su misma columna**, y eso solo se sabe con la caja.
+ */
+export interface CajaLinea {
+  readonly izquierda: number;
+  readonly arriba: number;
+  readonly ancho: number;
+  readonly alto: number;
+}
+
 export interface LineaReconocida {
   readonly texto: string;
   /** 0–100, tal como la devuelve Textract. */
   readonly confianza: number;
+  /** `null` cuando el proveedor no la informa. */
+  readonly caja: CajaLinea | null;
 }
 
 export interface ResultadoOcr {
@@ -57,10 +74,22 @@ export async function leerTextoDocumento(
 
   const lineas: LineaReconocida[] = (respuesta.Blocks ?? [])
     .filter((bloque) => bloque.BlockType === "LINE")
-    .map((bloque) => ({
-      texto: (bloque.Text ?? "").trim(),
-      confianza: bloque.Confidence ?? 0,
-    }))
+    .map((bloque) => {
+      const b = bloque.Geometry?.BoundingBox;
+      return {
+        texto: (bloque.Text ?? "").trim(),
+        confianza: bloque.Confidence ?? 0,
+        caja:
+          b?.Left !== undefined && b.Top !== undefined
+            ? {
+                izquierda: b.Left,
+                arriba: b.Top,
+                ancho: b.Width ?? 0,
+                alto: b.Height ?? 0,
+              }
+            : null,
+      };
+    })
     .filter((linea) => linea.texto !== "");
 
   const lineasConfiables = lineas.filter((linea) => linea.confianza >= CONFIANZA_MINIMA_OCR);

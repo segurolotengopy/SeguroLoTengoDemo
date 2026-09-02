@@ -26,13 +26,85 @@ la que se ve. Abrí también `docs/canvas/capturas/00-inicio-1360.png` y
 
 Corregí lo que ya construiste, sin crear pantallas todavía:
 
+0. **Antes que nada, el comentario de cabecera de `src/index.css`.** Ese
+   archivo hoy declara, por escrito, que hay dos capas y que «el rediseño en
+   Lovable PARTE de la capa B (es la última aprobada)», describiendo la capa B
+   como «Archivo 800, acento rojo #ec3013, esquinas rectas, fondo #f3f2f2».
+   **Eso es falso y es la causa de todo lo demás: la capa roja NO es la
+   aprobada.** Es la base «Modernist» de Claude Design, que el propio diseño
+   tapa. Reemplazá ese bloque de comentario por uno que diga que la fuente
+   visual es la CAPA 2 del canvas (DM Sans 600, naranja #e2660f/#bd550f,
+   radios 8/12/16), que la capa 1 está tapada y no se aplica, y que los
+   NOMBRES de token de `docs/01-tokens.css` siguen siendo los correctos.
+   Mientras ese texto siga como está, cualquier corrección de valores compite
+   con una instrucción escrita en el propio archivo.
+
 1. `src/index.css`: mantené los nombres de tokens del producto
-   (`docs/01-tokens.css`) pero asegurate de que los VALORES vigentes sean los
-   de la capa 2 del canvas: DM Sans 400/500/600/700 (no Archivo), acento
-   naranja-500 #e2660f / naranja-600 #bd550f / naranja-700 #98450e (no
-   rojo), radios 8/12/16 (no 0), fondo hueso-50 #fafafa, divisor hueso-200
-   #e0e0e0, texto hueso-900 #333333, foco azul-600 #2b5a9e. Quitá cualquier
-   rastro de #ec3013, Archivo y radius 0 que haya quedado del P0 anterior.
+   (`docs/01-tokens.css`) y poné los VALORES de la capa 2 del canvas
+   (`docs/canvas/canvas-estilos.css`, bloque «CAPA 2», y
+   `canvas-reglas-visuales.md` §2). **Copiá estos valores tal cual, no los
+   deduzcas:**
+
+   ```
+   --font-heading / --font-body : 'DM Sans'   --font-heading-weight: 600
+   --font-mono: 'Geist Mono'
+   --color-bg:#fafafa   --color-surface:#ffffff   --sup:#ffffff
+   --color-text:#333333   --color-divider:#e0e0e0
+   --color-accent:#e2660f  -100:#fdf4ec  -200:#fbe3cd  -300:#f0a264
+                           -600:#bd550f  -700:#98450e
+   --color-neutral-100:#f4f2ef  -200:#f0eeea  -300:#e0e0e0  -400:#a5a4a0
+                     -500:#6b6b6b  -600:#6b6b6b  -700:#474747
+                     -800:#333333  -900:#1a1a1a
+   --radius-sm:8px   --radius-md:12px   --radius-lg:16px
+   --azul:#2b5a9e   --verde:#8dc63f   --verde-600:#55811d
+   ```
+
+   Tema noche (el canvas lo pone en el contenedor raíz; en el producto es
+   `data-tema="oscuro"` en `<html>`): `--sup:#1e1e1e`, `--color-bg:#141414`,
+   `--color-surface:#1e1e1e`, `--color-text:#f4f2ef`, `--color-divider:#333333`,
+   `--color-accent:#e2660f`, `-600:#e2660f`, `-700:#f0a264`, `-100:#3a1c08`,
+   `-200:#4a2409`, y los neutrales invertidos: `-100:#262626`, `-200:#2b2b2b`,
+   `-300:#333333`, `-400:#6f6e6b`, `-500:#a5a4a0`, `-600:#a5a4a0`,
+   `-700:#cfcecb`, `-800:#e6e4e0`.
+
+   **Borrá la capa roja entera**, no solo los tres rastros obvios. Lo que hay
+   hoy y tiene que desaparecer:
+
+   - `--font-sans` / `--font-heading` / `--font-body` en `"Archivo"` y
+     `--font-heading-weight: 800` → DM Sans, 600.
+   - `--color-accent: #ec3013` y `--color-accent-2: #e15b47`.
+   - `--color-bg: #f3f2f2` → `#fafafa`; `--color-surface: #eae9e9` →
+     `#ffffff`; `--color-text: #201e1d` → `#333333`.
+   - `--color-divider: color-mix(#201e1d 40%)` → `#e0e0e0` liso.
+   - La escala `--color-accent-*` roja completa (`#ff563c`, `#dd2b0f`,
+     `#ae1800`, `#7c1405`, `#4d170e`…) y **toda** la escala
+     `--color-accent-2-*`.
+   - La escala `--color-neutral-*` de la capa 1 (`#f8f4f4`, `#eae7e7`,
+     `#d7d3d3`, `#bab6b6`, `#9b9797`, `#7d7979`, `#605d5d`, `#444141`,
+     `#2d2b2b`) → la de arriba.
+   - **El bloque que sobrescribe `--color-naranja-50…950` con la escala roja**,
+     comentado hoy como «la regla de oro del porteo». Es el que más daño hace:
+     convierte cada `bg-naranja-600` del árbol en rojo. `--color-naranja-*`
+     tiene que volver a los valores de marca de `docs/01-tokens.css` §A
+     (`500:#e2660f`, `600:#bd550f`, `700:#98450e`…).
+   - `[data-flujo="v3"] :focus-visible { outline-color: var(--color-accent) }`
+     → el foco es **azul** `#2b5a9e`, como en la capa 2
+     (`:focus-visible{outline:2px solid var(--azul)}`).
+   - Los bloques `[data-flujo="v3"]:not([data-tema="oscuro"])` con `#faf9f7`,
+     `#201e1d`, `#444141`, `#605d5d` → los valores de arriba.
+
+   Sobre los huecos: la capa 2 **no redefine** `--color-accent-400/500/800/900`
+   ni `--color-accent-2-*`, y por eso hoy quedan en rojo. Comprobado sobre
+   `canvas-plantilla.html`: **ningún elemento del canvas los usa** —solo
+   existen como definiciones de la capa 1 y en las reglas `.tag-accent` /
+   `.tag-accent-2`, que tampoco se aplican a nada—. Así que **eliminálos**
+   junto con `.tag-accent-2`; no inventes valores para rellenarlos. Si más
+   adelante hace falta un tono que no esté en la capa 2, sale de la escala
+   `--color-naranja-*` de `docs/01-tokens.css` §A, nunca de la roja.
+
+   Enlaces: `color: var(--color-accent-600)`, subrayado con
+   `text-underline-offset: 2px`, hover `--color-accent-700`.
+
    Incorporá las clases de la capa 2 del canvas (.btn 44px r12, .btn-primary/
    secondary/ghost, .input 44px r10, .field > label mayúsculas 11px,
    [data-falta="1"] con «* TE FALTA ESTO», .pulso) con los tokens del
@@ -55,13 +127,20 @@ Corregí lo que ya construiste, sin crear pantallas todavía:
    siete enlaces que abren `AclaracionModal` con el contenido de
    `docs/canvas/canvas-modales.md` (pie «Texto de muestra para la
    demostración del flujo.»; datos de contacto como [dato oficial
-   pendiente]). Sin URLs. En el Inicio el pie NO se muestra (el canvas lo
-   condiciona a `noEsInicio`).
+   pendiente]). Sin URLs. **El pie se muestra en TODAS las pantallas, el
+   Inicio incluido**: la especificación dice «Pie legal (todas las
+   pantallas)» y ante diferencia con el canvas manda la especificación. El
+   canvas lo condiciona a `noEsInicio`, pero esa divergencia no está en la
+   adenda §E, así que no vale (corregido el 02-sep-2026 por decisión de
+   Andres).
 5. `/design-system`: actualizá para que muestre los valores nuevos, los tres
    botones, el input en sus estados y un bloque con data-falta.
 
-Cuando termines: captura de `/design-system` en claro y oscuro, y listame
-qué valores de token cambiaron respecto del P0 anterior.
+Cuando termines: captura de `/design-system` en claro y oscuro, listame qué
+valores de token cambiaron respecto del P0 anterior, y confirmame que
+`src/index.css` ya no contiene «Archivo», «ec3013», «e15b47», «ff563c»,
+«dd2b0f», «ae1800», «f3f2f2» ni «201e1d», y que el comentario de cabecera ya
+no dice que la capa B sea la aprobada.
 ```
 
 ## P1 · Inicio `/` — reproducir el canvas
@@ -75,7 +154,8 @@ de la especificación + ADENDA §C (rótulo de la cuarta foto: «Protege a tu
 familia»).
 
 Reproducí, con los mismos valores que el HTML del canvas:
-- Cabecera con tres bloques (solo acá). Sin BandaPasos. Sin pie legal.
+- Cabecera con tres bloques (solo acá). Sin BandaPasos. **Con pie legal**
+  (va en todas las pantallas; ver P0-bis punto 4).
 - Hero: columna de texto flex 1 1 340px con H1 clamp(34px,5vw,58px) 700
   line-height 1.04 max-width 18ch y bajada 17px neutral-700 max-width 52ch;
   columna de foto flex 1.7 1 480px con el cuadro 16/9 radio 16 borde
