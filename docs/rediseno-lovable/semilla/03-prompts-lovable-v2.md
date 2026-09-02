@@ -407,8 +407,28 @@ Repasá las seis pantallas contra `docs/canvas/canvas-reglas-visuales.md`
 .btn e .input como la capa 2; tema oscuro con los valores de la §2 (fondo
 #141414, superficie #1e1e1e, texto #f4f2ef, divisor #333333, acento
 naranja-500 y naranja-300 para el 700); prefers-reduced-motion (el carrusel
-se detiene); blanco táctil 44px. Capturas de las seis en claro y oscuro,
-1360 y 390.
+se detiene); blanco táctil 44px.
+
+**El atributo del tema es `data-tema="oscuro"` en `<html>`** — el canvas usa
+`"noche"`, el producto usa `"oscuro"`; va el del producto. Sin
+`prefers-color-scheme`.
+
+**Una corrección medida contra §4:** los puntos indicadores del carrusel del
+inicio son **4 × 22 px**, y hoy están en 6 × 26. Ajustalos.
+
+**Sombras: solo en la píldora flotante y en los modales** (`--shadow-lg`). Las
+tarjetas van sin sombra — si alguna quedó con sombra, sacásela.
+
+**El foco NO cambia con el tema.** La capa 2 del canvas no redefine `--azul` en
+su bloque de noche, así que el anillo de foco sigue siendo `#2b5a9e` en los dos
+temas. Si sobre el fondo oscuro `#141414` eso te da un contraste insuficiente,
+**reportámelo y no lo cambies por tu cuenta**: cambiar un color que el diseño
+aprobado no define es inventar, y prefiero decidirlo yo.
+
+Mismo criterio con cualquier otro problema de contraste AA que encuentres en
+oscuro: listámelo con el par de colores y la relación medida, sin corregirlo.
+
+Capturas de las seis en claro y oscuro, 1360 y 390.
 ```
 
 ## P8 · Auditoría de cierre (textos + dibujo)
