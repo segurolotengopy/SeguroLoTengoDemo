@@ -60,7 +60,7 @@ import {
 } from "../../domain/documento-regional";
 import type { PaisDocumento, SenalesDocumento } from "../../domain/documento-regional";
 import { cruzarConMrz } from "../../domain/mrz";
-import type { DatosMrz } from "../../domain/mrz";
+import type { CamposMrzVerificados, DatosMrz } from "../../domain/mrz";
 import type {
   CapturaSelfie,
   DatosExtraidosCedula,
@@ -106,6 +106,11 @@ interface SesionCaptura {
   frente?: CapturaGuardada;
   dorso?: CapturaGuardada;
   mrz?: DatosMrz | null;
+  /**
+   * Campos del MRZ que verificaron con su propio dígito cuando la banda no
+   * validó entera. La fecha de acá le gana a la del frente.
+   */
+  mrzVerificados?: CamposMrzVerificados | null;
   selfie?: { readonly bytes: Uint8Array; readonly aprobada: boolean };
 }
 
@@ -272,7 +277,21 @@ export function crearIdentityProviderCamaraDemo(
     );
     const mrz = buscarMrzTd1(ocr.lineas, ahora());
 
-    if (!mrz.encontrado && mrz.motivo === "MRZ_INVALIDO") {
+    // Un MRZ cuyo único verificador roto es el compuesto no es un documento
+    // adulterado: es el OCR comiéndose relleno. El compuesto abarca casi toda
+    // la banda —incluido el relleno—, así que un carácter perdido lo rompe sin
+    // tocar la fecha de nacimiento ni el número, que tienen su propio dígito.
+    // Rechazar ahí obligaría a repetir una captura correcta.
+    //
+    // Los campos que sí verificaron se conservan: la fecha de nacimiento de la
+    // banda decide el corte de edad 18–64 (regla inviolable #8) y viene de un
+    // verificador, no de una heurística de posición del frente.
+    const soloCompuesto =
+      !mrz.encontrado &&
+      mrz.motivo === "MRZ_INVALIDO" &&
+      mrz.verificados?.fechaNacimiento != null;
+
+    if (!mrz.encontrado && mrz.motivo === "MRZ_INVALIDO" && !soloCompuesto) {
       sesion.dorso = { imagen, bytes, aprobada: false, lineas: ocr.lineas, lineasConfiables: ocr.lineasConfiables, senales };
       sesion.mrz = null;
       return {
@@ -288,6 +307,7 @@ export function crearIdentityProviderCamaraDemo(
     const reconocido = mrz.encontrado || senales.pais !== null;
     sesion.dorso = { imagen, bytes, aprobada: reconocido, lineas: ocr.lineas, lineasConfiables: ocr.lineasConfiables, senales };
     sesion.mrz = mrz.encontrado ? mrz.datos : null;
+    sesion.mrzVerificados = mrz.encontrado ? null : (mrz.verificados ?? null);
 
     return {
       calidadAprobada: reconocido,
@@ -365,10 +385,19 @@ export function crearIdentityProviderCamaraDemo(
       );
       const numeroCedula = sesion.frente.senales.numeroDetectado;
 
+      // **La fecha que decide el corte de edad sale del MRZ siempre que su
+      // dígito verificador haya cerrado** (decisión de Andres, 01-sep-2026).
+      // La del frente es una heurística de posición —«la más antigua de las
+      // fechas leídas»—; la de la banda está protegida por un verificador.
+      // Para una regla inviolable (#8: la edad se comprueba contra la fecha
+      // del documento, no contra una declarada), gana la verificada.
+      const fechaVerificada = sesion.mrzVerificados?.fechaNacimiento ?? null;
+      const fechaNacimiento = fechaVerificada ?? campos.fechaNacimiento;
+
       // El número y la fecha son los dos únicos campos sin los cuales el
       // flujo no puede seguir: uno identifica y el otro decide el corte de
       // edad. Nombre y sexo pueden faltar sin romper nada.
-      if (!numeroCedula || !campos.fechaNacimiento) {
+      if (!numeroCedula || !fechaNacimiento) {
         return { datos: DATOS_VACIOS, confiable: false, numeroCedulaSinConfirmar: numeroCedula };
       }
 
@@ -378,7 +407,7 @@ export function crearIdentityProviderCamaraDemo(
           numeroCedula,
           nombres: campos.nombres ?? "",
           apellidos: campos.apellidos ?? "",
-          fechaNacimiento: campos.fechaNacimiento,
+          fechaNacimiento,
           sexo: campos.sexo ?? "",
           nacionalidad: NACIONALIDAD_POR_PAIS[pais],
         },

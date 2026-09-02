@@ -189,6 +189,9 @@ cargado). Textos: sección «Paso 1» de la especificación. Los valores de las
 variables `{{ … }}` (títulos con «, Ana», guías, estados de captura,
 rótulos del OTP, «Te falta: …») están en `docs/canvas/canvas-logica.js`.
 
+**Con `BandaPasos` en la posición 1 y con pie legal** (el stepper va en los
+tres pasos; el pie, en todas las pantallas).
+
 Reproducí el orden y el dibujo del canvas: título clamp(26px,4vw,36px) con
 encabezado, foto `familia-paso-1.jpg` altura clamp(140px,20vw,210px)
 recorte center 35% radio 16, bloque IMPORTANTE con su dibujo y el botón «Ver
@@ -198,18 +201,24 @@ naranja aprobada, ilustración SVG del canvas, chip «✓ Aprobada»), el botón
 «Tocá acá para leer los datos de mi cédula →» con su guía y el estado
 «Leyendo tu cédula…»; DATOS DE IDENTIDAD en rejilla auto-fit minmax(220px)
 con los campos exactos (cédula y fecha con candado «no editable»), leyenda
-de edad y botón «Completar el resto con datos de ejemplo (demo)»; TUS
+de edad y botón «Completar el resto con datos de ejemplo (demo)». Campos de identidad:
+Número de cédula y Fecha de nacimiento **no editables** (con candado), y
+Nombres, Apellidos, **Sexo — se ELIGE, no lo completa el OCR**,
+Nacionalidad, País de nacimiento, País de residencia y Estado civil; TUS
 CANALES bloqueada con su rótulo hasta confirmar identidad, celular + botón
 de envío, casillas OTP con reloj «vence en M:SS» y «reenvíos N de 3»,
-correo doble; DATOS COMPLEMENTARIOS bloqueada hasta canales, ocho campos;
+correo doble; DATOS COMPLEMENTARIOS bloqueada hasta canales, ocho campos y no más:
+Domicilio · Ciudad · Situación laboral · Actividad · Profesión · Empresa o
+empleador · Ingreso mensual estimado (Gs.) · Origen principal de los fondos;
 ACEPTACIÓN Y CONTINUAR bloqueada hasta complementarios, casilla agrupada +
 «Ver todo lo que aceptás» con los SIETE ítems + nota + «Tocá acá para
 continuar al paso 2 →». «* TE FALTA ESTO» con data-falta desde el
 principio; «Te falta: …» + «Mostrame qué me falta» con .pulso; píldora
 flotante.
 
-Simulá con estado local: «(demo)» llena a Ana Ejemplo Modelo; OTP acepta
-123456. Al terminar: capturas 1360/390, textos usados/faltantes,
+Simulá con estado local: «(demo)» llena a Ana Ejemplo Modelo; el OTP acepta
+`123456`, pero **ese código no se muestra nunca en pantalla** (ni de ayuda ni
+de marcador de posición): las casillas van vacías o con `••••••`. Al terminar: capturas 1360/390, textos usados/faltantes,
 diferencias declaradas.
 ```
 

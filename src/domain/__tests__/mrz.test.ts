@@ -105,6 +105,42 @@ describe("normalizarLineasTd1", () => {
   });
 });
 
+/**
+ * El caso real: Textract recorta el relleno `<` del final, así que la banda
+ * llega con líneas de 27 y 29 caracteres. Antes se descartaba entera —«no hay
+ * MRZ»— y el flujo caía a la heurística del frente.
+ */
+describe("MRZ real recortado por el OCR", () => {
+  const CRUDAS = [
+    "IEPRYAA0740311692883<0207<<",
+    "7409152M2610298BOL<<<<<<<<<<5",
+    "FERNANDEZ<ECHAZU<<RODR<I<<<<<<",
+  ].join("\n");
+
+  it("repone el relleno que el OCR se comió y consigue leer la banda", () => {
+    const lineas = normalizarLineasTd1(CRUDAS);
+    expect(lineas).not.toBeNull();
+    expect(lineas?.every((linea) => linea.length === 30)).toBe(true);
+  });
+
+  it("informa la fecha de nacimiento porque su propio dígito verifica", () => {
+    const resultado = leerMrzTd1(CRUDAS, new Date("2026-09-01"));
+
+    // El compuesto no cierra —el OCR perdió además algún carácter— pero la
+    // fecha sí, y es la que decide el corte de edad (regla inviolable #8).
+    expect(resultado.ok).toBe(false);
+    if (resultado.ok) return;
+    expect(resultado.motivos).toContain("VERIFICADOR_COMPUESTO");
+    expect(resultado.verificados?.fechaNacimiento).toBe("1974-09-15");
+    expect(resultado.verificados?.numeroDocumento).toBe("AA0740311");
+  });
+
+  it("no repone relleno si falta demasiado: no se inventa un MRZ", () => {
+    const muyCorta = ["IEPRYAA074", "7409152M26", "FERNANDEZ<"].join("\n");
+    expect(normalizarLineasTd1(muyCorta)).toBeNull();
+  });
+});
+
 describe("leerMrzTd1", () => {
   it("lee el especimen de ICAO completo", () => {
     const resultado = leerMrzTd1(MRZ_ICAO, HOY);

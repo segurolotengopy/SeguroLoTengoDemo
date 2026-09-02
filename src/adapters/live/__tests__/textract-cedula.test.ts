@@ -130,7 +130,14 @@ describe("buscarMrzTd1", () => {
       adulterado.map((l) => linea(l, 70)),
       HOY,
     );
-    expect(resultado).toEqual({ encontrado: false, motivo: "MRZ_INVALIDO" });
+    expect(resultado.encontrado).toBe(false);
+    if (resultado.encontrado) return;
+    expect(resultado.motivo).toBe("MRZ_INVALIDO");
+    // La fecha adulterada **no** se informa como verificada: su propio dígito
+    // no cierra, así que no puede alimentar el corte de edad. El número, cuyo
+    // dígito sigue cerrando, sí.
+    expect(resultado.verificados?.fechaNacimiento).toBeNull();
+    expect(resultado.verificados?.numeroDocumento).not.toBeNull();
   });
 });
 

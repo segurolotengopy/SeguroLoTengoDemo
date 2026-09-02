@@ -255,6 +255,53 @@ diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
 
 ---
 
+## 2026-09-01 (i) · La fecha del corte de edad, desde un campo verificado
+
+**Rama:** `fix/edad-desde-mrz-verificado` · **Decisión de Andres**
+
+### El caso
+
+Con el frente ya leyéndose bien (entrada anterior), quedaba la pregunta de
+fondo: la fecha que decide el corte 18–64 salía de una **heurística de
+posición** del frente («la más antigua de las fechas leídas»). Andres decidió
+que venga de un campo verificado.
+
+### Qué cambió
+
+- **`normalizarLineasTd1` repone el relleno que el OCR recorta.** Textract
+  devolvió la banda real con líneas de 27, 29 y 30 caracteres y el parser
+  exigía 30, así que el documento se descartaba entero. Se completa con `<`
+  —que vale 0 en el cálculo—, hasta 4 caracteres por línea. **No es una
+  concesión sobre la validación**: los cuatro verificadores se calculan igual
+  sobre lo reconstruido; lo que cambia es que ahora se los puede calcular. En
+  la línea 2 el relleno se repone **antes** del último carácter, que es el
+  verificador compuesto.
+- **`leerMrzTd1` informa qué campos verificaron** aunque la banda falle
+  (`CamposMrzVerificados`). Los cuatro dígitos del TD1 no son equivalentes: el
+  de la fecha protege esos seis dígitos, el compuesto abarca casi todo. **Los
+  nombres no entran**: en TD1 no tienen dígito propio.
+- **Un MRZ que falla solo por el compuesto deja de rechazar el dorso.** Con el
+  relleno repuesto, el documento real pasa de «sin MRZ» a «MRZ inválido», y
+  antes eso era rechazo: se habría pedido repetir una captura correcta.
+- **La fecha del corte de edad sale del MRZ cuando su dígito cerró**, y solo
+  cae al frente si no hay banda legible.
+
+### Verificación con el documento real
+
+```
+MRZ: MRZ_INVALIDO (solo el compuesto)
+verificados: fechaNacimiento 1974-09-15 · numeroDocumento AA0740311
+fecha del frente (heurística): 1974-09-15
+fecha que usa el flujo: 1974-09-15  ← origen: MRZ VERIFICADO
+```
+
+Las dos coinciden, lo que además cruza el frente contra la banda.
+
+`npm run verify` en verde (**1252 tests**, 3 nuevos con las líneas reales) ·
+e2e v3 **10/10**.
+
+---
+
 ## 2026-09-01 (h) · Por qué el frente de la cédula se leía mal: eran las columnas
 
 **Rama:** `fix/ocr-frente-por-geometria` · **Pedido de Andres**
