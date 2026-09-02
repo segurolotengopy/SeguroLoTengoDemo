@@ -34,6 +34,19 @@ Regla para este porteo, sin excepción:
 5. **Una pantalla por sesión de Claude Code** (regla de `CLAUDE.md`). Antes,
    una sesión solo para tokens y cascarón.
 
+## 0-bis. Lo primero que se porta: la capa 2 del canvas (hallazgo del 01-sep, tarde)
+
+`src/app/canvas-v3.css` copió la **capa 1** del CSS del canvas (base
+«Modernist»: Archivo 800, rojo `#ec3013`, radios 0) y `globals.css` la
+refuerza en `[data-flujo="v3"]` (líneas 249–297). Pero el canvas la **tapa**
+con una segunda capa —DM Sans 600, naranja `#e2660f`/`#bd550f`, radios
+8/12/16, fondo `#fafafa`, foco azul, botones de 44 px— que es la que se ve
+(`semilla/canvas/canvas-estilos.css`, «CAPA 2»; medidas en
+`canvas-reglas-visuales.md`). La sesión 0 del porteo empieza por reemplazar
+la capa 1 por la capa 2, mapeada a los tokens del producto, y por retirar la
+redefinición Archivo/rojo/radio 0 de `globals.css`. Ese cambio solo, sin
+tocar pantallas, acerca la demo al canvas más que todo lo hecho hasta hoy.
+
 ## 1. Correspondencia de archivos
 
 | Prototipo Lovable (`repo-diseno`)                | Producto (`segurolotengo-demo`)                                            | Cómo                                                                                   |

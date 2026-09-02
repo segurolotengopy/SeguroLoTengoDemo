@@ -64,3 +64,9 @@ infra/crash.log
 
 # Bytecode de los scripts de Python que arman los PDF de entrega.
 __pycache__/
+
+# Paquete de transferencia del prototipo de Lovable: su propio LEEME dice
+# «no debe entrar al repo de producción» — es un bundle de 7 MB para empujar a
+# otro repositorio. Se ignora en vez de borrarlo: el archivo sigue en disco
+# hasta que se haya publicado.
+/_lovable-push/
