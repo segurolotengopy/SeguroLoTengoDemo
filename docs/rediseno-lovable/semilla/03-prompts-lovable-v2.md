@@ -221,6 +221,36 @@ Elegi tu seguro"`, capturas `02-paso2-*.png`. Textos: sección «Paso 2» de la
 especificación; OJO adenda §E: beneficiario SOLO nombre, parentesco y
 domicilio (el canvas dibuja tres campos más que NO van).
 
+**Con `BandaPasos` en la posición 2 y con pie legal.** Cabecera de dos bloques.
+
+**Los tres planes, con estos valores exactos y ningún otro** (no los deduzcas
+ni los redondees):
+
+| Cobertura | CONFÍO | CONFÍO+ | CONFÍO TOTAL |
+| :--- | :--- | :--- | :--- |
+| Indemnización por cáncer (pago único) | Gs. 50.000.000 | Gs. 75.000.000 | Gs. 100.000.000 |
+| Muerte por cualquier causa | Gs. 3.500.000 | Gs. 5.000.000 | Gs. 7.000.000 |
+| Renta hospitalaria por día (hasta 15 días por año) | Gs. 500.000 | Gs. 750.000 | Gs. 1.000.000 |
+| Gastos médicos por accidente (reembolso hasta) | Gs. 7.000.000 | Gs. 10.000.000 | Gs. 14.000.000 |
+| **Premio anual (IVA incluido)** | **Gs. 319.000** | **Gs. 522.500** | **Gs. 726.000** |
+
+La abreviatura del guaraní es **`Gs.`** en todo el portal. El plan
+preseleccionado es **CONFÍO+**.
+
+**Las cinco declaraciones no son iguales entre sí**, y el prompt viejo las
+trataba como si lo fueran:
+
+- **1 a 4**: la respuesta incompatible (1 → No; 2 → Sí; 3 → Sí; 4 → Sí)
+  muestra su aviso y **deriva**: el CTA pasa a «Tocá acá para enviar mi caso a
+  un asesor →» hacia `/revision-manual`.
+- **5**: responder **No no deriva, DETIENE**. No hay CTA que lleve a ningún
+  lado; se muestra «Sin esta aceptación no podemos avanzar: es la constancia de
+  que conocés las carencias antes de contratar. Si algo no te queda claro, un
+  asesor te lo explica.»
+- La 4 (PEP) lleva la nota expandible «¿Qué significa PEP?», que aclara que
+  **responder Sí no impide contratar**, solo requiere el análisis de un asesor.
+  La 5 lleva «Ver el detalle completo».
+
 Reproducí: título con «, Ana», foto `familia-paso-2.jpg`; pestañas de ramos
 subrayadas (ONCOLÓGICO activa; VIDA, ACCIDENTES PERSONALES, RESPONSABILIDAD
 CIVIL con «PRONTO»); leyenda del producto con «(provisional)»; tres tarjetas
@@ -238,7 +268,12 @@ incompatibles, «Tocá acá para enviar mi caso a un asesor →» → /revision-
 manual; píldora «Acá abajo enviás tu caso a un asesor ↓» /
 «Acá abajo está el botón para continuar ↓» según el caso.
 
-Al terminar: capturas, textos, diferencias.
+Las respuestas de salud y la condición PEP son datos sensibles: viven **solo**
+en el estado local de la pantalla. No las mandes a ningún servicio, ni las
+guardes en `localStorage`, ni las escribas en consola.
+
+Al terminar: capturas, textos, diferencias, y confirmame los importes de los
+tres planes y el comportamiento de la declaración 5.
 ```
 
 ## P4 · Paso 3 `/pago-y-firma`
