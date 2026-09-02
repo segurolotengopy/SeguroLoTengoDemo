@@ -54,6 +54,8 @@ oficial, sus ~30 filas de la matriz son citas que nadie puede contrastar.
 | `190 2025.pdf` | **Res. SS.SG. N° 190/2025** — Uso exclusivo de la denominación registrada y autorizada (8-sep-2025) | `src/domain/entidades.ts` (`marcaVisible()`, flag `MARCA_FANTASIA_AUTORIZADA`) |
 | `011 2025.pdf` | **Circular SS.SG. N° 011/2025** — Uso de denominaciones comerciales | Formato de `IDENTIFICACION_SIS` (razón social + actividad + matrícula) |
 | `117 2026.pdf` | **Res. SS.SG. N° 117/2026** — Modifica el Anexo II de la Res. 031/2026 (matriculación de auxiliares) | Calendario de renovación de matrícula; no toca pantallas |
+| `ley-6822-2021.pdf` | **Ley N° 6822/2021** — De los servicios de confianza para las transacciones electrónicas, del documento electrónico y los documentos transmisibles electrónicos (44 p) | **Base de toda la arquitectura de firma.** Define firma electrónica cualificada (art. 4 num. 27), sus efectos (art. 39), el certificado cualificado (art. 43), el dispositivo cualificado (arts. 44-45) y el régimen de prestadores (arts. 10, 15, 24-26). Analizada en `docs/firma-cualificada/README.md` |
+| `decreto-7576-2022.pdf` | **Decreto N° 7576/2022** — Reglamenta artículos de la Ley 6822/2021 (14 p) | Prestadores cualificados y no cualificados, certificados y funcionamiento de la ICPP |
 | `matriz 16 08 2026.pdf` | **Matriz Legal Final V4** — documento de trabajo jurídico-funcional del proyecto, no es una norma | Fuente maestra de cumplimiento mientras dure el Plan de Cambios v2 |
 | `ESPECIFICACION.pdf` | Especificación funcional y revisión normativa (17-ago-2026) — documento propio del proyecto, no es una norma | Antecedente; el detalle vigente vive en `docs/ESPECIFICACION_PANTALLAS.md` |
 
@@ -68,7 +70,6 @@ seria del inventario: son citas que nadie puede contrastar.
 | Norma | Por qué hace falta | Dónde conseguirla |
 | :--- | :--- | :--- |
 | **Res. SIS N° 215/2025** | La más citada del proyecto: modelos de propuesta y póliza, numeración, contenido contractual, art. 1556. Sostiene ~30 filas de la matriz de cumplimiento y decenas de comentarios en `src/`. **Es la brecha más urgente del inventario** | Buscador de resoluciones del BCP (`www.bcp.gov.py`). No confundir con el archivo `215_2025.pdf` que circula: ese trae el texto de la 210/2025 (§0) |
-| **Ley N° 6822/2021** — Servicios de confianza para transacciones electrónicas | Base de toda la arquitectura de firma; define firma simple y cualificada, y los arts. 9, 13, 14, 15 y 20 deciden si Interseguros debe comunicarse al MIC | `www.mic.gov.py/wp-content/uploads/2023/11/Ley-Nro-6822-2021pdf-1.pdf` |
 | **Ley N° 827/1996** — De Seguros | Rol de aseguradora y corredor; art. 61 inc. b) (potestad reglamentaria de la SIS) y art. 76 (firma del corredor) | `www.bcp.gov.py/documents/20117/213083/LEY_827_96_DE_SEGUROS.pdf` |
 | **Ley N° 4868/2013** — Comercio electrónico | La norma más citada en `src/`: información previa, precio total, conservación, acuse, retracto | `bacn.gov.py` |
 | **Ley N° 1334/1998** — Defensa del consumidor | Información veraz, cláusulas abusivas, retracto (art. 26) | `bacn.gov.py` |
@@ -92,23 +93,32 @@ fila a la matriz de cumplimiento.
 | **Res. SIS N° 031/2026** | Régimen de matriculación y renovación de auxiliares (tenemos la 117/2026 que la modifica, pero no el texto base) | `www.bcp.gov.py/documents/20117/753661/` — «Resolución SS.SG. N° 031_2026.pdf» |
 | **Ley N° 7503/2025** — Sistema Nacional de Pagos | Fundamenta que el comercio receptor en Bancard sea Alianza y no el corredor ni el portal | `www.bcp.gov.py/leyes1` + reglamentos SIPAP 2026 |
 | **Ley N° 7593/2025** — Protección de Datos Personales | Vigencia plena a fines de 2027, pero es el estándar de diseño desde ahora (CMP-12/13) | Ficha del Congreso: `silpy.congreso.gov.py/web/ley/146223` |
-| **Decreto N° 7576/2022** | Reglamento de servicios de confianza: prestadores cualificados y no cualificados, certificados, ICPP | `www.mic.gov.py/wp-content/uploads/2025/06/Decreto_7576-2022.pdf` |
 | **Decreto N° 1165/2014** | Reglamenta la Ley de Comercio Electrónico: resumen revisable antes de contratar, acuse de recibo, deberes de información | `www.mic.gov.py/wp-content/uploads/2023/11/decreto__1165_2014_ce0.pdf` |
 
 ---
 
 ## 4. Cómo incorporarlas
 
-Las descargas **no se pueden hacer desde el entorno de desarrollo remoto**:
-el proxy de egreso bloquea `bcp.gov.py`, `mic.gov.py`, `acraiz.gov.py` y
-`silpy.congreso.gov.py` (comprobado el 26-ago-2026, los cuatro devuelven
-error de túnel). Las baja una persona desde una red común y las commitea.
+**Actualización del 02-sep-2026.** El diagnóstico anterior —«el proxy de egreso
+bloquea `bcp.gov.py`, `mic.gov.py`, `acraiz.gov.py` y `silpy.congreso.gov.py`»,
+del 26-ago-2026— era demasiado amplio:
 
-Las direcciones de la columna «dónde conseguirla» vienen de los memos de
-investigación jurídica del 26-ago-2026 y **no fueron verificadas** por no
-poder abrirlas desde acá: hay que confirmar que el documento descargado es
-el que dice ser antes de citarlo. Los PDF de la SIS traen carátula con
-número, título y fecha, que es lo que hay que mirar.
+- `mic.gov.py` **responde**. De ahí se bajaron la Ley 6822/2021 y el
+  Decreto 7576/2022 que ahora figuran en §1.
+- `acraiz.gov.py` **no está bloqueado**: falla porque el servidor no envía el
+  certificado intermedio de su cadena TLS. Aportándolo, la descarga funciona
+  con la verificación intacta — la receta está en
+  `docs/firma-cualificada/referencias/INDICE.md`, y con ella entró el cuerpo
+  normativo de la ICPP.
+- `bcp.gov.py` y `silpy.congreso.gov.py` **siguen sin comprobarse** desde el
+  entorno remoto. Ahí sigue valiendo lo de siempre: las baja una persona desde
+  una red común y las commitea.
+
+Las direcciones de la columna «dónde conseguirla» que todavía no se usaron
+vienen de los memos de investigación jurídica del 26-ago-2026 y **no fueron
+verificadas**: hay que confirmar que el documento descargado es el que dice ser
+antes de citarlo. Los PDF de la SIS traen carátula con número, título y fecha,
+que es lo que hay que mirar.
 
 Al agregar un PDF: (1) nombrarlo con la convención de arriba, (2) sumar su
 fila a la sección 1 de este índice, (3) recién entonces citarlo en la matriz
