@@ -258,7 +258,7 @@ tienen por dónde salir del componente. Las únicas apariciones de `localStorage
 Onfido, cero botones de descarga en el paso, `BandaPasos` y `PieLegal`, los tres
 campos de factura exactos y los tres ítems de la aceptación 3.
 
-### P5 · Confirmación — enviado
+### P5 · Confirmación — enviado y verificado
 
 Una discrepancia de fondo, encontrada antes de enviar: el prompt pedía **tres**
 tarjetas más una sección aparte para la póliza, y la especificación dice
@@ -273,6 +273,17 @@ que la fecha de inicio de cobertura **no se calcula en la pantalla** —viene da
 y sin decirlo el agente la habría derivado de `Date.now()`—, el pie legal (quinta
 pantalla con la misma omisión) y que los datos de las mesas de ayuda van como
 `[dato oficial pendiente]`.
+
+Lovable implementó en `c9ace72` «Añadió Confirmación completo»
+(`Confirmacion.tsx`, 349 líneas). Verificado sobre el código: **las cuatro
+tarjetas** —CPC, PROP, REC y Póliza definitiva—, con la póliza marcada
+`descargable: false`, así que los descargables siguen siendo tres; el inicio de
+cobertura es la constante fija `INICIO_COBERTURA` y la única aparición de
+`Date.now()` en el archivo está **dentro del comentario que documenta la regla**,
+no en código; la casilla comercial arranca en `useState(false)`; los cuatro
+hitos completos; `PieLegal` presente y `BandaPasos` ausente, como corresponde a
+una pantalla fuera del contador; dos `[dato oficial pendiente]` y **cero**
+teléfonos o correos inventados.
 
 
 ### Queda abierto
