@@ -330,6 +330,56 @@ las seis veces.** Es el método que conviene conservar para P7 y P8, y para
 cualquier prompt que se agregue después.
 
 
+### P7, P8 y la corrección final — el prototipo cerrado
+
+**P7 (repaso transversal).** Se le agregaron al prompt las medidas de §3–§4 que
+daba por sabidas, y de comparar la regla contra lo construido salió una
+divergencia medible: los puntos del carrusel estaban en 6 × 26 px y §4 los mide
+en **4 × 22**. Lo más importante fue un criterio nuevo: **pedirle que reportara
+sin corregir**. La capa 2 del canvas no redefine `--azul` en su bloque de noche,
+así que el foco quedaba en azul institucional sobre `#141414`. El proveedor
+midió y no tocó nada, que es exactamente lo que se le pidió: `#2b5a9e` da
+**2,68:1** sobre el fondo y **2,43:1** sobre la superficie, contra el mínimo de
+3:1 de WCAG 1.4.11. Reportó además blanco sobre el primario (3,42:1), el hover
+(2,09:1), el placeholder (3,27:1) y el divisor (1,32:1).
+
+**Decisión de Andres: en tema oscuro el foco va en naranja.** Implementado en
+`82f1d15` con una precisión que salvó la decisión: no se toca `--azul` —se creó
+un token `--foco` que vale azul en claro y acento en oscuro— y **se conserva
+`outline-offset: 2px`**. Sin ese margen, un foco naranja sobre un botón primario
+naranja sería invisible (1,00:1, el mismo color); con él, el anillo se dibuja
+sobre el fondo, donde `#e2660f` da 5,39:1 y 4,88:1. Los otros cuatro contrastes
+quedan abiertos: son decisiones de diseño, y el tema oscuro no tiene respaldo en
+la matriz de cumplimiento.
+
+**P8 (auditoría de cierre, 19,1 créditos).** Tres tablas con evidencia
+`archivo:línea`. De las diez reglas de negocio, **nueve cumplen y la décima era
+un error de redacción propio**: la regla se había escrito «no hay OTP visible en
+pantalla en ningún estado», y el auditor la leyó literalmente y marcó el campo de
+seis dígitos como incumplimiento. La regla real (#2) dice que **nunca se muestra
+el código**, no que no exista el campo donde se tipea. Se le corrigió la regla y
+se le pidió no tocar esa sección. O sea: **diez de diez**.
+
+**La corrección final** (`9729b44`) salió de la tabla 2 del propio auditor.
+Encabezada por lo que **no** había que tocar: la docena de textos que la
+auditoría marcó «sin fuente» salieron en su mayoría de instrucciones dadas al
+portar, y sin ese encabezado el agente los habría borrado prolijamente.
+Verificado que sobrevivieron los nueve `data-cta`, los cuatro textos del paso 3,
+los dos de confirmación y el rótulo de carencias. Sí se corrigió el único desvío
+real de texto: `[texto pendiente]` → `[dato oficial pendiente]` (0 y 5
+ocurrencias tras el cambio).
+
+Del dibujo entraron el kicker a 10,5 px, `@keyframes baja` en lugar de
+`animate-bounce`, y —la divergencia más visible— **el contenedor unificado**: se
+creó una clase `.contenedor` (1360 px, `padding-inline: 24px`) que ahora usan las
+seis pantallas, cuando Confirmación y Revisión manual estaban en 640.
+
+**Los textos se incorporaron a la especificación** (`de13e99`, sección «Textos
+del prototipo incorporados»), sacados literales del código y no del resumen de
+la auditoría. Varios materializan reglas que este documento ya exigía sin dar el
+literal: el aviso del RUC es CHG-34 y el rótulo de las carencias es DI-4.
+
+
 ### Queda abierto
 
 - ~~**Lovable: Knowledge v2 y P0-bis**~~ — **hecho por MCP**. El Knowledge
