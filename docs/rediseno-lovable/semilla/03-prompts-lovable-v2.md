@@ -434,12 +434,41 @@ Capturas de las seis en claro y oscuro, 1360 y 390.
 ## P8 · Auditoría de cierre (textos + dibujo)
 
 ```
-Devolveme DOS tablas, sin corregir nada todavía:
+Devolveme TRES tablas, sin corregir nada todavía:
 1. Textos: por pantalla, cada texto de `ESPECIFICACION_PANTALLAS.md` + ADENDA
    con «está (sí/no)» y «dónde»; aparte, todo texto del prototipo que NO esté
-   en la especificación ni en `canvas-textos.md`.
+   en la especificación ni en `canvas-textos.md` — ese segundo listado es el
+   que más me importa: es donde aparecen los textos inventados.
 2. Dibujo: por pantalla, cada fila de `canvas-reglas-visuales.md` §4 con
    «cumple (sí/no)» y el valor que usaste.
+3. Reglas: cada una de estas, con «cumple (sí/no)» y dónde se ve:
+   - Del portal se descargan TRES documentos; la póliza es vista de estado.
+   - La declaración 5 en No detiene y no deriva; las 1–4 derivan.
+   - Ningún dato de tarjeta sale de `ModalBancard`.
+   - Ninguna pantalla nombra al proveedor de firma.
+   - El pago está bloqueado hasta que la firma esté hecha.
+   - La Revisión manual no tiene ningún CTA que avance el flujo.
+   - El pie legal está en las seis pantallas; `BandaPasos` solo en los tres
+     pasos y recibe slug, nunca un número.
+   - Los importes de los tres planes son los aprobados.
+   - El sexo se elige y no lo completa la lectura de la cédula.
+   - No hay OTP visible en pantalla en ningún estado.
+
+**Lo que NO tenés que reportar como incumplimiento** — son divergencias
+deliberadas de la adenda §E, y marcarlas como error hace que alguien las
+«corrija» hacia el canvas:
+
+- Beneficiario con tres campos (el canvas dibuja tres más que no van).
+- FIPF como «Formulario de Identificación de Persona Física» (el canvas lo
+  llamaba «de Información Previa a la Firma», y era un error).
+- Datos de contacto, número de caso y resoluciones como marcadores en vez de
+  los valores del canvas.
+- Cadencia del carrusel 3 s, no 4,5 s.
+- El pie legal en el Inicio, que el canvas oculta.
+
+Verificá además que sigan en su lugar los marcadores `(provisional)` y
+`[dato oficial pendiente]`: si alguno fue reemplazado por un dato que parece
+real, es un hallazgo y va en la primera tabla.
 ```
 
 Después de P8 se corrigen las diferencias con prompts puntuales, se aprueba y
