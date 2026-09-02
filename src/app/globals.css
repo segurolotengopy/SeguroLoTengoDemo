@@ -246,55 +246,28 @@ body {
  * v2 conserva DM Sans y la paleta de GUIA_DE_ESTILOS.md intactos.
  * ========================================================================== */
 
-[data-flujo="v3"] {
-  /* Tipografía del canvas: Archivo en todo, con títulos en 800. */
-  --font-sans: var(--font-archivo);
-  --text-display--font-weight: 800;
-  --text-h1--font-weight: 800;
-  --text-h2--font-weight: 800;
+/*
+ * **Corregido el 01-sep-2026.** Acá vivía una redefinición completa de los
+ * tokens —Archivo 800, acento rojo #ec3013, esquinas rectas, fondo #f3f2f2—
+ * tomada del bloque `:root` del canvas.
+ *
+ * Era la capa equivocada. El canvas trae **dos** hojas de estilo: una base
+ * «Modernist» y, al final del mismo archivo, una segunda que la redefine
+ * entera con la paleta de `docs/GUIA_DE_ESTILOS.md` —DM Sans 600, naranja
+ * #e2660f/#bd550f, radios 8/12/16, fondo #fafafa, foco azul—. Por cascada
+ * gana la segunda, y es la que se ve en el diseño aprobado. El porteo copió
+ * la primera, así que la demo se construyó sobre la base que el propio
+ * diseño tapa: de ahí el rojo, la tipografía y las esquinas rectas.
+ *
+ * La capa correcta **no usa ningún color que este archivo no tenga ya**: es
+ * la paleta del proyecto. Por eso la corrección es quitar las
+ * redefiniciones, no reemplazarlas — con el flag encendido, v3 hereda los
+ * mismos tokens que v2, que son los del diseño.
+ *
+ * Lo que sí es propio del canvas (rejilla `auto-fit`, recortes de foto,
+ * carrusel) sigue más abajo.
+ */
 
-  /* Esquinas rectas: el canvas trabaja con radius 0 en tarjetas y botones. */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-
-  /* El acento del canvas (rojo #ec3013 y su rampa) reemplaza al naranja en
-     los MISMOS tokens: cada `bg-naranja-600` del árbol pasa a ser el rojo
-     primario sin editar componentes. */
-  --color-naranja-50: #fff2ef;
-  --color-naranja-100: #fff2ef;
-  --color-naranja-200: #ffe0d9;
-  --color-naranja-300: #ffc4b8;
-  --color-naranja-400: #ff9783;
-  --color-naranja-500: #ff563c;
-  --color-naranja-600: #dd2b0f;
-  --color-naranja-700: #ae1800;
-  --color-naranja-800: #7c1405;
-  --color-naranja-900: #4d170e;
-  --color-naranja-950: #4d170e;
-}
-
-[data-flujo="v3"] h1,
-[data-flujo="v3"] h2 {
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-/* Superficie clara del canvas. El tema oscuro conserva las superficies del
-   sistema (el canvas trae su propio modo noche, pero el contraste ya está
-   verificado acá) con el acento nuevo. */
-[data-flujo="v3"]:not([data-tema="oscuro"]) {
-  --tema-fondo: #f3f2f2;
-  --tema-superficie: #ffffff;
-  --tema-superficie-suave: #eae9e9;
-  --tema-borde: color-mix(in srgb, #201e1d 40%, transparent);
-  --tema-borde-tenue: color-mix(in srgb, #201e1d 18%, transparent);
-  --tema-titulo: #201e1d;
-  --tema-cuerpo: #444141;
-  --tema-etiqueta: #605d5d;
-}
 
 /* El hero del inicio: las cuatro fotos del canvas rotando en crossfade. */
 /* Carrusel del inicio: cuatro fotos, 3 s cada una (pedido de Andres,
@@ -352,10 +325,4 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(var(--v3-min, 220px), 1fr));
   gap: var(--v3-gap, 14px);
   align-items: start;
-}
-
-/* La familia base del preflight no pasa por `--font-sans`: se fija directo. */
-[data-flujo="v3"],
-[data-flujo="v3"] body {
-  font-family: var(--font-archivo), system-ui, sans-serif;
 }

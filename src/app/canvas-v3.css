@@ -300,8 +300,9 @@
 [data-flujo="v3"] {
   /* El canvas usa `--verde` para el filete de los pasos ya cumplidos. */
   --verde-stepper: #2e7d32;
-  --font-heading: var(--font-archivo), system-ui, sans-serif;
-  --font-body: var(--font-archivo), system-ui, sans-serif;
+  /* La capa vigente del diseño nombra DM Sans; la carga la aplicación. */
+  --font-heading: var(--font-dm-sans), system-ui, sans-serif;
+  --font-body: var(--font-dm-sans), system-ui, sans-serif;
 }
 
 /* La flecha de la píldora flotante, como en el canvas. */
