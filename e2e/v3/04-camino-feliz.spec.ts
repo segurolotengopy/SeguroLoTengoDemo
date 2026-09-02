@@ -166,6 +166,19 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await page.locator("#p7-acepta-certificado").check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();
   await expect(page.getByText("Escaneá el QR con tu app de banco")).toBeVisible();
+
+  // El QR se dibuja, no se imprime como texto: nadie escanea un párrafo.
+  await expect(
+    page.getByRole("img", { name: "Código QR para pagar con tu app de banco" }),
+  ).toBeVisible();
+
+  // Con la operación abierta la ventana no se puede cerrar y el resto queda
+  // bloqueado: cerrar descartaba la instrucción y la pantalla volvía a
+  // ofrecer pagar, con una operación ya abierta del otro lado.
+  await expect(page.getByRole("button", { name: "Cerrar ✕" })).toHaveCount(0);
+  await expect(page.getByText("Esperando la respuesta de Bancard…")).toBeVisible();
+  await expect(page.getByRole("button", { name: "GENERAR QR BANCARD" })).toBeDisabled();
+  await capturarDiseno(page, "pago-qr");
   const pagado = page.getByRole("button", { name: "Pagado", exact: true });
   await expect(pagado).toBeEnabled({ timeout: 15_000 });
   await pagado.click();
