@@ -167,11 +167,39 @@ diseño, no en `src/index.css`, así que Lovable no la ve donde importa.
 
 ### Queda abierto
 
-- **Lovable**: pegar el *Knowledge v2*
-  (`semilla/02-knowledge-lovable-v2.md`) en el proyecto y enviar **P0-bis**
-  (`semilla/03-prompts-lovable-v2.md`). El prerrequisito ya está cumplido:
-  `docs/canvas/*` y `docs/pantallas/*` viven en el repo de diseño desde el
-  push de esta sesión, así que Lovable puede leerlos.
+- ~~**Lovable: Knowledge v2 y P0-bis**~~ — **hecho por MCP**. El Knowledge
+  cargado seguía siendo el v1 y decía que «Archivo 800 es el punto de partida
+  (piel v3)», o sea lo contrario de P0-bis: se reemplazó por el v2 (Andres
+  autorizó el reemplazo) y recién entonces se envió el prompt. Lovable entró en
+  modo plan, se le aprobó el plan **con una corrección** (ver abajo) e
+  implementó en `b0f1cb79` «Ajustó capa 2 de diseño»: 9 archivos, 283
+  inserciones. Costo total 15,2 créditos (3,3 el plan + 11,9 la
+  implementación).
+
+  **Verificado sobre el código, no sobre lo que dijo el agente** (`git show
+  origin/main:src/index.css`): los diez rastros de la capa 1 en cero
+  —`Archivo`, `ec3013`, `e15b47`, `ff563c`, `dd2b0f`, `ae1800`, `f3f2f2`,
+  `201e1d`, `eae9e9`, `radius-sm: 0`—; y lo que quedó es lo correcto: DM Sans
+  y Geist Mono, `--color-naranja-500/600/700` de vuelta en `#e2660f` /
+  `#bd550f` / `#98450e` (el bloque de la «regla de oro» que los pisaba con la
+  escala roja ya no existe), fondo `#fafafa`, divisor `#e0e0e0`, foco
+  `outline: 2px solid var(--azul)`, y el comentario de cabecera reescrito:
+  ahora declara la capa 2 como fuente visual y dice que la capa 1 «queda
+  tapada por la cascada del artefacto y no se aplica». No se pudo inspeccionar
+  la vista previa renderizada: es privada y redirige al login.
+
+- **Una divergencia que apareció al aprobar el plan, y cómo se resolvió.**
+  P0-bis (heredado de la sesión de Cowork) le pedía a Lovable **no** mostrar
+  el pie legal en el Inicio, porque el canvas lo condiciona a `noEsInicio`
+  (`canvas-plantilla.html:1007`). Pero `ESPECIFICACION_PANTALLAS.md:81` dice
+  «Pie legal (**todas las pantallas**)», y la adenda §E —única lista válida de
+  divergencias— no la registra. **Decisión de Andres: manda la
+  especificación**, así que el pie va también en el Inicio; se corrigió al
+  aprobar el plan y quedó implementado (`src/pages/Inicio.tsx:138`). El tercer
+  bloque de cabecera (CANAL DIGITAL con el sello SLT) **sí** es exclusivo del
+  Inicio: eso viene de la adenda §B y es correcto.
+  **Pendiente: corregir el punto 4 de P0-bis en la semilla**, que sigue
+  diciendo lo del `noEsInicio`.
 - ~~**P0-bis conviene ampliarlo**~~ — **hecho**: `semilla/03-prompts-lovable-v2.md`
   ahora ataca el comentario de cabecera de `src/index.css` (paso 0 del prompt),
   trae los valores de la capa 2 copiados literales con el tema noche completo,
