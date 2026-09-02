@@ -233,6 +233,48 @@ carencias van rotuladas «(provisional)»; `BandaPasos` recibe slug y `PieLegal`
 está. El texto de «EXCLUSIONES PRINCIPALES» es literal de `canvas-modales.md`.
 
 
+### P4 · Paso 3 — enviado y verificado
+
+Cinco huecos en el prompt, y uno tocaba una **regla inviolable**: P4 describía el
+formulario de tarjeta de la ventana simulada de Bancard sin decir qué **no** se
+puede hacer con esos datos (regla #6). A un agente que ya había metido
+`localStorage` por su cuenta en otras pantallas, eso lo dejaba libre de persistir
+un PAN y un CVV en el armazón que después se porta. Los otros cuatro: DI-5 (el
+destino del enlace de firma sale del expediente, nunca de un campo tipeado, y va
+enmascarado), que ninguna pantalla nombra al proveedor de firma, CHG-29 (el PDF
+se ve pero no se descarga antes de firmar), y los tres campos de factura, las
+tres líneas de liquidación y los tres ítems de la aceptación, todos sin nombrar.
+
+Lovable implementó en `09f6f70` «Revisado y validado Paso 3»
+(`PagoYFirma.tsx` 464 líneas, `ModalBancard.tsx` 275, `ModalVisorPdf.tsx` 66).
+
+**La garantía del PAN quedó estructural, no declarativa**, que es lo que importa:
+`num`, `venc`, `cvv` y `titular` son estado local de `ModalBancard`, y su
+callback **`onPagado` no recibe argumentos**, así que los datos de tarjeta no
+tienen por dónde salir del componente. Las únicas apariciones de `localStorage` y
+`console` en los dos archivos son comentarios que documentan la regla; no hay
+`fetch`, `sessionStorage` ni `indexedDB`. El resto también: canales enmascarados
+(`+595 ••• ••• 000`, `m••••••@…`), cero menciones a Code100/Entrust/Infobip/
+Onfido, cero botones de descarga en el paso, `BandaPasos` y `PieLegal`, los tres
+campos de factura exactos y los tres ítems de la aceptación 3.
+
+### P5 · Confirmación — enviado
+
+Una discrepancia de fondo, encontrada antes de enviar: el prompt pedía **tres**
+tarjetas más una sección aparte para la póliza, y la especificación dice
+**cuatro** bajo «Tus documentos», de las cuales solo tres se descargan — la
+cuarta, la póliza definitiva, es **vista de estado**. Tal como estaba, el
+prototipo podía terminar ofreciendo la póliza para descarga, que contradice
+D-05: del portal salen tres documentos y ninguno más; la póliza y la factura las
+emite y envía Alianza.
+
+Se agregó además que el comprobante no lleva huella ni QR (se genera al pedirlo),
+que la fecha de inicio de cobertura **no se calcula en la pantalla** —viene dada,
+y sin decirlo el agente la habría derivado de `Date.now()`—, el pie legal (quinta
+pantalla con la misma omisión) y que los datos de las mesas de ayuda van como
+`[dato oficial pendiente]`.
+
+
 ### Queda abierto
 
 - ~~**Lovable: Knowledge v2 y P0-bis**~~ — **hecho por MCP**. El Knowledge
