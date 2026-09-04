@@ -115,31 +115,41 @@ export const NOMBRE_PRODUCTO = "Seguro de Vida Oncológico CONFÍO";
 /**
  * Identificación del producto ante la Superintendencia de Seguros (CHG-03).
  *
- * La Res. SS.SG. 215/17 (num. 9.f) exige exhibir el modelo registrado del plan
- * con su código, su acto administrativo y una URL directa. **Todavía no los
- * tenemos**: la Matriz Legal V4 los deja como PENDIENTE ALIANZA y ordena usar
- * el marcador `CDXXXXX` hasta recibir los definitivos.
+ * La Res. SS.SG. 215/17 exige que la propuesta lleve la denominación del plan
+ * (Anexo, num. 11.2) y que la póliza cite el código y el acto administrativo
+ * de inscripción (punto 9.d y num. 9.13.19) más una URL directa al modelo
+ * inscripto (punto 9.f). Los datos oficiales llegaron con la **Nota SS.SG.
+ * N.º 397/2026** del 7 de agosto de 2026 (`docs/RegistrosOficiales/`): el plan
+ * quedó inscripto en la sección Seguro de Vida de Corto Plazo con el código
+ * **15-VI.0002**, y su denominación registral no es el nombre comercial.
  *
- * Por eso el marcador no es un descuido sino la instrucción: publicar un
- * código inventado sería peor que publicar uno visiblemente pendiente, porque
- * un código con forma de código se lee como real. El rótulo de la pantalla
- * dice que está pendiente, y `esProvisional` permite que cualquier vista lo
- * marque sin repetir la regla.
+ * Por eso hay dos nombres y los dos se imprimen: `NOMBRE_PRODUCTO` es la
+ * marca (Res. 190/2025 y Circular 011/2025) y `denominacionRegistral` es lo
+ * que la SIS inscribió. Confundirlos en un documento sería citar un plan que
+ * no existe con ese nombre.
  *
- * Al llegar los datos oficiales se reemplazan acá y `esProvisional` pasa a
- * `false`: ninguna pantalla necesita cambiar.
+ * Lo único que sigue pendiente es `urlModelo`: la dirección del modelo
+ * inscripto en el sitio de Alianza (punto 9.f), sin la cual queda en `null`
+ * y no se inventa. `esProvisional` dejó de ser `true` el 04-sep-2026 (D-26).
+ *
+ * Cambiar estos valores cambia los bytes de los PDF que los imprimen: los
+ * documentos ya cerrados conservan su huella (reglas #4 y #10); los nuevos
+ * nacen con el código real.
  */
 export interface RegistroProducto {
-  /** Código del plan registrado, o el marcador mientras no exista. */
+  /** Denominación con la que la SIS inscribió el plan (num. 11.2). */
+  readonly denominacionRegistral: string;
+  /** Código de registro del plan (punto 9.d). */
   readonly codigo: string;
-  /** Acto administrativo que lo aprueba. */
+  /** Acto administrativo que lo inscribe, tal como se cita en la póliza (num. 9.13.19). */
   readonly acto: string;
-  /** URL directa al modelo registrado en el sitio de la aseguradora. */
+  /** Fecha del acto (ISO 8601, YYYY-MM-DD). */
+  readonly actoFecha: string;
+  /** URL directa al modelo inscripto en el sitio de la aseguradora (punto 9.f); `null` mientras Alianza no la pase. */
   readonly urlModelo: string | null;
+  /** `true` solo mientras el código y el acto no fueran los oficiales. */
   readonly esProvisional: boolean;
 }
-
-export const MARCADOR_PENDIENTE_ALIANZA = "CDXXXXX";
 
 /**
  * Alícuota del IVA con la que se arma el desglose **del demo**.
@@ -150,6 +160,14 @@ export const MARCADOR_PENDIENTE_ALIANZA = "CDXXXXX";
  * pendiente (D-04).
  */
 const ALICUOTA_IVA_DEMO = 0.1;
+
+/**
+ * `false` hasta que Alianza confirme la apertura prima neta / IVA (D-04). Antes
+ * este flag se leía del registro del producto, y al llegar el código oficial
+ * (D-26) habría dejado de rotular como provisional un desglose que sigue
+ * siendo nuestro: son dos pendientes distintos, con dos banderas.
+ */
+const DESGLOSE_OFICIAL_DE_ALIANZA = false;
 
 export interface DesglosePremio {
   readonly primaNetaGs: number;
@@ -181,15 +199,18 @@ export function desglosePremio(planId: PlanId): DesglosePremio {
     primaNetaGs,
     ivaGs: premioTotalGs - primaNetaGs,
     premioTotalGs,
-    esProvisional: REGISTRO_PRODUCTO.esProvisional,
+    esProvisional: !DESGLOSE_OFICIAL_DE_ALIANZA,
   };
 }
 
 export const REGISTRO_PRODUCTO: RegistroProducto = {
-  codigo: MARCADOR_PENDIENTE_ALIANZA,
-  acto: MARCADOR_PENDIENTE_ALIANZA,
+  denominacionRegistral:
+    "Seguro de Vida Individual con Indemnización Adicional por Diagnóstico de Cáncer",
+  codigo: "15-VI.0002",
+  acto: "Nota SS.SG. N.º 397/2026",
+  actoFecha: "2026-08-07",
   urlModelo: null,
-  esProvisional: true,
+  esProvisional: false,
 };
 
 /**

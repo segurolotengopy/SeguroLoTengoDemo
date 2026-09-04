@@ -161,6 +161,22 @@ permanece pendiente.
 
 ---
 
+## Bloque F — Matriz Normativa de Campos y registro del plan (04-sep-2026)
+
+Fuente: `docs/MATRIZ_CAMPOS_OBLIGATORIOS_2026-09-04.pdf`, analizada en
+`docs/auditoria/ANALISIS_MATRIZ_CAMPOS_2026-09-04.md`. Decisiones de Andres del
+04-sep-2026.
+
+### D-24 · Ruta de diligencia (DDC simplificada / normal)
+- **DECIDIDA (04-sep-2026): opción (b)** — la ruta la fija **un parámetro del producto**, con la **simplificada por defecto**. La simplificada pide nombres, apellidos, cédula y capturas, WhatsApp, domicilio y ciudad, actividad, fecha de nacimiento (extraída), plan y beneficiario; la normal agrega nacionalidad, país de residencia, empleador, ingreso mensual y origen de fondos. **El criterio que enciende la normal lo fija cumplimiento de Alianza** (Res. SEPRELAD 71/2019 art. 27, que no está en `docs/normativa/`); hasta entonces el flag queda en simplificada y no se pierde nada. La persona nunca elige la ruta. Implementación: paso 1 (una pantalla por sesión), modelo `DatosComplementariosP6` con los cinco campos opcionales, y la sección FIPF del PDF que imprime solo lo recabado.
+
+### D-25 · Sexo
+- **DECIDIDA (04-sep-2026): lo que indica la matriz** — **no se pregunta**. Se conserva automáticamente porque **el modelo registrado de la Solicitud lo imprime** (`docs/Solicitud.pdf`, cabecera «País de nacimiento · Sexo · Estado civil · Nacionalidad · Residencia»), y sale del **MRZ de la cédula** (`mrz.ts` lo lee en la posición 8 de la segunda línea y ya lo cruza con el frente, `CAMPOS_CRUZADOS_CON_MRZ`). Deja sin efecto la decisión del 21-ago-2026 de elegirlo a mano. **Abierto al implementar:** la cédula del formato anterior no tiene MRZ; ahí el dato viene del registro civil si lo provee, o queda vacío y así se imprime — no se pide ni se adivina.
+- **Nota para Alianza:** ese mismo modelo imprime país de nacimiento, estado civil, nacionalidad y residencia, que la matriz retira o reserva para la ruta normal. Hay que confirmar si `Solicitud.pdf` es el modelo inscripto bajo el 15-VI.0002 o un formulario genérico: si es el inscripto, manda el modelo (215/17 art. 7º) y esos campos se conservan como dato automático o vacío, nunca como pregunta.
+
+### D-26 · Registro del plan (CHG-03)
+- **DECIDIDA (04-sep-2026): se carga el dato oficial.** Nota SS.SG. N.º 397/2026 del 07-ago-2026 (`docs/RegistrosOficiales/`): sección Seguro de Vida de Corto Plazo, denominación **«Seguro de Vida Individual con Indemnización Adicional por Diagnóstico de Cáncer»**, código **15-VI.0002**. Implementado en `src/domain/catalogo.ts` (`REGISTRO_PRODUCTO`, con `denominacionRegistral` separada del nombre comercial y `esProvisional: false`); el desglose del IVA sigue provisional por su propio motivo (D-04). Sigue pendiente **`urlModelo`** (215/17 punto 9.f): Alianza tiene que publicar el modelo y pasar la dirección. Los PDF que imprimen el código cambian de bytes; los ya cerrados conservan su huella.
+
 ## Actualizaciones que la Matriz V4 necesita (consecuencia de la ronda 1)
 
 Dos decisiones **establecidas** dejan desactualizado el texto de la matriz. No son
