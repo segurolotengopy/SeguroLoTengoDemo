@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { interpretarCodigo, verificarDocumento } from "../verificacion-documento";
 import { codigoCertificado } from "../certificado-cobertura";
 import { codigoComprobante } from "../comprobante-pago";
-import { codigoFipf, codigoSolicitud } from "../documentos";
+import { codigoConstancia, codigoFipf, codigoSolicitud } from "../documentos";
 import { firmantesDe } from "../firmantes-documento";
 import type { Expediente } from "../tipos";
 import {
@@ -24,6 +24,7 @@ import {
   expedienteEnPagoConfirmado,
   expedienteEnPaqueteGenerado,
   expedienteFirmado,
+  constanciaFixture,
   firmaFixture,
 } from "./fixtures";
 
@@ -39,6 +40,7 @@ describe("interpretación del código", () => {
     [codigoFipf(CORRELATIVO), "SECCION_FIPF"],
     [codigoCertificado(CORRELATIVO), "CERTIFICADO"],
     [codigoComprobante(CORRELATIVO), "COMPROBANTE"],
+    [codigoConstancia(CORRELATIVO), "CONSTANCIA"],
   ])("reconoce %s", (codigo, tipo) => {
     expect(interpretarCodigo(codigo)).toEqual({ tipo, correlativo: CORRELATIVO, codigo });
   });
@@ -229,5 +231,73 @@ describe("privacidad de la página pública (regla inviolable #7)", () => {
     // Tampoco el importe ni el plan: no hacen falta para verificar nada.
     expect(serializado).not.toContain(String(expediente.pago?.montoGs ?? "@@"));
     expect(serializado).not.toContain("confio");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// La firma del proponente y su constancia (D-27)
+// ---------------------------------------------------------------------------
+
+describe("la firma del proponente en la verificación (D-27)", () => {
+  function conFirmaInterna(): Expediente {
+    return {
+      ...expedienteFirmado(),
+      firma: { ...firmaFixture, origen: "INTERNA", referenciaActo: "OTP-FIRMA-1" },
+      constanciaFirma: constanciaFixture,
+    };
+  }
+  function verificar(expediente: Expediente, codigo: string) {
+    const interpretado = interpretarCodigo(codigo);
+    if (!interpretado) throw new Error("código no interpretado");
+    return verificarDocumento(expediente, interpretado);
+  }
+
+  it("sobre una firma de proveedor no hay bloque del proponente", () => {
+    const resultado = verificar(expedienteFirmado(), codigoSolicitud(CORRELATIVO));
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) expect(resultado.documento.firmaDelProponente).toBeNull();
+  });
+
+  it("sobre la firma interna publica la norma, los respaldos y la huella de la constancia", () => {
+    const resultado = verificar(conFirmaInterna(), codigoSolicitud(CORRELATIVO));
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    const firma = resultado.documento.firmaDelProponente;
+    expect(firma).not.toBeNull();
+    expect(firma?.norma).toContain("210/2025");
+    expect(firma?.respaldos.length).toBeGreaterThanOrEqual(4);
+    expect(firma?.constancia).toEqual({
+      codigo: constanciaFixture.codigo,
+      version: constanciaFixture.version,
+      hashSha256: constanciaFixture.hashSha256,
+    });
+  });
+
+  it("no publica ningún dato personal del titular (regla #7)", () => {
+    const expediente = conFirmaInterna();
+    const resultado = verificar(expediente, codigoSolicitud(CORRELATIVO));
+    const serializado = JSON.stringify(resultado);
+    const identidad = expediente.identidad!;
+    for (const privado of [identidad.numeroCedula, identidad.apellidos, "200.", "Mozilla"]) {
+      expect(serializado).not.toContain(privado);
+    }
+  });
+
+  it("la constancia se verifica por su propio código, vinculada al paquete", () => {
+    const resultado = verificar(conFirmaInterna(), codigoConstancia(CORRELATIVO));
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.documento.codigo).toBe(constanciaFixture.codigo);
+    expect(resultado.documento.hashSha256).toBe(constanciaFixture.hashSha256);
+    expect(resultado.documento.codigoVinculado).toBe(codigoSolicitud(CORRELATIVO));
+    expect(resultado.documento.firmantes).toEqual([]);
+    expect(resultado.documento.firmaDelProponente?.constancia?.codigo).toBe(constanciaFixture.codigo);
+  });
+
+  it("un expediente sin constancia responde NO_ENCONTRADO a su código", () => {
+    const sinConstancia: Expediente = { ...conFirmaInterna(), constanciaFirma: null };
+    const resultado = verificar(sinConstancia, codigoConstancia(CORRELATIVO));
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.motivo).toBe("NO_ENCONTRADO");
   });
 });

@@ -665,6 +665,29 @@ export interface CertificadoCobertura {
   readonly firmas: readonly FirmaInstitucional[];
 }
 
+/**
+ * La constancia del acto de firma del cliente, ya cerrada y hasheada (D-27).
+ *
+ * Nace **en la misma escritura** que la firma (`registrarFirmaClienteInterna`),
+ * igual que el certificado nace con el cobro: no existe un expediente firmado
+ * por el cliente sin constancia, ni una constancia sin firma. Es un documento
+ * del motor —`CONST-<correlativo>`— con huella propia, y su huella es lo único
+ * de él que se publica en la verificación pública (regla inviolable #7).
+ *
+ * Los expedientes firmados antes de D-27 traen el campo en `null` y no se
+ * reescriben (regla inviolable #10).
+ */
+export interface ConstanciaFirmaEmitida {
+  /** Identidad del documento: `CONST-<correlativo>`. */
+  readonly codigo: string;
+  /** Documento cuyo acto de firma constata: `PROP-<correlativo>`. */
+  readonly codigoPaquete: string;
+  readonly version: number;
+  /** Regla #4: huella del PDF cerrado, calculada sobre los bytes definitivos. */
+  readonly hashSha256: string;
+  readonly emitidaEn: string; // ISO 8601
+}
+
 // ---------------------------------------------------------------------------
 // Emisión de la póliza (P9)
 // ---------------------------------------------------------------------------
@@ -821,6 +844,8 @@ export interface Expediente {
    * reescriben (regla inviolable #10).
    */
   readonly certificadoCobertura: CertificadoCobertura | null;
+  /** D-27: la constancia del acto de firma del cliente; `null` en firmas de proveedor y en expedientes anteriores. */
+  readonly constanciaFirma: ConstanciaFirmaEmitida | null;
   /** Estado de la emisión en Alianza (P9). No contiene la póliza, solo su estado. */
   readonly poliza: PolizaDelExpediente | null;
   /**
@@ -868,6 +893,7 @@ export function crearExpedienteInicial(input: {
     firma: null,
     firmasInstitucionales: [],
     certificadoCobertura: null,
+    constanciaFirma: null,
     poliza: null,
     devolucion: null,
     expedienteAnteriorId: input.expedienteAnteriorId ?? null,
