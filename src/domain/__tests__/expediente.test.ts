@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EstadoExpediente } from "../tipos";
-import { calcularEdadDesde, edadEnRangoPermitido } from "../tipos";
+import { calcularEdadDesde, edadEnRangoPermitido, Firma } from "../tipos";
 import {
   esEstadoTerminal,
   esTransicionLegal,
@@ -19,8 +19,7 @@ import {
   declaracionesCompatibles,
   expedienteFirmado,
   pagoConfirmadoFixture,
-  NUMERO_CASO_FIJO,
-} from "./fixtures";
+  NUMERO_CASO_FIJO, constanciaFixture } from "./fixtures";
 
 const TODOS_LOS_ESTADOS: EstadoExpediente[] = [
   "INICIADO",
@@ -302,7 +301,7 @@ describe("registrarPagoConfirmadoP7 · el certificado entra con el cobro", () =>
 describe("registrarFirmaClienteInterna", () => {
   const FECHA = "2026-08-27T12:00:00.000Z";
 
-  function firmaInterna(cambios: Partial<Parameters<typeof registrarFirmaClienteInterna>[1]> = {}) {
+  function firmaInterna(cambios: Partial<Firma> = {}): Firma {
     return {
       canal: "WHATSAPP" as const,
       origen: "INTERNA" as const,
@@ -319,18 +318,38 @@ describe("registrarFirmaClienteInterna", () => {
     const expediente = expedienteEnPaqueteGenerado();
     expect(expediente.actoDeFirma).toBeNull();
 
-    const resultado = registrarFirmaClienteInterna(expediente, firmaInterna(), FECHA);
+    const resultado = registrarFirmaClienteInterna(expediente, { firma: firmaInterna(), constancia: constanciaFixture }, FECHA);
 
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
     expect(resultado.expediente.estado).toBe("FIRMADO_CLIENTE");
     expect(resultado.expediente.firma?.origen).toBe("INTERNA");
+    // D-27: la constancia entra en la misma escritura que la firma.
+    expect(resultado.expediente.constanciaFirma).toEqual(constanciaFixture);
+  });
+  it("rechaza una constancia que no deriva del correlativo del expediente (D-27)", () => {
+    const resultado = registrarFirmaClienteInterna(
+      expedienteEnPaqueteGenerado(),
+      { firma: firmaInterna(), constancia: { ...constanciaFixture, codigo: "CONST-99999999" } },
+      FECHA,
+    );
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/no deriva del correlativo/);
+  });
+  it("rechaza una constancia sin huella: sin PDF cerrado no hay constancia", () => {
+    const resultado = registrarFirmaClienteInterna(
+      expedienteEnPaqueteGenerado(),
+      { firma: firmaInterna(), constancia: { ...constanciaFixture, hashSha256: " " } },
+      FECHA,
+    );
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.error).toMatch(/huella/);
   });
 
   it("rechaza una firma de proveedor: esa va por su propia transición", () => {
     const resultado = registrarFirmaClienteInterna(
       expedienteEnPaqueteGenerado(),
-      firmaInterna({ origen: "PROVEEDOR" }),
+      { firma: firmaInterna({ origen: "PROVEEDOR" }), constancia: constanciaFixture },
       FECHA,
     );
 
@@ -341,7 +360,7 @@ describe("registrarFirmaClienteInterna", () => {
   it("rechaza una huella vacía: un string en blanco no prueba nada", () => {
     const resultado = registrarFirmaClienteInterna(
       expedienteEnPaqueteGenerado(),
-      firmaInterna({ hashDocumentoFirmado: "   " }),
+      { firma: firmaInterna({ hashDocumentoFirmado: "   " }), constancia: constanciaFixture },
       FECHA,
     );
 
@@ -352,7 +371,7 @@ describe("registrarFirmaClienteInterna", () => {
   it("rechaza una firma sin referencia del acto que la produjo", () => {
     const resultado = registrarFirmaClienteInterna(
       expedienteEnPaqueteGenerado(),
-      firmaInterna({ referenciaActo: "" }),
+      { firma: firmaInterna({ referenciaActo: "" }), constancia: constanciaFixture },
       FECHA,
     );
 
@@ -363,7 +382,7 @@ describe("registrarFirmaClienteInterna", () => {
   it("no firma un expediente sin paquete cerrado (regla inviolable #4)", () => {
     const sinPaquete = { ...expedienteEnPaqueteGenerado(), paqueteDocumental: null };
 
-    const resultado = registrarFirmaClienteInterna(sinPaquete, firmaInterna(), FECHA);
+    const resultado = registrarFirmaClienteInterna(sinPaquete, { firma: firmaInterna(), constancia: constanciaFixture }, FECHA);
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.error).toMatch(/paquete documental/);

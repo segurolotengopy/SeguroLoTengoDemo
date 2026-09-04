@@ -81,6 +81,22 @@ export const ROTULO_MODALIDAD_FIRMA: Readonly<Record<string, string>> = {
 
 export const LEYENDA_FIRMA_PENDIENTE = "Todavía no aplicada.";
 
+// ---------------------------------------------------------------------------
+// La firma del proponente (D-27)
+// ---------------------------------------------------------------------------
+
+export const TITULO_FIRMA_PROPONENTE = "FIRMA DEL PROPONENTE · CÓMO SE RESPALDA";
+export const LEYENDA_FIRMA_PROPONENTE =
+  "La firma del proponente es electrónica no cualificada, generada por este portal. La norma la admite para la propuesta de seguro cuando la respalda una autenticación previa y una evidencia trazable; esto es lo que quedó registrado para este documento.";
+export const ROTULO_NORMA_FIRMA = "Norma que la admite";
+export const ROTULO_FIRMADO_EL = "Firmado el";
+export const ROTULO_RESPALDOS = "Qué la respalda";
+export const ROTULO_CONSTANCIA = "Constancia del acto";
+export const LEYENDA_CONSTANCIA =
+  "La constancia completa —con los datos del acto— se entrega al titular. Acá se publica solo su huella, para que quien tenga el archivo pueda comprobar que es el que se emitió.";
+export const LEYENDA_CONSTANCIA_AUSENTE =
+  "Este expediente no registró una constancia en PDF: se firmó antes de que existiera. La evidencia del acto se conserva igual.";
+
 export const TITULO_VIGENCIA = "COBERTURA QUE DECLARA EL CERTIFICADO";
 
 export const ROTULO_INICIO_VIGENCIA = "Desde";

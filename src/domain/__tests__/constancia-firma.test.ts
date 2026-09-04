@@ -16,7 +16,7 @@ import { proyectarConstanciaFirma } from "../constancia-firma";
 import { PASO_EVIDENCIA_ACTO_FIRMA_CLIENTE } from "../firma-cliente";
 import { PASO_EVIDENCIA_VERIFICACION_P5 } from "../verificacion-identidad";
 import type { Expediente, Firma, RegistroEvidencia } from "../tipos";
-import { expedienteFirmado } from "./fixtures";
+import { constanciaFixture, expedienteFirmado } from "./fixtures";
 
 const OTP_ID = "OTP-FIRMA-TEST-1";
 
@@ -144,5 +144,21 @@ describe("constancia de la firma del cliente", () => {
     for (const prohibido of ['codigo":"1', "declaracion", "pep", "diagnostic", "salud"]) {
       expect(serializada.toLowerCase()).not.toContain(prohibido);
     }
+  });
+});
+
+describe("la constancia y su PDF (D-27)", () => {
+  it("enlaza el PDF cerrado cuando el expediente lo registró, y no inventa uno cuando no", () => {
+    const sinPdf = proyectarConstanciaFirma(conFirmaInterna(), HISTORIAL);
+    expect(sinPdf?.pdf).toBeNull();
+    const conPdf = proyectarConstanciaFirma(
+      { ...conFirmaInterna(), constanciaFirma: constanciaFixture },
+      HISTORIAL,
+    );
+    expect(conPdf?.pdf).toEqual({
+      codigo: constanciaFixture.codigo,
+      version: constanciaFixture.version,
+      hashSha256: constanciaFixture.hashSha256,
+    });
   });
 });

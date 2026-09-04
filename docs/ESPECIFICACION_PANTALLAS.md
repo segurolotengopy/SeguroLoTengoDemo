@@ -476,8 +476,11 @@ Emitido por Alianza` — `Póliza y factura ⋯ · En proceso de emisión`.
 3. `Comprobante de pago del premio` — `REC-{correlativo} · {premio} vía Bancard` · `Ver PDF` + descarga (sin huella: se genera al pedirlo, D-05).
 4. `Póliza definitiva` — `En emisión por Alianza Garantía · llega por correo y WhatsApp` · **vista de estado**, no descarga: al abrirla, el visor explica que la emite Alianza y que mientras tanto el CPC acredita la cobertura.
 
-**Los descargables siguen siendo tres** (D-05): paquete firmado, certificado y
-comprobante. La tarjeta de la póliza es estado, no un cuarto descargable.
+5. `Constancia de tu firma electrónica` — `CONST-{correlativo} · SHA-256 registrado` · descarga. **Solo con firma interna** (D1): es el registro del acto —identidad verificada, código de un solo uso, fecha, hora, IP, dispositivo y huella del documento— con cita de la Res. SS.SG. 210/2025, arts. 4 y 9 (D-27). Nació cerrada y con huella en la misma escritura que la firma, así que existe desde antes que esta pantalla. El botón `Ver la evidencia de mi firma` se conserva y el panel enlaza el mismo PDF.
+
+**Los descargables son cuatro** (D-05 ampliada por D-27): paquete firmado,
+certificado, comprobante y constancia. La tarjeta de la póliza es estado, no
+un descargable.
 Leyenda: `La póliza y la factura electrónica están en emisión y te llegan por
 correo y WhatsApp. Podés verificar la autenticidad de cada documento con el
 código QR que trae impreso.`

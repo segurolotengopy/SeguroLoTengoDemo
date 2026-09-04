@@ -19,7 +19,9 @@ import {
   obtenerSignatureProvider,
 } from "@/adapters/registro";
 import type { DependenciasP8 } from "@/domain/firma-p8";
+import type { EmisorConstanciaFirma } from "@/domain/firma-cliente";
 import type { DependenciasDocumentos } from "@/documentos";
+import { emitirConstanciaFirma } from "@/documentos";
 import { urlBaseVerificacion } from "@/app/api/_http/contexto-peticion";
 import { crearArchivoRepository, crearEvidenceStore, crearExpedienteRepository } from "@/repositories";
 
@@ -50,5 +52,27 @@ export function dependenciasDocumentosP8(request: Request): DependenciasDocument
     // El QR impreso en el PDF apunta al origen desde el que se cerró el
     // documento (CMP-06). Ver `urlBaseVerificacion`.
     urlBaseVerificacion: urlBaseVerificacion(request),
+  };
+}
+
+/**
+ * Quien cierra y guarda la constancia del acto de firma del cliente (D-27),
+ * para inyectar en `registrarActoDeFirmaCliente`. El QR de la constancia
+ * apunta al origen desde el que se firmó (CMP-06), igual que el del paquete.
+ */
+export function emisorConstanciaFirma(request: Request): EmisorConstanciaFirma {
+  return async ({ expediente, acto, historial }) => {
+    const resultado = await emitirConstanciaFirma(
+      { archivos: crearArchivoRepository(), urlBaseVerificacion: urlBaseVerificacion(request) },
+      { expediente, acto, historial },
+    );
+    if (!resultado.ok) {
+      return {
+        ok: false,
+        motivo: resultado.motivo,
+        detalle: resultado.detalle ?? resultado.faltantes?.join(","),
+      };
+    }
+    return { ok: true, constancia: resultado.constancia };
   };
 }

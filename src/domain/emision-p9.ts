@@ -531,6 +531,13 @@ export interface ResumenP9 {
    */
   readonly certificado: CertificadoDescargableP9 | null;
   /** Código del comprobante de pago (D-05); se genera al pedirlo. */
+  /** D-27: la constancia del acto de firma, si el expediente la registró. */
+  readonly constancia: {
+    readonly codigo: string;
+    readonly version: number;
+    readonly hashSha256: string;
+    readonly emitidaEn: string;
+  } | null;
   readonly codigoComprobante: string;
 }
 
@@ -593,6 +600,14 @@ export function leerResumenP9(expediente: Expediente): ResumenP9 | null {
           inicioCobertura: certificado.inicioCobertura,
           finCobertura: certificado.finCobertura,
           emitidoEn: certificado.emitidoEn,
+        }
+      : null,
+    constancia: expediente.constanciaFirma
+      ? {
+          codigo: expediente.constanciaFirma.codigo,
+          version: expediente.constanciaFirma.version,
+          hashSha256: expediente.constanciaFirma.hashSha256,
+          emitidaEn: expediente.constanciaFirma.emitidaEn,
         }
       : null,
     codigoComprobante: codigoComprobante(expediente.numeroPropuesta ?? poliza.numeroPoliza),
