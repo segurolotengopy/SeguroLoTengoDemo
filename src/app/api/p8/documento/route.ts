@@ -31,6 +31,7 @@ import { resolverContextoHttp } from "@/app/api/_http/contexto-peticion";
 import {
   CONTENT_TYPE_PDF,
   claveCertificado,
+  claveConstancia,
   claveDocumento,
   claveDocumentoFirmado,
   generarComprobantePago,
@@ -137,6 +138,17 @@ export async function GET(request: Request): Promise<Response> {
       ),
       certificado.hashSha256,
       `${certificado.codigo}-v${certificado.version}.pdf`,
+      descargar,
+    );
+  }
+
+  // --- La constancia del acto de firma (D-27) ----------------------------
+  const constancia = expediente.constanciaFirma;
+  if (constancia && codigo === constancia.codigo) {
+    return servirArchivado(
+      claveConstancia(expediente.id, constancia.codigo, constancia.version, constancia.hashSha256),
+      constancia.hashSha256,
+      `${constancia.codigo}-v${constancia.version}.pdf`,
       descargar,
     );
   }

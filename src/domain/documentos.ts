@@ -50,7 +50,7 @@
 import { ORDEN_PLANES, PLANES, formatearGuaranies } from "./catalogo";
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
-import { firmantesDe } from "./firmantes-documento";
+import { VERSION_BLOQUE_FIRMAS, firmantesDe } from "./firmantes-documento";
 import type { DocumentoFirmable } from "./firmantes-documento";
 import {
   TEXTOS_DECLARACIONES_P6,
@@ -99,6 +99,24 @@ export function correlativoDeCodigo(codigo: string): string | null {
 
 /** Versión con la que nace un paquete. Una modificación posterior exige subirla (regla #4). */
 export const VERSION_INICIAL_PAQUETE = 1;
+
+// ---------------------------------------------------------------------------
+// Constancia del acto de firma del cliente (D-27)
+// ---------------------------------------------------------------------------
+
+/**
+ * Prefijo del cuarto documento del motor: la constancia del acto de firma
+ * electrónica del cliente. Vive acá, y no en `constancia-firma.ts`, por la
+ * misma razón que `PREFIJO_SOLICITUD`: `expediente.ts` tiene que poder validar
+ * el código sin importar el módulo del acto, que a su vez importa a
+ * `expediente.ts` — sería un ciclo.
+ */
+export const PREFIJO_CONSTANCIA = "CONST";
+
+/** `00018425` → `CONST-00018425`. Un correlativo, cuatro códigos internos. */
+export function codigoConstancia(correlativo: string): string {
+  return `${PREFIJO_CONSTANCIA}-${correlativo}`;
+}
 
 // ---------------------------------------------------------------------------
 // QR de verificación
@@ -591,7 +609,8 @@ export function armarContenidoPaquete(
       firmantes: bloqueDeFirmantes("PAQUETE"),
       leyendaFirma:
         "Un solo acto de firma cubre este documento completo: la Solicitud y el FIPF ya no son " +
-        "dos archivos que puedan firmarse por separado. No se genera Nota de Cobertura.",
+        "dos archivos que puedan firmarse por separado. No se genera Nota de Cobertura. " +
+        `Bloque de firmas ${VERSION_BLOQUE_FIRMAS}.`,
       versionTextos: VERSION_TEXTOS_DECLARACIONES_P6,
     },
   };

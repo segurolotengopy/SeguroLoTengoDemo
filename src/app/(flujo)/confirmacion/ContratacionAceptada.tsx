@@ -14,6 +14,7 @@ import {
   BADGE_EN_EMISION,
   DETALLE_CERTIFICADO_P9,
   DETALLE_COMPROBANTE_P9,
+  DETALLE_CONSTANCIA_P9,
   DETALLE_FIRMANTES_P9,
   DETALLE_INICIO_COBERTURA_P9,
   DOCUMENTOS_POR_RECIBIR,
@@ -22,6 +23,7 @@ import {
   LEYENDA_SIN_NOTA_DE_COBERTURA,
   NOMBRE_CERTIFICADO_P9,
   NOMBRE_COMPROBANTE_P9,
+  NOMBRE_CONSTANCIA_P9,
   NOMBRE_DOCUMENTO_P9,
   PASOS_QUE_OCURRIRA_P9,
   ROTULO_ASEGURADO_P9,
@@ -119,6 +121,12 @@ interface Resumen {
   readonly solicitudAceptadaEn: string;
   readonly documento: DocumentoDescargable;
   readonly certificado: CertificadoDescargable | null;
+  readonly constancia: {
+    readonly codigo: string;
+    readonly version: number;
+    readonly hashSha256: string;
+    readonly emitidaEn: string;
+  } | null;
   readonly codigoComprobante: string;
 }
 
@@ -608,6 +616,20 @@ export function ContratacionAceptada({
                   disponible={certificado !== null}
                   pendiente="Disponible con el certificado de cobertura."
                 />
+
+                {/* D-27 · la constancia del acto de firma: nació cerrada y con
+                    huella en la misma escritura que la firma, así que existe
+                    desde antes que esta pantalla. Solo con firma interna. */}
+                {resumen.constancia ? (
+                  <TarjetaDescarga
+                    nombre={NOMBRE_CONSTANCIA_P9}
+                    detalle={DETALLE_CONSTANCIA_P9}
+                    codigo={resumen.constancia.codigo}
+                    firmado={false}
+                    huella={resumen.constancia.hashSha256}
+                    disponible
+                  />
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-cuerpo">Preparando los documentos…</p>

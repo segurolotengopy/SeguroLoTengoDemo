@@ -16,6 +16,7 @@ import {
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
 import { dependenciasP1 } from "@/app/api/p1/_dependencias";
+import { emisorConstanciaFirma } from "@/app/api/p8/_dependencias";
 import { registrarActoDeFirmaCliente } from "@/domain/firma-cliente";
 import { esCanalFirma } from "@/domain/firma-p8";
 import { flujoV3Activo } from "@/domain/flujo-vigente";
@@ -34,6 +35,8 @@ const STATUS_POR_MOTIVO: Readonly<Record<string, number>> = {
   OTP_AJENO_AL_ACTO: 400,
   OTP_NO_ENCONTRADO: 404,
   CONFLICTO_CONCURRENCIA: 409,
+  // La constancia no se pudo guardar: es del almacenamiento, no de la persona.
+  CONSTANCIA_NO_EMITIDA: 503,
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -57,7 +60,9 @@ export async function POST(request: Request): Promise<Response> {
     return respuestaJson({ ok: false, motivo: "SESION_INVALIDA" }, { status: 400 });
   }
 
-  const resultado = await registrarActoDeFirmaCliente(dependenciasP1(), {
+  const resultado = await registrarActoDeFirmaCliente(
+    { ...dependenciasP1(), emitirConstancia: emisorConstanciaFirma(request) },
+    {
     expedienteId,
     canal: cuerpo.canal,
     otpId: cuerpo.otpId,
@@ -65,7 +70,8 @@ export async function POST(request: Request): Promise<Response> {
     textoAceptado: TEXTO_ACEPTACION_FIRMA,
     versionTextoAceptado: VERSION_ACEPTACION_FIRMA,
     contexto,
-  });
+    },
+  );
 
   if (!resultado.ok) {
     return respuestaJson(

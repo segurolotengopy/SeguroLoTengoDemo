@@ -38,6 +38,96 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-04 (c) · La constancia verificable de la firma no cualificada (D-27)
+
+**Rama:** `feat/constancia-firma-verificable` · **Pedido de Andres:** «Requiero
+verificar que se generará un QR o link para obtener las evidencias
+sustentables, con referencia a la norma, de la firma no cualificada del
+usuario» → verificación, propuesta, y «De acuerdo con tu propuesta, vamos».
+
+### El caso
+
+La evidencia del acto de firma interna **existía** —`constancia-firma.ts`
+proyecta los tres requisitos del art. 4 de la Res. 210/2025 y el art. 9, y el
+panel de la confirmación la muestra— pero **ningún QR ni enlace llevaba a
+ella**: el QR del PDF apunta a `/verificar/<código>`, que mostraba al
+proponente como «Firma simple · fecha» y nada más; la constancia solo se
+servía por la cookie de la sesión; y el bloque de firmas del paquete seguía
+diciendo «mediante enlace seguro» —el flujo de un proveedor— sin citar la
+norma. El art. 9 exige que lo conservado quede **disponible para consulta del
+cliente y de la SIS**; la consola cubría a la SIS y al cliente solo mientras
+durara su sesión.
+
+### Qué cambió
+
+- **Cuarto documento del motor, `CONST-<correlativo>`.** La constancia se
+  cierra, se hashea y se guarda **dentro del acto de firma**
+  (`registrarActoDeFirmaCliente` → `emitirConstanciaFirma`, inyectada como
+  `DependenciasFirmaCliente.emitirConstancia` por la misma razón de ciclos que
+  el certificado) y entra al expediente **en la misma escritura** que la firma
+  (`registrarFirmaClienteInterna` recibe `{ firma, constancia }` y valida que
+  los códigos deriven del correlativo). Sin constancia no hay firma:
+  `CONSTANCIA_NO_EMITIDA`, el expediente queda como estaba, el código ya se
+  consumió. `Expediente.constanciaFirma` (`null` en firmas de proveedor y en
+  expedientes anteriores). Clave en S3 con la huella, como el CPC.
+- **Un solo núcleo para el panel y el PDF.** `proyectarConstanciaFirma` y
+  `armarContenidoConstancia` comparten `armarNucleo(expediente, acto,
+  historial)`: el PDF no puede afirmar nada que el panel no muestre. El
+  contenido del PDF formatea los instantes; el panel los formatea en pantalla.
+- **Plantilla `renderizarConstancia`**: naturaleza de la firma, los tres
+  pilares del art. 4 con la huella del documento y las de las capturas a fila
+  entera, respaldo normativo (arts. 4 y 9 parafraseados), y dos advertencias
+  —no es un certificado de prestador; no acredita cobertura—. Se renderizó y
+  se revisó a ojo: dos carillas, corte entre pilares, sin duplicados (una
+  primera versión repetía «Documento firmado» y se retiró).
+- **Verificación pública.** `/verificar/<código>` del paquete firmado
+  internamente publica «Firma del proponente · cómo se respalda»: naturaleza,
+  **Res. SS.SG. 210/2025, arts. 4 y 9**, categorías de evidencia (nunca
+  valores) y código + **huella de la constancia** con enlace a su propia
+  verificación; `CONST-…` se verifica por su código. Ningún dato personal
+  (regla #7, test que lo vigila).
+- **Descarga y confirmación.** `GET /api/p8/documento?codigo=CONST-…` sirve
+  el PDF cotejando la huella; el resumen de P9 trae `constancia`; cuarta
+  tarjeta «Constancia de tu firma electrónica» solo con firma interna; el
+  panel de evidencia enlaza el mismo PDF.
+- **Leyenda del cliente en el bloque de firmas** (`firmantes-documento.ts`):
+  deja «enlace seguro» y cita el acto y la norma; `VERSION_BLOQUE_FIRMAS =
+  "FIRMAS-v2"` se imprime en el paquete. Los PDF cerrados conservan su huella.
+- **Documentos:** D-27 en `DECISIONES.md`; `CLAUDE.md` (regla de los
+  descargables: cuatro; sección nueva «La constancia del acto de firma»);
+  `ESPECIFICACION_PANTALLAS.md` (confirmación: quinta tarjeta y bloque del
+  QR).
+
+### Qué hizo Andres
+
+- Pidió la verificación y aprobó la propuesta completa (dos niveles: público
+  por el QR sin datos personales; PDF cerrado para el titular).
+- Mergeó el PR #102 antes de esta sesión, a pedido.
+
+### Verificaciones
+
+- `npm run typecheck` en verde; `npm run lint` 0 errores (8 warnings
+  preexistentes); **`npm test`: 93 archivos, 1275 tests en verde**
+  (18 nuevos: emisión y determinismo de la constancia, transición con
+  constancia, acto sin constancia, verificación por código y sin datos
+  personales, leyenda con norma, enlace al PDF en la proyección).
+- PDF de muestra renderizado con una prueba descartable (no versionada) y
+  revisado página por página.
+- **No corrida:** la E2E de Playwright (v3 `04-camino-feliz` sigue vigente: el
+  panel conserva sus textos; la tarjeta nueva no la afirma ningún spec).
+
+### Queda abierto
+
+- **Entrega de la constancia por los canales verificados con acuse**
+  (CHG-44) junto con los otros documentos, y un **enlace firmado con
+  vencimiento** para volver a pedirla sin sesión: es lo que termina de cumplir
+  la disponibilidad para el cliente del art. 9.
+- El QR de la constancia apunta a su propia verificación; la constancia no
+  entra en el PDF firmado (nace después de la firma) y no hace falta.
+- Correr la E2E v3 antes del merge.
+
+---
+
 ## 2026-09-04 (b) · D-24, D-25, el registro oficial del plan y las 35 citas de la 215 revalidadas
 
 **Rama:** `feat/d24-sexo-catalogo-y-citas-215` · **Pedido de Andres** (tras el

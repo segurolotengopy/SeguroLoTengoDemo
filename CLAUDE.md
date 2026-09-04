@@ -376,7 +376,13 @@ El comprobante de pago responde con **su propio motivo** en vez de "no encontrad
 
 La base del QR sale del **origen de la petición** que cierra el documento (`urlBaseVerificacion` en `src/app/api/_http/contexto-peticion.ts`), igual que la URL de retorno de Bancard: en local apunta a `localhost` y en Amplify al dominio desplegado, sin una variable de entorno más. Como el QR es parte de los bytes que se hashean, el enlace de un documento no cambia después de cerrarlo.
 
-**Pendiente:** los tres documentos todavía no se entregan por WhatsApp y correo con acuse (CHG-44, CMP-05). Los tres **sí** se descargan desde la pantalla de confirmación (CHG-42/43), por `GET /api/p8/documento?codigo=…`.
+**Pendiente:** los documentos todavía no se entregan por WhatsApp y correo con acuse (CHG-44, CMP-05). Los cuatro **sí** se descargan desde la pantalla de confirmación (CHG-42/43), por `GET /api/p8/documento?codigo=…`.
+
+### La constancia del acto de firma (D-27)
+
+Cuarto documento del motor, `CONST-<correlativo>`, y el único que nace **dentro del acto de firma del cliente**: `registrarActoDeFirmaCliente` la cierra, la hashea y la guarda (`emitirConstanciaFirma`, inyectada como `DependenciasFirmaCliente.emitirConstancia` por la misma razón de ciclos que el certificado) **antes** de transicionar, y `registrarFirmaClienteInterna` la asienta con la firma en la misma escritura. Sin constancia no hay firma: el desenlace es `CONSTANCIA_NO_EMITIDA` y el expediente queda como estaba — con el código ya consumido, así que hay que pedir otro. Su contenido sale de `src/domain/constancia-firma.ts`, de la **misma función** que alimenta el panel de evidencia, para que el PDF y el panel no puedan afirmar cosas distintas. Solo existe con firma interna; las de proveedor no la tienen (`null`), igual que los expedientes anteriores a D-27.
+
+**Es un documento del titular, no público.** Lleva identidad, canal enmascarado, referencia del OTP (nunca el código), IP, dispositivo y huellas. Lo público es otra cosa: `/verificar/<código>` publica, para el paquete firmado internamente, **cómo se respalda** la firma del proponente —naturaleza, Res. SS.SG. 210/2025 arts. 4 y 9, categorías de evidencia— y la **huella** de la constancia, y `CONST-…` se verifica por su propio código. Ningún valor personal sale por ahí (regla inviolable #7).
 
 ---
 
@@ -505,7 +511,7 @@ Resumen condensado de `docs/SeguroLoTengo-integraciones-externas-alta-resolucion
 - Callbacks de proveedores firmados, verificables, idempotentes y vinculados a la misma propuesta (ver "Idempotencia de webhooks" arriba).
 - Solicitud y FIPF: **un solo PDF**, un correlativo, dos códigos internos visibles, un acto de firma (D-11, regla inviolable #3).
 - Certificado de Cobertura Provisional: solo con el cobro acreditado, en la misma escritura que lo confirma, firmado por Alianza y sin número oficial de póliza (D-12, CMP-04/06/07/18).
-- Del portal se descargan **tres** documentos y ninguno más: paquete firmado, certificado y comprobante de pago (D-05). La póliza y la factura las emite y envía Alianza.
+- Del portal se descargan **cuatro** documentos y ninguno más: paquete firmado, certificado, comprobante de pago (D-05) y, cuando la firma del cliente es interna, la **constancia del acto de firma** `CONST-<correlativo>` (D-27) — que no es contractual ni de cobertura: es el registro probatorio del acto. La póliza y la factura las emite y envía Alianza.
 - Póliza y factura las emite y envía Alianza (SEBAOT); descarga inmediata desde SeguroLoTengo solo de Solicitud y FIPF firmados.
 - No usar automatizaciones administrativas (n8n o similar) para controlar la secuencia crítica pago → firma → emisión.
 - No introducir un proveedor externo nuevo sin registrarlo antes en `docs/Tabla de Integraciones externas - Tabla.csv`.

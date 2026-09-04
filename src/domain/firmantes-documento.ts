@@ -44,6 +44,17 @@
  * implementación; sí queda anotado para que nadie lo lea como un descuido.
  */
 
+/**
+ * Versión del bloque de firmas que se imprime en el PDF. Sube cada vez que
+ * cambia una leyenda: los documentos ya cerrados conservan la suya (reglas
+ * #4 y #10) y el número impreso dice con cuál se cerró cada uno.
+ *
+ * v2 (04-sep-2026, D-27): la leyenda del cliente deja de describir «un enlace
+ * seguro» —el flujo de un proveedor— y pasa a describir el acto que ocurre,
+ * con su norma (Res. 210/2025 arts. 4 y 9).
+ */
+export const VERSION_BLOQUE_FIRMAS = "FIRMAS-v2";
+
 /** Quién firma. No es un nombre: es el rol, que es lo que no cambia. */
 export type RolFirmante = "CLIENTE" | "INTERSEGUROS" | "ALIANZA";
 
@@ -98,8 +109,10 @@ export const FIRMANTES_POR_DOCUMENTO: Readonly<
       nivel: "SIMPLE",
       modalidad: "CONJUNTO",
       leyenda:
-        "Firma electrónica no cualificada mediante enlace seguro; " +
-        "un solo acto cubre la Solicitud y el FIPF de este documento.",
+        "Firma electrónica no cualificada del proponente, con autenticación previa por código de " +
+        "un solo uso enviado a su canal verificado (Res. SS.SG. 210/2025, art. 4). Un solo acto " +
+        "cubre la Solicitud y el FIPF de este documento; la evidencia del acto se conserva conforme " +
+        "al art. 9.",
     },
     {
       rol: "INTERSEGUROS",

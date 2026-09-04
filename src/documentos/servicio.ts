@@ -54,7 +54,20 @@ import type { DocumentoCerrado, Expediente, PaqueteDocumental, RegistroEvidencia
 import type { ContextoPeticion, RepositorioExpediente } from "../domain/verificacion-canal";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { SignatureProvider } from "../ports/signature-provider";
-import { renderizarCertificado, renderizarComprobante, renderizarPaquete } from "./plantillas";
+import {
+  renderizarCertificado,
+  renderizarComprobante,
+  renderizarConstancia,
+  renderizarPaquete,
+} from "./plantillas";
+import {
+  VERSION_INICIAL_CONSTANCIA,
+  actoParaConstancia,
+  armarContenidoConstancia,
+  codigoConstancia,
+} from "../domain/constancia-firma";
+import type { CampoFaltanteConstancia } from "../domain/constancia-firma";
+import type { ActoDeFirmaCliente } from "../domain/firma-cliente";
 import { armarContenidoComprobante } from "../domain/comprobante-pago";
 import type { CampoFaltanteComprobante } from "../domain/comprobante-pago";
 import {
@@ -66,7 +79,7 @@ import {
 } from "../domain/certificado-cobertura";
 import type { CampoFaltanteCertificado } from "../domain/certificado-cobertura";
 import { firmantesDe } from "../domain/firmantes-documento";
-import type { CertificadoCobertura, FirmaInstitucional } from "../domain/tipos";
+import type { CertificadoCobertura, ConstanciaFirmaEmitida, FirmaInstitucional } from "../domain/tipos";
 
 // ---------------------------------------------------------------------------
 // Dependencias
@@ -599,6 +612,97 @@ export async function emitirCertificadoCobertura(
       finCobertura: finCoberturaDesde(inicioCobertura),
       referenciaBancard: expediente.pago?.referenciaBancard ?? "",
       firmas,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Constancia del acto de firma del cliente (D-27)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ruta de la constancia en el bucket, con la huella en la clave por la misma
+ * razón que el certificado: cada emisión escribe en su propio lugar, y el
+ * archivo que hay en esa ruta solo puede ser el que el expediente registró.
+ */
+export function claveConstancia(
+  expedienteId: string,
+  codigo: string,
+  version: number,
+  hashSha256: string,
+): string {
+  return `expedientes/${expedienteId}/documentos/${codigo}-v${version}-${hashSha256}.pdf`;
+}
+
+export type MotivoRechazoConstancia = "EXPEDIENTE_INCOMPLETO" | "ALMACENAMIENTO_INCONSISTENTE";
+
+export type ResultadoEmitirConstancia =
+  | {
+      readonly ok: true;
+      readonly constancia: ConstanciaFirmaEmitida;
+      readonly clave: string;
+      readonly bytes: number;
+    }
+  | {
+      readonly ok: false;
+      readonly motivo: MotivoRechazoConstancia;
+      readonly detalle?: string;
+      readonly faltantes?: readonly CampoFaltanteConstancia[];
+    };
+
+/**
+ * Cierra, hashea y guarda la constancia del acto de firma del cliente.
+ *
+ * La llama el dominio **desde adentro del acto** (`registrarActoDeFirmaCliente`),
+ * con el acto en memoria y antes de la transición, y el resultado entra en la
+ * misma escritura que la firma. Determinista como los otros documentos: mismo
+ * acto ⇒ mismos bytes ⇒ misma huella, que es lo que hace cotejable el archivo
+ * contra lo que publica `/verificar`.
+ */
+export async function emitirConstanciaFirma(
+  deps: DependenciasCertificado,
+  entrada: {
+    readonly expediente: Expediente;
+    readonly acto: ActoDeFirmaCliente;
+    readonly historial: readonly RegistroEvidencia[];
+  },
+): Promise<ResultadoEmitirConstancia> {
+  const { expediente, acto, historial } = entrada;
+
+  const contenido = armarContenidoConstancia(expediente, actoParaConstancia(acto), historial, {
+    version: VERSION_INICIAL_CONSTANCIA,
+    urlBaseVerificacion: deps.urlBaseVerificacion,
+  });
+  if (!contenido.ok) {
+    return { ok: false, motivo: "EXPEDIENTE_INCOMPLETO", faltantes: contenido.faltantes };
+  }
+
+  const bytes = renderizarConstancia(contenido.contenido);
+  const codigo = codigoConstancia(contenido.contenido.correlativo);
+  const hashSha256 = sha256Hex(bytes);
+  const clave = claveConstancia(expediente.id, codigo, contenido.contenido.version, hashSha256);
+
+  const guardado = await deps.archivos.guardarArchivo(clave, bytes, CONTENT_TYPE_PDF);
+  if (guardado.hashSha256 !== hashSha256) {
+    return {
+      ok: false,
+      motivo: "ALMACENAMIENTO_INCONSISTENTE",
+      detalle:
+        `La huella de la constancia guardada no coincide con la del renderizado (${codigo}): ` +
+        `${guardado.hashSha256} ≠ ${hashSha256}.`,
+    };
+  }
+
+  return {
+    ok: true,
+    clave: guardado.clave,
+    bytes: bytes.length,
+    constancia: {
+      codigo,
+      codigoPaquete: contenido.contenido.encabezado.codigoVinculado,
+      version: contenido.contenido.version,
+      hashSha256,
+      emitidaEn: acto.firmadoEn,
     },
   };
 }

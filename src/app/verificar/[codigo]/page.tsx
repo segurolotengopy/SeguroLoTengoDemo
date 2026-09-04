@@ -5,20 +5,31 @@ import {
   interpretarCodigo,
   verificarDocumento,
 } from "@/domain/verificacion-documento";
-import type { DocumentoVerificado, ResultadoVerificacion } from "@/domain/verificacion-documento";
+import type {
+  DocumentoVerificado,
+  FirmaProponenteVerificada,
+  ResultadoVerificacion,
+} from "@/domain/verificacion-documento";
 import {
   ALCANCE_VERIFICACION,
   AVISO_SIN_DATOS_PERSONALES,
+  LEYENDA_CONSTANCIA,
+  LEYENDA_CONSTANCIA_AUSENTE,
   LEYENDA_FIRMA_PENDIENTE,
+  LEYENDA_FIRMA_PROPONENTE,
   LEYENDA_VIGENCIA_DECLARADA,
   MOTIVOS_NO_VERIFICABLE,
   ROTULO_CODIGO,
+  ROTULO_CONSTANCIA,
   ROTULO_CORRELATIVO,
   ROTULO_FIN_VIGENCIA,
+  ROTULO_FIRMADO_EL,
   ROTULO_HUELLA,
   ROTULO_INICIO_VIGENCIA,
   ROTULO_MODALIDAD_FIRMA,
   ROTULO_NIVEL_FIRMA,
+  ROTULO_NORMA_FIRMA,
+  ROTULO_RESPALDOS,
   ROTULO_SELLO_DE_TIEMPO,
   ROTULO_TIPO_DOCUMENTO,
   ROTULO_VERSION,
@@ -26,6 +37,7 @@ import {
   ROTULO_VOLVER_AL_INICIO,
   TITULO_DOCUMENTO_VERIFICADO,
   TITULO_FIRMANTES,
+  TITULO_FIRMA_PROPONENTE,
   TITULO_NO_VERIFICADO,
   TITULO_VERIFICACION,
   TITULO_VIGENCIA,
@@ -97,6 +109,64 @@ function Dato({ rotulo, valor, mono = false }: { rotulo: string; valor: string; 
   );
 }
 
+/**
+ * Cómo se respalda la firma del proponente (D-27): la norma, las categorías
+ * de evidencia y la huella de la constancia. Ningún valor personal: la IP, el
+ * dispositivo y el celular viven en la constancia, que es del titular.
+ */
+function FirmaDelProponente({ firma }: { firma: FirmaProponenteVerificada }) {
+  return (
+    <section
+      aria-labelledby="verificar-firma-proponente"
+      className="flex flex-col gap-3 rounded-lg border border-verde-300 bg-verde-50 p-4 dark:border-verde-700 dark:bg-verde-950"
+    >
+      <h2
+        id="verificar-firma-proponente"
+        className="text-xs font-bold tracking-wide text-verde-900 uppercase dark:text-verde-100"
+      >
+        {TITULO_FIRMA_PROPONENTE}
+      </h2>
+      <p className="text-sm text-verde-900 dark:text-verde-100">{LEYENDA_FIRMA_PROPONENTE}</p>
+      <dl className="grid gap-3 sm:grid-cols-2">
+        <Dato rotulo={ROTULO_NORMA_FIRMA} valor={firma.norma} />
+        <Dato rotulo={ROTULO_FIRMADO_EL} valor={firma.firmadoEn} />
+      </dl>
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-bold tracking-wide text-etiqueta uppercase">
+          {ROTULO_RESPALDOS}
+        </span>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-verde-900 dark:text-verde-100">
+          {firma.respaldos.map((respaldo) => (
+            <li key={respaldo}>{respaldo}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex flex-col gap-1 border-t border-verde-200 pt-3 dark:border-verde-800">
+        <span className="text-[11px] font-bold tracking-wide text-etiqueta uppercase">
+          {ROTULO_CONSTANCIA}
+        </span>
+        {firma.constancia ? (
+          <>
+            <p className="text-sm font-semibold text-titulo">
+              <Link
+                href={`/verificar/${encodeURIComponent(firma.constancia.codigo)}`}
+                className="font-mono underline underline-offset-2"
+              >
+                {firma.constancia.codigo}
+              </Link>{" "}
+              · v{firma.constancia.version}
+            </p>
+            <p className="font-mono text-xs break-all text-cuerpo">{firma.constancia.hashSha256}</p>
+            <p className="text-xs text-etiqueta">{LEYENDA_CONSTANCIA}</p>
+          </>
+        ) : (
+          <p className="text-xs text-etiqueta">{LEYENDA_CONSTANCIA_AUSENTE}</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function Verificado({ documento }: { documento: DocumentoVerificado }) {
   return (
     <>
@@ -146,6 +216,10 @@ function Verificado({ documento }: { documento: DocumentoVerificado }) {
         </section>
       ) : null}
 
+      {documento.firmaDelProponente ? (
+        <FirmaDelProponente firma={documento.firmaDelProponente} />
+      ) : null}
+      {documento.firmantes.length > 0 ? (
       <section
         aria-labelledby="verificar-firmas"
         className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-4"
@@ -179,6 +253,7 @@ function Verificado({ documento }: { documento: DocumentoVerificado }) {
           ))}
         </ul>
       </section>
+      ) : null}
 
       <ComparadorDeHuella huellaEsperada={documento.hashSha256} />
     </>

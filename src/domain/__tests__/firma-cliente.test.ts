@@ -35,7 +35,7 @@ import {
 import type { DependenciasFirmaCliente } from "../firma-cliente";
 import type { Expediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, LectorMetadataOtp, RepositorioExpediente } from "../verificacion-canal";
-import { expedienteEnPaqueteGenerado } from "./fixtures";
+import { expedienteEnPaqueteGenerado, emisorConstanciaFalso, constanciaFixture } from "./fixtures";
 
 const CONTEXTO: ContextoPeticion = {
   ip: "200.10.20.30",
@@ -117,6 +117,7 @@ function armar(expediente: Expediente = expedienteEnPaqueteGenerado()): Armado {
       lectorOtp,
       expedientes: repositorioFalso(expediente),
       evidencias,
+      emitirConstancia: emisorConstanciaFalso(),
       ahora: () => "2026-08-27T12:00:00.000Z",
       nuevoId: () => `EV-${Math.random().toString(36).slice(2, 10)}`,
     },
@@ -498,5 +499,75 @@ describe("acto de firma", () => {
 
     expect(resultado).toEqual({ ok: false, motivo: "ESTADO_INVALIDO" });
     expect(deps.expedientes.actual().firma?.referenciaActo).toBe(primerEnvio.otpId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D-27 · la constancia nace con la firma
+// ---------------------------------------------------------------------------
+
+describe("la constancia del acto (D-27)", () => {
+  async function firmarConOtpValido(armado: Armado) {
+    const envio = await solicitarOtpDeFirmaCliente(armado.deps, {
+      expedienteId: armado.expediente.id,
+      canal: "WHATSAPP",
+      contexto: CONTEXTO,
+    });
+    if (!envio.ok) throw new Error(`no se pudo enviar el OTP: ${envio.motivo}`);
+    return registrarActoDeFirmaCliente(armado.deps, {
+      expedienteId: armado.expediente.id,
+      canal: "WHATSAPP",
+      otpId: envio.otpId,
+      codigoIngresado: codigoDe(envio.otpId),
+      textoAceptado: TEXTO,
+      versionTextoAceptado: VERSION_TEXTO,
+      contexto: CONTEXTO,
+    });
+  }
+
+  it("queda registrada en el expediente en la misma escritura que la firma", async () => {
+    const armado = armar();
+    const resultado = await firmarConOtpValido(armado);
+    expect(resultado.ok).toBe(true);
+    const actual = armado.deps.expedientes.actual();
+    expect(actual.estado).toBe("FIRMADO_CLIENTE");
+    expect(actual.constanciaFirma?.codigo).toBe(constanciaFixture.codigo);
+    expect(actual.constanciaFirma?.hashSha256).toBe(constanciaFixture.hashSha256);
+    // La evidencia del acto cita la constancia y su huella.
+    const acto = armado.deps.evidencias
+      .registros
+      .find((r) => r.paso === "FIRMA_CLIENTE_ACTO" && r.resultado === "EXITOSO");
+    expect(acto?.detalle).toContain(constanciaFixture.codigo);
+    expect(acto?.detalle).toContain(constanciaFixture.hashSha256);
+  });
+
+  it("sin constancia no hay firma: el expediente queda como estaba y el desenlace lo dice", async () => {
+    const armado = armar();
+    const deps = { ...armado.deps, emitirConstancia: emisorConstanciaFalso({ falla: true }) };
+    const envio = await solicitarOtpDeFirmaCliente(deps, {
+      expedienteId: armado.expediente.id,
+      canal: "WHATSAPP",
+      contexto: CONTEXTO,
+    });
+    if (!envio.ok) throw new Error(envio.motivo);
+    const resultado = await registrarActoDeFirmaCliente(deps, {
+      expedienteId: armado.expediente.id,
+      canal: "WHATSAPP",
+      otpId: envio.otpId,
+      codigoIngresado: codigoDe(envio.otpId),
+      textoAceptado: TEXTO,
+      versionTextoAceptado: VERSION_TEXTO,
+      contexto: CONTEXTO,
+    });
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.motivo).toBe("CONSTANCIA_NO_EMITIDA");
+    const actual = armado.deps.expedientes.actual();
+    expect(actual.estado).toBe("PAQUETE_GENERADO");
+    expect(actual.firma).toBeNull();
+    expect(actual.constanciaFirma).toBeNull();
+    const fallido = armado.deps.evidencias
+      .registros
+      .find((r) => r.paso === "FIRMA_CLIENTE_ACTO" && r.resultado === "FALLIDO");
+    expect(fallido?.detalle).toContain("CONSTANCIA_NO_EMITIDA");
   });
 });
