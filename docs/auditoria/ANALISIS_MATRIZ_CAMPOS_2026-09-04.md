@@ -149,7 +149,7 @@ el análisis del CPC agrega la Res. SS.SG. 012/12 (nombre, matrícula y
 teléfono). `entidades.ts` tiene la matrícula 118 y el teléfono de Interseguros
 en `null` (D-19): ese `null` pasa a ser bloqueante para la póliza y el CPC.
 
-## 5. Lo que exige decisión antes de tocar código
+## 5. Lo que exigía decisión antes de tocar código — **decidido el 04-sep-2026** (D-24, D-25, D-26 en `docs/plan/DECISIONES.md`)
 
 ### 5.1 Sexo
 
@@ -159,12 +159,14 @@ que **se elige** entre los dos valores de la cédula, justamente porque el OCR
 lo leía mal y el error pasaba inadvertido hasta el documento firmado. Las dos
 posturas son razonables y la que manda es el **modelo registrado**: si la
 Solicitud del plan 15-VI.0002 trae el campo, se conserva; si no, se retira.
-Hay que abrir `docs/Solicitud.pdf` de Alianza y mirar. **Decisión de Andres con
-Alianza.**
+Se abrió `docs/Solicitud.pdf`: **trae el campo** (cabecera «País de nacimiento ·
+Sexo · Estado civil · Nacionalidad · Residencia»). **Decidido (D-25):** no se
+pregunta; se toma del MRZ y se conserva porque el modelo lo imprime.
 
 ### 5.2 Criterio de ruta de diligencia
 
-§3, propuesta D-24.
+§3 — **decidido (D-24):** parámetro del producto, simplificada por defecto,
+criterio de Alianza.
 
 ## 6. Citas de la matriz y su estado en el repositorio
 

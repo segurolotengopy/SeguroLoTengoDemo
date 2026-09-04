@@ -170,11 +170,12 @@ export default async function PantallaSeleccionDePlan() {
         />
 
         {/* CHG-03 · identificación del producto registrado, centrada bajo el
-            título como en la maqueta. Los valores reales los pasa Alianza
-            (D-04): un código inventado se leería como real. */}
+            título como en la maqueta. Código y acto oficiales desde la Nota
+            SS.SG. N.º 397/2026 (D-26); el acto se imprime tal cual, porque es
+            una Nota y no una Resolución. */}
         <p className="-mt-2 text-center text-xs text-etiqueta">
           <span className="font-semibold text-cuerpo">{ROTULO_PRODUCTO_INSCRITO}</span>{" "}
-          <span className="tabular-nums">{REGISTRO_PRODUCTO.codigo}</span> · Res. SS.SG. N.°{" "}
+          <span className="tabular-nums">{REGISTRO_PRODUCTO.codigo}</span> ·{" "}
           <span className="tabular-nums">{REGISTRO_PRODUCTO.acto}</span>
           {REGISTRO_PRODUCTO.esProvisional ? (
             <span className="ml-2 rounded-full border border-naranja-300 bg-naranja-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-naranja-800 uppercase dark:border-naranja-700 dark:bg-naranja-950 dark:text-naranja-200">

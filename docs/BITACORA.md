@@ -38,6 +38,90 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-04 (b) · D-24, D-25, el registro oficial del plan y las 35 citas de la 215 revalidadas
+
+**Rama:** `feat/d24-sexo-catalogo-y-citas-215` · **Pedido de Andres** (tras el
+merge del PR #101): «D-24 vamos con tu recomendación. Sexo, vayamos con lo que
+indica la matriz. Catálogo, vamos con el cambio. Analiza y revalida esas filas
+leyendo la Res. 215.»
+
+### El caso
+
+Las tres decisiones que `ANALISIS_MATRIZ_CAMPOS_2026-09-04.md` dejaba abiertas,
+más la revalidación de las citas «215» del CSV que ese mismo análisis había
+señalado como no coincidentes con el Anexo leído.
+
+### Qué cambió
+
+- **`src/domain/catalogo.ts` (D-26):** `REGISTRO_PRODUCTO` deja el marcador
+  `CDXXXXX` y carga el dato oficial de la **Nota SS.SG. N.º 397/2026**
+  (07-ago-2026, `docs/RegistrosOficiales/RegistroAlianza.jpeg`, leída):
+  código **15-VI.0002**, denominación registral **«Seguro de Vida Individual
+  con Indemnización Adicional por Diagnóstico de Cáncer»** —separada del
+  nombre comercial, porque son dos cosas—, `esProvisional: false`. `urlModelo`
+  sigue en `null`: la 215/17 punto 9.f la exige y Alianza no la pasó. El
+  **desglose del IVA se desacopló** del registro (`DESGLOSE_OFICIAL_DE_ALIANZA`):
+  colgaba de `REGISTRO_PRODUCTO.esProvisional` y al llegar el código oficial
+  habría dejado de rotularse provisional un desglose que sigue siendo nuestro
+  (D-04). `plan/page.tsx` ya no antepone «Res. SS.SG. N.°» al acto, que es una
+  Nota. Test nuevo `registro-producto.test.ts` (5 casos).
+- **CSV de cumplimiento — 27 de 35 filas corregidas**, en
+  `docs/auditoria/REVALIDACION_CITAS_215-17_2026-09-04.md`. Tres familias: los
+  «6.13.x / 6.1-6.6» estaban **corridos en tres** respecto del Anexo (el 9 es
+  el modelo de póliza; 6.13.n = 9.13.n, uno por uno); once filas citaban como
+  «215» **artículos del Anexo I de la 231/2025** (art. 4 medio de recepción y
+  acuse, art. 5 QR, art. 6 seguridad) **o de la 210/2025** (arts. 8 y 10) — la
+  misma trampa del `215_2025.pdf`; y las de la parte resolutiva y de los
+  numerales 8.x y 11.x estaban bien. Tres filas quedan débiles (20, 63, 71) y
+  **la fila 46 dice «18 dígitos» donde el art. 14º dice 10**: título de
+  Rodrigo/Legal, no se tocó.
+- **`docs/plan/DECISIONES.md`, Bloque F:** **D-24** ruta de diligencia por
+  parámetro del producto, simplificada por defecto, criterio de Alianza;
+  **D-25** sexo no se pregunta, sale del MRZ y se conserva porque
+  `Solicitud.pdf` lo imprime (deja sin efecto la decisión del 21-ago);
+  **D-26** registro del plan.
+- **`ESPECIFICACION_PANTALLAS.md`:** el marcador `SIS-VID-ONC-001/2026` pasa
+  al código real en sus cinco apariciones; la línea del sexo describe D-25.
+- `ANALISIS_MATRIZ_CAMPOS_2026-09-04.md` §5 cerrado con las decisiones.
+
+### Qué hizo Andres
+
+- Tomó las tres decisiones (D-24 por la recomendación, D-25 por la matriz,
+  D-26 el cambio) y pidió la revalidación leyendo la 215.
+- Mergeó el PR #101 antes de esta sesión.
+
+### Verificaciones
+
+- `Solicitud.pdf` de Alianza abierto: **trae el campo Sexo** (y país de
+  nacimiento, estado civil, nacionalidad y residencia — anotado en D-25 para
+  confirmar con Alianza si es el modelo inscripto).
+- 231/2025 y 210/2025 releídas (renderizadas) para reatribuir las once filas.
+- CSV: `grep` de «numerales 6.x»: **0**; el test de higiene no tiene ninguna de
+  las citas nuevas en su lista.
+- `npm run typecheck` en verde; `npm run lint` 0 errores (8 warnings
+  preexistentes); **`npm test`: 92 archivos, 1257 tests en verde** (5 nuevos de
+  `registro-producto.test.ts`; el de higiene sigue en verde con el CSV corregido).
+- E2E de Playwright **no corrida** en esta sesión: el cambio de pantalla es un
+  separador de texto en el rótulo del producto; ningún spec lo afirma.
+
+### Queda abierto
+
+- **Implementar D-24 y D-25** en el paso 1 (una pantalla por sesión): campos
+  de la ruta normal detrás del flag; sexo desde el MRZ, con el caso sin MRZ
+  (registro civil o vacío) resuelto en el dominio.
+- **`urlModelo`** del plan (215/17 punto 9.f): pedir a Alianza la publicación
+  del modelo inscripto.
+- **Fila 46 del CSV** («18 dígitos» vs 10 del art. 14º) y las tres filas
+  débiles: Rodrigo/Legal. Solapes posibles entre las filas 78-83 reatribuidas
+  a la 210/2025 y las 86-93.
+- Confirmar con Alianza si `docs/Solicitud.pdf` es el modelo inscripto bajo el
+  15-VI.0002 (afecta qué campos «retirados» por la matriz deben seguir
+  imprimiéndose vacíos).
+- El PR de esta rama **no se mergea desde el agente**: revisión humana
+  (`~/.claude/rules/security-rules.md` §4).
+
+---
+
 ## 2026-09-04 · La 215/17 existe, el orden legal de las firmas, y la matriz de campos
 
 **Rama:** `docs/firma-token-alianza` · **Pedido de Andres** (sobre la reunión

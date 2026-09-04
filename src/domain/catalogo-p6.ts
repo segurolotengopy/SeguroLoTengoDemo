@@ -102,8 +102,8 @@ export const PROFESIONES: readonly string[] = [
  * ("Ingresos laborales"), así que estas ocho opciones las propone el equipo
  * técnico cubriendo las fuentes de ingreso corrientes en el mercado local.
  * Cumplimiento de Alianza tiene que confirmarlas o reemplazarlas antes de la
- * salida a producción — es una de las compuertas del §7.3 del plan, igual que
- * los códigos `CDXXXXX`.
+ * salida a producción — es una de las compuertas del §7.3 del plan, como lo
+ * fue el código del plan hasta la Nota SS.SG. N.º 397/2026.
  */
 export const ORIGENES_FONDOS: readonly string[] = [
   "Ingresos laborales (sueldo o salario)",

@@ -18,9 +18,9 @@
  *
  * Tres datos no los fija la matriz: el plazo del retracto, desde cuándo se
  * cuenta, y los plazos de conservación. **No se inventan.** Van como marcador
- * visible, igual que el código de producto (`CDXXXXX`) mientras Alianza no lo
- * pase: un hueco señalado es honesto, un número inventado es una afirmación
- * jurídica falsa.
+ * visible —como fue el código de producto hasta que llegó la Nota SS.SG.
+ * N.º 397/2026—: un hueco señalado es honesto, un número inventado es una
+ * afirmación jurídica falsa.
  *
  * El criterio es distinto al de D-19 —donde lo que falta se omite— porque acá
  * omitir rompe la frase: "podés retractarte dentro del plazo de …" sin plazo no

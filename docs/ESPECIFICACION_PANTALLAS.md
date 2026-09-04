@@ -41,7 +41,7 @@ Bloque E lo contradigan, mandan ellos y acá queda anotado.
 
 **Cabecera fija.** Texto literal de los tres bloques, en este orden:
 
-1. `ASEGURADORA` / `Alianza Garantía Seguros y Reaseguros S.A.` / `Res. SS.SG. N° 118/2003 · producto SIS-VID-ONC-001/2026 (provisional)` — el bloque enlaza a `https://alianzagarantia.com/#/home` (nueva pestaña).
+1. `ASEGURADORA` / `Alianza Garantía Seguros y Reaseguros S.A.` / `Res. SS.SG. N° 118/2003 · producto 15-VI.0002 · Nota SS.SG. N.º 397/2026 (provisional)` — el bloque enlaza a `https://alianzagarantia.com/#/home` (nueva pestaña).
 2. `INTERMEDIARIO` / `Interseguros S.A. · Corredores de Seguros` / `Matrícula CS N° 0142 · Res. SS.SG. N° 072/2019 (provisional)` — enlaza a `https://interseguros360.com/`.
 3. `CANAL DIGITAL` / `SeguroLoTengo.com` / `Marca de Interseguros S.A. · Res. SS.SG. N° 311/2026 (provisional)` — con el sello `SLT` (recuadro 38 × 38, borde 2 px `accent-600`, radio 12, texto acento 700). **Solo en el Inicio** (el canvas lo condiciona a `esInicio`); en los pasos, la cabecera tiene dos bloques. Enlaza a `https://www.segurolotengo.com`.
 
@@ -50,7 +50,7 @@ Las referencias regulatorias se muestran **con el sufijo `(provisional)`**
 
 Las referencias regulatorias que la cabecera imprime (`Res. SS.SG. N° 118/2003`,
 `Matrícula CS N° 0142 · Res. SS.SG. N° 072/2019`, `Res. SS.SG. N° 311/2026`,
-`producto SIS-VID-ONC-001/2026`) son **marcadores provisionales de la maqueta**
+`producto 15-VI.0002 · Nota SS.SG. N.º 397/2026`) son **marcadores provisionales de la maqueta**
 (DI-4): se implementan parametrizadas y rotuladas, y no se publican como
 definitivas hasta el dato oficial de Alianza. Lo mismo aplica a la
 `Res. SS.SG. N° 250/2026` del paso 2.
@@ -83,7 +83,7 @@ desplegable: `INFORMACIÓN LEGAL Y REGULATORIA ▾` (abierto: `▴`). Cuerpo:
 
 > SeguroLoTengo.com es marca y canal digital de Interseguros S.A. — Corredores
 > de Seguros. La aseguradora es Alianza Garantía Seguros y Reaseguros S.A.
-> Producto inscrito: Seguro de Vida Oncológico CONFÍO, SIS-VID-ONC-001/2026 ·
+> Producto inscrito: Seguro de Vida Oncológico CONFÍO, 15-VI.0002 · Nota SS.SG. N.º 397/2026 ·
 > Res. SS.SG. N° 250/2026. Firma electrónica del cliente: simple, autenticada
 > por código de un solo uso; las firmas institucionales son cualificadas.
 > Pagos procesados por Bancard directamente a favor de la aseguradora. La
@@ -92,7 +92,7 @@ desplegable: `INFORMACIÓN LEGAL Y REGULATORIA ▾` (abierto: `▴`). Cuerpo:
 
 Estado del texto: **provisional** (pendiente de Legal, L6 —
 `docs/plan/PROPUESTAS_TEXTOS_LEGALES_L6.md`); los identificadores
-`SIS-VID-ONC-001/2026` y `Res. SS.SG. N° 250/2026` son marcadores DI-4 y se
+`15-VI.0002 · Nota SS.SG. N.º 397/2026` y `Res. SS.SG. N° 250/2026` son marcadores DI-4 y se
 muestran con el sufijo `(provisional)`. En el producto vive en
 `src/domain/textos-legales.ts` (`IDENTIFICACION_CANAL`) con versión.
 
@@ -222,7 +222,7 @@ después los revisás. Solo cédula paraguaya y únicamente a tu nombre.`
 en vivo. Los campos marcados en rojo son los que todavía faltan completar.`
 
 - **No editables:** `Número de cédula · no editable`, `Fecha de nacimiento · no editable` (de ellos cuelgan el bloqueo por cédula y el corte de edad — regla #8 y #11).
-- **Editables/seleccionables:** Nombres, Apellidos, Sexo (se **elige**, no lo completa el OCR — decisión del 21-ago vigente), Nacionalidad, País de nacimiento, País de residencia, Estado civil. Las correcciones se cotejan contra lo leído (CHG-15).
+- **Editables/seleccionables:** Nombres, Apellidos, Sexo (**no se pregunta** — D-25, 04-sep-2026: se toma del MRZ de la cédula y se conserva porque el modelo registrado de la Solicitud lo imprime; la decisión del 21-ago de elegirlo a mano queda sin efecto), Nacionalidad, País de nacimiento, País de residencia, Estado civil. Las correcciones se cotejan contra lo leído (CHG-15).
 - Leyenda: `La edad de ingreso admitida es de 18 a 64 años y se calcula con la fecha de nacimiento de tu cédula.`
 - En `DEMO_MODE`: botón `Completar el resto con datos de ejemplo (demo)`, con los datos de `personas.ts` (DI-9 — los de la maqueta no entran al código).
 
@@ -299,7 +299,7 @@ es la regla inviolable #9 en palabras del cliente; la aceptación agrupada deja
 `RESPONSABILIDAD CIVIL` con etiqueta `PRONTO`, deshabilitados.
 
 **Leyenda:** `Seguro de Vida Individual Oncológico CONFÍO · producto inscrito
-SIS-VID-ONC-001/2026 · Res. SS.SG. N° 250/2026. Los importes son premios
+15-VI.0002 · Nota SS.SG. N.º 397/2026 · Res. SS.SG. N° 250/2026. Los importes son premios
 anuales finales, IVA incluido. Todavía no estás firmando ni pagando.`
 (identificadores provisionales, DI-4).
 
