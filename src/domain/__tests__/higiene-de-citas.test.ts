@@ -7,7 +7,8 @@
  * normas en los comentarios, y esas citas se copian de un módulo al
  * siguiente: la resolución de modelos apareció con el año equivocado en 72
  * lugares porque la primera cita se escribió mal y las demás la heredaron
- * («215/15», luego «215/17»; es **215/2025**). Una cita mal copiada no rompe ninguna prueba y sobrevive a
+ * («215/15», después «215/2025»; es **215/17**, del 28-dic-2017). Una cita mal
+ * copiada no rompe ninguna prueba y sobrevive a
  * cualquier revisión de código, así que la única forma de que no vuelva es
  * que falle la suite.
  *
@@ -23,7 +24,10 @@
  *
  * Procedencia de la lista: memo «Actualizaciones normativas relevantes»
  * (26-ago-2026), §9 «Normas derogadas, sustituidas o no aplicables», y
- * `docs/auditoria/ANALISIS_RES_210_2025.md` §8.9.
+ * `docs/auditoria/ANALISIS_RES_210_2025.md` §8.9. La entrada de la 215 se
+ * corrigió el 04-sep-2026 con los textos oficiales en `docs/normativa/`: la
+ * 215/17 es la vigente (la 231/2025 la cita como base) y «215/2025» fue la
+ * errata que este mismo test imponía hasta entonces.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -55,13 +59,13 @@ const CITAS_PROHIBIDAS: readonly CitaProhibida[] = [
   },
   {
     patron: /\b136\/(20)?18\b/,
-    queEs: "Res. SIS 136/2018 (pólizas electrónicas), derogada",
+    queEs: "Res. SIS 136/2018 (pólizas con firma facsimilar y digital), abrogada por el art. 1º de la 231/2025",
     enSuLugar: "Res. SIS 231/2025",
   },
   {
     patron: /\b292\/(20)?07\b/,
-    queEs: "Res. SIS 292/2007 (modelos de póliza), sustituida",
-    enSuLugar: "Res. SIS 215/2025",
+    queEs: "Res. SIS 292/2007 (modelos de póliza), derogada por el art. 19º de la 215/17",
+    enSuLugar: "Res. SIS 215/17",
   },
   {
     patron: /\b022\/(20)?24\b/,
@@ -74,10 +78,10 @@ const CITAS_PROHIBIDAS: readonly CitaProhibida[] = [
     enSuLugar: "Res. SIS 031/2026, ampliada por la 117/2026",
   },
   {
-    patron: /\b215\/(15|17|2017)\b/,
+    patron: /\b215\/(15|2025)\b/,
     queEs:
-      "«Res. 215/15» o «215/17»: la resolución de modelos y contenido contractual es de 2025",
-    enSuLugar: "Res. SIS 215/2025",
+      "«Res. 215/15» o «215/2025»: erratas de la resolución de registro de planes y modelos, que es la 215/17 (28-dic-2017)",
+    enSuLugar: "Res. SIS 215/17",
   },
   {
     patron: /segurolotengo\.com\.py/i,

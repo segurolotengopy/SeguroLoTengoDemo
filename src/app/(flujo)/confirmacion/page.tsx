@@ -33,7 +33,7 @@ import { ContratacionAceptada } from "./ContratacionAceptada";
  * (`src/domain/rutas-flujo.ts`) a través del stepper.
  *
  * Respaldo normativo del conjunto: filas 39, 40, 43, 47 y 50 de la matriz de
- * cumplimiento (Res. SS SG. 215/2025, art. 1, punto 14 y Anexo 1 numeral 6.13.14;
+ * cumplimiento (Res. SS SG. 215/17, art. 1, punto 14 y Anexo 1 numeral 6.13.14;
  * Ley 6822/21, arts. 38(2), 43 y 44-46; Ley 4868/13, arts. 31-32; Ley 125/91,
  * art. 85; Código Civil, arts. 1348, 1373 y 1374).
  *

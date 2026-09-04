@@ -38,6 +38,112 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-04 · La 215/17 existe, el orden legal de las firmas, y la matriz de campos
+
+**Rama:** `docs/firma-token-alianza` · **Pedido de Andres** (sobre la reunión
+técnica con Alianza del 03-sep, el análisis legal de Rodrigo del 03/04-sep y la
+Matriz Normativa de Campos del 04-sep)
+
+### El caso
+
+Tres insumos el mismo día. **(1)** Rodrigo entregó la matriz *«Firmas, actos,
+respaldo jurídico y plazos»* y el memo del CPC: la firma cualificada de
+Interseguros va **después** del pago (24/48 h, plazo operativo), el CPC lo
+emite y firma **solo Alianza**, y Alianza **no** firma la propuesta. **(2)** La
+Matriz Normativa de Campos del cliente (Interseguros, 04-sep), que clasifica
+cada campo de las pantallas contra la 215/17, el Código Civil y los regímenes
+de SEPRELAD. **(3)** Andres bajó del BCP las Res. **215/17** y **136/18** y
+pidió alinear el repositorio con ellas.
+
+Lo tercero destapó un error propio: **la «corrección» del 26-ago que pasó 89
+citas de «215/15» a «215/2025» fue el error.** La 215/17 existe —«Registro de
+Planes de Seguro y Emisión de Instrumentos de Cobertura», 28-dic-2017—, su
+Anexo trae los numerales 10 (certificado) y 11 (propuesta) que la matriz cita,
+y la 231/2025 la nombra como base en sus considerandos. La numeración «2025»
+salió del nombre del archivo `215_2025.pdf`, que contiene la 210/2025. El
+`CATALOGO.md` del 27-ago lo había advertido; ganó el índice por la regla «ante
+discrepancia manda el índice», y un test la imponía.
+
+### Qué cambió
+
+- **Cita de la 215 revertida a «215/17»** en `src/` (21 archivos, solo
+  comentarios), la matriz de cumplimiento (35 filas), `CLAUDE.md`,
+  `.claude/agents/`, la especificación, la adenda y los análisis. **El test de
+  higiene ahora rechaza «215/15» y «215/2025»** y explica por qué; la 292/07
+  apunta a la 215/17 (art. 19º) y la 136/18 a la 231/2025 (art. 1º, verificado
+  en el PDF). `BITACORA.md` no se reescribe: esta entrada es la corrección.
+- **`docs/normativa/`:** entran `SIS-Res-215-2017-…` y
+  `SIS-Res-136-2018-…-ABROGADA.pdf`, leídas de primera mano. `INDICE.md` §0
+  reescrito con la historia de la errata, §1 con las dos filas y la nota de
+  abrogación en la 231, §2 sin la 215, §5 con las erratas correctas.
+  `CATALOGO.md` alineado.
+- **`docs/plan/DECISIONES.md`:** enmiendas del 04-sep a **D-08** (cobro desde
+  `FIRMADO_CLIENTE`; Interseguros firma después, 24/48 h), **D-12** (CPC de
+  Alianza; el comprobante de pago cubre la entrega inmediata) y **D-13**
+  (Alianza no firma la propuesta); **ALR-07 cerrada**: la Matriz V4 tenía razón.
+- **`CLAUDE.md`:** aviso de decisiones pendientes de implementar, al pie del
+  bloque del Plan v2. Las reglas 6-bis, la máquina de estados y la sección del
+  CPC **no se reescriben**: siguen describiendo el código de hoy, como manda la
+  regla del propio documento.
+- **`docs/firma-cualificada/CAMBIOS_NECESARIOS.md`** reescrito: §4 transcribe
+  la matriz de Rodrigo (llegó como imagen), fija las tres decisiones con su
+  respaldo y hace constar que la latencia del firmador por token deja de
+  importar; §6 cambios por capa con el nuevo orden; §9 recomendaciones para la
+  consola firmadora (validación en la carga por prefijo exacto, `ByteRange`,
+  certificado esperado; lote SFTP idempotente con manifiesto; advertencia sobre
+  el token en Bolivia). Se suman `ANALISIS_LEGAL_CPC_2026-09-03.md` (memo de
+  Rodrigo) y `RESUMEN_EJECUTIVO_FIRMAS.md` (una página para Gerencia).
+- **`docs/auditoria/ANALISIS_MATRIZ_CAMPOS_2026-09-04.md`** (nuevo) y el PDF
+  fuente en `docs/`: 30 decisiones contrastadas con `tipos.ts` y la
+  especificación — 17 ya cumplidas, 3 ajustes, 9 cambios de modelo o pantalla
+  y 1 decisión (sexo). Destapa una estructura nueva: **dos rutas de diligencia**
+  (simplificada / normal), propuesta como **D-24**, y la sustitución
+  obligatoria de `CDXXXXX` por el código **15-VI.0002** (Nota SS.SG.
+  397/2026). Observa que los numerales «6.13.x / 12.x» del CSV no coinciden
+  con el Anexo leído.
+
+### Qué hizo Andres
+
+- Descargó del BCP las Res. 215/17 y 136/18 y las dejó en `docs/normativa/`
+  (el BCP devuelve 403 a descargas automáticas).
+- Aprobó las tres decisiones: 6-bis re-baseada, la recomendación sobre D-12
+  (comprobante de pago como entrega inmediata) y D-13 corregida.
+- Fijó el rumbo de la consola firmadora: proyecto separado y multi-cliente,
+  prototipo con firma manual de Rodrigo, piloto con token de Code100 en una
+  miniPC en Santa Cruz.
+
+### Verificaciones
+
+- Las tres normas se abrieron y leyeron: la 215/17 (16 p, texto completo), la
+  136/18 (5 p) y la 231/2025 (5 p, escaneada: se renderizó y se leyó página
+  por página para confirmar «Abrogar la Resolución SS.SG. N° 136/2018» en su
+  art. 1º).
+- `grep` de «215/2025» en `src/` y en el CSV: **0** resultados fuera del test.
+- `npm run typecheck` en verde; `npm run lint` 0 errores (8 warnings
+  preexistentes de `<img>`); **`npm test`: 91 archivos, 1252 tests en verde**
+  — incluido el de higiene con su lista nueva.
+
+### Queda abierto
+
+- **Implementar** las tres decisiones: máquina de estados
+  (`FIRMADO_CLIENTE → PAGO_CONFIRMADO`), retiro del CPC del motor, firmantes
+  del paquete. Cada una reescribe una regla inviolable en `CLAUDE.md` al
+  implementarse.
+- **D-24** (criterio de ruta de diligencia) y **sexo** (según el modelo
+  registrado): Andres con Alianza.
+- **`catalogo.ts`:** código 15-VI.0002 y Nota 397/2026, con nueva versión
+  documental.
+- **Revalidar los numerales del CSV** contra la 215/17 leída.
+- Normas que faltan y hoy sostienen citas: Código Civil (parte de seguros),
+  Ley 827/96, Res. 205/2025, Res. SEPRELAD 71/2019, Res. 238/19, Res. 012/12.
+- Sin versionar en `docs/normativa/` quedaron duplicados y documentos de la
+  ICPP que otra sesión bajó (`Ley Nro 6822-2021.pdf` de 10 MB,
+  `Decreto_7576-2022.pdf`, `DOC-ICPP-*`, `RESOLUCION_N_1384_2022`,
+  `RESOLUCION_N_262_2024`): por la decisión del 02-sep no entran al repo.
+- Comprar o construir el firmador; PIN desatendido (dictamen); TSA.
+
+---
+
 ## 2026-09-02 · El canvas publicado en el repo de Lovable, y la adenda integrada
 
 **Rama:** `docs/rediseno-lovable-canvas` · **Pedido de Andres** (seis pasos:

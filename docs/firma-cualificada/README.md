@@ -180,6 +180,13 @@ solución es trasladable a Interseguros.
   SHA-256 y la receta de descarga. Los PDF **no se versionan** (decisión del
   02-sep-2026: son ~19 MB de consulta ocasional); una copia local en esa
   carpeta queda ignorada por git.
+- [`CAMBIOS_NECESARIOS.md`](CAMBIOS_NECESARIOS.md) — lo que contó Alianza el
+  03-sep, la secuencia legal del 04-sep con las tres decisiones, los cambios
+  por capa y las recomendaciones para la consola firmadora.
+- [`ANALISIS_LEGAL_CPC_2026-09-03.md`](ANALISIS_LEGAL_CPC_2026-09-03.md) — el
+  memo legal de Rodrigo sobre el CPC (quién lo firma y por qué), tal como llegó.
+- [`RESUMEN_EJECUTIVO_FIRMAS.md`](RESUMEN_EJECUTIVO_FIRMAS.md) — una página
+  para la aprobación de Gerencia: secuencia, decisiones y riesgo abierto.
 - La **Ley 6822/2021** y el **Decreto 7576/2022** sí están en el repositorio,
   en `docs/normativa/` (`ley-6822-2021.pdf`, `decreto-7576-2022.pdf`): son las
   que este documento cita, y la regla de `CLAUDE.md` es que una norma entra

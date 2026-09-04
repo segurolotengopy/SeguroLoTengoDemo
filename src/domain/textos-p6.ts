@@ -19,14 +19,14 @@
  *   SeguroLo Tengo - Tabla.csv` — "R2 - CONSENTIMIENTO, IDENTIFICACIÓN Y
  *   REPUDIO", *"Presentar declaraciones médicas claras, completas y coherentes
  *   con el producto"*, Código Civil, arts. 1349-1354 y 1387; Res. SS SG.
- *   215/2025, anexo 1, numerales 11.2 y 11.11.
+ *   215/17, anexo 1, numerales 11.2 y 11.11.
  * - Declaración 8 (PEP): fila 18, *"Preguntar si el cliente es PEP o está
  *   relacionado con una PEP"*, Res. SEPRELAD 50/20, arts. 2-3; Res. SEPRELAD
  *   71/19, art. 26(1)(j). Y fila 19 para la derivación sin rechazo automático,
  *   Res. SEPRELAD 50/20, art. 7.
  * - Declaración 4 (inicio de cobertura a las 24 h del pago): fila 50, Res. SS
- *   SG. 215/2025, Anexo 1, numeral 6.13.14; Código Civil, art. 1374.
- * - Declaración 6 (entrega digital): fila 53, Res. SS SG. 215/2025, art. 4,
+ *   SG. 215/17, Anexo 1, numeral 6.13.14; Código Civil, art. 1374.
+ * - Declaración 6 (entrega digital): fila 53, Res. SS SG. 215/17, art. 4,
  *   primer párrafo; Ley 4868/13, art. 7(d).
  * - Declaración 7 (corredor y su remuneración): fila 1, Ley 4868/13, arts. 3,
  *   7(a) y 7(d); Ley 827/96, arts. 70-71; Res. SS SG. 223/17, numeral 9(c).

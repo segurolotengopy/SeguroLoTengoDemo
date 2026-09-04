@@ -31,7 +31,7 @@
  * digitales"* (Ley 6822/21, arts. 42(5), 61 y 66); fila 77, *"Generar un hash
  * individual para Solicitud, FIPF y póliza"* (Ley 6822/21, arts. 42(5), 44 y
  * 66); fila 47, *"Vincular póliza, Solicitud, FIPF, pago y firmas mediante
- * correlativos o hashes"* (Res. SS SG. 215/2025, punto 14).
+ * correlativos o hashes"* (Res. SS SG. 215/17, punto 14).
  *
  * ## Idempotencia
  *

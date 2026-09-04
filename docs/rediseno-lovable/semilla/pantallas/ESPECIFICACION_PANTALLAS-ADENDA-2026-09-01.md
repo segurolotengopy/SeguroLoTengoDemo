@@ -100,7 +100,7 @@ activo, `neutral-400` los demás), recorte `center 40%`, cuadro `16/9` con radio
 Para que nadie las «corrija» hacia el canvas:
 
 - Beneficiario: el canvas pide cédula, fecha de nacimiento y celular; **no se
-  piden** (DI-7, Res. SIS 215/2025 num. 11.4). Solo nombre, parentesco,
+  piden** (DI-7, Res. SIS 215/17 num. 11.4). Solo nombre, parentesco,
   domicilio.
 - «Formulario de Información Previa a la Firma»: error del canvas; el FIPF
   es el Formulario de Identificación de Persona Física (DI-1).

@@ -18,7 +18,7 @@
  * "R4 - FIRMA ELECTRÓNICA MEDIANTE CODE100" salvo donde se indica:
  *
  * - 34 — El cliente firma electrónicamente la Solicitud y el FIPF
- *   (Ley 6822/21, arts. 38(1), 42(5) y 67-69; Res. SS SG. 215/2025, anexo 1,
+ *   (Ley 6822/21, arts. 38(1), 42(5) y 67-69; Res. SS SG. 215/17, anexo 1,
  *   numeral 11.15).
  * - 35 — Cerrar los documentos antes de firmar y conservar sus huellas
  *   digitales (Ley 6822/21, arts. 42(5), 61 y 66).
@@ -35,7 +35,7 @@
  * - 43 y 47 — Firma confirmada → cobro → envío a Alianza → validación
  *   automática → emisión, y vinculación por correlativos o hashes
  *   ("R5 - ACEPTACIÓN, EMISIÓN Y PÓLIZA"; Código Civil, arts. 1348 y 1373-1374;
- *   Res. SS SG. 215/2025, punto 14; Ley 6822/21, arts. 44-46).
+ *   Res. SS SG. 215/17, punto 14; Ley 6822/21, arts. 44-46).
  */
 import type { CanalFirma } from "./tipos";
 

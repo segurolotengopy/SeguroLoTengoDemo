@@ -1,9 +1,11 @@
 # Cambios necesarios para la firma cualificada con token F2
 
-**Fecha:** 03-sep-2026
+**Fecha:** 03-sep-2026 · **actualizado el 04-sep-2026** con el análisis legal de
+Rodrigo y las decisiones de Andres de ese día (§4).
 **Origen:** reunión técnica Alianza–Interseguros del 03-sep-2026 (Benjamín
 Cámara y TI de Alianza, con Andres Alberdi). Notas y transcripción en
-`docs/antecedentes/Reunión Técnica Alianza-Interseguros - 2026_09_03 - Notes by Gemini.pdf`.
+`docs/antecedentes/Reunión Técnica Alianza-Interseguros - 2026_09_03 - Notes by Gemini.pdf`;
+análisis legal del CPC en [`ANALISIS_LEGAL_CPC_2026-09-03.md`](ANALISIS_LEGAL_CPC_2026-09-03.md).
 **Continúa:** `README.md` de esta carpeta, que planteó las preguntas.
 
 ---
@@ -55,43 +57,57 @@ invalidaría el resultado.
 | Hay que averiguar si podemos homologar un HSM propio ante el MIC | **Ya no hace falta.** El dispositivo cualificado es el token que entrega el PSC, homologado por él. Nuestro software no necesita certificación: la norma homologa el dispositivo, no el programa que lo invoca |
 | AWS KMS / CloudHSM como dispositivo | **Descartado para firma cualificada**, no por incumplir FIPS sino porque el camino del token lo vuelve innecesario. KMS sigue en pie para la firma **no** cualificada del cliente |
 | La firma desatendida tensiona el control exclusivo del art. 44.1 | **Sin resolver, y Alianza tampoco lo resuelve**: ingresan el PIN una vez y el proceso queda corriendo. Lo asumen. Es una decisión que Interseguros tiene que tomar con dictamen, no heredar |
+| El firmador por carpetas mete decenas de segundos entre la firma del cliente y el pago | **Resuelto por la norma, no por ingeniería** (§4): la firma de Interseguros va **después** del pago |
 
 Y aparece un dato que no teníamos: **Alianza migró de Code100 por la calidad de
 su F2**. Es un juicio de ellos, no un hecho verificado, pero es información
 directa de un cliente del proveedor y pesa en la decisión pendiente.
 
-## 4. El problema nuevo: la latencia contra D-08
+## 4. La secuencia legal, y las tres decisiones del 04-sep-2026
 
-Es la consecuencia más importante de la reunión, y no estaba en el análisis.
+El análisis de Rodrigo (matriz *«Firmas, actos, respaldo jurídico y plazos»* y
+el memo del CPC del 03-sep) fija el orden. Se transcribe porque la matriz
+llegó como imagen y este repositorio necesita poder citarla:
 
-Con **D-08** la firma ocurre **antes del pago**: el expediente queda en
-`FIRMADO_CLIENTE` con el cobro inhabilitado hasta que se apliquen las
-institucionales y pase a `FIRMADO`. Hoy eso es instantáneo porque las
-institucionales son simuladas (`firma-p8.ts`, certificados `DEMO-CERT-…`).
+| N.º | Acto / documento | Responsable | Firma o respaldo | Momento / plazo | Respaldo jurídico | Resultado |
+| :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| 1 | Firma de la Solicitud + FIPF | Cliente / proponente | Firma electrónica simple de SeguroLoTengo: OTP, identidad, fecha, hora, IP, hash e integridad | Antes de la aceptación y del CPC | Res. 210/2025 arts. 4, 6 y 9 | **Obligatorio** |
+| 2 | Confirmación del pago del premio | Cliente · Bancard · Alianza | Registro electrónico de la operación y referencia Bancard | Inmediato, al aprobarse el pago | Código Civil arts. 1573 y 1574 | **Habilita CPC** |
+| 3 | Emisión del Certificado de Cobertura Provisional | **Alianza Garantía** | Firma electrónica cualificada del suscriptor autorizado, con el proveedor propio de Alianza | Inmediatamente después del pago | Código Civil art. 1573; Res. 231/2025 Anexo I arts. 1 y 2; Res. 215/17 art. 7º y numeral 10 | **Permitido** |
+| 4 | Firma de Interseguros sobre Solicitud + FIPF | Interseguros S.A. · Rodrigo Fernández Echazú | Firma electrónica cualificada sobre el mismo PDF cerrado | **Dentro de 24/48 h y antes de la póliza definitiva.** Plazo operativo acordado con Alianza | Res. 210/2025 arts. 5 y 9; Ley 827/96 art. 76; Res. 205/2025 art. 2; Res. 215/17 num. 11.15 | **Obligatorio** |
+| 5 | Verificación y archivo del FIPF | Alianza, como sujeto obligado | Verificación documental y constancia electrónica. **No exige firma institucional de Alianza en el FIPF** | Durante el procesamiento, según el procedimiento ALA/CFT | Res. SEPRELAD 71/2019 arts. 25, 26, 27 y 53 | **Obligatorio** |
+| 6 | Emisión de póliza y factura en SEBAOT | Alianza Garantía | Póliza: firma cualificada del suscriptor autorizado. Factura: emisión de Alianza | Dentro de 24/48 h, según plazo operativo de Alianza | Código Civil art. 1555; Res. 231/2025 arts. 2 a 6; Res. 215/17 art. 14º | **Obligatorio** |
+| 7 | Entrega y acceso del cliente | SeguroLoTengo y Alianza | CPC; Solicitud + FIPF finales; póliza y factura por canales verificados | CPC tras el pago; documentos finales cuando sean emitidos y firmados | Ley 4868/2013 arts. 7.c y 28.b; Res. 210/2025 art. 9; Código Civil art. 1558 | **Disponible** |
 
-Con un firmador por carpetas, deja de serlo:
+> **Conclusión de la matriz:** el CPC puede emitirse después del pago y antes
+> de la firma cualificada de Interseguros. **El plazo de 24/48 h es operativo,
+> no legal**: la normativa exige las firmas y su trazabilidad, no un plazo, ni
+> condiciona el CPC a la firma previa del corredor. Debe quedar documentado en
+> el procedimiento aprobado por Alianza (Res. 210/2025 art. 10).
 
-- **Nuestra firma** (Interseguros, token propio): una tarea cada 30 s ⇒
-  0-30 s de espera, más el tiempo de firmar.
-- **La firma de Alianza**: su token está en **su** CPD, no en el nuestro. Hay
-  un salto entre organizaciones — depositar el documento, que su tarea lo tome,
-  que nos lo devuelvan. Ese es exactamente el intercambio cuyo formato Cámara
-  quedó en enviar.
+**Lo que la matriz fijaba «mediante Code100» no es exigencia**: la norma pide
+firma cualificada del corredor, no un proveedor, y Alianza ya migró (§1).
 
-O sea: **entre que el cliente firma y puede pagar pueden pasar decenas de
-segundos, o más si Alianza responde en diferido**, con la persona esperando en
-pantalla. Tres salidas, y la elección es de producto:
+### Las tres decisiones (Andres, 04-sep-2026)
 
-| | Qué implica | Costo |
-| :-- | :-- | :-- |
-| **(a) Esperar en pantalla** | P8 sondea hasta `FIRMADO` y recién ahí habilita el pago. Reusa el patrón de sondeo que ya existe | Conversión: decenas de segundos de espera en el peor momento del embudo |
-| **(b) Desacoplar** | La firma del cliente habilita el cobro; las institucionales se aplican en diferido por cola | **Toca la regla inviolable 6-bis** («no hay cobro sin firma», único origen `FIRMADO`) y hay que redefinir qué significa `FIRMADO`. Decisión con consecuencia legal |
-| **(c) Solo Interseguros en línea** | Se espera la firma del corredor —que es la que la Res. 210/2025 art. 5 exige— y la de Alianza se aplica en diferido | Intermedia. Requiere revisar D-13, que hoy pone a Alianza como `CONJUNTO` sobre el paquete |
+| Decisión | Qué cambia | Respaldo | Registro |
+| :-- | :-- | :-- | :-- |
+| **6-bis re-baseada** | El cobro se habilita con la firma **del cliente** (`FIRMADO_CLIENTE`); la firma cualificada de Interseguros se aplica **después**, dentro de 24/48 h. `FIRMADO` queda entre el pago y la emisión | Res. 210/2025 arts. 4 y 5; Res. 215/17 num. 11.15 (*«Firma del Agente / Corredor de Seguros, o del Proponente»*) | D-08 modificada |
+| **D-12** | El CPC **lo emite y firma solo Alianza** desde su sistema. SeguroLoTengo deja de generarlo; el **comprobante de pago (D-05)** cubre la entrega inmediata | Res. 231/2025 Anexo I arts. 1-2; Res. 215/17 art. 7º y num. 10; CC art. 1573 | D-12 modificada |
+| **D-13** | **Alianza no firma** la Solicitud ni el FIPF. Firmantes del paquete: cliente + Interseguros | Res. 215/17 num. 11.15; Matriz V4 §7 (tenía razón) | D-13 modificada; ALR-07 cerrada |
 
-La (c) tiene a favor que la **firma de Alianza sobre la Solicitud y el FIPF no
-es una exigencia normativa** — ya está anotado en `VALIDACION_LEGAL_FIRMA_INTERNA.md`
-§3: lo que la norma le exige a la aseguradora es firmar la póliza. Es la pieza
-que puede moverse sin tocar cumplimiento.
+Lo que esto resuelve de un golpe: **la latencia del firmador por token deja de
+importar**, porque ya no hay nadie esperando en pantalla a que Interseguros
+firme. Y es exactamente lo que hace viable el prototipo con firma manual de
+Rodrigo (§9): un proceso con un humano adentro solo funciona fuera del camino
+crítico de la venta.
+
+**Cautela sobre citas.** De las normas de la matriz, están en `docs/normativa/`
+la 210/2025, la 231/2025, la 215/17 y la Ley 6822/2021. **No están** el Código
+Civil (parte de seguros), la Ley 827/96, la Res. 205/2025, la Res. SEPRELAD
+71/2019, la Ley 4868/2013 ni la Res. SS.SG. 012/12 (identificación del corredor
+con nombre, matrícula y teléfono). Hasta que entren, esas citas son de segunda
+mano y así hay que declararlas.
 
 ## 5. El módulo firmador
 
@@ -112,7 +128,7 @@ documento cerrado + hash  →  [PKCS#11 · token F2]  →  PDF con firma PAdES
    emisor. Un token cambiado por renovación no debe pasar inadvertido.
 3. Calcula el `ByteRange`, arma el CMS/PKCS#7 *detached*, le pide al token la
    firma del hash y escribe la **actualización incremental** del PDF, de modo
-   que las firmas anteriores sigan siendo válidas.
+   que la firma anterior (la del cliente, si es criptográfica) siga válida.
 4. Pide el sello de tiempo a la TSA (RFC 3161) y lo incorpora ⇒ **PAdES-T**.
 5. Devuelve el PDF firmado, su nueva huella y los datos del certificado usado.
 
@@ -121,60 +137,109 @@ documento cerrado + hash  →  [PKCS#11 · token F2]  →  PDF con firma PAdES
 - **No extrae la clave** (§2), y hay que dejarlo escrito en el código.
 - **No decide** quién firma ni en qué orden: eso ya vive en
   `firmantes-documento.ts` (D-13) y sigue ahí.
-- **No guarda el PDF**: la custodia entre firmas es de `ArchivoRepository`.
+- **No guarda el PDF**: la custodia es de `ArchivoRepository`.
 - **No cierra ni hashea documentos**: eso es de `src/documentos/`, y la regla
   inviolable #4 exige que el documento llegue ya cerrado.
 
 ### Construirlo o comprarlo
 
 El firmador de Alianza cuesta ≈ 4 M Gs y trae el límite de **una firma por
-programa**, que a ellos les obliga a encadenar computadoras. A nosotros nos
-haría falta **una sola** firma propia (la de Interseguros), así que ese límite
-casi no nos pesa y comprar es una salida legítima y rápida.
+programa**. A nosotros nos hace falta **una sola** firma propia (la de
+Interseguros), así que ese límite casi no pesa y comprar es una salida legítima
+y rápida. A favor de construirlo: evita las carpetas como interfaz —que no
+dejan trazabilidad ni acuse— y encaja en la arquitectura de puertos. En contra:
+**PAdES incremental es trabajo real** (ByteRange, CMS, DSS).
 
-A favor de construirlo: elimina el encadenamiento si algún día hacen falta dos
-firmas nuestras, evita las carpetas como interfaz —que no dejan trazabilidad ni
-acuse— y encaja en la arquitectura de puertos en vez de convivir con ella. En
-contra: **PAdES incremental es trabajo real** (ByteRange, CMS, DSS), bastante
-más que el generador de PDF propio que ya tenemos.
-
-**Recomendación:** decidirlo recién después de ver el formato que mande Cámara,
-porque si el intercambio con Alianza va a ser por carpetas de todos modos, la
-ventaja del módulo propio se reduce a la mitad.
+**Recomendación:** decidirlo después de ver el formato que mande Cámara. Con la
+firma fuera del camino crítico (§4) la urgencia bajó: el prototipo manual (§9)
+cubre la salida.
 
 ## 6. Cambios por capa
 
 | Capa | Qué cambia |
 | :-- | :-- |
-| **Puerto** | `SignatureProvider` deja de modelar el acto del cliente —canal, destino, enlace, sondeo del proveedor— y pasa a modelar **la aplicación de una firma institucional sobre un PDF**: entra documento cerrado, sale documento firmado y su huella. Lo anticipaba `ANALISIS_MODELO_DE_FIRMA.md` §3; ahora hay contrato concreto que escribir |
-| **Dominio** | `firma-p8.ts` deja de fabricar `FirmaInstitucional` con `DEMO-CERT-…` y pasa a pedirlas al puerto, una por vez y **en serie**. Hace falta el desenlace para «se aplicó una y falló la otra»: hoy `FIRMADO_CLIENTE` lo cubre a medias |
-| **Adaptadores** | Nuevo adaptador del firmador (token o servicio local). El mock se mantiene y debe simular **la latencia**, no solo el resultado: si el mock responde instantáneo, el problema del §4 no se ve hasta producción |
-| **Infraestructura** | Aparece un componente **on-premise** que hoy no existe: máquina dedicada, token, y cómo le llegan los documentos desde Amplify (S3 + agente, cola, o carpeta compartida). Custodia física del token y del PIN |
-| **Evidencia** | Cada firma institucional deja certificado real, sello de tiempo y huella resultante. Los `DEMO-CERT-…` desaparecen del camino live |
-| **Documentos fuente** | `CLAUDE.md` §*Contrato oficial de `SignatureProvider`* describe los cuatro endpoints de Code100 como el contrato de las institucionales: deja de ser cierto si se va por token. `ESPECIFICACION_PANTALLAS.md` P8 cambia si se elige (a) |
-| **Catálogo** | **Confirma** entra en `docs/Tabla de Integraciones externas - Tabla.csv` antes de escribir una línea, junto con el firmador y la TSA. Es regla de `CLAUDE.md`, no preferencia |
+| **Máquina de estados** (`expediente.ts`) | El cobro se abre desde `FIRMADO_CLIENTE`, no desde `FIRMADO`. `FIRMADO` (institucional) pasa a vivir **entre** `PAGO_CONFIRMADO` y `EMITIDO`, y admite quedar pendiente 24/48 h sin frenar nada. `VENCIDO` = firmado por el cliente y no pagado. Es la regla 6-bis re-baseada: se reescribe en `CLAUDE.md` cuando se implemente, no antes |
+| **Pago** (`confirmarPagoP7`, `registrarPagoConfirmadoP7`) | Dejan de cerrar y asentar el CPC: la emisión del certificado **sale** de la transición del pago (D-12). Desaparece `DependenciasP7.emitirCertificado` y el desenlace `CERTIFICADO_NO_EMITIDO` |
+| **Documentos** (`certificado-cobertura.ts`, `plantillas.ts`, `servicio.ts`) | El CPC deja de ser documento del motor. Se conserva el comprobante de pago (D-05). La clave `CPC-…` en S3 y `/verificar/<código>` para el CPC pierden objeto; los expedientes que ya lo tienen no se reescriben (regla #10) |
+| **Firmantes** (`firmantes-documento.ts`) | `PAQUETE`: cliente + Interseguros. Sale `ALIANZA` del paquete y sale `CPC` de `DocumentoFirmable`. Los dos invariantes con test (cliente primero y simple; institucional cualificada) siguen valiendo |
+| **Puerto** | `SignatureProvider` pasa a modelar **la aplicación de una firma institucional sobre un PDF cerrado**, sin canal, destino, enlace ni sondeo del proveedor; con `origen` de la firma y certificado real en la evidencia |
+| **Adaptadores** | Adaptador del firmador (token o consola, §9) y adaptador **SFTP a Alianza** para el lote de documentos firmados. El mock debe simular **la latencia**, no solo el resultado |
+| **Infraestructura** | Componente **on-premise** nuevo: máquina dedicada + token, y cómo le llegan los documentos desde Amplify. Custodia física del token y del PIN |
+| **Pantalla de confirmación** (P9) | Descargables inmediatos: paquete firmado por el cliente y comprobante de pago. El CPC y la póliza pasan a «en emisión por Alianza · llega por tus canales». La firma de Interseguros no la espera el cliente |
+| **Entrega y remisión** (CHG-44, CHG-47) | La remisión a Alianza se convierte en el **lote SFTP** de paquetes firmados (§9); el CPC vuelve de Alianza y se entrega por los canales verificados con acuse |
+| **Documentos fuente** | `CLAUDE.md` (6-bis, máquina de estados, sección del CPC, «tres descargables», contrato de `SignatureProvider`), `ESPECIFICACION_PANTALLAS.md` (paso 3 y confirmación), `Tabla Cumplimiento` (filas 44 y 47, CMP-07), `PLAN_DE_CAMBIOS_v2.md` (L5a/L5b) |
+| **Catálogo de integraciones** | **Confirma**, la consola firmadora y el SFTP de Alianza entran en `docs/Tabla de Integraciones externas - Tabla.csv` **antes** de escribir una línea |
 
-## 7. Lo que hay que decidir
+## 7. Lo que queda por decidir
 
-1. **Qué pasa con la espera del §4** — producto, con Rodrigo. Es lo que
-   bloquea el diseño de P8 y toca la regla 6-bis si se elige (b).
-2. **Comprar o construir el firmador** (§5), después de ver el formato de
-   Alianza.
-3. **Si la firma de Alianza sobre el paquete se conserva** (D-13) o se limita a
-   la póliza, que es lo único que la norma le exige.
-4. **PIN desatendido**: quién lo custodia, cómo se repone tras un corte, y con
+1. **Comprar o construir el firmador** (§5), después de ver el formato de Alianza.
+2. **PIN desatendido**: quién lo custodia, cómo se repone tras un corte, y con
    qué dictamen se sostiene el control exclusivo del art. 44.1.
-5. **Code100**: con Alianza migrando por calidad del F2, hay que decidir si
-   sigue siendo la primera opción para el certificado de Interseguros.
+3. **Code100 o Confirma** para el certificado F2 de Interseguros, con lo que
+   contó Alianza en la mesa.
+4. **Sello de tiempo**: si el firmador no lo trae, qué TSA cualificada se
+   contrata (`DOC-ICPP-25/26`).
+
+Decididas el 04-sep-2026: la espera del §4 (desaparece), la firma de Alianza
+sobre el paquete (no va) y el CPC (lo emite Alianza).
 
 ## 8. Lo que hay que pedir
 
 | A quién | Qué |
 | :-- | :-- |
-| **Alianza** | El formato y los campos del intercambio (ya prometido por Cámara); si su firmador incluye TSA; marca del firmador y de los planes B/C |
-| **Confirma** | F2 a nombre del agente autorizado de Interseguros (Res. 205/2025); costo, plazo y renovación; si su firmador tiene modo servicio además de carpetas |
-| **Legal** | Dictamen sobre el PIN desatendido y sobre el punto 3 |
+| **Alianza** | El formato y los campos del intercambio (ya prometido por Cámara); el formato del **lote SFTP** y su acuse; si su firmador incluye TSA; cómo devuelven el CPC |
+| **Confirma / Code100** | F2 a nombre del agente autorizado de Interseguros (Res. 205/2025); costo, plazo y renovación; si su firmador tiene modo servicio además de carpetas |
+| **Legal** | Dictamen sobre el PIN desatendido |
 
-Las consultas al MIC que pedía el `README.md` §7 —lista de dispositivos
-certificados y formulario FOR-ICPP-06— **dejan de ser bloqueantes**: sirven
-solo si se vuelve a la idea del HSM propio.
+Las consultas al MIC que pedía el `README.md` §7 dejan de ser bloqueantes.
+
+## 9. La consola firmadora y el piloto (recomendaciones del 04-sep-2026)
+
+Andres está creando un **proyecto separado, multi-cliente**, del que
+SeguroLoTengo es el primer cliente. Piloto: una miniPC en Santa Cruz (Bolivia)
+con un token de Code100, para ver si responde. Antes, un **prototipo** en el
+que Rodrigo firma a mano con su herramienta actual: una consola donde descarga
+los PDF, los firma afuera, los vuelve a cargar, y el sistema los deposita por
+**SFTP a Alianza en bloque**.
+
+**Encaja con §4:** la firma manual solo es viable porque la firma del corredor
+salió del camino crítico. Sostenerla exige un techo explícito de volumen.
+
+**Va aparte.** Repo y directorio propios; acá entra por el puerto de firma con
+su adaptador, como cualquier integración. Multi-cliente desde el modelo de datos
+(aislamiento entre clientes), pero alcance mínimo en el prototipo.
+
+**Lo no negociable: la validación en la carga.** Un humano baja un PDF y sube
+otro. La consola rechaza salvo que se cumpla **todo** esto:
+
+1. **Mismo documento.** Una firma PAdES se aplica como actualización
+   incremental: el PDF firmado **conserva byte a byte** el original al
+   principio y solo agrega al final. Verificar que el archivo subido tenga
+   como **prefijo exacto** el que se entregó. Barato, y detecta sustitución,
+   recompaginación o regeneración — el error humano más probable.
+2. **Firma sobre todo el archivo:** el `/ByteRange` cubre de 0 al final, con el
+   único hueco de `/Contents`.
+3. **Certificado esperado:** titular (el agente autorizado, Res. 205/2025),
+   emisor, vigencia al sello de tiempo, perfil F2. Se guarda en la evidencia.
+4. **Firma y sello de tiempo válidos** criptográficamente.
+5. **Nada nuevo** fuera de la firma: ni páginas ni anotaciones.
+
+Cada rechazo con motivo accionable; cada descarga y cada carga con quién,
+cuándo y resultado, append-only (regla #10). Los PDF llevan declaraciones de
+salud: cifrado, acceso por identidad y regla #7.
+
+**El lote SFTP a Alianza:** idempotencia por nombre derivado de `PROP-<correlativo>`
+(nunca por marca de tiempo); **manifiesto** por lote con cantidad y huellas
+para que acusen; política explícita de reintento y de lote duplicado; clave
+SSH en un secreto, no contraseña ni repositorio. El formato lo manda Cámara:
+**no se inventa antes.**
+
+**Advertencia sobre el piloto en Bolivia.** El token de un firmante paraguayo en
+una miniPC en Santa Cruz debilita el **control exclusivo del titular** (art.
+44.1) más que en la oficina: el titular no puede ni verlo, y con el PIN cargado
+un argumento ya frágil se vuelve difícil de sostener. Separar: para el **piloto
+técnico** (¿responde el token por PKCS#11?) la ubicación es irrelevante — usar
+**un certificado de prueba, no el de Rodrigo**. Para producción, la máquina con
+el token del corredor donde está el corredor, con control de acceso físico
+documentado. Y tener a **Confirma como plan B** desde el arranque, por lo que
+contó Alianza del F2 de Code100.

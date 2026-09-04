@@ -238,7 +238,7 @@ export function FormularioSeguroP2({ nombrePila }: { nombrePila: string | null }
               />
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold text-titulo">
-              {/* Opcional a propósito: la Res. SIS 215/2025 num. 11.4 exige
+              {/* Opcional a propósito: la Res. SIS 215/17 num. 11.4 exige
                   nombre y domicilio, no la cédula de un tercero (CHG-24,
                   CMP-21). El canvas la pide obligatoria; se deja el criterio
                   de cumplimiento y se avisa la divergencia. */}

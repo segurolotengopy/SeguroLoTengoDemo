@@ -22,9 +22,9 @@ Consecuencia directa: **el cliente de CONFÍO tendría que llegar a P8 con un ce
 
 | Fila | Título | Norma y Artículo (textual del CSV) |
 | :---- | :---- | :---- |
-| 34 | El cliente firma electrónicamente la Solicitud de Seguro y el FIPF | Ley 6822/21, arts. 38(1), 42(5) y 67-69; Res. SS SG. 215/15, anexo 1, numeral 11.15 |
+| 34 | El cliente firma electrónicamente la Solicitud de Seguro y el FIPF | Ley 6822/21, arts. 38(1), 42(5) y 67-69; Res. SS SG. 215/17, anexo 1, numeral 11.15 |
 | 36 | Utilizar un mismo enlace Code100 para firmar la Solicitud y el FIPF | No es exigencia legal, es diseño del proceso. Debe mantener atribución conforme al art. 40 de la Ley 6822/21 |
-| 39 | Alianza firma la póliza mediante firma electrónica cualificada | Res. SS SG. 215/15, art. 1; Ley 6822/21, arts. 38(2) y 43 |
+| 39 | Alianza firma la póliza mediante firma electrónica cualificada | Res. SS SG. 215/17, art. 1; Ley 6822/21, arts. 38(2) y 43 |
 
 La propia matriz distingue el inciso que cita para el cliente (38(1)) del que cita para la firma cualificada de Alianza (38(2) y 43), y la fila 36 —usar Code100 para el cliente— está marcada como **diseño del proceso, no exigencia legal**. Es decir: la matriz no obliga a que el cliente firme con Code100 ni con certificado cualificado. **Confirmarlo es tarea del área legal, no de este equipo**: acá solo se deja asentado que el cambio de proveedor para la firma del cliente no contradice ninguna fila del CSV cargado.
 
