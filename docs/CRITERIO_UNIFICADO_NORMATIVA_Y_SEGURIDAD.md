@@ -20,14 +20,15 @@ investigación jurídica. Sirven como mapa y dirección, no como fuente de
 verdad final — toda norma que citen y que el proyecto use debe entrar como
 PDF oficial a `docs/normativa/` antes de citarse en pantallas o matriz.
 El inventario de qué está y qué falta vive en `docs/normativa/INDICE.md`,
-que además desambigua en su §0 las dos resoluciones de 2025 que el proyecto
-usa: la **215/2025** (modelos y contenido contractual, la que citan las
-filas «215» de la matriz, todavía sin texto oficial en el repositorio) y la
+que además desambigua en su §0 las dos resoluciones que sostienen al
+proyecto: la **215/17** (registro de planes y modelos, la que citan las filas
+«215» de la matriz; texto oficial en el repositorio desde el 04-sep-2026) y la
 **210/2025** (comercialización electrónica).
 
 **Aplicado el 26-ago-2026** (mismo día, en esta rama): la numeración de la
-resolución de modelos —«215/15», luego «215/17»— corregida a **«215/2025»**
-en las 89 citas del repositorio; ocho filas nuevas en la
+resolución de modelos corregida en las 89 citas del repositorio — a
+«215/2025», que el 04-sep-2026 resultó ser la errata: con el texto oficial a
+la vista, la vigente es la **215/17**, y las citas volvieron a esa forma; ocho filas nuevas en la
 matriz de cumplimiento (86-93) con los arts. 4 a 10 de la 210/2025; el
 retiro del correo de atención inventado de las dos aclaraciones que lo
 publicaban; el índice de `docs/normativa/`; la etiqueta normativa del Lote 6

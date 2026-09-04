@@ -1,6 +1,6 @@
 # Catálogo de normas — SeguroLoTengo
 
-**Última revisión:** 2026-08-27
+**Última revisión:** 2026-09-04
 **Regla de esta carpeta:** el nombre del archivo se deriva del **contenido**, verificado abriendo el documento, no de cómo llegó. Formato: `<emisor>-<tipo>-<número>-<año>-<materia>.pdf`.
 
 Toda norma que se agregue acá se registra en este catálogo con su fecha, su materia y **si fue leída de primera mano**. Una norma citada en la matriz de cumplimiento pero no presente en esta carpeta es una cita que nadie verificó.
@@ -13,6 +13,8 @@ Toda norma que se agregue acá se registra en este catálogo con su fecha, su ma
 | :---- | :---- | :---- | :---- | :---- |
 | `SIS-Res-210-2025-comercializacion-medios-electronicos.pdf` | Resolución SS.SG. N.º **210/2025** | 25-sep-2025 | Condiciones mínimas para comercializar seguros por medios electrónicos y canales no presenciales. **Norma central del portal**: art. 4 (firma simple del proponente con autenticación previa), art. 5 (firma cualificada del corredor), art. 8 (responsabilidad no delegable), art. 9 (conservación 2 años desde el vencimiento), art. 10 (procedimiento aprobado por Directorio) | **Sí**, texto completo |
 | `SIS-Res-231-2025-emision-polizas-electronicas.pdf` | Resolución SS.SG. N.º **231/2025** | 29-oct-2025 | Emisión de pólizas e instrumentos de cobertura en formato electrónico: firma cualificada del suscriptor, comunicación previa a la SIS con 10 días hábiles, verificación por QR o equivalente. **Deroga la Res. 136/2018** | **Sí**, texto completo |
+| `SIS-Res-215-2017-registro-planes-e-instrumentos-de-cobertura.pdf` | Resolución SS.SG. N.º **215/17** | 28-dic-2017 | Registro de planes de seguro y emisión de instrumentos de cobertura. Parte resolutiva: arts. 7º (ceñirse al modelo inscripto), 9º (condiciones particulares: suscriptores, código y acto de inscripción del plan, datos del corredor), 14º (numeración de 10 dígitos), 15º (firmas digitales/electrónicas con aprobación de Asamblea), 19º (deroga 136/07, 292/07 y 024/10). Anexo: modelo de certificado individual (10) y de propuesta (11: 11.4 beneficiario, 11.14 art. 1556, 11.15 firma del corredor o proponente). Modificada por la 238/19; plazo prorrogado por la 181/2020 | **Sí**, texto completo (04-sep-2026) |
+| `SIS-Res-136-2018-polizas-firma-facsimilar-y-digital-ABROGADA.pdf` | Resolución SS.SG. N.º **136/18** | 07-may-2018 | Condiciones para pólizas electrónicas con firma digital (Anexo 1: nómina de firmantes, certificado del suscriptor, texto en la propuesta con opción electrónica y acuse; herramienta de verificación) y para firma facsimilar (Anexo 2). **Abrogada por la 231/2025, art. 1º.** Antecedente, no se cita como vigente | **Sí**, texto completo (04-sep-2026) |
 | `SIS-Res-190-2025-denominacion-registrada.pdf` | Resolución SS.SG. N.º **190/2025** | 08-sep-2025 | Uso exclusivo de la denominación registrada y autorizada por la SIS para agentes, corredores y liquidadores | Sí, encabezado y parte dispositiva |
 | `SIS-Circular-011-2025-registracion-nombre-comercial.pdf` | **Circular** SS.SG. N.º **011/2025** | 30-sep-2025 | Lineamientos para registrar el nombre comercial o de fantasía, en el marco de la Res. 190/2025. Criterios de formación del nombre y documentos a presentar | Sí, primera página |
 | `SIS-Res-117-2026-matriculacion-auxiliares-anexo-II.pdf` | Resolución SS.SG. N.º **117/2026** | 23-mar-2026 | Modifica el Anexo II de la Res. 031/2026 (régimen de matriculación y renovación de auxiliares de seguros) | Sí, encabezado |
@@ -27,7 +29,7 @@ Toda norma que se agregue acá se registra en este catálogo con su fecha, su ma
 | `matriz 16 08 2026.pdf` | **No es una norma**: es la Matriz Legal Final V4 del proyecto | Movida a `docs/MATRIZ_LEGAL_V4_2026-08-16.pdf` |
 | `ESPECIFICACION.pdf` | **No es una norma**: es una especificación funcional de seis pantallas | Movida a `docs/ESPECIFICACION_SEIS_PANTALLAS_2026-08-17.pdf` |
 
-**No existe en esta carpeta ninguna copia de la Resolución 215.** La cita más repetida de la matriz de cumplimiento apunta a una norma que el proyecto nunca tuvo a la vista (§3).
+**La Resolución 215/17 está en esta carpeta desde el 04-sep-2026**, leída de primera mano: su numeral 11 es el contenido de la propuesta que citan las filas «215» de la matriz. Entre el 26-ago y el 04-sep el repositorio la citó como «215/2025», siguiendo el nombre del archivo `215_2025.pdf` que en realidad contiene la 210/2025; ese día el diagnóstico de §3 quedó confirmado y las citas volvieron a «215/17».
 
 ## 3. Validación de las citas de la matriz de cumplimiento
 
@@ -35,7 +37,7 @@ Contraste entre `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` y las norma
 
 | Cita en el CSV | Veces | Diagnóstico |
 | :---- | :---- | :---- |
-| `Res. SS SG. 215/15` | **35** | **Incorrecta.** La resolución sobre registro de modelos de pólizas es la **215/2017**, modificada por las Resoluciones 238/2019 y 181/2020. Lo confirman dos fuentes independientes: el **visto de la propia Resolución 231/2025**, que cita "Resolución SS.SG. N° 215/17", y la Matriz Legal V4, que cita "Res. SIS 215/2017, 238/2019 y 181/2020". Es la cita más repetida de toda la matriz |
+| `Res. SS SG. 215/15` | **35** | **Incorrecta.** La resolución sobre registro de modelos de pólizas es la **215/2017**, modificada por las Resoluciones 238/2019 y 181/2020. Lo confirman dos fuentes independientes: el **visto de la propia Resolución 231/2025**, que cita "Resolución SS.SG. N° 215/17", y la Matriz Legal V4, que cita "Res. SIS 215/2017, 238/2019 y 181/2020". Es la cita más repetida de toda la matriz. **Corregida a «215/17» el 04-sep-2026**, tras el desvío por «215/2025» (ver `INDICE.md` §0) |
 | `Res. SEPRELAD 50/20` | 2 | **Probablemente incorrecta**: las dos fuentes secundarias disponibles citan la **50/2019**. No pude verificarla de primera mano — no tenemos el PDF |
 | `Res. SS SG. 223/17` | 1 | Sin verificar: no tenemos el documento |
 | `Res. BCP 25/21` | 10 | Sin verificar: no tenemos el documento |
@@ -47,6 +49,6 @@ Contraste entre `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` y las norma
 
 ## 4. Normas citadas que convendría conseguir
 
-Res. SS.SG. 215/2017 (y sus modificatorias 238/2019 y 181/2020), Res. SS.SG. 223/2017, Res. SEPRELAD 71/2019 y 50/2019, Res. BCP 25/2021, Res. SS.SG. 031/2026, Res. SS.SG. 219/2018, Ley 7593/2025 y Ley 3940/2009.
+Res. SS.SG. 238/2019 y 181/2020 (modificatorias de la 215/17), Res. SS.SG. 223/2017, Res. SEPRELAD 71/2019 y 50/2019, Res. BCP 25/2021, Res. SS.SG. 031/2026, Res. SS.SG. 219/2018, Ley 7593/2025 y Ley 3940/2009.
 
 Mientras no estén, cualquier afirmación sobre su contenido proviene de fuentes secundarias y así debe declararse.

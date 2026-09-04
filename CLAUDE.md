@@ -57,6 +57,21 @@ limiting y el resto de los CMP nuevos). Cada regla se corrige acá cuando el
 lote que la cambia se implementa, no antes: hasta entonces, **la regla escrita
 abajo es la que rige el código que existe hoy**.
 
+### ⚠️ Decisiones del 04-sep-2026 sobre firmas y CPC, pendientes de implementar
+
+Tras el análisis legal de Rodrigo (03/04-sep-2026; `docs/firma-cualificada/CAMBIOS_NECESARIOS.md`
+§4 y `docs/plan/DECISIONES.md`, enmiendas a D-08, D-12 y D-13) Andres decidió:
+**(1)** el cobro se habilita con la firma **del cliente** (`FIRMADO_CLIENTE`) y la
+firma cualificada de Interseguros pasa a aplicarse **después del pago**, dentro
+de 24/48 h operativas (Res. 210/2025 art. 5; Res. 215/17 num. 11.15); **(2)** el
+Certificado de Cobertura Provisional **lo emite y firma únicamente Alianza**
+desde su sistema (Res. 231/2025 Anexo I arts. 1-2; Res. 215/17 art. 7º y num.
+10) — SeguroLoTengo deja de emitirlo, y el comprobante de pago (D-05) cubre la
+entrega inmediata; **(3)** Alianza **no** firma la Solicitud ni el FIPF. Nada de
+esto está implementado: la regla 6-bis, la máquina de estados, la sección del
+CPC y los «tres descargables» de más abajo siguen describiendo el código de hoy,
+y se reescriben con el lote que los cambie.
+
 ### Documentos fuente adicionales
 
 Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente de verdad de aspectos específicos. Cargalos antes de tocar el área indicada — no asumas su contenido de memoria si pasó tiempo desde la última lectura.
@@ -175,17 +190,17 @@ infra/ \# Terraform
 
 - **Nunca cites de memoria un artículo de ley.** Si necesitás justificar una regla de negocio, buscá la fila correspondiente en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` y citá Número + Categoría + Norma y Artículo tal como figuran ahí.
 - Si un pedido no tiene fila en esa matriz, decilo explícitamente: _"Esto no tiene respaldo en la matriz de cumplimiento cargada; es una decisión de producto/UX, no una obligación legal"_.
-- **Contrastá toda cita del CSV contra `docs/MATRIZ_LEGAL_V4.md` y `docs/normativa/`.** El CSV tiene errores comprobados —cita la resolución de modelos como `Res. SS SG. 215/15`, y la vigente es la **215/2025** (ver `docs/normativa/INDICE.md` §5, que también prohíbe la errata «215/17»)— y no menciona ni la 210/2025 ni la 231/2025, que son las normas centrales del canal electrónico. `docs/normativa/CATALOGO.md` es el catálogo que trajo el análisis de firma; ante discrepancia con `INDICE.md`, manda el índice.
+- **Contrastá toda cita del CSV contra `docs/MATRIZ_LEGAL_V4.md` y `docs/normativa/`.** El CSV tiene errores comprobados —cita la resolución de modelos como `Res. SS SG. 215/15`, y la vigente es la **215/17** (28-dic-2017; ver `docs/normativa/INDICE.md` §0 y §5, que también prohíben la errata «215/2025» con que el repositorio la citó entre el 26-ago y el 04-sep-2026)— y no menciona ni la 210/2025 ni la 231/2025, que son las normas centrales del canal electrónico. `docs/normativa/CATALOGO.md` es el catálogo que trajo el análisis de firma; ante discrepancia con `INDICE.md`, manda el índice.
 - Los PDF (`Solicitud.pdf`, `FIPF.pdf`, `Pantallas Sistema Demo.pdf`) son la fuente de verdad de **estructura de datos y UI**. El CSV de cumplimiento es la fuente de verdad de **obligación legal**. No mezclar ambos como si fueran lo mismo.
 - Ante conflicto entre lo que se pide y lo que exige la matriz de cumplimiento (por ejemplo, saltear un OTP, iniciar cobertura antes del pago, o permitir contratar para un tercero), **priorizá la matriz** y señalá el conflicto en vez de implementarlo en silencio.
-- **Antes de citar una norma, mirá `docs/normativa/INDICE.md`**: dice qué textos oficiales están en el repositorio y cuáles todavía no. Una norma sin PDF acá es una cita que nadie puede contrastar — y varias de las más citadas (la Res. SIS 215/2025, la Ley 6822/2021, la Ley 4868/2013) están en esa situación. Si una norma nueva hace falta, primero entra el PDF a `docs/normativa/`, después se la cita.
-- **No cites como vigente una norma derogada.** `src/domain/__tests__/higiene-de-citas.test.ts` pone la suite en rojo con la Ley 4017/2010, la 4610/2012, la Res. SIS 136/2018, la 292/2007, la 022/2024, la 303/2024, las erratas «215/15» y «215/17» (la resolución de modelos es la **215/2025**) y los datos de contacto inventados. La lista completa, con qué corresponde en cada caso, está en `docs/normativa/INDICE.md` §5.
+- **Antes de citar una norma, mirá `docs/normativa/INDICE.md`**: dice qué textos oficiales están en el repositorio y cuáles todavía no. Una norma sin PDF acá es una cita que nadie puede contrastar — y varias de las más citadas (la Ley 4868/2013, la Ley 827/1996, la Res. SEPRELAD 71/2019) están en esa situación. Si una norma nueva hace falta, primero entra el PDF a `docs/normativa/`, después se la cita.
+- **No cites como vigente una norma derogada.** `src/domain/__tests__/higiene-de-citas.test.ts` pone la suite en rojo con la Ley 4017/2010, la 4610/2012, la Res. SIS 136/2018, la 292/2007, la 022/2024, la 303/2024, las erratas «215/15» y «215/2025» (la resolución de registro de planes y modelos es la **215/17**) y los datos de contacto inventados. La lista completa, con qué corresponde en cada caso, está en `docs/normativa/INDICE.md` §5.
 
 ---
 
 ## Reglas de negocio inviolables
 
-Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley 4868/13, Ley 1334/98, Ley 827/96, Res. SS SG. 215/2025 y 223/17, Res. SEPRELAD 71/19 y 50/20, Res. BCP 25/21 — ver cita exacta por fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`). El código debe hacerlas **imposibles de violar**, no solo evitarlas.
+Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley 4868/13, Ley 1334/98, Ley 827/96, Res. SS SG. 215/17 y 223/17, Res. SEPRELAD 71/19 y 50/20, Res. BCP 25/21 — ver cita exacta por fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv`). El código debe hacerlas **imposibles de violar**, no solo evitarlas.
 
 1. **Un OTP de canal, más el del acto de firma**: celular (paso 2) y firma (paso 6). Nunca se reutiliza un OTP para otro propósito. Cada uno: 6 dígitos, uso único, vigencia 5 minutos, máximo 3 intentos, reenvío bloqueado 60 segundos. **El OTP de correo se retiró** (D-06 del Plan v2, Lote 2): el correo se declara con doble tipeo dentro de la pantalla de identidad y se respalda con la declaración de veracidad que se firma después. El estado `CANAL_EMAIL_VERIFICADO` sobrevive como legado, sin aristas de entrada, porque hay expedientes históricos ahí (regla #10).
 2. **Solo el hash del OTP se persiste.** Nunca el código en claro, ni en base, ni en logs, ni en respuestas de API. En modo demo el código se expone únicamente a través del panel de demo, nunca por la API del flujo.
@@ -307,7 +322,7 @@ Los adaptadores oficiales de `PaymentProvider` y `SignatureProvider` deben trata
 
 `src/documentos/` **acuña el correlativo** (`generarNumeroPropuesta`, ocho dígitos de CSPRNG), cierra con él **un solo PDF** que lleva la Solicitud y el FIPF como secciones (D-11) —identidad `PROP-<correlativo>`, con el código interno `FIPF-<correlativo>` impreso en su sección—, calcula un SHA-256, lo guarda por `ArchivoRepository` y transiciona DECLARACIONES_OK → PAQUETE_GENERADO. Es el paso que habilita la firma: sin documento cerrado y hasheado no hay nada válido que mandarle a Code100 (regla inviolable #4).
 
-**Un correlativo, dos códigos internos.** Las dos secciones conservan su código propio porque son dos formularios con vida normativa distinta —la Solicitud responde a la Res. SS SG. 215/2025 y el FIPF a la Res. SEPRELAD 71/19— y un auditor de cualquiera de los dos tiene que poder citar el suyo. Lo que ya no tienen es archivo, huella ni acto de firma separados.
+**Un correlativo, dos códigos internos.** Las dos secciones conservan su código propio porque son dos formularios con vida normativa distinta —la Solicitud responde a la Res. SS SG. 215/17 y el FIPF a la Res. SEPRELAD 71/19— y un auditor de cualquiera de los dos tiene que poder citar el suyo. Lo que ya no tienen es archivo, huella ni acto de firma separados.
 
 El documento imprime además, por la Matriz Legal V4 §4: la advertencia del **art. 1556 del Código Civil** (CMP-09) con el **sello de tiempo** de la solicitud, y las declaraciones de **licitud y veracidad** y de **cuenta propia** (CMP-20). La matriz es explícita en que van integradas al PDF y **no** como casilla aparte: se aceptan al firmar, no antes.
 

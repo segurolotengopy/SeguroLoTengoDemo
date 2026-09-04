@@ -121,7 +121,21 @@ automatizar la clave de una persona tensiona el control exclusivo del art. 44.1
 
 ## 6. Preguntas para la reunión con Alianza (03-sep-2026)
 
-El objetivo es identificar **cuál de los seis perfiles** usan y **cómo
+> ## ✅ Reunión realizada — respondidas el 03-sep-2026
+>
+> **El análisis de las respuestas y de lo que hay que cambiar está en
+> [`CAMBIOS_NECESARIOS.md`](CAMBIOS_NECESARIOS.md).** En una línea: Alianza usa
+> un certificado **F2 por token USB** de **Confirma**, con un firmador masivo
+> comprado que corre en una NUC dedicada y trabaja por **carpeta de entrada y
+> carpeta de salida cada 30 segundos**.
+>
+> Quedaron respondidas las preguntas 1 a 5, 8, 9 y 10; **sin responder la 6**
+> (cómo sostienen el control exclusivo con el PIN cargado: no tienen dictamen,
+> lo asumen) y **sin confirmar la 7** (si el firmador incluye TSA).
+>
+> Lo que sigue abajo se conserva como registro de lo que se preguntó.
+
+El objetivo era identificar **cuál de los seis perfiles** usan y **cómo
 resuelven el control exclusivo**. Con las respuestas 1 a 4 ya se sabe si su
 solución es trasladable a Interseguros.
 
@@ -152,12 +166,12 @@ solución es trasladable a Interseguros.
 
 | Pendiente | A quién | Por qué importa |
 | :-- | :-- | :-- |
-| Lista de **dispositivos certificados por el MIC** | DGCE (`info-dgce@mic.gov.py`) | Decide si un HSM de nube puede usarse, y cuál |
-| Si el trámite `DOC-ICPP-22` admite **solicitante no PCSC** | DGCE | Decide si Interseguros puede homologar su propio HSM (§3) |
-| Formulario **FOR-ICPP-06** | DGCE | No está publicado junto a los DOC-ICPP |
-| Si algún PCSC emite **F2/S2 contra clave del cliente**, y con qué requisitos | Code100, eFirma (VIT), Confirma, Documenta | Es la condición del camino B |
-| Dictamen legal sobre **control exclusivo en firma automatizada** | Legal | Vale para las tres arquitecturas |
-| Cómo lo resolvió **Alianza** | Reunión 03-sep (§6) | Puede ahorrar todo lo anterior |
+| ~~Lista de **dispositivos certificados por el MIC**~~ | DGCE | **Ya no bloquea:** el dispositivo cualificado es el token que entrega el PSC. Solo hace falta si se vuelve a la idea del HSM propio |
+| ~~Si el trámite `DOC-ICPP-22` admite **solicitante no PCSC**~~ | DGCE | **Ya no bloquea**, por lo mismo |
+| ~~Formulario **FOR-ICPP-06**~~ | DGCE | **Ya no bloquea**, por lo mismo |
+| ~~Si algún PCSC emite **F2/S2 contra clave del cliente**~~ | — | **Respondido por los hechos:** Confirma le emitió el F2 a Alianza y la clave vive en su token |
+| **Dictamen legal sobre control exclusivo en firma automatizada** | Legal | **Sigue abierto, y es el único que no se movió.** Alianza tampoco lo resolvió: cargan el PIN y asumen |
+| ~~Cómo lo resolvió **Alianza**~~ | — | **Respondido** el 03-sep: ver [`CAMBIOS_NECESARIOS.md`](CAMBIOS_NECESARIOS.md) §1 |
 
 ## 8. Contenido de la carpeta
 
@@ -166,6 +180,13 @@ solución es trasladable a Interseguros.
   SHA-256 y la receta de descarga. Los PDF **no se versionan** (decisión del
   02-sep-2026: son ~19 MB de consulta ocasional); una copia local en esa
   carpeta queda ignorada por git.
+- [`CAMBIOS_NECESARIOS.md`](CAMBIOS_NECESARIOS.md) — lo que contó Alianza el
+  03-sep, la secuencia legal del 04-sep con las tres decisiones, los cambios
+  por capa y las recomendaciones para la consola firmadora.
+- [`ANALISIS_LEGAL_CPC_2026-09-03.md`](ANALISIS_LEGAL_CPC_2026-09-03.md) — el
+  memo legal de Rodrigo sobre el CPC (quién lo firma y por qué), tal como llegó.
+- [`RESUMEN_EJECUTIVO_FIRMAS.md`](RESUMEN_EJECUTIVO_FIRMAS.md) — una página
+  para la aprobación de Gerencia: secuencia, decisiones y riesgo abierto.
 - La **Ley 6822/2021** y el **Decreto 7576/2022** sí están en el repositorio,
   en `docs/normativa/` (`ley-6822-2021.pdf`, `decreto-7576-2022.pdf`): son las
   que este documento cita, y la regla de `CLAUDE.md` es que una norma entra

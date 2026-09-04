@@ -162,7 +162,7 @@ describe("guardarDatosYDeclaracionesP6 · camino habilitante", () => {
   });
 
   it("la cédula del beneficiario es opcional y no frena el trámite (CHG-24/CMP-21)", async () => {
-    // La Res. SIS 215/2025 exige nombre y domicilio del beneficiario designado,
+    // La Res. SIS 215/17 exige nombre y domicilio del beneficiario designado,
     // no su cédula. Quien contrata no siempre tiene a mano el documento de un
     // tercero, y frenarlo ahí sería exigirle más que la norma.
     const { deps, expedientes } = armar(enIdentidadVerificada());
