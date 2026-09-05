@@ -38,6 +38,138 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-05 (b) · Status general para el demo a Gerencia, y una access key de root en el perfil default
+
+**Rama:** `docs/hallazgo-credencial-root` · **Pedido de Andres:** «Revisa todas
+las ramas del proyecto, dame un status general, para poder hacer un demo a
+Gerencia», y después «dejá `demo-v3` al día».
+
+### El caso
+
+Un relevamiento de estado antes de mostrarle el demo a Gerencia: qué ramas
+están vivas, qué PRs quedan abiertos, qué hay desplegado en cada ambiente y si
+la suite está en verde. El relevamiento destapó dos cosas que no se estaban
+buscando: `demo-v3` servía el plan con un marcador de relleno en lugar del
+registro oficial de la SIS, y **el perfil `default` de AWS de la máquina tiene
+claves de acceso del usuario raíz de la cuenta**.
+
+### Qué cambió
+
+- **Ningún cambio de código.** El único cambio de contenido de esta sesión es
+  esta entrada.
+- **`demo-v3` quedó al día**: pasó de `2df3f42` a `ad90ead`, el mismo commit que
+  `main`. El push lo hizo Andres; Amplify lo tomó por `autoBuild` sin que
+  hiciera falta disparar el job a mano.
+
+### El hallazgo: claves de root en el perfil `default`
+
+`aws sts get-caller-identity` sin `--profile` devuelve
+`arn:aws:iam::120005938663:root`. Los dos perfiles acotados existen y responden
+bien (`aab1-demo-deployer` y `aab1-demo-qa`), pero el `default` escala a la
+cuenta raíz.
+
+Por qué importa, más allá de la recomendación genérica de AWS:
+
+- **Ninguna de las barandas del proyecto la alcanza.** `SLTDemoDeployerPolicy`
+  acota al deployer, no a root; el opt-out de servicios de IA
+  (`AISERVICES_OPT_OUT_POLICY`) es de organización y tampoco lo limita. Root no
+  se puede acotar por política ni atribuir a un rol en una auditoría.
+- **Escala en silencio.** Cualquier comando de AWS sin `--profile` explícito
+  —de una persona, de un script o de un agente— sale como root sin ninguna
+  señal. En esta misma sesión, el primer `get-caller-identity` y el primer
+  sondeo del job de Amplify corrieron así antes de que se detectara.
+- Contradice la regla ya asentada en la memoria del proyecto
+  (`aws-github-identity`): *«usar `--profile aab1-demo-deployer` para cualquier
+  comando de AWS CLI o Terraform de este proyecto — nunca el perfil
+  default/admin»*.
+
+**No es la causa de ninguna falla de hoy**: el build salió bien igual. Es
+riesgo, no incidente.
+
+**No se corrigió, y no por olvido:** el deployer no tiene permisos sobre
+credenciales del usuario raíz —por diseño— así que el borrado de la access key
+va desde la consola de IAM y lo tiene que hacer Andres. Andres pidió
+explícitamente dejarlo anotado y verlo después.
+
+### Una corrección propia, para que no se repita el criterio
+
+En el status se dijo que `demo-v3` mostraba en pantalla la errata «215/2025» y
+que Legal la vería. **Era falso.** Las citas corregidas en `textos-p7.ts`,
+`textos-p9.ts`, `textos-legales.ts`, `textos-p6.ts` y `textos-pantalla-b.ts` son
+**comentarios JSDoc**, no cadenas que se rendericen. Se afirmó por leer el
+`git diff` sin distinguir comentario de dato.
+
+Lo que sí se veía en pantalla —y era más importante— estaba en
+`src/domain/catalogo.ts`, que `demo-v3` no tenía:
+
+| Campo | `demo-v3` antes | Ahora |
+| :--- | :--- | :--- |
+| `codigo` | `CDXXXXX` (marcador) | `15-VI.0002` |
+| `acto` | `CDXXXXX` | `Nota SS.SG. N.º 397/2026` (07-ago-2026) |
+| `esProvisional` | `true` | `false` |
+
+O sea: el demo anunciaba el plan con un relleno donde va el registro oficial de
+la SIS. Se renderiza en `/plan` (v2) y en `/seguro` (paso 2 de v3).
+
+### Qué hizo Andres
+
+- Pidió el status general de las ramas para el demo a Gerencia.
+- **Renovó la sesión de AWS**: la primera consulta a Amplify falló con
+  `Your session has expired`.
+- **Empujó `demo-v3` a `ad90ead`** por su cuenta, entre el primer `git fetch` de
+  la sesión y el segundo.
+- Decidió dejar el hallazgo de la credencial anotado y tratarlo más tarde.
+
+### Verificaciones
+
+- `npm run verify` en verde sobre `main` (`ad90ead`): **1257 tests, 92
+  archivos**, `tsc --noEmit` sin errores, ESLint **0 errores y 8 advertencias**
+  (las 8 son `<img>` en cuatro pantallas v3 y una variable sin usar; ninguna
+  nueva).
+- **Job 26 de `demo-v3`: `SUCCEED`**, commit `ad90eadf9194…`, 14:58:13 → 15:03:09
+  (-04:00). Disparado por `autoBuild`, no a mano.
+- El registro oficial se verificó **sobre el HTML servido, no sobre el repo**:
+  `curl https://demo-v3.d3su6j17axjeyl.amplifyapp.com/seguro` devuelve 200 y
+  contiene `15-VI.0002` y `Nota SS.SG. N.º 397/2026`, y **no** contiene
+  `CDXXXXX` ni el marcador «provisional».
+- Variables de la rama `demo-v3`: `{"FLUJO_V3": "true"}` y nada más — el
+  `INTEGRATION_OTP=mock` que se puso el 02-sep para una captura sigue
+  revertido, así que el OTP del demo es real.
+- Ambos ambientes responden: `main` da 307 → `/plan` (v2, 8 pasos), `demo-v3`
+  da 200 con los 3 pasos.
+- Identidades: `default` → `…:root`; `aab1-demo-deployer` →
+  `…:user/aab1-demo-deployer`; `aab1-demo-qa` → `…:user/aab1-demo-qa`.
+
+**Un error de método propio, con su prueba:** el primer bucle de espera del job
+usaba `until … case … in *) true;; esac` y salió en el primer sondeo, porque
+`until` corta cuando la condición da 0 y `true` da 0 — la condición estaba
+invertida. Reportó «terminó: RUNNING», que es un contrasentido visible. Se
+rehízo con `while true … break`.
+
+### Queda abierto
+
+- **La access key de root**, arriba. Borrarla desde IAM → *Security
+  credentials* del usuario raíz, y dejar el `[default]` de
+  `~/.aws/credentials` apuntando a `aab1-demo-deployer` o vacío, para que un
+  comando sin perfil falle en vez de escalar. **Es de Andres**, el deployer no
+  puede.
+- **Las tres decisiones del 04-sep siguen sin implementar**, así que el demo
+  muestra el orden del 19-ago: firma cualificada de Interseguros **antes** del
+  pago y CPC emitido por el portal. Conviene adelantárselo a Gerencia en vez de
+  que aparezca en pantalla.
+- **PR #103** (`feat/constancia-firma-verificable`): CI 10/10 en verde pero
+  `CONFLICTING` con `main`. Necesita rebase, y el merge es de revisión humana.
+- **`docs/rediseno-lovable-canvas`** (13 commits, solo documentación) sin
+  mergear, en el worktree `~/slt-rediseno`.
+- **Higiene de ramas:** 34 ramas remotas ya fusionadas y sin borrar;
+  `claude/bancred-integration-docs-t1inpp` y
+  `claude/qr-interno-documentos-bf2u30` a **119 commits** de `main` cada una;
+  tres worktrees viejos en `.claude/worktrees/` desincronizados —la misma
+  clase de desfase que el 05-sep (a) causó trabajo duplicado.
+- Cinco PRs de dependabot abiertos (#83, #74, #73, #72, #71).
+
+---
+
 ## 2026-09-05 · Restos de la preautorización en CLAUDE.md (y un refactor duplicado que se descartó)
 
 **Rama:** `docs/claude-md-restos-preautorizacion` · **Pedido de Andres:** bajar
