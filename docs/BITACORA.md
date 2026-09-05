@@ -38,6 +38,120 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-05 (c) · La 071/2019 entra al repo, y D-24 queda enmendada: CONFÍO va por régimen normal
+
+**Rama:** `docs/d24-regimen-normal-y-seprelad-71` · **Pedido de Andres:** leer la
+Matriz de Campos del 04-sep, anotar en memoria que estas matrices aprobadas por
+Legal rigen este proyecto y los siguientes, registrar los dos regímenes de
+diligencia, y —tras señalarse el conflicto— «enmendá D-24 con el régimen normal
+para CONFÍO», adjuntando la norma que faltaba.
+
+### El caso
+
+Andres pasó la **Matriz Normativa de Campos del Cliente** (Rodrigo Fernandez,
+Interseguros, versión revisada del 04-sep-2026) para anotarla en memoria, con
+dos indicaciones: que estas matrices rigen también los proyectos futuros, y que
+existen dos regímenes de debida diligencia —simplificado y normal— de los que
+**CONFÍO usa el normal**.
+
+Eso último **contradecía a D-24**, decidida el día anterior, que dejaba el flag
+«en simplificada por defecto» hasta que cumplimiento de Alianza fijara el
+criterio. Se señaló el conflicto antes de tocar nada, y Andres resolvió
+enmendar D-24 y aportó el texto que faltaba: la **Res. SEPRELAD N° 071/2019**.
+
+### Qué cambió
+
+- **La norma entró al repositorio.**
+  `docs/normativa/SEPRELAD-Res-071-2019-prevencion-LAFT-companias-de-seguros.pdf`
+  (44 p, escaneada, **sin capa de texto** — `pdftotext` devuelve 44 bytes; hay
+  que leerla como imagen). Registrada en `INDICE.md` §1 con sus artículos
+  útiles, y dada de baja de §2 «Faltan — Prioridad A», donde queda sola la
+  **50/2020**, que el código cita junto a ella.
+- **D-24 enmendada** en `docs/plan/DECISIONES.md`: el default pasa de
+  simplificada a **normal** para CONFÍO. Lo que **no** cambia es el diseño: la
+  ruta sigue siendo un parámetro del producto, la persona nunca la elige, y el
+  modelo tiene que soportar los dos subconjuntos.
+- **Dos memorias nuevas**: `matrices-campos-aprobadas-legal` (las matrices de
+  Legal son el estándar de campos, acá y en proyectos siguientes) y
+  `ddc-simplificada-vs-normal`.
+
+### El hallazgo: la norma sostiene la decisión sola
+
+La decisión no descansa en el criterio de Alianza. **Art. 27 num. 5:** aplicar
+el régimen simplificado a un producto exige **autorización previa de la
+SEPRELAD y de la Superintendencia de Seguros**, con descripción del producto,
+metodología de validación documental e identificación digital cuando no hay
+presencia física, factores de riesgo y sistema de detección. **Esa autorización
+no existe para CONFÍO**, así que rige el general del art. 26 — no es una
+preferencia, es el estado por defecto de la norma.
+
+Los casos del art. 27 num. 1 tampoco alcanzan. El más cercano —inc. c),
+«mercadeo masivo o banca seguros» con pago por tarjeta o débito— exige además
+obtener del cliente **copias documentales que evidencien su condición de cliente
+de otro sujeto obligado**, cosa que el flujo digital no hace. Y el art. 28
+num. 1 cierra: nunca puede aplicarse la simplificada ante sospecha de LA/FT.
+
+Correspondencia verificada **contra la norma, no contra la matriz**: el art. 27
+num. 2 lista los cinco datos del régimen simplificado y el art. 26 num. 1 los
+diez del general. Coinciden con las dos columnas de la página 7 de la matriz.
+
+### Dos puntos que la norma abre y la matriz no resuelve
+
+1. **El art. 26 num. 1 dice «(tomador y beneficiario designado)»**, o sea que
+   los diez mínimos alcanzarían también al beneficiario. La matriz lo limita a
+   nombre y domicilio, apoyada en la Res. SS.SG. 215/17 num. 11.4. Dos normas
+   de distinto orden, tensión no resuelta en ningún documento del proyecto.
+   Hasta que Legal se pronuncie **manda la matriz**, que es lo aprobado.
+2. **El art. 26 num. 1 inc. i)** pide documentación del volumen de ingresos,
+   mientras la matriz prohíbe agregar carga de comprobante a SeguroLoTengo. La
+   lectura de la matriz es defendible —el inciso dice «considerando los
+   parámetros utilizados por el SO»— pero conviene que Alianza la deje por
+   escrito: es el SO quien responde.
+
+Ninguno de los dos se resolvió acá. Registrarlos era el punto.
+
+### Qué hizo Andres
+
+- Aportó la Matriz de Campos y las dos indicaciones de memoria.
+- **Determinó que CONFÍO va por régimen normal.** El PDF de la matriz no lo
+  asigna: su página 4 dice que «la gestión de aplicación del régimen por Alianza
+  queda fuera de la pantalla del cliente». La determinación es suya, y la norma
+  la respalda.
+- **Aportó la Res. SEPRELAD 071/2019**, que era la brecha señalada el día
+  anterior en D-24 y en §2 del índice.
+- Ordenó enmendar D-24 tras habérsele señalado el conflicto con lo decidido el
+  04-sep.
+
+### Verificaciones
+
+- Identidad de la norma leída de primera mano en la carátula: **Resolución
+  N° 071**, SEPRELAD, **15 de marzo de 2019**, vigente desde el **1 de junio de
+  2019**, **deroga la Res. SEPRELAD 26/2009** (art. 2º). Reglamento de
+  prevención LA/FT para sujetos obligados supervisados por la SIS del BCP,
+  Anexo A + A1-A7.
+- Artículos leídos página por página: 25 (etapas), **26** (p. 16, régimen
+  general), **27** (pp. 17-18, simplificado) y **28** (p. 19, ampliado y PEP).
+- `src/domain/__tests__/higiene-de-citas.test.ts`: **17 tests en verde** — la
+  cita nueva no introduce ninguna norma derogada ni ninguna errata.
+- `pdftotext -layout` sobre la resolución devuelve **44 bytes** (un salto de
+  página por hoja): confirmado que es escaneada y que hay que leerla como
+  imagen. Lo mismo vale para `MATRIZ_CAMPOS_OBLIGATORIOS_2026-09-04.pdf`.
+
+### Queda abierto
+
+- **Implementar** el régimen normal en el paso 1: los cinco campos
+  —nacionalidad, país de residencia, empresa/empleador, ingreso mensual y
+  origen de fondos— se piden, no quedan apagados. Sigue rigiendo «una pantalla
+  por sesión».
+- **Los dos puntos de arriba**, para Rodrigo/Legal: el alcance del art. 26
+  sobre el beneficiario designado, y el respaldo escrito de Alianza sobre el
+  inc. i).
+- **Res. SEPRELAD N° 50/2020**, única que queda en §2 «Faltan — Prioridad A».
+- D-25 (sexo desde el MRZ) sigue sin implementar, y `urlModelo` sigue esperando
+  que Alianza publique el modelo inscripto.
+
+---
+
 ## 2026-09-05 (b) · Status general para el demo a Gerencia, y una access key de root en el perfil default
 
 **Rama:** `docs/hallazgo-credencial-root` · **Pedido de Andres:** «Revisa todas
