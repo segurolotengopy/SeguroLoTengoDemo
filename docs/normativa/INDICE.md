@@ -1,6 +1,6 @@
 # Índice de `docs/normativa/`
 
-**Última actualización:** 04-sep-2026
+**Última actualización:** 05-sep-2026
 
 Qué normas están acá, cuáles faltan y por qué hacen falta. La regla de
 trabajo de `CLAUDE.md` es que **nunca se cita de memoria un artículo de
@@ -70,6 +70,7 @@ de las citas «215». Fue el origen de la errata de arriba.
 | `decreto-7576-2022.pdf` | **Decreto N° 7576/2022** — Reglamenta artículos de la Ley 6822/2021 (14 p) | Prestadores cualificados y no cualificados, certificados y funcionamiento de la ICPP |
 | `SIS-Res-215-2017-registro-planes-e-instrumentos-de-cobertura.pdf` | **Res. SS.SG. N° 215/17** — Registro de planes de seguro y emisión de instrumentos de cobertura, pautas generales (28-dic-2017; 16 p). Modificada por la 238/19; plazo prorrogado por la 181/2020 | **La resolución de modelos.** Numeral 11 (propuesta: 11.4 beneficiario, 11.14 art. 1556, 11.15 firma del corredor o proponente), numeral 10 (certificado individual), arts. 7º, 9º.d-e y 14º de la parte resolutiva. Descargada del BCP por Andres el 04-sep-2026 |
 | `SIS-Res-136-2018-polizas-firma-facsimilar-y-digital-ABROGADA.pdf` | **Res. SS.SG. N° 136/18** — Pólizas impresas con firma facsimilar y electrónicas con firma digital (07-may-2018; 5 p). **Abrogada por el art. 1º de la 231/2025** | Antecedente histórico: de acá vienen la nómina de firmantes, el certificado del suscriptor y la opción electrónica en la propuesta que la 231/2025 conserva. Se guarda para leer la 231 en contexto; **no se cita como vigente** (§5) |
+| `SEPRELAD-Res-071-2019-prevencion-LAFT-companias-de-seguros.pdf` | **Res. SEPRELAD N° 071/2019** — Reglamento de prevención del LA/FT basado en un sistema de gestión de riesgos para los sujetos obligados supervisados por la Superintendencia de Seguros (15-mar-2019; 44 p). Vigente desde el 1-jun-2019; **deroga la Res. SEPRELAD 26/2009** (art. 2º). Anexo A + A1-A7 | **La norma de la debida diligencia.** Art. 26 (régimen general: los 10 datos mínimos de la persona física), art. 27 (régimen simplificado: los 5 datos, los casos que lo habilitan y la **autorización previa de SEPRELAD y de la SIS** del num. 5), art. 28 (régimen ampliado y PEP), art. 25 (etapas de la debida diligencia). Base de `docs/MATRIZ_CAMPOS_OBLIGATORIOS_2026-09-04.pdf` y de D-24. Aportada por Andres el 05-sep-2026 |
 | `matriz 16 08 2026.pdf` | **Matriz Legal Final V4** — documento de trabajo jurídico-funcional del proyecto, no es una norma | Fuente maestra de cumplimiento mientras dure el Plan de Cambios v2 |
 | `ESPECIFICACION.pdf` | Especificación funcional y revisión normativa (17-ago-2026) — documento propio del proyecto, no es una norma | Antecedente; el detalle vigente vive en `docs/ESPECIFICACION_PANTALLAS.md` |
 
@@ -88,7 +89,7 @@ encabezaba esta lista, entró el 04-sep-2026.)
 | **Ley N° 4868/2013** — Comercio electrónico | La norma más citada en `src/`: información previa, precio total, conservación, acuse, retracto | `bacn.gov.py` |
 | **Ley N° 1334/1998** — Defensa del consumidor | Información veraz, cláusulas abusivas, retracto (art. 26) | `bacn.gov.py` |
 | **Código Civil (Ley 1183/1985), parte de seguros** | Formación del contrato, arts. 1348-1355, 1374, 1556 y la exigibilidad de la prima contra entrega de póliza o certificado provisional | `www.bcp.gov.py/documents/20117/213083/Codigo_Civil_Parte_Seguro.pdf` |
-| **Res. SEPRELAD N° 71/2019 y N° 50/2020** | FIPF, debida diligencia, PEP y conservación de evidencias (5 años) | `bacn.gov.py` / `seprelad.gov.py` |
+| **Res. SEPRELAD N° 50/2020** | Conservación de evidencias (5 años) y el resto de lo que el código atribuye al par 71/19 + 50/20. **La 71/2019 entró el 05-sep-2026** y está en §1 | `bacn.gov.py` / `seprelad.gov.py` |
 | **Res. BCP N° 25/2021** | Seguridad del proveedor de pagos; citada en las filas 78-84 de la matriz | `www.bcp.gov.py` |
 
 ## 3. Faltan — Prioridad B: el criterio unificado las incorpora

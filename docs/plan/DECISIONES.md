@@ -168,7 +168,74 @@ Fuente: `docs/MATRIZ_CAMPOS_OBLIGATORIOS_2026-09-04.pdf`, analizada en
 04-sep-2026.
 
 ### D-24 · Ruta de diligencia (DDC simplificada / normal)
-- **DECIDIDA (04-sep-2026): opción (b)** — la ruta la fija **un parámetro del producto**, con la **simplificada por defecto**. La simplificada pide nombres, apellidos, cédula y capturas, WhatsApp, domicilio y ciudad, actividad, fecha de nacimiento (extraída), plan y beneficiario; la normal agrega nacionalidad, país de residencia, empleador, ingreso mensual y origen de fondos. **El criterio que enciende la normal lo fija cumplimiento de Alianza** (Res. SEPRELAD 71/2019 art. 27, que no está en `docs/normativa/`); hasta entonces el flag queda en simplificada y no se pierde nada. La persona nunca elige la ruta. Implementación: paso 1 (una pantalla por sesión), modelo `DatosComplementariosP6` con los cinco campos opcionales, y la sección FIPF del PDF que imprime solo lo recabado.
+- **DECIDIDA (04-sep-2026): opción (b)** — la ruta la fija **un parámetro del producto**. ~~Con la simplificada por defecto~~ → **enmendada el 05-sep-2026, ver abajo**. La simplificada pide nombres, apellidos, cédula y capturas, WhatsApp, domicilio y ciudad, actividad, fecha de nacimiento (extraída), plan y beneficiario; la normal agrega nacionalidad, país de residencia, empleador, ingreso mensual y origen de fondos. **El criterio que enciende la normal lo fija cumplimiento de Alianza** (Res. SEPRELAD 71/2019 art. 27, que no está en `docs/normativa/`); hasta entonces el flag queda en simplificada y no se pierde nada. La persona nunca elige la ruta. Implementación: paso 1 (una pantalla por sesión), modelo `DatosComplementariosP6` con los cinco campos opcionales, y la sección FIPF del PDF que imprime solo lo recabado.
+
+#### Enmienda del 05-sep-2026 · CONFÍO va por régimen NORMAL, y el default se invierte
+
+**Decisión de Andres (05-sep-2026):** para el **Seguro de Vida Oncológico
+CONFÍO — nuestro producto — aplica el régimen NORMAL** de debida diligencia.
+Otros productos podrán ir por simplificada; este no. El default de la
+implementación pasa a ser **normal**, no simplificada.
+
+Con el texto de la **Res. SEPRELAD N° 071/2019 a la vista** —aportado por
+Andres el mismo día y ya en
+`docs/normativa/SEPRELAD-Res-071-2019-prevencion-LAFT-companias-de-seguros.pdf`—
+la decisión no depende solo del criterio de cumplimiento de Alianza: **la norma
+la sostiene por sí sola**.
+
+**Art. 27 num. 5 (régimen simplificado):** *«Para aplicar el régimen
+simplificado a un determinado producto, los SO deben solicitar las
+autorizaciones, en forma previa, a la SEPRELAD y a la Superintendencia de
+Seguros»*, presentando descripción del producto y de la categoría de clientes,
+metodología de validación documental y de identificación digital cuando el
+producto no requiera presencia física, factores de riesgo y sistema de
+detección. **Esa autorización previa no existe para CONFÍO.** Sin ella el
+producto no puede acogerse al régimen simplificado, cualquiera sea el criterio
+comercial: el general del art. 26 es el que rige.
+
+Los casos del art. 27 num. 1 tampoco alcanzan por sí solos. El más cercano
+—inc. c), seguros tomados «mediante mercadeo masivo o banca seguros» con pago
+por débito directo, tarjeta o cheque— exige además *«obtener del cliente copias
+documentales que evidencien su condición de cliente de otro SO»*, algo que el
+flujo digital de SeguroLoTengo no hace ni pretende hacer. Y el num. 1 del
+art. 28 cierra la puerta en el otro extremo: *«En ningún caso está permitido
+aplicar medidas simplificadas cuando exista sospecha de LA/FT»*.
+
+**Qué implica para el paso 1.** Los cinco campos que D-24 reservaba para la
+ruta normal —nacionalidad, país de residencia, empresa/empleador, ingreso
+mensual declarado y origen principal de fondos— **se piden**, no quedan
+apagados. El modelo sigue teniendo que soportar los dos subconjuntos (D-24 no
+cambia en eso: la ruta es un parámetro del producto y la persona nunca la
+elige), pero el valor de ese parámetro para CONFÍO es **normal**.
+
+Correspondencia verificada contra la norma, no contra la matriz:
+
+| | Art. de la 071/2019 | Datos mínimos de la persona física |
+| :-- | :-- | :-- |
+| **Simplificada** | art. 27 num. 2 | nombres y apellidos completos; tipo y número de documento; actividad económica; número de teléfono; domicilio |
+| **Normal (general)** | art. 26 num. 1 | los anteriores **más** nacionalidad y residencia; propósito de la relación; ocupación/oficio/profesión **y nombre de la empresa**; declaración jurada del origen de dinero o bienes; documentación del volumen de ingresos; y los datos de PEP si corresponde |
+
+La lista de la matriz de campos coincide con la norma en los dos regímenes.
+
+**Dos puntos que la norma abre y la matriz no resuelve — para Rodrigo/Legal:**
+
+1. **El art. 26 num. 1 encabeza «sus clientes personas físicas (tomador y
+   beneficiario designado)»**, o sea que los diez mínimos aplicarían también al
+   beneficiario designado. La matriz, en cambio, limita al beneficiario a
+   nombre y domicilio, apoyada en la Res. SS.SG. 215/17 num. 11.4. Son dos
+   normas de distinto orden (seguros y SEPRELAD) y la tensión no está resuelta
+   en ningún documento del proyecto. **Hasta que Legal se pronuncie manda la
+   matriz** —es lo aprobado— y se registra acá que el punto quedó abierto.
+2. **El art. 26 num. 1 inc. i) pide «documentación que demuestre el volumen de
+   ingresos»**, mientras la matriz prohíbe expresamente agregar carga de
+   comprobante de ingreso a SeguroLoTengo y remite a «los parámetros utilizados
+   por el SO en la elaboración del perfil transaccional». Es una lectura
+   defendible del inciso —la norma dice «considerando los parámetros utilizados
+   por el SO»— pero conviene que Alianza la deje por escrito, porque es el SO
+   quien responde.
+
+**Sigue pendiente** la Res. SEPRELAD N° 50/2020, que el código cita junto a la
+71/19 y todavía no está en `docs/normativa/`.
 
 ### D-25 · Sexo
 - **DECIDIDA (04-sep-2026): lo que indica la matriz** — **no se pregunta**. Se conserva automáticamente porque **el modelo registrado de la Solicitud lo imprime** (`docs/Solicitud.pdf`, cabecera «País de nacimiento · Sexo · Estado civil · Nacionalidad · Residencia»), y sale del **MRZ de la cédula** (`mrz.ts` lo lee en la posición 8 de la segunda línea y ya lo cruza con el frente, `CAMPOS_CRUZADOS_CON_MRZ`). Deja sin efecto la decisión del 21-ago-2026 de elegirlo a mano. **Abierto al implementar:** la cédula del formato anterior no tiene MRZ; ahí el dato viene del registro civil si lo provee, o queda vacío y así se imprime — no se pide ni se adivina.
