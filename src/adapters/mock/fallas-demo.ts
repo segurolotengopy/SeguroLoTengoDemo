@@ -3,16 +3,16 @@
  * demo": *"forzar fallos puntuales (OTP expirado, intentos agotados, timeout
  * de Bancard, rechazo de Code100)"*).
  *
- * Son los cuatro de CLAUDE.md. La palanca `BANCARD_CAPTURA_FALLIDA` se retiró
- * al desaparecer la preautorización (D-02): sin captura no hay captura que
- * hacer fallar. Lo que la reemplaza como escenario de cobro fallido es el
- * timeout, que sigue vigente y ahora cubre a los tres medios.
+ * Son los cuatro de CLAUDE.md. No es una lista abierta: cada una existe para
+ * mostrar un desenlace concreto.
  *
- * Nota histórica de la que venía —la agregó la
- * auditoría de cumplimiento de P8/P9: es la única forma de ejercitar en vivo la
- * fila 44 de la matriz (*"Si falla el cobro, no solicitar la emisión
- * automática"*), que sin palanca quedaba probada solo por tests. No es una
- * lista abierta: cada una existe para mostrar un desenlace concreto.
+ * **Nota histórica.** Hubo una quinta, `BANCARD_CAPTURA_FALLIDA`, que agregó la
+ * auditoría de cumplimiento de P8/P9 para poder ejercitar en vivo la fila 44 de
+ * la matriz (*"Si falla el cobro, no solicitar la emisión automática"*), que
+ * sin palanca quedaba probada solo por tests. Se retiró al desaparecer la
+ * preautorización (D-02): sin captura no hay captura que hacer fallar. El
+ * escenario de cobro fallido lo cubre ahora `BANCARD_TIMEOUT`, que sigue
+ * vigente y alcanza a los tres medios.
  *
  * ## Son de un solo uso
  *
