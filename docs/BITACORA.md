@@ -38,6 +38,87 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-05 · Restos de la preautorización en CLAUDE.md (y un refactor duplicado que se descartó)
+
+**Rama:** `docs/claude-md-restos-preautorizacion` · **Pedido de Andres:** bajar
+a documentación y código la decisión del 2026-08-12 que descarta la
+preautorización de Bancard, en el worktree `elegant-murdock-de9b28`.
+
+### El caso
+
+El pedido llegó con una lista de cinco pasos (documentos primero, después
+puerto, mock, tests y máquina de estados) y con el análisis
+`ANALISIS_INTEGRACIONES_CODE100_BANCARD.md` §6 como respaldo, que en su punto 4
+lo daba explícitamente como **refactor pendiente**. Se ejecutó entero sobre el
+worktree… y recién al final se descubrió que **`main` ya lo había hecho**, bajo
+D-02 y con el orden invertido de D-08. El worktree estaba **247 commits detrás**
+y su base no tenía ni D-02 ni la bitácora.
+
+La causa está registrada en memoria desde antes ("comparar contra main antes de
+analizar") y no se aplicó a tiempo: la comprobación correcta era
+`git log --oneline main` y un diff de los archivos a tocar, **antes** de la
+primera edición y no después de la última.
+
+### Qué cambió
+
+Solo `CLAUDE.md`, dos restos que en `main` seguían describiendo un mecanismo que
+ya no existe:
+
+- **Tabla de documentos fuente:** la fila que agrupaba los tres PDF de Bancard
+  decía que `Preaut y promociones 14.pdf` gobierna el adaptador oficial. Se
+  separó en dos filas: las dos APIs vigentes (compra simple y QR) conservan
+  intacto lo que aportan al mock —los `response_code`, el `qr_data` EMVCo, el
+  `hook_alias`, los 5 s de espera del callback, decisión del 21-ago-2026—, y el
+  PDF de preautorización queda en su propia fila diciendo que **no gobierna
+  ningún adaptador** y por qué (D-02 sobre D-08).
+- **Nota de idempotencia de webhooks:** nombraba `capturarPreautorizacion`, un
+  método que el puerto ya no tiene. Queda solo `cancelarOLiberarReserva`, con la
+  aclaración histórica.
+
+**Lo que NO se hizo:** el refactor completo (puerto, mock, dominio, UI, tests)
+quedó **descartado**. Estaba terminado y verificado, pero duplicaba D-02 con otra
+forma —un solo `iniciarPagoTarjeta(medio)` en vez de dos métodos, sin el estado
+`DEVUELTO`, con `cancelarOperacionPendiente` en lugar de `cancelarOLiberarReserva`
+y con la palanca de demo reemplazada por `BANCARD_RECHAZO` en vez de retirada—.
+Rebasar 247 commits para conservarlo era trabajo de conflictos sin producto
+nuevo. El patch quedó guardado fuera del repositorio, en el scratchpad de la
+sesión, y la rama `claude/elegant-murdock-de9b28` volvió a quedar limpia.
+
+### Qué hizo Andres
+
+- Aprobó las tres decisiones de diseño del refactor antes de ejecutarlo (método
+  único de tarjeta, colapso de `EstadoPago`, palanca `BANCARD_RECHAZO`).
+- Al ver el hallazgo, eligió la opción **(a)**: descartar lo del worktree y
+  llevar a `main` solo las dos correcciones de CLAUDE.md.
+
+### Verificaciones
+
+- Sobre el worktree, antes de descartarlo: `typecheck` y `lint` limpios,
+  **606 tests** unitarios en verde, `npm run build` correcto y **7/7 E2E** de
+  Playwright (9.3 min, con identidad `aab1-demo-qa`). Es decir: el trabajo
+  descartado estaba sano; el problema era que ya existía.
+- Sobre esta rama: `typecheck`, `lint` y `npm test` — ver más abajo.
+- Se verificó contra `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` que la
+  decisión no contradice la matriz: las filas **26 y 27** (preautorizar,
+  capturar) no las exige ninguna ley —la propia matriz dice que dependen del
+  contrato y la capacidad técnica de Bancard, y que el orden es control
+  interno—, y la **44** se cumple igual.
+
+### Queda abierto
+
+- **Un comentario roto en `src/adapters/mock/fallas-demo.ts`** (líneas 6-15 de
+  `main`): la nota que explica el retiro de `BANCARD_CAPTURA_FALLIDA` quedó
+  cortada a la mitad — *"Nota histórica de la que venía —la agregó la auditoría
+  de cumplimiento de P8/P9: es la única forma de ejercitar en vivo la fila
+  44…"*— y mezcla el texto viejo con el nuevo. No se tocó por estar fuera del
+  alcance aprobado (dos correcciones de CLAUDE.md); es una línea de comentario,
+  para quien pase por ahí.
+- **`ANALISIS_INTEGRACIONES_CODE100_BANCARD.md` §6 punto 4** sigue diciendo que
+  el refactor está pendiente. Ya no lo está: lo hizo D-02. Conviene cerrarlo ahí
+  para que no dispare una tercera vez el mismo trabajo.
+
+---
+
 ## 2026-09-04 (b) · D-24, D-25, el registro oficial del plan y las 35 citas de la 215 revalidadas
 
 **Rama:** `feat/d24-sexo-catalogo-y-citas-215` · **Pedido de Andres** (tras el
