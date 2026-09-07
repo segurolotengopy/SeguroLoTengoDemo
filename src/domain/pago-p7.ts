@@ -1056,6 +1056,30 @@ async function intentarConfirmarPagoP7(
   // estar `PENDIENTE`, y con ella el adaptador abre el `shop_process_id` nuevo
   // que Bancard exige (B10).
   if (consulta.estado === "RECHAZADO") {
+    // **Idempotente, y no por prolijidad.** El rechazo se asienta una sola vez;
+    // los sondeos que lleguen después devuelven lo mismo sin escribir.
+    //
+    // Sin esto, cada sondeo reescribía el expediente con el mismo hecho, y eso
+    // rompía el reintento: la pantalla habilita el botón apenas ve el rechazo,
+    // y un sondeo en vuelo que escribiera entre la lectura y la escritura de
+    // `iniciarPagoP7` le hacía perder el bloqueo optimista. Como abrir un pago
+    // **no** se reintenta a propósito —reintentar podría abrir una segunda
+    // operación en Bancard—, el resultado era un `CONFLICTO_CONCURRENCIA` que
+    // dejaba a la persona sin poder pagar justo después de decirle que podía.
+    // Lo encontró el E2E de v3, en 1 de 2 corridas.
+    //
+    // Es la misma propiedad que `respuestaDePagoYaConfirmado` le da a la rama
+    // del cobro acreditado, y la que el sondeo pendiente ya tenía por no
+    // escribir nada. La evidencia también entra acá: la fila 31 pide constancia
+    // del rechazo, no una por cada vez que la pantalla preguntó.
+    if (pago.estado === "RECHAZADO") {
+      return {
+        ok: false,
+        motivo: "BANCARD_RECHAZO",
+        codigoRespuesta: consulta.codigoRespuesta ?? undefined,
+      };
+    }
+
     await deps.expedientes.guardar(
       { ...expediente, pago: { ...pago, estado: "RECHAZADO" }, actualizadoEn: fecha },
       expediente.actualizadoEn,

@@ -145,10 +145,78 @@ terminó.
   retirado hace tres semanas.
 - `src/adapters/mock/fallas-demo.ts` + `registro.ts` — palanca
   `BANCARD_TARJETA_RECHAZADA`.
+- **Tests nuevos**: `src/domain/__tests__/pago-bancard-integracion.test.ts`
+  (13, el dominio contra el **adaptador real**, no contra un doble escrito en
+  el propio test), `e2e/v3/05-pago-bancard.spec.ts` y su helper
+  `e2e/v3/soporte/llegar-a-firmado.ts`.
 - `src/app/api/p7/estado/route.ts` y `FormularioPagoP7.tsx` — el
   `codigoRespuesta` sube hasta la pantalla y el rechazo rehabilita el botón.
 - `CLAUDE.md`, `ESPECIFICACION_PANTALLAS.md` y
   `ANALISIS_RESPUESTAS_BANCARD.md` §8.9.
+
+### El E2E de v3 encontró un bug de G2 que los 1296 unitarios no vieron
+
+**Y encontrarlo costó dos correcciones de rumbo, las dos pedidas por Andres.**
+
+La primera: se estaba verificando contra la batería **equivocada**.
+`npm run test:e2e` lleva `testIgnore: ["**/v3/**"]`, así que corre la de v2; la
+del demo vigente es `npm run test:e2e:v3`. Lo señaló Andres —«estamos en el
+tercer demo»—. Verificado antes de tocar nada: el trabajo **no** estaba
+perdido, porque `pago-y-firma/PagoYFirma.tsx` monta el mismo
+`FormularioPagoP7`, y el dominio y `/api/p7/*` son compartidos. Lo único
+equivocado era contra qué se estaba probando.
+
+La segunda: correr la batería entera en un worktree cuesta demasiado. De ahí
+que el spec nuevo sea **uno solo** y acotado a Bancard.
+
+**El bug.** El spec de v3 falló **2 de 2** corridas con:
+
+```
+{"ok":false,"motivo":"CONFLICTO_CONCURRENCIA"}   →  HTTP 409
+```
+
+La rama de `RECHAZADO` que este mismo trabajo agregó escribía el expediente
+**en cada sondeo**, reasentando siempre el mismo hecho. La pantalla habilita el
+botón apenas ve el rechazo, así que un sondeo en vuelo escribía entre la
+lectura y la escritura de `iniciarPagoP7` y le hacía perder el bloqueo
+optimista — y abrir un pago **no se reintenta a propósito**, porque reintentar
+podría abrir una segunda operación en Bancard. Resultado: le decíamos a la
+persona «podés intentar de nuevo» y el intento moría con un 409. Exactamente lo
+contrario de lo que G2 buscaba.
+
+**El arreglo** es la propiedad que las otras dos ramas del sondeo ya tenían: el
+rechazo se asienta una sola vez y los sondeos siguientes devuelven lo mismo sin
+escribir, evidencia incluida (la fila 31 pide constancia del rechazo, no una por
+cada vez que la pantalla preguntó).
+
+**Por qué los tests de integración no lo vieron, y qué se hizo al respecto.** El
+repositorio en memoria **no tiene bloqueo optimista**, así que la carrera no se
+puede reproducir ahí. Hizo falta el navegador y DynamoDB de verdad. El test que
+lo fija mide entonces la propiedad que **sí** es observable sin locking —cuántas
+veces se escribió el expediente y cuántos registros de evidencia quedaron—, no
+el conflicto. Verificado por mutación: con el guard desactivado, falla.
+
+**Cómo se encontró, que es la parte reutilizable.** Las dos primeras corridas se
+fueron en adivinar selectores, cinco minutos cada una. La tercera cambió el
+método: en vez de esperar el modal, esperar **la respuesta del POST** y meter su
+cuerpo en el mensaje del `expect`.
+
+```ts
+const [apertura] = await Promise.all([
+  page.waitForResponse((r) => r.url().includes("/api/p7/pago") && r.request().method() === "POST"),
+  pagar.click(),
+]);
+expect(apertura.status(), await apertura.text()).toBe(200);
+```
+
+Eso convirtió «el botón no aparece» en «el servidor devuelve 409 con este
+motivo» en una sola corrida. Vale para cualquier spec que espere una pantalla
+que depende de una llamada.
+
+**Un intermitente registrado con su prueba, como pide esta bitácora:** el spec
+pasó 1 vez y falló 3 (1 aislada + 2 de `--repeat-each=2`) **antes** del arreglo;
+después, **2 de 2 en verde**. La corrida que pasó era la afortunada, no al revés
+— conviene no cerrar un intermitente con una sola corrida buena.
 
 ### Un bug que casi se escapa
 
@@ -178,8 +246,12 @@ test propio.
 
 - `npm run typecheck` — limpio. `npm run lint` — 0 errores, 8 warnings
   preexistentes (`<img>` de Next).
-- `npm test` — **93 archivos, 1284 tests en verde** (+19 sobre los 1265 con los
-  que arrancó la sesión).
+- `npm test` — **1297 tests en verde** (+32 sobre los 1265 con los que arrancó
+  la sesión).
+- `npm run test:e2e:v3 e2e/v3/05-pago-bancard.spec.ts --repeat-each=2` —
+  **2 de 2 en verde** (1,9 y 2,1 min). **Ojo:** no correr `npm run lint`
+  mientras Playwright escribe `playwright-report/`; da 3035 problemas
+  fantasma que desaparecen al terminar.
 - **Prueba de mutación de los tests nuevos**, porque un test verde que nunca
   ejerció el código es peor que ninguno: con la reversa cortocircuitada y la
   rama de `RECHAZADO` desactivada, **9 de los 11 tests de G1/G2 fallan**. Los
