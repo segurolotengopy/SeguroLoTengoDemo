@@ -38,6 +38,176 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-07 (b) · G1 y G2 implementados: el QR se apaga al vencer, y un rechazo deja reintentar
+
+**Rama:** `claude/bancred-qr-reversas-e3ecea` · **Pedido de Andres:** «implementá
+G1 y G2», sobre el análisis de la segunda ronda de respuestas de Bancard que
+acababa de entrar.
+
+### El caso
+
+Los dos huecos que el análisis del 27-ago dejó escritos como *«corrección
+condicionada a una respuesta que no tenemos»* dejaron de estar condicionados con
+las respuestas del 07-sep. Ninguno de los dos depende de tener ambiente ni
+credenciales de Bancard: viven en el dominio y en el mock.
+
+### G1 · Al vencer, la operación se apaga en Bancard
+
+**El problema.** El QR del proveedor vive **3 días** (B5) y no es configurable
+(B5-bis); el expediente vence a las **24 horas** (D-10). Quedaban hasta dos días
+en los que alguien podía pagar un QR que apuntaba a un expediente terminal —
+dinero cobrado sin contrato vigente, que es justo lo que D-08 fue diseñado para
+hacer imposible. `cancelarOLiberarReserva` existía en el puerto y **no tenía
+ningún llamador** en el dominio.
+
+**Lo implementado.** `aplicarVencimiento` invoca la reversa sobre la referencia
+pendiente y asienta el desenlace en evidencia propia
+(`P7_REVERSA_OPERACION`, con `motivoReversa=VENCIMIENTO_EXPEDIENTE`).
+
+**La decisión de diseño que costó pensar fue el orden.** El análisis decía «en la
+misma escritura», y una llamada HTTP no puede estar dentro de una escritura. Las
+dos opciones no son simétricas:
+
+- *Reversar y después escribir*: si un sondeo concurrente confirmó el pago, la
+  escritura falla por bloqueo optimista — pero **la reversa ya ocurrió**. Queda
+  un expediente `PAGO_CONFIRMADO`, con su certificado emitido, y el dinero
+  devuelto. Es la peor combinación posible, la misma que §3.3 del análisis
+  señala para el callback.
+- *Escribir y después reversar*: **haber ganado la escritura es la prueba de que
+  nadie confirmó el pago.** El bloqueo optimista, que ya estaba, hace el trabajo.
+
+Se eligió la segunda, y hay un test que fija el orden: un espía mira qué estado
+tenía el expediente **en el instante** de la reversa, y exige `VENCIDO`.
+
+**Los dos casos de borde, los dos con test.** Si el pago se acredita entre la
+escritura y la reversa, la reversa lo devuelve: se asienta como evidencia
+**FALLIDA** con `dineroDevuelto=true`, porque es raro y tiene que poder
+encontrarse después. Si la reversa falla, el expediente vence igual —la
+caducidad la decide nuestro reloj, no Bancard— con `reversaAplicada=false`: lo
+que se pierde es la garantía de que el QR quedó apagado, y queda escrito.
+
+### Un tercer disparador que apareció implementando G1
+
+El vencimiento no era la única forma en que el expediente deja de honrar una
+operación abierta. **`Expediente.pago` guarda un solo intento**, así que cambiar
+de medio de pago reemplaza el anterior y lo vuelve invisible — mientras del lado
+de Bancard sigue vivo sus 3 días. Un QR huérfano que alguien pague deja dinero
+entrando contra una operación que nadie mira, con la persona pagando dos veces.
+
+Es el mismo defecto que G1 con otro disparador, así que entró con la misma
+maquinaria: `iniciarPagoP7` apaga el intento abandonado
+(`INTENTO_REEMPLAZADO`) **antes** de abrir el siguiente, para que no exista
+ningún instante con dos operaciones vivas. Si esa reversa falla, el pago nuevo
+se abre igual: no dejar pagar por una falla de Bancard sería castigar a la
+persona por algo que no es suyo.
+
+La regla que quedó es más general que la que pedía el análisis: **toda operación
+que el expediente deja de referenciar se apaga**, y la evidencia dice por cuál de
+los dos motivos.
+
+Está fuera de lo que Andres pidió y entró igual porque dejarlo afuera habría
+significado terminar G1 con un agujero conocido del mismo tipo.
+
+### G2 · El rechazo de tarjeta es un estado
+
+`EstadoPago` suma **`RECHAZADO`**. El sondeo lo asienta con el `response_code`
+del proveedor y el expediente **no se mueve**: sigue en `FIRMADO`, porque lo que
+fracasó es un intento de cobro y no el contrato.
+
+`claveDeIdempotencia` **no necesitó ninguna rama nueva** —le alcanza con que el
+pago haya dejado de estar `PENDIENTE`—, que es exactamente lo que el análisis
+anticipaba como «el cambio de menor superficie». Con eso el reintento acuña
+clave nueva, que es lo que Bancard exige: el `shop_process_id` se quema con el
+intento **aunque haya fallado** (B10).
+
+**Lo que el análisis no había previsto: había que soltar la operación en la
+pantalla.** Cortar el sondeo no alcanzaba. Desde la decisión del 01-sep, mientras
+hay una operación abierta P7 bloquea el botón, el cambio de medio y todo lo
+demás; así que un rechazo dejaba a la persona mirando un error correcto **sin
+poder hacer nada con él**. Ahora la pantalla suelta la operación rechazada, y es
+seguro hacerlo: el `shop_process_id` ya quedó cerrado del lado de Bancard, así
+que no hay riesgo de cobro doble por soltar un intento que el proveedor ya
+terminó.
+
+### Qué cambió
+
+- `src/domain/tipos.ts` — `RECHAZADO` en `EstadoPago`, con el porqué de que sea
+  un estado propio y no una variante de `CANCELADO`.
+- `src/domain/pago-p7.ts` — `apagarOperacionEnBancard` y
+  `reversarOperacionAbierta` (G1 y el intento reemplazado), la rama de rechazo
+  del sondeo (G2), `PASO_EVIDENCIA_REVERSA_P7` y los dos motivos de reversa.
+- `src/ports/payment-provider.ts` — el contrato dice ahora que la reversa apaga
+  un QR no pagado (B4-bis), que un rechazo se devuelve como estado y no como
+  `null` (B10-bis), y que las ventanas de reversa difieren por medio (B1).
+- `src/adapters/mock/payment-provider.ts` — `OperacionMock.desenlace`, la
+  palanca `RECHAZO_AL_CONFIRMAR`, y la reversa idempotente sobre un rechazo.
+  De paso, la cabecera dejó de describir la preautorización, que D-02 había
+  retirado hace tres semanas.
+- `src/adapters/mock/fallas-demo.ts` + `registro.ts` — palanca
+  `BANCARD_TARJETA_RECHAZADA`.
+- `src/app/api/p7/estado/route.ts` y `FormularioPagoP7.tsx` — el
+  `codigoRespuesta` sube hasta la pantalla y el rechazo rehabilita el botón.
+- `CLAUDE.md`, `ESPECIFICACION_PANTALLAS.md` y
+  `ANALISIS_RESPUESTAS_BANCARD.md` §8.9.
+
+### Un bug que casi se escapa
+
+Al soltar la operación rechazada, el mensaje de error desaparecía. El error del
+sondeo se dibuja **dentro de la ventana simulada de Bancard**, y cerrar esa
+ventana —que es justamente lo que hace soltar la operación— se lo llevaba
+puesto: la persona quedaba con el botón habilitado y sin ninguna explicación de
+por qué había vuelto al principio. El arreglo sigue la regla que el propio
+archivo ya tenía escrita —«el mensaje va donde está la acción que lo produjo»—:
+cuando el rechazo habilita otro intento, el error se dibuja junto al botón de
+pagar y no dentro de la ventana que se cerró.
+
+### Una decisión de mock que vale la pena registrar
+
+El desenlace de una operación simulada se decide **al abrirla**, no al
+consultarla, y queda pegado a ella. Si dependiera de la consulta, el botón
+*Simular que ya pagué* de la demostración —que es por donde pasa toda
+demostración desplegada— habría aprobado un pago cuya palanca decía rechazarlo:
+la palanca se consume en un solo intento, y ese intento era la apertura. Tiene
+test propio.
+
+### Qué hizo Andres
+
+- Pidió implementar G1 y G2 sobre el análisis de la sesión anterior.
+
+### Verificaciones
+
+- `npm run typecheck` — limpio. `npm run lint` — 0 errores, 8 warnings
+  preexistentes (`<img>` de Next).
+- `npm test` — **93 archivos, 1284 tests en verde** (+19 sobre los 1265 con los
+  que arrancó la sesión).
+- **Prueba de mutación de los tests nuevos**, porque un test verde que nunca
+  ejerció el código es peor que ninguno: con la reversa cortocircuitada y la
+  rama de `RECHAZADO` desactivada, **9 de los 11 tests de G1/G2 fallan**. Los
+  dos que sobreviven son los que verifican ausencias («sin operación abierta no
+  llama a Bancard», «no emite certificado»), que pasan por construcción.
+- `npm run test:e2e`. **Ojo con el primer intento:** salió con código 143 y no
+  es un fallo de tests — es SIGTERM, la suite tarda más que el timeout con el
+  que se la lanzó. Hay que correrla en segundo plano sin techo de tiempo.
+- **La pantalla no tiene tests unitarios**: el repositorio no tiene ningún
+  `.test.tsx`, así que el camino de UI del rechazo lo cubre solo E2E.
+
+### Queda abierto
+
+- **Decidir el "tiempo X"** antes de reversar por callback ausente. Bancard
+  recomienda **5 minutos** (B8-bis) y lo explica: es lo que tarda alguien en
+  abrir su app y tipear el PIN. Es parámetro de producto y hoy no existe.
+- **Límite de intentos de tarjeta en P7** (3 por expediente, recomendado por el
+  análisis §4.2). Depende de G2, que ya está: conviene hacerlo junto con el
+  rate limiting del Lote 6, con el que se solapa.
+- **`payment_card_type`** para asentar el medio realmente usado y no el elegido
+  en la pantalla. El mock puede simularlo antes del adaptador `live/`.
+- **B7 y B13-bis** siguen bloqueando el adaptador `live/`. `Correo 6` está
+  redactado y espera que Andres lo mande.
+- **PR de esta rama**: trae el rescate de `claude/bancred-integration-docs-t1inpp`
+  además de este trabajo.
+
+---
+
 ## 2026-09-07 · Bancard responde la segunda ronda: los dos huecos condicionados tienen arreglo
 
 **Rama:** `claude/bancred-qr-reversas-e3ecea` · **Pedido de Andres:** «sobre la

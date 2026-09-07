@@ -29,6 +29,10 @@ function estadoHttp(motivo: MotivoRechazoP7): number {
     case "PAGO_NO_INICIADO":
     case "ESTADO_INVALIDO":
     case "PAGO_CANCELADO":
+    // Bancard procesó el intento y lo rechazó (G2). Es un conflicto con el
+    // estado de la operación, no un pedido mal formado: la petición era
+    // correcta y el expediente sigue en pie — lo que no prosperó es el cobro.
+    case "BANCARD_RECHAZO":
     // Perdió la carrera de escritura contra otra petición y el conflicto
     // persistió tras los reintentos del dominio. El próximo sondeo ve la
     // versión que ganó.
@@ -48,7 +52,17 @@ export async function GET(request: Request): Promise<Response> {
   const resultado = await confirmarPagoP7(dependenciasP7(request), { expedienteId, contexto });
 
   if (!resultado.ok) {
-    return respuestaJson({ ok: false, motivo: resultado.motivo }, { status: estadoHttp(resultado.motivo) });
+    return respuestaJson(
+      {
+        ok: false,
+        motivo: resultado.motivo,
+        // El `response_code` del proveedor cuando lo hubo. Sube hasta la
+        // pantalla por la misma razón que en `POST /api/p7/pago`: la razón del
+        // rechazo la pone Bancard y la pantalla solo agrega qué hacer.
+        ...(resultado.codigoRespuesta ? { codigoRespuesta: resultado.codigoRespuesta } : {}),
+      },
+      { status: estadoHttp(resultado.motivo) },
+    );
   }
 
   const cookies = [{ nombre: COOKIE_SESION, valor: contexto.sesionId }];

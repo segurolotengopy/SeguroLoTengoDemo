@@ -446,13 +446,32 @@ de nuevo.` (D-10).
 - **Medios (los tres cobran el premio total en el momento, D-02):** `QR Bancard` (por defecto) · `Tarjeta de débito` · `Tarjeta de crédito`. Botón según medio: `Tocá acá para generar el QR de Bancard` / `Tocá acá para pagar con débito →` / `Tocá acá para pagar con tarjeta de crédito →`.
 - `Se abre el entorno seguro de Bancard. SeguroLoTengo e Interseguros no reciben el dinero ni ven tu tarjeta.` — la tarjeta va por el flujo alojado de Bancard; el portal nunca ve PAN/CVV (regla #6). El comportamiento del mock sale de los documentos de Bancard (`response_code`, EMVCo, reversa a los 5 s).
 - **Modal Bancard** (en demo, simulado y rotulado como tal): `vpos.bancard.com.py/pago-seguro` · `Comercio: Alianza Garantía Seguros y Reaseguros S.A.` · `A PAGAR {premio}` · QR con guía (`{nombre,} escaneá este QR desde tu app de pagos — apenas Bancard confirme el pago seguimos automáticamente…`) o formulario de tarjeta (número, vencimiento MM/AA, código de seguridad, titular) con validación y `Mostrame qué me falta`. Botones `Simular que ya pagué (demo)` y `Completar con datos de ejemplo (demo)` **solo** con `DEMO_MODE=true`. Leyenda: `Ventana simulada del entorno de Bancard para esta demostración. En producción se abre el formulario real de Bancard…`
-- **Plazo:** 24 horas desde las firmas institucionales, con cuenta regresiva. Vencido → **Pantalla B** (sin cobro, sin devolución).
+- **Plazo:** 24 horas desde las firmas institucionales, con cuenta regresiva. Vencido → **Pantalla B** (sin cobro, sin devolución), y la operación abierta en Bancard **se apaga** (ver reglas del sistema).
+- **Pago rechazado:** si Bancard rechaza el intento —fondos insuficientes, tarjeta inhabilitada—, la pantalla corta la espera y muestra `Bancard rechazó el pago. Podés intentar de nuevo con otra tarjeta o elegir otro medio: no se te cobró nada.`, seguido de la razón del proveedor (`Bancard informó: {descripción} (código {código}).`). **Vuelve a habilitar el botón de pagar**: la operación anterior quedó cerrada del lado de Bancard, así que el próximo intento abre una nueva. La razón la pone Bancard; el qué hacer, la pantalla.
 
 **Reglas del sistema:** el único estado que abre y confirma una operación es
 `FIRMADO` (regla 6-bis); la operación es idempotente; el Certificado de
 Cobertura Provisional se emite en la misma escritura que confirma el cobro
 (D-12, CMP-07); cada emisión del medio de cobro queda asentada con la huella
 del PDF firmado (CMP-08).
+
+**Un intento rechazado es un estado, no un error.** El pago queda `RECHAZADO`
+—no `PENDIENTE`— y el expediente sigue en `FIRMADO`: lo que fracasó es el
+cobro, no el contrato. Esa distinción es la que hace posible el reintento,
+porque Bancard **quema el `shop_process_id` con el intento aunque haya
+fallado** (respuesta B10), así que el siguiente intento necesita clave de
+idempotencia nueva — y la clave solo se renueva cuando el pago deja de estar
+pendiente. Que el rechazo nos llegue lo confirmó el proveedor por las dos vías,
+callback y consulta (B10-bis).
+
+**Al vencer, la operación se cierra en Bancard.** El QR del proveedor vive
+3 días y no es configurable (B5, B5-bis), contra las 24 horas del expediente:
+sin cerrarla quedaría un QR pagable apuntando a un expediente terminal. La
+reversa por `hook_alias` invalida un QR generado y no pagado, y usarla al
+cancelar la venta es mandatorio según Bancard (B4-bis). Ocurre **después** de
+persistir el vencimiento, y deja evidencia propia. Lo mismo al **cambiar de
+medio de pago**: el intento anterior se apaga antes de abrir el siguiente, para
+que no quede una operación viva que el expediente ya no mira.
 
 ---
 

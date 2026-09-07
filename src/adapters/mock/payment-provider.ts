@@ -8,17 +8,18 @@
  *
  *   - **QR Bancard** — se genera el QR (con demora, como la llamada real), la
  *     persona lo paga y el importe se acredita: `PENDIENTE` → `CONFIRMADO`.
- *   - **Tarjeta de débito** — compra simple de vPOS
+ *   - **Tarjeta de débito** y **tarjeta de crédito** — compra simple de vPOS
  *     (`docs/Integraciones/eCommerce_bancard_compra_simple_version_1.23.1
  *     (1).pdf`): `PENDIENTE` → `CONFIRMADO`, con cobro efectivo.
- *   - **Tarjeta de crédito** — preautorización
- *     (`docs/Integraciones/Preaut y promociones 14.pdf`): `PENDIENTE` →
- *     `PREAUTORIZADO`, sin cobro; la captura la ordena la firma en P8.
  *
- * La preautorización es exclusiva del crédito, confirmado por Bancard: acá se
- * hace cumplir por construcción — `iniciarPagoTarjetaCredito` es lo único
- * que crea operaciones `TARJETA_CREDITO`, y `capturarPreautorizacion` lanza
- * sobre cualquier otro medio, porque el QR y el débito ya cobraron en P7.
+ * Los tres medios terminan igual desde D-02: no hay preautorización, así que
+ * no hay reserva que capturar. O el dinero entró, o no entró.
+ *
+ * El cuarto desenlace es el **rechazo** (`PENDIENTE` → `RECHAZADO`): la
+ * persona tipeó una tarjeta dentro del formulario seguro y el emisor dijo que
+ * no. Se simula con la palanca `RECHAZO_AL_CONFIRMAR`, y existe porque Bancard
+ * confirmó que ese desenlace **nos llega** (B10-bis) — sin él, un rechazo era
+ * indistinguible de un pago que todavía no ocurrió.
  *
  * ## Regla inviolable #6 — ningún dato de tarjeta, en ninguna capa
  *
@@ -83,9 +84,9 @@ import { estadoCompartidoDemo } from "./estado-compartido";
  * (`cancelarOLiberarReserva`) al vencer, que es el uso que Bancard declara
  * mandatorio cuando el comercio cancela la venta (B4-bis).
  *
- * Ver `docs/ANALISIS_RESPUESTAS_BANCARD.md` §3.1 y §8.1: hoy nada en el
- * dominio invoca esa reversa, así que un QR abierto sobrevive al vencimiento
- * del expediente. Es el hueco G1, desbloqueado y todavía sin implementar.
+ * Quien la hace cumplir es `aplicarVencimiento` (`src/domain/pago-p7.ts`), que
+ * reversa la operación abierta al vencer el expediente. Ver
+ * `docs/ANALISIS_RESPUESTAS_BANCARD.md` §8.9.
  */
 export const VIGENCIA_QR_MINUTOS = 15;
 
@@ -118,26 +119,29 @@ export const DEMORA_ACREDITACION_SOLO_POR_BOTON_MS = 365 * 24 * 60 * 60 * 1000;
  */
 const ULTIMOS_4_SIMULADOS = "0042";
 
-/** Falla que el panel de demo puede forzar sobre la próxima operación. */
-export type FallaBancardDemo = "TIMEOUT" | "RECHAZADA";
+/**
+ * Falla que el panel de demo puede forzar sobre la próxima operación.
+ *
+ * Las dos primeras ocurren **al abrir** la operación —Bancard no contesta, o
+ * contesta que no— y por eso el adaptador las lanza como `ErrorBancard`: no
+ * llega a existir ninguna operación.
+ *
+ * `RECHAZO_AL_CONFIRMAR` es otro momento y por eso es otra palanca: la
+ * operación **se abre bien**, la persona ve el formulario seguro, tipea una
+ * tarjeta y el emisor la rechaza. El desenlace no es una excepción sino un
+ * estado (`RECHAZADO`), que es exactamente como Bancard lo reporta (B10-bis).
+ */
+export type FallaBancardDemo = "TIMEOUT" | "RECHAZADA" | "RECHAZO_AL_CONFIRMAR";
 
 /**
- * Con qué `response_code` rechaza la palanca `BANCARD_TIMEOUT`/`RECHAZADA` del
- * panel.
+ * Con qué `response_code` rechaza el mock, tanto al abrir la operación
+ * (`RECHAZADA`) como al terminar de pagarla (`RECHAZO_AL_CONFIRMAR`).
  *
  * `51` (fondos insuficientes) porque es el que usa el propio documento de
  * Bancard QR en su ejemplo de pago rechazado, y porque es el rechazo que más se
  * ve en producción: la demostración muestra el caso frecuente, no uno exótico.
  */
 export const CODIGO_RECHAZO_SIMULADO = "51";
-
-/**
- * Falla de la **captura** de una preautorización, que es un momento distinto de
- * la apertura de la operación: la ordena la firma del cliente en P8. Existe para
- * poder demostrar la fila 44 de la matriz de cumplimiento (*"Si falla el cobro,
- * no solicitar la emisión automática"*).
- */
-export type FallaCapturaDemo = "CAPTURA_FALLIDA";
 
 export interface OperacionMock {
   readonly referenciaBancard: string;
@@ -158,6 +162,16 @@ export interface OperacionMock {
   readonly hookAlias: string | null;
   readonly expiraEn: string | null;
   readonly urlFormularioSeguro: string | null;
+  /**
+   * A qué estado llega esta operación cuando la persona termina de pagarla.
+   *
+   * Se decide **al abrirla** y no al consultarla, porque así es como se
+   * comporta de verdad: quien tiene la tarjeta rechazada la tiene rechazada
+   * consulte quien consulte, y el botón *Pagado* de la demostración tiene que
+   * llegar al mismo desenlace que el reloj. Sin este campo, una palanca armada
+   * se evaporaba en cuanto la demostración usaba el botón en vez de esperar.
+   */
+  readonly desenlace: "CONFIRMADO" | "RECHAZADO";
   estado: EstadoPago;
   /** `response_code` de Bancard; `null` mientras no contestó nada. */
   codigoRespuesta: string | null;
@@ -181,7 +195,6 @@ export interface OpcionesPaymentProviderMock {
   readonly demoraAcreditacionMs?: number;
   /** Falla a forzar en la próxima operación (palanca del panel de demo). */
   readonly fallaForzada?: () => FallaBancardDemo | null;
-  /** Falla a forzar en la próxima captura de preautorización. */
 }
 
 function referenciaDeBancard(): string {
@@ -198,13 +211,20 @@ function esperar(ms: number): Promise<void> {
 }
 
 /**
- * Estado al que llega la operación una vez acreditada.
+ * Estado al que llega la operación cuando la persona termina de pagarla, y con
+ * qué `response_code` de Bancard.
  *
  * Los tres medios terminan igual desde que no hay preautorización (D-02): o el
- * dinero entró, o no entró.
+ * dinero entró, o no entró. Lo que sí cambia es **por qué** no entró, y eso lo
+ * decide el desenlace previsto de la operación, no el medio.
  */
-function estadoAcreditado(): EstadoPago {
-  return "CONFIRMADO";
+function desenlaceDe(operacion: OperacionMock): {
+  readonly estado: EstadoPago;
+  readonly codigoRespuesta: string;
+} {
+  return operacion.desenlace === "RECHAZADO"
+    ? { estado: "RECHAZADO", codigoRespuesta: CODIGO_RECHAZO_SIMULADO }
+    : { estado: "CONFIRMADO", codigoRespuesta: CODIGO_RESPUESTA_APROBADA };
 }
 
 function proyectar(operacion: OperacionMock): EstadoConsultaPago {
@@ -253,10 +273,13 @@ export function acreditarPagoMock(
   const existente = operaciones.get(referenciaBancard);
 
   if (existente) {
-    // Ya acreditada: idempotente, como el propio proveedor ante un reintento.
-    if (existente.estado !== "CONFIRMADO") {
-      existente.estado = "CONFIRMADO";
-      existente.codigoRespuesta = CODIGO_RESPUESTA_APROBADA;
+    // El botón dice "ya pagué", no "aprobame el pago": si la operación tenía
+    // previsto un rechazo (palanca `RECHAZO_AL_CONFIRMAR`), pagarla lo produce.
+    // Idempotente, como el propio proveedor ante un reintento.
+    const desenlace = desenlaceDe(existente);
+    if (existente.estado !== desenlace.estado) {
+      existente.estado = desenlace.estado;
+      existente.codigoRespuesta = desenlace.codigoRespuesta;
       existente.actualizadoEn = datos.ahora;
     }
     return proyectar(existente);
@@ -277,6 +300,11 @@ export function acreditarPagoMock(
     qrPayload: null,
     expiraEn: null,
     urlFormularioSeguro: null,
+    // Esta instancia no vio abrirse la operación, así que no sabe si tenía un
+    // rechazo previsto: reconstruye el caso normal. Una palanca armada en otra
+    // instancia no viaja, y es la misma limitación que documenta
+    // `estado-compartido.ts`.
+    desenlace: "CONFIRMADO",
     estado: "CONFIRMADO",
     codigoRespuesta: CODIGO_RESPUESTA_APROBADA,
     actualizadoEn: datos.ahora,
@@ -307,8 +335,9 @@ export function crearPaymentProviderMock(
 
     const instante = ahora().toISOString();
     if (instante >= operacion.acreditableDesde) {
-      operacion.estado = estadoAcreditado();
-      operacion.codigoRespuesta = CODIGO_RESPUESTA_APROBADA;
+      const desenlace = desenlaceDe(operacion);
+      operacion.estado = desenlace.estado;
+      operacion.codigoRespuesta = desenlace.codigoRespuesta;
       operacion.actualizadoEn = instante;
     } else if (operacion.expiraEn && instante >= operacion.expiraEn) {
       operacion.estado = "CANCELADO";
@@ -356,6 +385,13 @@ export function crearPaymentProviderMock(
 
     await esperar(demoraGeneracionMs);
 
+    if (falla === "RECHAZO_AL_CONFIRMAR") {
+      // A diferencia de las otras dos, esta **no corta**: la operación se abre
+      // normalmente y la persona llega al formulario seguro. El rechazo llega
+      // después, cuando termina de pagar, que es cuando el emisor contesta.
+      return crearOperacion(entrada, "RECHAZADO");
+    }
+
     if (falla === "RECHAZADA") {
       // Con el código y la descripción del proveedor, no con un texto propio:
       // `51` es el que usa el propio ejemplo de rechazo del documento de QR.
@@ -366,6 +402,20 @@ export function crearPaymentProviderMock(
       );
     }
 
+    return crearOperacion(entrada, "CONFIRMADO");
+  }
+
+  /** Arma la operación y la registra bajo su clave de idempotencia. */
+  function crearOperacion(
+    entrada: {
+      expedienteId: string;
+      propuestaId: string;
+      medio: MedioDePago;
+      montoGs: number;
+      idempotencyKey: string;
+    },
+    desenlace: "CONFIRMADO" | "RECHAZADO",
+  ): OperacionMock {
     const creadaEn = ahora();
     const referenciaBancard = referenciaDeBancard();
     const esQr = entrada.medio === "QR_BANCARD";
@@ -394,6 +444,7 @@ export function crearPaymentProviderMock(
       urlFormularioSeguro: esQr
         ? null
         : `https://vpos.simulado.bancard.com.py/checkout/${referenciaBancard}`,
+      desenlace,
       estado: "PENDIENTE",
       // Pendiente es, literalmente, que Bancard todavía no respondió nada.
       codigoRespuesta: null,
@@ -450,9 +501,16 @@ export function crearPaymentProviderMock(
         );
       }
       // Idempotencia: repetir la operación no tiene efecto adicional. Vale
-      // para los dos finales posibles, porque el llamador no siempre sabe si
-      // la operación ya había cobrado cuando se pidió deshacerla.
-      if (operacion.estado === "CANCELADO" || operacion.estado === "DEVUELTO") {
+      // para los tres finales posibles, porque el llamador no siempre sabe si
+      // la operación ya había cobrado —o ya había sido rechazada— cuando se
+      // pidió deshacerla. Un rechazo ya es el final de esa operación: no hay
+      // nada que revertir y decir "cancelado" borraría el hecho de que hubo un
+      // intento, que es justamente lo que quema el `shop_process_id` (B10).
+      if (
+        operacion.estado === "CANCELADO" ||
+        operacion.estado === "DEVUELTO" ||
+        operacion.estado === "RECHAZADO"
+      ) {
         return proyectar(operacion);
       }
 

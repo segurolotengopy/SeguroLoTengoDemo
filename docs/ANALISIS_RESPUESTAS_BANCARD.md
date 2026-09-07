@@ -757,8 +757,8 @@ bloqueados**.
 
 | # | Trabajo | Estado al 07-sep |
 | :---- | :---- | :---- |
-| 1 | **G1** · Reversar la operación al vencer el expediente | **Desbloqueado** (B4-bis + B5-bis). Implementable ya, sin ambiente: toca dominio, mock y tests de contrato |
-| 2 | **G2** · `RECHAZADO` en `EstadoPago` y su asiento en el sondeo | **Desbloqueado** (B10-bis). Implementable ya. La franja del iframe abandonado queda como **B10-ter** |
+| 1 | **G1** · Reversar la operación al vencer el expediente | **HECHO** el 07-sep. Ver §8.9 |
+| 2 | **G2** · `RECHAZADO` en `EstadoPago` y su asiento en el sondeo | **HECHO** el 07-sep. Ver §8.9. La franja del iframe abandonado queda como **B10-ter** |
 | 3 | **G3** · Declarar el invariante del callback | **Reforzado** (B8-bis): sin reintentos y con reversa automática, el invariante deja de ser prolijidad |
 | 4 | Límite de intentos de tarjeta en P7 (3 por expediente) | Depende de G2, ahora desbloqueado. Conviene con el rate limiting de L6 |
 | 5 | `payment_card_type` en toda compra simple | Sin cambios. Depende del adaptador `live/`; el mock puede simularlo antes |
@@ -768,9 +768,71 @@ bloqueados**.
 
 **Lo que sigue bloqueado no es diseño, es acceso.** B7 (ambiente y credenciales) y
 B13-bis (cuántas URL de confirmación, y si hay una por ambiente) siguen sin respuesta, y
-sin ellas no se puede escribir ni certificar el adaptador `live/`. Los puntos 1, 2, 4 y 6
-de la tabla **no dependen de eso**: viven en el dominio y en el mock, y se pueden hacer
-hoy.
+sin ellas no se puede escribir ni certificar el adaptador `live/`. Los puntos 1, 2 y 6 de
+la tabla no dependían de eso —viven en el dominio y en el mock— y por eso ya están hechos.
+
+### 8.9 G1 y G2, implementados (07-sep-2026)
+
+**G1 · `aplicarVencimiento` cierra la operación en Bancard.** El vencimiento persiste
+primero y reversa después, y el orden es la parte sustantiva del diseño: la escritura
+lleva bloqueo optimista, así que **haberla ganado es la prueba de que ningún sondeo
+concurrente confirmó el pago**. Al revés —reversar y después escribir— un sondeo que
+ganara la carrera dejaría un expediente `PAGO_CONFIRMADO`, con su certificado emitido, y
+el dinero devuelto: la peor combinación posible, la misma que §3.3 señala para el
+callback.
+
+Queda una franja que no se puede cerrar —que el pago se acredite entre la escritura y la
+reversa— pero sí **detectar**: la reversa devuelve `DEVUELTO` cuando había dinero adentro,
+y eso se asienta como evidencia **FALLIDA** con `dineroDevuelto=true`. El expediente no
+vuelve del vencimiento: `VENCIDO` es terminal.
+
+Si la reversa falla, el expediente vence igual —la caducidad la decide nuestro reloj, no
+Bancard— y lo que se pierde es la garantía de que el QR quedó apagado. Por eso queda
+escrito, con `reversaAplicada=false`. La evidencia es propia (`P7_REVERSA_OPERACION`) y no
+un campo del vencimiento: son dos hechos con dos contrapartes, y pueden discrepar.
+
+**Un tercer disparador, que este análisis no había visto.** El vencimiento no
+es la única forma en que el expediente deja de honrar una operación abierta:
+`Expediente.pago` guarda **un solo intento**, así que cambiar de medio de pago
+reemplaza el anterior y lo vuelve invisible — mientras del lado de Bancard sigue
+vivo sus 3 días. Un QR huérfano que alguien pague deja dinero entrando contra
+una operación que nadie mira, con la persona pagando dos veces. `iniciarPagoP7`
+reversa el intento abandonado (`INTENTO_REEMPLAZADO`) **antes** de abrir el
+siguiente, para que no exista ningún instante con dos operaciones vivas. Si esa
+reversa falla, el pago nuevo se abre igual y queda la evidencia: no dejar pagar
+por una falla de Bancard sería castigar a la persona por algo que no es suyo.
+
+La regla que quedó, entonces, es más general que G1: **toda operación que el
+expediente deja de referenciar se apaga**, y la evidencia dice por cuál de los
+dos motivos.
+
+**G2 · el rechazo es un estado.** `EstadoPago` suma `RECHAZADO`, el sondeo lo asienta con
+el `response_code` del proveedor, y el expediente **no se mueve**: sigue en `FIRMADO`,
+porque lo que fracasó es un intento de cobro y no el contrato. `claveDeIdempotencia` no
+necesitó ninguna rama nueva —le alcanza con que el pago haya dejado de estar
+`PENDIENTE`—, que es exactamente lo que §3.2 anticipaba: *"es el cambio de menor
+superficie que resuelve el caso"*.
+
+Lo que sí hizo falta y el análisis no había previsto es **soltar la operación en la
+pantalla**. Cortar el sondeo no alcanzaba: mientras hay una operación abierta, P7 bloquea
+el botón, el cambio de medio y todo lo demás (decisión del 01-sep), así que un rechazo
+dejaba a la persona mirando un error sin poder hacer nada. La pantalla ahora suelta la
+operación rechazada, y es correcto: el `shop_process_id` ya quedó quemado del lado de
+Bancard (B10), así que no hay riesgo de cobro doble por soltar un intento que el proveedor
+ya cerró.
+
+**Palanca nueva en el panel:** `BANCARD_TARJETA_RECHAZADA`, que es **otro momento** que
+`BANCARD_TIMEOUT` y no otra intensidad — aquella corta al abrir la operación, esta ocurre
+al terminar de pagarla. En el mock el desenlace se decide **al abrir** la operación y
+queda pegado a ella, para que el botón *Pagado* de la demostración llegue al mismo
+desenlace que el reloj; si dependiera de volver a consultarla, la segunda lectura la
+aprobaría.
+
+**Lo que no se hizo, y por qué.** El punto 4 (límite de intentos de tarjeta) queda para
+el rate limiting de L6, con el que se solapa. El punto 5 (`payment_card_type`) espera al
+adaptador `live/`. Y el invariante del callback (punto 3) sigue siendo documentación:
+escribir el route handler sin ambiente ni definición de URL (B7, B13-bis) sería inventar
+la integración.
 
 ### 8.8 Consultas abiertas después de esta ronda
 

@@ -1,8 +1,10 @@
 /**
  * Suite de contrato para cualquier implementación de `PaymentProvider`
- * (mock u oficial), P7. Cubre las tres modalidades: QR y débito (pago
- * definitivo antes de la firma) y crédito (preautorización, captura y
- * liberación de reserva).
+ * (mock u oficial), P7. Cubre las tres modalidades —QR, débito y crédito, las
+ * tres con cobro definitivo desde D-02— y la reversa, que tiene dos usos: la
+ * devolución de un cobro acreditado y **apagar un QR emitido y no pagado**,
+ * que es lo que hace posible que el vencimiento del expediente cierre la
+ * operación en Bancard (respuesta B4-bis).
  *
  * La suite **no verifica el estado al que llega cada modalidad** después de
  * pagar: eso depende de cuándo la persona escanea el QR o completa el
@@ -176,6 +178,31 @@ export function runPaymentProviderContractTests(
 
       expect(["CANCELADO", "DEVUELTO"]).toContain(cancelado.estado);
       expect(pagoAcreditado(cancelado.estado)).toBe(false);
+    });
+
+    /**
+     * La idempotencia por `referenciaBancard` que promete el puerto, y que el
+     * vencimiento del expediente necesita: la pantalla dispara el vencimiento
+     * a la vez que sigue sondeando, así que dos llamadas a la reversa sobre la
+     * misma referencia son un caso esperable y no un error. Con Bancard de
+     * verdad el desenlace tipificado es `response_code 71` ("ya extornada"),
+     * que el adaptador tiene que traducir a este mismo estado en vez de
+     * lanzar.
+     */
+    it("reversar dos veces la misma referencia devuelve el mismo estado, sin efecto adicional", async () => {
+      const p = await proveedor();
+      const inicio = await p.iniciarPagoQr({
+        expedienteId: "EXP-CONTRATO-13",
+        propuestaId: "PROP-00018425",
+        montoGs: 475000,
+        idempotencyKey: "IDEMP-CONTRATO-13",
+      });
+
+      const primera = await p.cancelarOLiberarReserva(inicio.referenciaBancard);
+      const segunda = await p.cancelarOLiberarReserva(inicio.referenciaBancard);
+
+      expect(segunda.estado).toBe(primera.estado);
+      expect(pagoAcreditado(segunda.estado)).toBe(false);
     });
 
     it("reintenta iniciarPagoQr con la misma idempotencyKey y no crea un QR nuevo", async () => {
