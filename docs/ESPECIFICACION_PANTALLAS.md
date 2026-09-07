@@ -532,7 +532,40 @@ anotadas:
 - **Pantalla B · Solicitud vencida sin cobro** (`/solicitud-vencida`): sin
   cambios de fondo — expediente firmado y no pagado en 24 h, sin devolución,
   con su variante legada de devolución para los expedientes del orden viejo.
-  Única adaptación: el resumen y los hitos nombran el paso 3 nuevo.
+  Adaptaciones: el resumen y los hitos nombran el paso 3 nuevo, y la variante
+  legada lleva el bloque **`ADÓNDE VUELVE Y CUÁNDO`** que se detalla abajo.
+
+  **`ADÓNDE VUELVE Y CUÁNDO`** (agregado el 28-ago-2026, con las respuestas B2
+  y B3 de Bancard). Debajo del bloque rojo, `Destino` y `Plazo estimado` según
+  el medio con el que se pagó:
+
+  | Medio | Destino | Plazo |
+  | :---- | :---- | :---- |
+  | Tarjeta de crédito | A la misma tarjeta de crédito con la que pagaste. | Entre 48 y 72 horas desde que Alianza carga el pedido de anulación. |
+  | Tarjeta de débito | A la misma tarjeta de débito con la que pagaste. | Depende de cuándo tu banco autorice el movimiento en tu cuenta: no hay un plazo fijo. |
+  | QR Bancard | A la cuenta desde la que pagaste el QR. | Depende de cuándo tu banco acredite el movimiento en tu cuenta: no hay un plazo fijo. |
+
+  Cuando el plazo no lo fija Bancard —débito y QR— se agrega la nota `Bancard no
+  fija un plazo para este medio: la acreditación la resuelve tu banco.` Sin
+  ella, un plazo ausente se lee como un plazo olvidado. **Ningún medio sin SLA
+  puede llevar una cantidad de tiempo en su texto**, y hay un test que lo hace
+  fallar a propósito.
+
+  Este bloque es lo que completa la fila 65 (*"Explicar cancelación y
+  metodología de devolución"*): los cuatro pasos ya explicaban el
+  procedimiento, pero el paso 4 decía *"al medio o cuenta de origen"* sin poder
+  precisar cuál ni cuándo, porque hasta esa respuesta no lo sabíamos. El plazo
+  del QR sigue siendo **inferencia nuestra** —Bancard no lo respondió (B3-bis)—
+  y por eso no le atribuye ningún plazo al proveedor.
+
+  **Corrección del literal de la bajada.** El documento decía *"del premio
+  pagado mediante QR Bancard"*, porque la pantalla se escribió cuando el QR era
+  el único caso. Bajo el orden viejo también se pagaba con débito y con
+  crédito, así que a un expediente legado de tarjeta la pantalla le afirmaba un
+  medio que no era el suyo. La bajada ya no nombra el medio; el medio real se
+  dice en el bloque de arriba, con el dato del expediente. Cuál de las dos
+  variantes se muestra lo decide si el dinero efectivamente entró, no el medio
+  de pago ni la fecha del expediente.
 - **Verificación pública** (`/verificar/<código>`): sin cambios. El pie legal
   nuevo la enlaza desde todas las pantallas.
 - **Asistencia de identidad** (`/asistencia-identidad`): sin cambios de fondo;
