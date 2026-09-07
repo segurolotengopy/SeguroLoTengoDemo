@@ -74,6 +74,18 @@ import { estadoCompartidoDemo } from "./estado-compartido";
  * hay fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` que fije un
  * plazo, y la especificación de pantallas tampoco lo dice. Quince minutos es
  * lo habitual en un QR de comercio y deja margen para pagar desde otra app.
+ *
+ * **El proveedor no puede hacerla cumplir.** El QR de Bancard vive **3 días**
+ * (respuesta B5) y esa vigencia **no es configurable por comercio** (B5-bis):
+ * es un valor fijo del servicio. Así que estos quince minutos son política
+ * nuestra en los dos sentidos —la elegimos nosotros y la tenemos que hacer
+ * cumplir nosotros—, y la forma de hacerlo es invocar la reversa
+ * (`cancelarOLiberarReserva`) al vencer, que es el uso que Bancard declara
+ * mandatorio cuando el comercio cancela la venta (B4-bis).
+ *
+ * Ver `docs/ANALISIS_RESPUESTAS_BANCARD.md` §3.1 y §8.1: hoy nada en el
+ * dominio invoca esa reversa, así que un QR abierto sobrevive al vencimiento
+ * del expediente. Es el hueco G1, desbloqueado y todavía sin implementar.
  */
 export const VIGENCIA_QR_MINUTOS = 15;
 

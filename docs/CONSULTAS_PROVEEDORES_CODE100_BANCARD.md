@@ -162,6 +162,39 @@ El correo aclara explícitamente que **no hace falta responder todo junto** y qu
 
 ---
 
+# Tercera ronda — Bancard (lo que quedó del correo 5)
+
+**Respondidas el 07-sep-2026:** seis de las diez del correo 5 —**B4-bis**, **B5-bis**,
+**B10-bis**, **B6-bis**, **B8-bis** y **B8-ter**—, todas las técnicas salvo B13-bis.
+Están en `docs/Integraciones/Bancard - Respuestas segunda ronda.md` y analizadas en
+`docs/ANALISIS_RESPUESTAS_BANCARD.md` §8. Dos de ellas desbloquean los huecos G1 y G2.
+
+## Correo 6 — Bancard, pendientes tras la segunda ronda *(el vigente)*
+
+**Cuerpo listo para reenviar:** `docs/correos/Correo 6 - Bancard - lo que sigue pendiente tras la segunda ronda.md`
+
+**Reemplaza al correo 5.** Quedan **5 consultas**, y el reparto cambió de área: de las
+cinco, **tres son comerciales**, así que el correo va dirigido en primer término a la
+ejecutiva de cuenta. Soporte técnico ya respondió todo lo suyo salvo B13-bis.
+
+| Bloque | Consultas | Criterio |
+| :---- | :---- | :---- |
+| **Bloqueantes** | B7, B13-bis | Sin ambiente ni definición de URL no se escribe ni se certifica el adaptador |
+| **Importantes** | B11, B3-bis, B10-ter | No frenan el trabajo de dominio; tienen que estar antes de producción |
+
+**B10-ter es la única consulta nueva** y nace de una precisión de las propias respuestas:
+B10-bis(b) distinguió el `shop_process_id` con **iframe abandonado** —sin intento
+registrado— del que tuvo un intento rechazado, y B10-bis(c) igual indica generar una
+operación nueva. De si eso es restricción o recomendación depende que
+`claveDeIdempotencia` pueda seguir reutilizando la clave de un pago `PENDIENTE`, que es
+hoy nuestra protección contra el doble clic.
+
+**B7 sigue siendo el pendiente más viejo y el más barato de resolver:** se prometió el
+27-ago, es el único que no requiere ninguna definición del proveedor, y sin él la rama QR
+no se puede ni empezar.
+
+---
+
 > **Por qué estos correos no están transcriptos acá y los dos primeros sí.** Se
 > pidieron como archivos sueltos para reenviar, y tener el mismo texto en dos lugares
 > es la forma más segura de que uno de los dos quede viejo. El cuerpo vive en

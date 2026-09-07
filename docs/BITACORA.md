@@ -38,6 +38,143 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-07 · Bancard responde la segunda ronda: los dos huecos condicionados tienen arreglo
+
+**Rama:** `claude/bancred-qr-reversas-e3ecea` · **Pedido de Andres:** «sobre la
+integración con Bancard, fijate el status y considera este conjunto de
+respuestas», con las seis respuestas técnicas pegadas en el mensaje.
+
+### El caso
+
+Andres pasó las respuestas de Bancard a **B4-bis, B10-bis, B8-ter, B6-bis,
+B5-bis y B8-bis** — seis de las diez consultas pendientes del correo 5.
+
+Lo primero que apareció al buscar el estado no fue el estado: fue que **el
+trabajo de Bancard no estaba en `main`**. Vivía entero en
+`claude/bancred-integration-docs-t1inpp`, 5 commits, **sin PR desde el 28-ago** y
+**122 commits atrás**. La bitácora del 21-ago ya lo tenía anotado como «rescatar
+o archivar — Andres», y ahí seguía. Sin esa rama, las respuestas nuevas no
+tenían contra qué leerse: las preguntas, el análisis que las originó y los
+huecos G1/G2 estaban todos ahí.
+
+Así que la sesión hizo dos cosas: **rescatar la rama** y **analizar la ronda
+nueva** encima.
+
+### Qué cambió
+
+**1. La rama vieja se fusionó.** Dos conflictos, los dos por contenido que
+`main` reescribió después:
+
+- **`CLAUDE.md`** — `main` había partido en dos la fila de los PDF de Bancard
+  (D-02 sacó la preautorización del puerto). Se conservan las dos filas de
+  `main` y se agrega la fila de las respuestas, ya redactada con las dos rondas.
+- **`ESPECIFICACION_PANTALLAS.md`** — `main` lo reescribió al flujo de 3 pasos,
+  así que el bloque «adónde vuelve y cuándo» de Pantalla B cayó dentro de la
+  sección de pago. Se conservó «Reglas del sistema» donde estaba y el bloque se
+  reubicó en «Pantallas que se conservan del flujo anterior», que es donde vive
+  hoy Pantalla B.
+
+**Un bug de higiene que el merge destapó:** `textos-devolucion.ts` citaba
+«Res. SS SG. 215/15». `main` prohibió esa errata **después** de que la rama se
+escribiera (`higiene-de-citas.test.ts`), así que el merge dejó la suite en rojo
+con 1 test fallando. Corregido a **215/17**.
+
+**2. Las respuestas nuevas entraron con su análisis.**
+
+- `docs/Integraciones/Bancard - Respuestas segunda ronda.md` + el `.txt`
+  original sin editar, con el mismo criterio que la primera ronda.
+- `docs/ANALISIS_RESPUESTAS_BANCARD.md` **§8**, con un aviso arriba de todo para
+  que nadie lea §3 y §6 sin §8.
+- `docs/correos/Correo 6 …` con los 5 puntos que siguen abiertos, y la sección
+  «Tercera ronda» en el documento de trazabilidad.
+- `payment-provider.ts` (mock): el comentario de `VIGENCIA_QR_MINUTOS` ahora
+  dice que **el proveedor no puede hacer cumplir esa vigencia**.
+
+### El hallazgo: G1 y G2 estaban bien diseñados, y ahora se pueden implementar
+
+Los dos huecos que el análisis del 27-ago dejó escritos como *«corrección
+condicionada a una respuesta que no tenemos»* quedaron confirmados **en su forma
+exacta**. No hay que rediseñar nada:
+
+- **G1 — el QR sobrevive al vencimiento.** `B4-bis`: la reversa *«permite
+  inactivar o invalidar un QR que haya sido generado y que aún no haya sido
+  pagado»*, y usarla al cancelar la venta es **mandatorio**. `B5-bis` lo repite
+  sin que se lo preguntáramos y **con nuestro propio plazo de ejemplo**: el TTL
+  de 3 días no se configura, pero *«el comercio puede implementar una lógica
+  interna para inactivar el QR transcurridas 24 horas […] mediante la API
+  (revert)»*. La pregunta era si le estábamos por dar a la reversa un uso que el
+  proveedor no previó; la respuesta es que es **el uso que el proveedor previó**.
+- **G2 — tras un rechazo, la persona queda sin reintento.** `B10-bis`: el
+  rechazo llega **por callback** *y* lo devuelve **`get_confirmation`**. El caso
+  (c) que preocupaba —un intento quemado del que no podamos enterarnos— **no
+  existe**.
+
+### Lo que la ronda cambió además del desbloqueo
+
+- **`B8-bis` es la respuesta que más mueve el diseño y no era la más esperada.**
+  Bancard **no reintenta** el callback —se envía una sola vez— y ante timeout
+  **reversa la transacción sola**. Consecuencia: el presupuesto de 5 s deja de
+  ser prolijidad y pasa a ser el borde de un precipicio; un handler lento **una
+  sola vez** pierde el cobro. Refuerza el invariante de G3: el callback
+  persiste y responde, la transición y el certificado siguen en
+  `confirmarPagoP7`.
+- **`B6-bis` no se respondió en su literal.** Preguntamos por el callback que
+  *no llega* y la primera mitad describe el que *llega y tarda*. La segunda
+  mitad sí da lo pedido: hay **reportería de ventas QR en el Portal de
+  Comercios**. Es conciliación **manual**, sin API ni archivo de cierre. El
+  riesgo de la fila 31 queda **acotado** —por la reversa automática de
+  B8-bis— pero no cerrado: sobrevive la franja del callback que llegó,
+  respondimos bien, y **nuestra** persistencia falló.
+- **Una discrepancia menor, anotada para que no se arrastre:** B8 y el documento
+  de QR dicen **5 s** para responder el callback; B6-bis menciona **10 s**. La
+  lectura probable es que el de 10 s sea umbral de sospecha y no presupuesto,
+  pero es inferencia nuestra. No hace falta consultarlo: con cualquiera de los
+  dos números el handler tiene que responder en decenas de milisegundos.
+- **Una consulta nueva, B10-ter.** B10-bis(b) distinguió el `shop_process_id`
+  con **iframe abandonado** —sin intento, `PaymentNotFoundError`— del que tuvo un
+  intento rechazado; pero (c) igual indica generar una operación nueva. Si eso
+  es restricción y no recomendación, `claveDeIdempotencia` **no puede** seguir
+  reutilizando la clave de un pago `PENDIENTE`, y hay que mover a otro lado la
+  protección contra el doble clic. No se decidió acá: se preguntó.
+
+### Qué hizo Andres
+
+- Aportó las seis respuestas de Bancard del 07-sep.
+- Pidió explícitamente mirar el status antes de considerarlas — que es lo que
+  destapó la rama sin mergear.
+
+### Verificaciones
+
+- `npm run typecheck` — limpio.
+- `npm run lint` — 0 errores, 8 warnings preexistentes (`<img>` de Next).
+- `npm test` — **93 archivos, 1265 tests, todos en verde** (5,5 s). Antes de
+  corregir la errata de la 215/15, el merge dejaba **1 test fallando**
+  (`higiene-de-citas`); es la prueba de que ese test hace lo que promete.
+- El merge se verificó de a partes: `devolucion-por-medio.test.ts` (8 tests)
+  pasaba solo, así que el rojo no venía de la rama rescatada.
+
+### Queda abierto
+
+- **Implementar G1** — `vencerPlazoPagoP7` invoca `cancelarOLiberarReserva` en
+  la misma escritura que transiciona a `VENCIDO`, con la evidencia distinguiendo
+  *reversado por vencimiento* de *reversado por callback ausente*. Le daría su
+  primer llamador a un método del puerto que hoy no tiene ninguno. **No depende
+  de ambiente ni credenciales**: es dominio y mock.
+- **Implementar G2** — `RECHAZADO` en `EstadoPago`, asentado en el sondeo, con
+  su palanca en el panel de demo. Tampoco depende de Bancard.
+- **Decidir el caso de borde de G1**: qué pasa si el pago se acredita entre que
+  vence el plazo y que la reversa llega (`response_code 71`).
+- **Reclamar B7 y B13-bis**, las dos bloqueantes. B7 se prometió el 27-ago, es
+  el pendiente más viejo y el único que no requiere ninguna definición del
+  proveedor. `Correo 6` está redactado y listo para enviar — **lo manda Andres**.
+- **Conciliación manual de QR y respaldo documental de devoluciones**: misma
+  clase de decisión, mismo dueño (Cumplimiento con Alianza), conviene
+  resolverlas juntas. No es tarea técnica.
+- **Abrir PR de esta rama.** Trae el rescate de una rama vieja además del
+  trabajo nuevo, así que conviene que Andres mire el merge antes del merge.
+
+---
+
 ## 2026-09-05 (c) · La 071/2019 entra al repo, y D-24 queda enmendada: CONFÍO va por régimen normal
 
 **Rama:** `docs/d24-regimen-normal-y-seprelad-71` · **Pedido de Andres:** leer la

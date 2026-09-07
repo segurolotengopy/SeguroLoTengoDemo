@@ -1,7 +1,7 @@
 # Análisis de las respuestas de Bancard (B1–B13, parte 1)
 
-**Fecha:** 2026-08-27 · **actualizado el 2026-08-28** con las respuestas B2 y B3 del equipo comercial
-**Fuente:** `docs/Integraciones/Bancard - Respuestas B1 a B13.md`
+**Fecha:** 2026-08-27 · **actualizado el 2026-08-28** con las respuestas B2 y B3 del equipo comercial · **actualizado el 2026-09-07** con la segunda ronda técnica (§8)
+**Fuente:** `docs/Integraciones/Bancard - Respuestas B1 a B13.md` y `docs/Integraciones/Bancard - Respuestas segunda ronda.md`
 **Consultas de origen:** `docs/CONSULTAS_PROVEEDORES_CODE100_BANCARD.md` → "Correo 2 — Bancard" (2026-08-12)
 **Análisis previo que este documento corrige y extiende:** `docs/ANALISIS_INTEGRACIONES_CODE100_BANCARD.md` (2026-08-12)
 **Contrastado contra:** `src/ports/payment-provider.ts`, `src/domain/pago-p7.ts`, `src/domain/tipos.ts`, `src/adapters/mock/payment-provider.ts`
@@ -14,6 +14,11 @@
 > antes de que haya dinero). Este análisis lee las respuestas **con el orden nuevo**,
 > no con el que tenían las preguntas. Es la diferencia entre "Bancard nos dio malas
 > noticias" y "Bancard confirmó que la decisión que ya tomamos era la correcta".
+
+> **Leer §8 antes que §3 y §6.** La segunda ronda de respuestas (07-sep-2026)
+> **desbloqueó los dos huecos que este documento dejó condicionados** —G1 y G2— y
+> cerró cuatro de las consultas abiertas. Lo que sigue escrito en §3 y §6 es el
+> estado al 28-ago; §8 dice qué de eso quedó firme, qué cambió y qué sigue abierto.
 
 **Conclusión general.** Ninguna respuesta obliga a rediseñar `PaymentProvider`: el
 puerto sigue calzando con el contrato real. Pero aparecen **tres huecos concretos en
@@ -484,6 +489,10 @@ intención se cubre por otros medios.
 
 ## 6. Preguntas abiertas
 
+> **Estado superado el 07-sep-2026.** Seis de estas diez ya están respondidas; el estado
+> vigente está en **§8.8**. Lo que sigue es el cuadro tal como quedó al 28-ago, que se
+> conserva porque explica el porqué de cada consulta.
+
 Al 28-ago quedan **nueve**: las siete técnicas de la segunda ronda, más **B7** y **B11**
 del hilo comercial. **B2 y B3 ya están respondidas** (§2.9), y de B3 nació **B3-bis**.
 
@@ -558,3 +567,221 @@ respuestas dejan planteado, en orden de importancia:
 Ninguno de los siete afecta al modo demo actual ni al Lote 6, que sigue siendo el
 único lote pendiente del Plan v2. El punto 4 se solapa con el rate limiting de L6 y
 conviene hacerlos juntos.
+
+---
+
+## 8. Segunda ronda (07-sep-2026): los dos huecos condicionados tienen arreglo
+
+**Fuente:** `docs/Integraciones/Bancard - Respuestas segunda ronda.md`
+**Consulta de origen:** `docs/correos/Correo 5 - Bancard unificado - consultas pendientes priorizadas.md`
+
+Llegaron **6 de las 10** consultas pendientes: las seis técnicas. **G1 y G2, que este
+documento dejó escritos como correcciones *condicionadas a una respuesta que no
+teníamos*, quedan confirmados en su forma exacta.** No hay que rediseñarlos: hay que
+implementarlos.
+
+| Consulta | Respuesta | Efecto |
+| :---- | :---- | :---- |
+| **B4-bis** | La reversa **sí invalida un QR generado y no pagado**, y usarla al cancelar la venta es **mandatorio** | **G1 desbloqueado**, tal como estaba diseñado |
+| **B5-bis** | El TTL de 3 días **no es configurable**; Bancard recomienda inactivar el QR a las 24 h **con la reversa** | Confirma G1 por segunda vía, con nuestro plazo como ejemplo |
+| **B10-bis** | Un intento rechazado **llega al callback** y **lo devuelve `get_confirmation`** | **G2 desbloqueado**. Y corrige la lectura de B10 (§8.2) |
+| **B8-bis** | **No hay reintentos** de callback; el timeout **reversa la transacción sola**. "Tiempo X" recomendado: **5 minutos** | Cambia el diseño de G3 (§8.4) |
+| **B6-bis** | No hay API ni archivo de conciliación; sí **reportería de ventas QR en el Portal de Comercios** | Riesgo acotado, no eliminado (§8.3) |
+| **B8-ter** | Las 4 IP son de **vPOS**, son **fijas**, y un cambio se avisa por correo | Whitelist de borde armable (§8.5) |
+
+Siguen abiertas **B7** y **B13-bis** —las dos **bloqueantes**— más **B11** y **B3-bis**.
+
+### 8.1 G1 · La reversa apaga el QR, y Bancard nos pide usarla exactamente así
+
+La pregunta era si le estábamos por dar a la reversa un uso que el proveedor no previó.
+La respuesta es que **es el uso que el proveedor previó**: *"la API de revert permite
+inactivar o invalidar un QR que haya sido generado y que aún no haya sido pagado"*, y
+*"es mandatorio invocar la operación de reversa siempre que el cajero cancele la venta
+desde el sistema del comercio"*.
+
+B5-bis lo dice una segunda vez y sin que se lo preguntáramos, con nuestro propio plazo
+de ejemplo: *"el comercio puede implementar una lógica interna para inactivar el QR
+transcurridas 24 horas […] puede solicitar la cancelación del QR mediante la API
+(revert), evitando que continúe disponible para el pago"*.
+
+**Queda firme, entonces, el diseño de §3.1.** `vencerPlazoPagoP7` invoca
+`cancelarOLiberarReserva` sobre la referencia pendiente **en la misma escritura** que
+transiciona `FIRMADO → VENCIDO`, y asienta el resultado como evidencia. Es el primer
+llamador de un método del puerto que hoy no tiene ninguno
+(`src/ports/payment-provider.ts:235` es la única mención fuera del mock).
+
+Tres precisiones que la respuesta agrega o confirma:
+
+1. **La política de vigencia es nuestra y ahora es exigible.** `VIGENCIA_QR_MINUTOS = 15`
+   ya está documentado en el mock como decisión de producto —el comentario es correcto—,
+   pero conviene que diga también que **el proveedor no la puede hacer cumplir**: su QR
+   vive 3 días fijos (B5) y no se configura (B5-bis). Quien la hace cumplir somos
+   nosotros, reversando.
+2. **La reversa también es mandatoria cuando no llegó el resultado por callback.** Es el
+   mismo verbo para dos usos distintos —apagar un QR no pagado y resolver un pago
+   incierto—, y conviene que la evidencia diga cuál de los dos fue: *"reversado por
+   vencimiento del expediente"* y *"reversado por callback ausente"* no son el mismo
+   hecho para un auditor.
+3. **El caso de borde sigue siendo el mismo** y sigue habiendo que decidirlo: qué pasa si
+   el pago se acredita en el intervalo entre que vence el plazo y que la reversa llega.
+   Bancard responde `response_code 71` ("ya extornada") o el pago aparece confirmado; en
+   el segundo caso el expediente **no debería vencer**. Es la carrera que
+   `conReintentoPorConflicto` ya resuelve para el estado, extendida al proveedor.
+
+### 8.2 G2 · El rechazo llega por las dos vías — y aparece un dato que corrige a B10
+
+Las dos vías están disponibles: el POST de confirmación se envía *"también"* ante un pago
+rechazado, con su `response_code`, y `get_confirmation` *"devolverá el resultado de dicha
+operación junto con su response_code de rechazo"*. **El caso (c) que nos preocupaba —un
+intento quemado del que no podamos enterarnos— no existe.**
+
+Así que la corrección de §3.2 queda firme: agregar `RECHAZADO` a `EstadoPago`
+(`src/domain/tipos.ts:370`, hoy con cuatro valores) y asentarlo en el sondeo. Con eso
+`claveDeIdempotencia` acuña sola una clave nueva y el reintento funciona sin tocar la
+función.
+
+**Lo que la respuesta agrega y este documento leyó de menos.** B10 decía que el
+`shop_process_id` se quema *"aunque el intento falle"*, y de ahí salió el diseño. B10-bis
+(b) precisa el caso que faltaba: si **el iframe fue abandonado** sin tipear nada, no hay
+intento asociado y la consulta devuelve `PaymentNotFoundError`. Y aun así, (c) cierra
+con *"corresponde que el cliente vuelva a intentar pagar generando una nueva
+operación"*.
+
+Es una tensión que hay que resolver antes de escribir el adaptador, no durante:
+
+- **Si un `shop_process_id` con iframe abandonado se puede reabrir**, el diseño actual de
+  `claveDeIdempotencia` es correcto tal cual: reutiliza la clave mientras el pago siga
+  `PENDIENTE`, y eso es exactamente el caso del abandono.
+- **Si no se puede reabrir** —y la letra de (c) empuja hacia ahí—, entonces la clave tiene
+  que acuñarse **por apertura del formulario**, no por (medio, monto). Eso cuesta la
+  protección contra el doble clic, que habría que mover a otro lado (una ventana corta de
+  reutilización, o un candado de UI).
+
+La respuesta no distingue explícitamente entre "no se puede" y "conviene no hacerlo", así
+que **no se decide acá**: entra como consulta **B10-ter**. Mientras tanto, `RECHAZADO`
+resuelve el caso frecuente —tarjeta rechazada— que es el que dejaba a la persona sin
+reintento, y no depende de esta respuesta.
+
+### 8.3 B6-bis · Hay conciliación, y es manual
+
+La consulta preguntaba por el callback que **no llega**; la primera mitad de la respuesta
+describe el que **llega y tarda** (y repite la receta de reversar). La segunda mitad sí
+contesta lo que se pedía: *"pueden verificar a nivel reporteria dentro del portal de
+comercios en el apartado de ventas QR"*.
+
+**Lo que hay:** una pantalla de reportes de ventas QR, consultable por una persona.
+**Lo que no hay:** API de conciliación, archivo de cierre, exportación programable ni
+extracto entregable. Nadie puede conciliar automáticamente.
+
+**Cómo queda el riesgo de la fila 31** (*"Conservar ID, estado, fecha, hora, importe y
+referencia de la operación Bancard"*, Res. BCP 25/21 art. 6(a-e); Ley 6822/21 arts. 42(5)
+y 66): **acotado, no cerrado**. Acotado porque B8-bis dice que un callback sin respuesta
+**reversa la transacción sola** —o sea que el escenario temido, "cobro acreditado del que
+no nos enteramos", en general se deshace en vez de quedar colgado—. No cerrado porque
+sobrevive una franja angosta: el callback llegó, respondimos `success` dentro del
+presupuesto, y **nuestra** persistencia falló después. Ahí el dinero queda acreditado y
+el expediente no lo sabe, y la única forma de detectarlo es que una persona mire el
+portal.
+
+**Consecuencia operativa, para asentar en cumplimiento y no descubrir en producción:** la
+conciliación de QR es un **procedimiento manual periódico** sobre el Portal de Comercios,
+con un responsable y una frecuencia definidos. No es una tarea técnica: es la misma clase
+de decisión que §2.9 dejó planteada para el respaldo documental de las devoluciones, y
+conviene resolverlas juntas.
+
+### 8.4 B8-bis · Un solo envío, y el timeout reversa solo
+
+Tres hechos, y ninguno es menor:
+
+1. **No hay reintentos.** *"No se realizan reintentos de envío al callback."* El aviso de
+   QR llega **una vez**.
+2. **El timeout reversa la transacción automáticamente**, sin acción del comercio.
+3. **El "tiempo X" recomendado antes de que el comercio reverse por su cuenta es de 5
+   minutos**, y la respuesta explica el porqué: no es holgura de red, es el tiempo que le
+   toma a la persona abrir su app, tipear el PIN y confirmar.
+
+**Qué cambia en el diseño de G3.**
+
+- **La idempotencia del route handler sigue haciendo falta, por otra razón.** Bancard no
+  duplica, así que el duplicado ya no viene de reintentos del proveedor; viene de nuestra
+  propia carrera entre el aviso y el sondeo de P7 — que es exactamente el escenario que
+  CHG-33 resolvió para la firma. El patrón se conserva: la primera vía que llega
+  transiciona, la segunda responde lo mismo con `duplicada: true` y deja su evidencia con
+  el origen (`SONDEO` / `CALLBACK`).
+- **El presupuesto de 5 s deja de ser una recomendación y pasa a ser el borde de un
+  precipicio.** Sin reintentos y con reversa automática, un handler que se pase de tiempo
+  **una sola vez** pierde el cobro. Refuerza el invariante que §3.3 pedía declarar:
+  **el callback persiste el aviso crudo y responde; la transición y la emisión del
+  Certificado de Cobertura Provisional siguen en `confirmarPagoP7`.** Ya no es una buena
+  práctica, es la diferencia entre cobrar y no cobrar.
+- **El "tiempo X" de 5 minutos es un parámetro de producto que hay que fijar**, y encaja
+  con la pantalla: P7 sondea, y a los 5 minutos sin novedad la operación se reversa y se
+  le ofrece a la persona generar un QR nuevo.
+
+**Un matiz que conviene no perder:** la reversa automática por timeout es una **buena**
+noticia para la conciliación (§8.3) y una **mala** para la experiencia — un cobro
+perfectamente válido se deshace porque nuestro servidor tardó. Las dos cosas son ciertas
+a la vez.
+
+### 8.5 B8-ter · La whitelist se puede armar
+
+Confirmado el error de tipeo: **190.128.218.209 · 190.128.232.10 · 190.104.129.98 ·
+200.85.46.226** son las IP de **vPOS**. Son **fijas**, y un cambio se notifica *"con
+antelación vía mail"* a los contactos del comercio.
+
+Esto completa el punto 2 de la mitigación de §5 (whitelist en la capa de borde, no en el
+route handler): 7 direcciones para QR, 4 para vPOS. Dos consecuencias operativas: hay que
+**declarar qué casilla de correo recibe ese aviso** —una notificación de cambio de IP que
+llegue a una casilla que nadie mira corta los cobros igual— y hay que dejar el cambio de
+la lista como un procedimiento de infraestructura, no como un deploy de la aplicación.
+
+### 8.6 Una discrepancia menor que conviene no arrastrar: 5 s o 10 s
+
+B8 y el documento de QR fijan **5 segundos** para responder el callback; la respuesta de
+B6-bis menciona *"si el callback demoró más de 10 segundos en responder"*. Son dos números
+distintos para lo que parece el mismo reloj.
+
+La lectura más probable es que el de 10 s sea un **umbral de sospecha del lado del
+comercio** —"si tardaste tanto, asumí que Bancard ya te reversó e invocá la reversa"— y no
+el presupuesto de respuesta. Pero es una inferencia nuestra.
+
+**No hace falta consultarlo para avanzar**, porque el diseño correcto es el mismo con
+cualquiera de los dos números: el handler tiene que responder en decenas de
+milisegundos, no en segundos. Se anota para que nadie escriba mañana "tenemos 10
+segundos" citando este hilo.
+
+### 8.7 Trabajo pendiente, actualizado
+
+La lista de §7 se mantiene; lo que cambia es que **los dos primeros puntos ya no están
+bloqueados**.
+
+| # | Trabajo | Estado al 07-sep |
+| :---- | :---- | :---- |
+| 1 | **G1** · Reversar la operación al vencer el expediente | **Desbloqueado** (B4-bis + B5-bis). Implementable ya, sin ambiente: toca dominio, mock y tests de contrato |
+| 2 | **G2** · `RECHAZADO` en `EstadoPago` y su asiento en el sondeo | **Desbloqueado** (B10-bis). Implementable ya. La franja del iframe abandonado queda como **B10-ter** |
+| 3 | **G3** · Declarar el invariante del callback | **Reforzado** (B8-bis): sin reintentos y con reversa automática, el invariante deja de ser prolijidad |
+| 4 | Límite de intentos de tarjeta en P7 (3 por expediente) | Depende de G2, ahora desbloqueado. Conviene con el rate limiting de L6 |
+| 5 | `payment_card_type` en toda compra simple | Sin cambios. Depende del adaptador `live/`; el mock puede simularlo antes |
+| 6 | Comentario de `VIGENCIA_QR_MINUTOS` | Ampliar: decir que el proveedor **no puede** hacer cumplir esa vigencia (§8.1) |
+| 7 | Registrar la divergencia de callbacks no firmados | Sin cambios |
+| 8 | Respaldo documental de una devolución | Sin cambios, y **se le suma la conciliación manual de QR** (§8.3). Misma decisión, mismo dueño |
+
+**Lo que sigue bloqueado no es diseño, es acceso.** B7 (ambiente y credenciales) y
+B13-bis (cuántas URL de confirmación, y si hay una por ambiente) siguen sin respuesta, y
+sin ellas no se puede escribir ni certificar el adaptador `live/`. Los puntos 1, 2, 4 y 6
+de la tabla **no dependen de eso**: viven en el dominio y en el mock, y se pueden hacer
+hoy.
+
+### 8.8 Consultas abiertas después de esta ronda
+
+| # | Destinatario | Pregunta | Por qué importa |
+| :---- | :---- | :---- | :---- |
+| **B7** | Ejecutiva de cuenta | Hosts de staging/producción del API de Comercios, credenciales y lista de casos de certificación de QR | **Bloqueante.** Sin ambiente no se escribe ni se prueba la rama QR |
+| **B13-bis** | Bancard técnico | ¿Una URL de confirmación por producto, una compartida o una en total? ¿Una por ambiente? | **Bloqueante.** Define si el callback es un handler o dos, y si se puede certificar sin pisar producción |
+| **B11** | Comercial | Montos mínimos y máximos por transacción, vPOS y QR | El premio anual debe caer en el rango de los tres medios |
+| **B3-bis** | Comercial | Plazo de devolución de un pago por QR A2A | Hoy la pantalla dice, por inferencia nuestra, que depende del banco |
+| **B10-ter** (nueva) | Bancard técnico | Un `shop_process_id` cuyo **iframe fue abandonado** (sin intento, `PaymentNotFoundError`): ¿se puede reabrir con el mismo id, o hay que acuñar uno nuevo igual? | Decide si `claveDeIdempotencia` puede seguir reutilizando la clave de un pago `PENDIENTE`, o si hay que acuñarla por apertura del formulario y mover la protección contra el doble clic (§8.2) |
+
+Las cuatro primeras ya estaban; **B10-ter es la única nueva**, y nace de un dato que esta
+ronda aclaró. Tres de las cinco son comerciales: conviene reclamarlas por el hilo de la
+ejecutiva de cuenta, que es el que quedó sin avanzar.

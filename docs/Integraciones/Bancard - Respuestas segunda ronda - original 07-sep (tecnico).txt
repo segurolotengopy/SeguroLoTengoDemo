@@ -1,0 +1,86 @@
+B4-bis · ¿La reversa invalida un QR generado y no pagado? (técnica)
+Ustedes nos informaron (B5) que el QR dinámico vive 3 días, y nuestro expediente caduca a las 24 horas. Eso nos deja hasta dos días en los que existe un QR técnicamente pagable asociado a una operación que de nuestro lado ya está cerrada. Recibir ese pago nos obligaría a devolverlo, que es exactamente lo que nuestro diseño busca evitar.
+
+Necesitamos desactivar el QR cuando vence nuestro plazo:
+
+(a) ¿La operación PUT .../selling/payments/revert/:hook_alias invalida el QR generado y no pagado, de modo que un escaneo posterior ya no pueda pagar, o solo revierte un pago que efectivamente ocurrió?
+
+La API de revert permite inactivar o invalidar un QR que haya sido generado y que aún no haya sido pagado. Adicionalmente les comentamos que es mandatorio invocar la operación de reversa siempre que el cajero cancele la venta desde el sistema del comercio o no se haya recibido el resultado de la transacción a través de la invocación del callback.
+
+
+(b) Si solo hace lo segundo, ¿existe alguna otra operación para anular o desactivar un QR emitido y no utilizado antes de que se cumplan sus 3 días?
+
+La respuesta de la consulta (a) responde a esta pregunta, ya que la operación de revert permite inactivar o invalidar un QR generado y no pagado antes de que finalice su vigencia de 3 días.
+
+(c) Si no existe ninguna, ¿cuál es el procedimiento que Bancard recomienda para este escenario?
+
+La respuesta de la consulta (a) también aplica a este escenario, se debe invocar la operación de revert cuando corresponda.
+
+
+Lo consultamos porque su documentación presenta la reversa como el mecanismo para resolver un pago incierto, y desactivar un QR no pagado es otra cosa. No queremos darle a la operación un uso que ustedes no previeron.
+
+
+B10-bis · ¿Cómo se entera el comercio de un intento rechazado? (técnica)
+Su respuesta a B10 —el shop_process_id queda registrado aunque el intento de pago falle, y hay que generar uno nuevo para reintentar— nos obliga a detectar el rechazo para poder ofrecerle al cliente un segundo intento con otra tarjeta. La pregunta es por qué vía nos enteramos:
+
+(a) Ante un intento rechazado, ¿el POST de confirmación se envía igual a nuestra URL, con el response_code correspondiente, o solo se notifican las operaciones aprobadas?
+
+Sí. Los pagos rechazados también son enviados al callback del comercio, incluyendo el response_code correspondiente al resultado de la operación.
+
+(b) ¿single_buy/confirmations (get_confirmation) sobre un shop_process_id cuyo único intento fue rechazado devuelve esa operación con su código de rechazo, o devuelve PaymentNotFoundError?
+
+Si el pago fue procesado y rechazado, la API de consulta devolverá el resultado de dicha operación junto con su response_code de rechazo. En cambio, si no se realizó ningún intento de pago por ejemplo, si el iframe de pago fue abandonado, la consulta devolverá un PaymentNotFoundError, ya que no existe ningún intento de pago asociado al shop_process_id, ya sea aprobado o rechazado.
+
+(c) ¿Existe algún caso en que un intento quede utilizado sin que el comercio pueda enterarse por ninguna de las dos vías?
+
+Siempre que exista una confirmación de pago el comercio podrá consulta con la Api de single_buy/confirmations (get_confirmation). En caos de que le mismo devuelva PaymentNotFoundError indica que el pago no fue realizado o el iframe fue abandonado por lo que corresponde que el cliente vuelva a intentar pagar generando una nueva operación.
+
+El caso (c) es el que nos preocupa: dejaría al cliente sin posibilidad de reintentar, sin que nosotros podamos siquiera detectarlo para ofrecerle una alternativa.
+
+
+
+B8-ter · Confirmación de las IP de origen de vPOS (técnica)
+En su respuesta a B8, el bloque titulado "vPOS 2.0" lista cuatro direcciones IP bajo la leyenda "Las IP de origen del servicio QR son las siguientes". Entendemos que se trata de un error de tipeo y que esas cuatro direcciones —190.128.218.209, 190.128.232.10, 190.104.129.98 y 200.85.46.226— corresponden efectivamente a vPOS. ¿Nos lo confirman?
+
+Si, les confirmamos que corresponden a las IP del servicio vPOS. Son fijas para el servicio . Si se da el caso que sufra algún cambio se les estará notificando con atelacion via mail a vuestros contactos.
+
+
+B6-bis · Conciliación de pagos QR (técnica)
+Entendemos de su respuesta a B6 que no existe un servicio de consulta del estado de un pago QR y que la única fuente de información es el callback. Nuestra consulta es sobre el caso en que el callback se pierda por completo —no que llegue tarde: que no llegue—.
+
+Por tratarse de un producto de seguros regulado, estamos obligados a conservar constancia de cada cobro. ¿Bancard pone a disposición del comercio algún mecanismo de conciliación —reporte diario, archivo de cierre, exportación desde el Portal de Comercios, extracto de movimientos— que permita detectar un pago acreditado del que no nos hayamos enterado?
+
+De no existir, agradeceremos que nos lo confirmen explícitamente, para poder dejarlo asentado como riesgo operativo conocido en nuestra documentación de cumplimiento.
+
+
+Como ya les mencionamos en caso del que comercio no reciba la notificacion a su callback . El comercio tiene la posibilidad de identificar cuándo llega la petición del servicio al callback y cuánto tiempo tarda en responder. En función de esto, se puede determinar si el callback demoró más de 10 segundos en responder y, en ese caso, invocar la reversa a través del API /commerces/:commerce_code/branches/:branch_code/selling/payments/revert/:hook_alias. Evitando que un pago quede mal parado del lado del comercio .
+
+Adicionalmente les comentamos que también pueden verificar a nivel reporteria dentro del portal de comercios en el apartado de ventas QR.
+
+
+
+Bloque 3 — Deseables
+Podemos avanzar sin estas dos, pero nos permitirían simplificar el diseño.
+
+B5-bis · ¿El TTL de 3 días del QR es configurable? (técnica)
+¿La vigencia de 3 días del QR dinámico es configurable por comercio —por ejemplo, a 24 horas o menos—, o es un valor fijo de la plataforma?
+
+
+La vigencia de 3 días del QR dinámico no es configurable por comercio, ya que corresponde a un valor fijo definido por el servicio y aplica de la misma manera para todos los comercios.
+
+Sin embargo, el comercio puede implementar una lógica interna para inactivar el QR transcurridas 24 horas. Por ejemplo, si el cliente no realiza el pago dentro de ese período, el comercio puede solicitar la cancelación del QR mediante la API (revert), evitando que continúe disponible para el pago.
+
+
+Va junto con B4-bis: si fuera configurable, sería la solución más limpia al problema del QR que sobrevive a nuestro plazo de pago, y las dos consultas se responderían de una sola vez.
+
+B8-bis · Política de reintentos del callback (técnica)
+Quedó sin responder qué hace Bancard cuando el comercio no responde en tiempo a una notificación. ¿Se reintenta el envío? De ser así: ¿cuántas veces, con qué espaciado y durante cuánto tiempo? ¿O la falta de respuesta en plazo deriva directamente en la reversa automática de la transacción?
+
+No se realizan reintentos de envío al callback. Una vez que se alcanza el tiempo máximo de espera configurado, el servicio QR interpreta la falta de respuesta del comercio como un timeout.
+En ese caso, la transacción se revierte automáticamente, sin necesidad de realizar ninguna acción adicional por parte del comercio.
+
+
+Lo consultamos para dimensionar correctamente el tratamiento de notificaciones duplicadas de nuestro lado y para fijar el "tiempo X" antes de invocar la reversa que ustedes recomiendan configurar.
+
+
+Asi como se detalla en la documentación tecnica del servicio QR. El tiempo recomendado si el comercio no recibe la confirmación por el callback en  5 minutos . Esto no implica que todos los pagos con QR tendrán que esperar 5 minutos, es un tiempo recomendado para que el cliente pueda ingresar a su app y confirmar el pago en vista de que tiene que seguir varios pasos como ingresos de PIN en las apps bancarias, billeteras ,etc.
