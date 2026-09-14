@@ -10,6 +10,31 @@ borra.
 qué se recibió; el nombre definitivo se decide al mudarlo, según la convención
 de la carpeta de destino.
 
+## Cómo retomar en una sesión nueva
+
+1. **¿Ya se fusionó el PR #115?** (`gh pr view 115`). Esta carpeta y la entrada
+   del 14-sep de la bitácora entran a `main` con ese PR.
+   - **Fusionado:** partí de `main` y abrí una rama nueva, por ejemplo
+     `docs/recepcion-rodrigo-14-sep`.
+   - **Abierto:** trabajá sobre su rama, en un worktree propio:
+
+     ```bash
+     git worktree add .claude/worktrees/recepcion-rodrigo claude/alianza-garantia-integration-9febfc
+     ```
+2. **Copiá lo que mandó Rodrigo desde Descargas, sin renombrar**, cada cosa a
+   su carpeta. Las pantallas v4, si llegan como carpeta, van enteras (`cp -r`):
+
+   ```bash
+   cp "$HOME/Descargas/<modelo de CPC>.pdf" docs/recepcion/2026-09-14-interseguros/01-alianza-aprobados/
+   cp -r "$HOME/Descargas/<carpeta v4>" docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/
+   cp "$HOME/Descargas/<PDF de legal>.pdf" docs/recepcion/2026-09-14-interseguros/03-legal/
+   ```
+3. Pedile a la sesión que **contraste cada documento** con la sección «Qué se
+   verifica» de abajo y que responda P0–P7. Recién después se mudan a su lugar
+   definitivo y se enmiendan D-10, D-12 y D-13.
+4. **El correo a Alianza** está en `BORRADOR_CORREO_ALIANZA.md`, sin enviar:
+   espera P1 y la fecha de las IP.
+
 ## Dónde va cada cosa
 
 | Carpeta | Qué se deja | Destino definitivo (tentativo) |
