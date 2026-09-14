@@ -122,11 +122,68 @@ Relevado contra `origin/main` (1bf8422):
   toca. El perfil `aab1-demo-deployer` no tiene `amplify:ListBranches`, así
   que las ramas de Amplify se tomaron de `infra/amplify.tf` y de esta bitácora.
 
+### Cómo se ejecutó la consolidación
+
+La sesión no pudo ejecutarla entera: el harness la aísla en su worktree (no
+escribe en archivos de otros) y el clasificador del modo automático frenó los
+pushes, los borrados de ramas, la aprobación y el merge de PRs, y la edición de
+sus propios permisos. No se esquivó ningún bloqueo. Antes de que apareciera el
+aislamiento, la sesión ya había copiado archivos en `rescate-asistente` y
+`rescate-normativa` e iniciado el rebase en `rebase-pr103`.
+
+Lo que faltaba se escribió en un script por secciones, que Andres revisó y
+corrió:
+
+| Sección | Qué hizo | Resultado |
+| :-- | :-- | :-- |
+| 1 | Commit, push y PR del asistente | **#113** |
+| 2 | Conflicto de la bitácora y push del PR #103 | Rebase aplicado, 1275 tests en verde |
+| 3 | Push y PR de `bancred-qr-reversas` | **#114** |
+| 4 | Push y PR de esta rama | **#115**; 14,5 MB de PDF a 23 KiB/s, unos 10 min |
+| 7 | Arreglo de typecheck del #114 (`detalle?.includes`, TS18047) | `09daa12`; 1297 tests en verde |
+| 5 | Borrado de `sharp-cannon`, `rescate-normativa`, 4 ramas locales y **33 ramas remotas ya fusionadas** | Se conservaron `main` y `demo-v3` |
+| 6 | Limpieza del checkout principal, verificada con `cmp` archivo por archivo | Limpio; los DOC-ICPP quedaron en `referencias/` (ignorada) |
+
+**El #114 tenía el CI en rojo por typecheck, no por tests.** Los 1297 tests
+pasaban porque vitest no verifica tipos; el `tsc` del CI encontró
+`evidencia.detalle` (de tipo `string | null`) leído sin `?.`.
+
+### Dependencias de producción: de 6 alertas a 0
+
+Al pushear, GitHub avisó de **6 alertas de Dependabot en `main`: 4 críticas y
+2 altas**. Las críticas eran dos vulnerabilidades de ejecución remota de código
+sin autenticación en `next` 15.5.23 (CVE-2026-75604 y GHSA-2xp9-vwfh-vxw4),
+contadas dos veces (`package.json` y `package-lock.json`), **presentes en
+producción**. Por eso Trivy fallaba en los PRs abiertos, aunque ninguno
+tuviera la culpa.
+
+Se fusionaron en orden, cada uno recién después de verificar el build de
+Amplify del anterior:
+
+| PR | Cambio | Merge | Build de Amplify |
+| :-- | :-- | :-- | :-- |
+| #106 | `next` 15.5.23 → 15.5.25 (sigue en la línea 15) | `42e3fb8` | Job 99: SUCCEED |
+| #108 | `sharp` 0.35.3 → 0.35.4 (libheif) | `a1c1687` | Job 100: SUCCEED |
+| #109 | `js-yaml` 4.3.1 → 4.3.2 | `69897b8` | Job 101: SUCCEED |
+
+El #108 y el #109 se reconstruyeron con `@dependabot rebase` antes de
+fusionarse: cada uno corregía un solo paquete y fallaba en Trivy por los otros.
+**Alertas de Dependabot abiertas en `main` al cerrar: 0.** Después, el #113, el
+#114, el #103 y el #115 se actualizaron contra `main` con `gh pr update-branch`
+(merge, sin force-push), y los cuatro quedaron con todos sus checks en verde.
+
 ### Qué hizo Andres
 
 - Aprobó los cinco pasos de consolidación: rescatar el checkout principal,
   push y PR de `bancred-qr-reversas`, rebase del PR #103, borrar lo obsoleto y
   commitear esta carpeta.
+- Corrió las secciones 1 a 7 del script.
+- Dio el OK para fusionar el #106, el #108 y el #109 («OK, fusiona el #106 y
+  sigue con #108 y #109»), y después para actualizar los cuatro PRs.
+- **Agregó reglas de permiso** en `.claude/settings.local.json` del worktree
+  (`gh pr view/checks/comment/review/merge/update-branch`) y lo excluyó de git
+  en `.git/info/exclude`. La sesión no podía darse esos permisos: el
+  clasificador lo bloqueó, y está bien que lo haga.
 - Trajo las respuestas de Rodrigo y va a dejar en la carpeta de recepción lo
   que llegue durante el día.
 
@@ -139,23 +196,28 @@ Relevado contra `origin/main` (1bf8422):
   `Decreto_7576-2022.pdf` idénticos por MD5 a `ley-6822-2021.pdf` y
   `decreto-7576-2022.pdf`. `Ley Nro 6822-2021.pdf` es otra edición: 48 p,
   firmada digitalmente.
+- Trivy en `main` después del #106: `Total: 1 (HIGH: 1, CRITICAL: 0)`, solo
+  `sharp`. Después del #108 y el #109: la API de Dependabot devuelve 0 alertas
+  abiertas.
 
 ### Queda abierto
 
-- **Bloqueado por permisos de la sesión:** la escritura en archivos de otros
-  worktrees (el harness aísla la sesión en el suyo) y la tanda de borrado y
-  push (el clasificador del modo automático la frenó). Antes de que apareciera
-  el aislamiento, la sesión ya había copiado archivos en `rescate-asistente` y
-  `rescate-normativa` e iniciado el rebase en `rebase-pr103`. Lo que falta está
-  en un script por secciones, para que Andres lo revise y lo corra: commit,
-  push y PR del asistente (1), conflicto y push del PR #103 (2), push y PR de
-  `bancred` (3), push y PR de esta rama (4), borrado de `sharp-cannon`, de
-  `rescate-normativa` (quedó redundante), de 4 ramas locales y de las
-  remotas ya fusionadas salvo `main` y `demo-v3` (5), y limpieza del checkout
-  principal (6).
-- **No limpiar el checkout principal** (sección 6) hasta que las secciones 1
-  y 4 estén pusheadas: hoy es la única copia de ese trabajo. La sección 6 lo
-  verifica archivo por archivo con `cmp` antes de borrar nada.
+- **Revisión humana y merge de #113, #114, #103 y #115**, todos en verde. Cada
+  merge despliega a producción: OK de Andres PR por PR.
+- **Después de fusionar el #114**, borrar la rama remota
+  `claude/bancred-integration-docs-t1inpp`, que ya viene incluida ahí, y el
+  worktree `elegant-murdock-de9b28`. **Después de fusionar el #113**, borrar el
+  worktree `rescate-asistente`.
+- Por decidir: `claude/qr-interno-documentos-bf2u30` (token no adivinable en
+  el QR), cuando llegue el modelo de CPC; `docs/rediseno-lovable-canvas`
+  (`~/slt-rediseno`), cuando llegue la v4.
+- El checkout principal quedó en `1bf8422`, **6 commits detrás** de
+  `origin/main`, con el script de consolidación suelto en su raíz: falta
+  `git pull --ff-only` y borrar el script.
+- **Borrar `.claude/settings.local.json`** del worktree al cerrar la sesión:
+  hoy le permite aprobar y fusionar cualquier PR.
+- Los PRs de dependabot que quedan (#71, #74, #83, #110, #111, #112) no son de
+  seguridad; se revisan aparte.
 - Preguntas P0–P7 del README de recepción; enmiendas a D-10, D-12 y D-13 con
   el PDF de legal; correo a Alianza (IP, carpetas, firma incremental, layout
   de emisión) cuando se cierre P1.
