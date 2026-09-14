@@ -1,0 +1,141 @@
+Ventas QR 
+B7. Con respecto a la información solicitada sobre el API de Comercios QR, estaremos generando un hilo con su ejecutiva +Laura Vera, para compartirles los datos correspondientes a los ambientes de staging y producción, así como las credenciales de prueba. Así mismo, estaremos compartiendo la lista de casos de prueba correspondiente al proceso de certificación de QR.
+
+vPOS — pago ocasional
+B9. Sí, les confirmamos que extra_response_attributes: ["payment_card_type"] está disponible para el Single Buy de Pago Ocasional.
+Así mismo, el dato payment_card_type también se incluye en el POST de confirmación que se envía a la URL configurada por el comercio.
+ 
+Para mostrar el tipo de tarjeta utilizada por el usuario el comercio puede envíar el campo extra_response_attributes para obtener esta información.
+"extra_response_attributes": [
+            "payment_card_type"
+        ]
+
+En la página 11 encontrarán más información con respecto al parámetro extra.
+
+B10. Le comento que el shop_process_id es un identificador único por cada compra, por lo que, una vez utilizado, no debe reutilizarse. 
+Independientemente de si el intento de pago falla (por ejemplo, con una tarjeta Visa), ese identificador ya queda registrado en el sistema.
+
+Por lo tanto, no podrán realizar un nuevo intento de pago con otra tarjeta (por ejemplo, MasterCard) utilizando el mismo shop_process_id.
+
+Para realizar un nuevo intento, será necesario generar un nuevo shop_process_id.
+
+
+
+B11. Con respecto a los montos mínimos o máximos para el vPOS (Pago Ocasional) y para el QR, deberán ser verificados y definidos con su Ejecutivo Comercial +Laura Vera, quien podrá brindarles la información correspondiente.
+
+
+
+Operativa y alta
+
+B13. Con respecto a sus consultas, les confirmamos que el alta de commerce_code/branch_code para el API de Comercios (QR) es independiente del alta de vPOS.
+
+Para vPOS, la URL de confirmación es configurada por el comercio desde el Portal de Comercios. En el caso de QR, la parametrización de los datos del callback (para las notificaciones de pagos) la realizamos de nuestro lado. Solo se puede configurar una única URL de confirmación, tanto para VPOS como para QR.
+
+En cuanto a la documentación de vPOS Single Buy v1.23, les confirmamos que es la versión actualmente vigente.
+
+Respecto a la documentación de QR, estaremos compartiendo la versión correspondiente en el hilo que estaremos creando con su ejecutiva.
+
+B1. El rollback de vPOS "solo puede enviarse en el día en el que se realizó la operación". ¿Cuál es el corte exacto de esa ventana (hora de cuponado / cierre contable)? ¿Es día calendario o ciclo de procesamiento?
+
+ La operación de rollback via api para el servicio vPOS. El horario de cierre depende del tipo de tarjeta:
+
+ Para TC, se pueden realizar reversas de un pago hasta que se cupone. Los horarios en el que corren estos procesos son las 20:00 hs y las 00:00. Los pagos con TC que se procesen antes de esos horarios van a poder reversarse sin problemas, luego ya no será posible realizarlo via api.
+
+ Para TD, pueden realizarse solamente el día que se realizo el pago.
+
+
+B4. En Ventas QR, ¿la operación de reversa (PUT .../payments/revert/:hook_alias) tiene una ventana temporal equivalente a la del rollback de vPOS? ¿Cuál es el procedimiento para devolver un pago QR confirmado uno o más días después?
+
+ 
+
+Tal como se indica en la documentación del servicio QR les aclaramos que la operación de reversa solo debe ser utilizada en caso de no recibir el callback en un tiempo X, el cual sugerimos que el tiempo X sea configurable de lado del comercio. Es mandatorio invocar la operación de reversa siempre que el cajero cancele la venta desde el sistema del comercio o no se haya recibido el resultado de la transacción a través de la invocación del callback.
+
+ 
+
+El procedimiento para devolver un pago QR confirmado es el proceso manual via ticket al portal de comercios.
+
+ 
+
+Ventas QR
+B5. ¿Cuál es el tiempo de vigencia (TTL) del QR dinámico generado por generate-qr-express? ¿Qué respuesta recibe el cliente si escanea un QR vencido?
+
+ 
+
+El QR dinámico generado por generate-qr-express tiene una vigencia (TTL) de 3 días desde su generación. Transcurrido ese período, el QR pasa a estado inactivo por lo que ya no se puede proceder al pago. Si el cliente escanea un QR vencido al proceder al pago recibe un mensaje de error, dicho mensaje mostrado depende de cada entidad para mostrar en la app de homebanking.
+
+ 
+
+B6. El control de cambios del documento QR menciona una URL para "obtener pagos por hook_alias", pero el cuerpo del documento no la especifica. Solicitamos la especificación de ese servicio de consulta: es necesario para conciliar el estado de un pago si el callback no llega o se pierde.
+
+ 
+
+Sobre lo citado en la documentación técnica corresponde a un error en la lista de control de cambios del documento. El comercio deberá identificar en su sistema interno todas aquellas transacciones que hayan presentado inconvenientes y validar cuánto tiempo demoró el callback en responder al servicio. Si se detecta que el callback tardó 5 segundos o más, se podrán realizar las siguientes acciones:
+
+ - Optimizar el servicio de callback, ya que no es sostenible un tiempo de respuesta tan elevado en sistemas transaccionales. Idealmente, el procesamiento de las transacciones no debería superar los 5 segundos. 
+
+Es primordial que el callback no esté ligado a ningún proceso interno del comercio. Este servicio debe poder recibir la notificación y responder en un tiempo menor a 5 segundos. De esta forma, se prioriza la confirmación del pago antes de marcarlo como aprobado en su sistema y proceder con la entrega del producto.
+
+- El comercio tiene la posibilidad de identificar cuándo llega la petición del servicio al callback y cuánto tiempo tarda en responder. En función de esto, se puede determinar si el callback demoró más de 5 segundos en responder y, en ese caso, invocar la reversa a través del API /commerces/:commerce_code/branches/:branch_code/selling/payments/revert/:hook_alias.
+
+
+Callbacks y seguridad
+B8. ¿Qué mecanismo recomienda Bancard para verificar la autenticidad de los callbacks entrantes (confirmación de vPOS y callback de QR)? ¿Publican rangos de IP de origen, firman el mensaje o soportan mTLS? Asimismo, agradeceremos confirmar los tiempos máximos de respuesta exigidos al comercio (entendemos 30 segundos para la confirmación de vPOS y 5 segundos para el callback de QR) y la política de reintentos de Bancard cuando el comercio no responde en tiempo.
+
+ 
+
+API QR:
+
+Para el Servicio de QR según lo especificado en la documentación el callback del comercio debe estar configurado con una autenticación tipo BASIC y utilizar el protocolo HTTPS de manera obligatoria, donde nuestro lado parametrizamos las credenciales y la url del callback del comercio para enviar la confirmación .
+
+ 
+
+Las IP de origen del servicio QR son las siguiente en el caso que utilicen alguna whilelist:
+190.128.232.10
+200.85.46.226
+190.128.218.210
+190.128.218.209
+190.104.129.98
+186.16.8.112
+200.85.41.18
+
+ 
+
+El tiempo máximo para la respuesta de callback para la confirmación de QR es de 5 segundos.
+
+ 
+
+vPOS 2.0:
+
+ 
+
+Para el sevicio de vPOS el comercio debe ofrecer en una URL pública y de común acuerdo un servicio mediante el cual se notificará  la aprobación o cancelación de la transacción de un cliente final, además para funcionar como cliente  Web Service de vPOS deberían soportar TLS1.2..
+
+ 
+
+Las IP de origen del servicio QR son las siguiente en el caso que utilicen alguna whilelist:
+
+ 
+
+190.128.218.209
+190.128.232.10
+190.104.129.98
+200.85.46.226
+
+ 
+
+El tiempo máximo del comercio para la respuesta de confirmación de vPOS es de 30 Segundos .
+
+ 
+
+B12. Respecto del mecanismo de bloqueo por rechazos consecutivos (7 intentos en 24 horas / 35 en 30 días): ¿el bloqueo aplica por combinación tarjeta+comercio? ¿El comercio puede consultar el estado de bloqueo o gestionar el desbloqueo? Lo consultamos para calibrar nuestro propio límite interno de reintentos, de modo de cortar antes de alcanzar el umbral.
+
+ Los umbrales que mencionan son mandatos de las marcas, no controles propios de la plataforma:
+
+el bloqueo se aplica a nivel de tarjeta, independientemente del comercio. Lo aplica el emisor o la marca.El comercio no puede consultar ni gestionar el desbloqueo. Si una tarjeta queda bloqueada, el titular debe contactar a su banco emisor.
+
+Para calibrar sus reintentos, recomendamos no superar 5 intentos en 24 hs por tarjeta
+
+
+
+
+Sobre las consultas B2 y B3 estaran respondiendo el equipo comercial. 

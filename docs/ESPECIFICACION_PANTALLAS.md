@@ -446,13 +446,32 @@ de nuevo.` (D-10).
 - **Medios (los tres cobran el premio total en el momento, D-02):** `QR Bancard` (por defecto) · `Tarjeta de débito` · `Tarjeta de crédito`. Botón según medio: `Tocá acá para generar el QR de Bancard` / `Tocá acá para pagar con débito →` / `Tocá acá para pagar con tarjeta de crédito →`.
 - `Se abre el entorno seguro de Bancard. SeguroLoTengo e Interseguros no reciben el dinero ni ven tu tarjeta.` — la tarjeta va por el flujo alojado de Bancard; el portal nunca ve PAN/CVV (regla #6). El comportamiento del mock sale de los documentos de Bancard (`response_code`, EMVCo, reversa a los 5 s).
 - **Modal Bancard** (en demo, simulado y rotulado como tal): `vpos.bancard.com.py/pago-seguro` · `Comercio: Alianza Garantía Seguros y Reaseguros S.A.` · `A PAGAR {premio}` · QR con guía (`{nombre,} escaneá este QR desde tu app de pagos — apenas Bancard confirme el pago seguimos automáticamente…`) o formulario de tarjeta (número, vencimiento MM/AA, código de seguridad, titular) con validación y `Mostrame qué me falta`. Botones `Simular que ya pagué (demo)` y `Completar con datos de ejemplo (demo)` **solo** con `DEMO_MODE=true`. Leyenda: `Ventana simulada del entorno de Bancard para esta demostración. En producción se abre el formulario real de Bancard…`
-- **Plazo:** 24 horas desde las firmas institucionales, con cuenta regresiva. Vencido → **Pantalla B** (sin cobro, sin devolución).
+- **Plazo:** 24 horas desde las firmas institucionales, con cuenta regresiva. Vencido → **Pantalla B** (sin cobro, sin devolución), y la operación abierta en Bancard **se apaga** (ver reglas del sistema).
+- **Pago rechazado:** si Bancard rechaza el intento —fondos insuficientes, tarjeta inhabilitada—, la pantalla corta la espera y muestra `Bancard rechazó el pago. Podés intentar de nuevo con otra tarjeta o elegir otro medio: no se te cobró nada.`, seguido de la razón del proveedor (`Bancard informó: {descripción} (código {código}).`). **Vuelve a habilitar el botón de pagar**: la operación anterior quedó cerrada del lado de Bancard, así que el próximo intento abre una nueva. La razón la pone Bancard; el qué hacer, la pantalla.
 
 **Reglas del sistema:** el único estado que abre y confirma una operación es
 `FIRMADO` (regla 6-bis); la operación es idempotente; el Certificado de
 Cobertura Provisional se emite en la misma escritura que confirma el cobro
 (D-12, CMP-07); cada emisión del medio de cobro queda asentada con la huella
 del PDF firmado (CMP-08).
+
+**Un intento rechazado es un estado, no un error.** El pago queda `RECHAZADO`
+—no `PENDIENTE`— y el expediente sigue en `FIRMADO`: lo que fracasó es el
+cobro, no el contrato. Esa distinción es la que hace posible el reintento,
+porque Bancard **quema el `shop_process_id` con el intento aunque haya
+fallado** (respuesta B10), así que el siguiente intento necesita clave de
+idempotencia nueva — y la clave solo se renueva cuando el pago deja de estar
+pendiente. Que el rechazo nos llegue lo confirmó el proveedor por las dos vías,
+callback y consulta (B10-bis).
+
+**Al vencer, la operación se cierra en Bancard.** El QR del proveedor vive
+3 días y no es configurable (B5, B5-bis), contra las 24 horas del expediente:
+sin cerrarla quedaría un QR pagable apuntando a un expediente terminal. La
+reversa por `hook_alias` invalida un QR generado y no pagado, y usarla al
+cancelar la venta es mandatorio según Bancard (B4-bis). Ocurre **después** de
+persistir el vencimiento, y deja evidencia propia. Lo mismo al **cambiar de
+medio de pago**: el intento anterior se apaga antes de abrir el siguiente, para
+que no quede una operación viva que el expediente ya no mira.
 
 ---
 
@@ -535,7 +554,40 @@ anotadas:
 - **Pantalla B · Solicitud vencida sin cobro** (`/solicitud-vencida`): sin
   cambios de fondo — expediente firmado y no pagado en 24 h, sin devolución,
   con su variante legada de devolución para los expedientes del orden viejo.
-  Única adaptación: el resumen y los hitos nombran el paso 3 nuevo.
+  Adaptaciones: el resumen y los hitos nombran el paso 3 nuevo, y la variante
+  legada lleva el bloque **`ADÓNDE VUELVE Y CUÁNDO`** que se detalla abajo.
+
+  **`ADÓNDE VUELVE Y CUÁNDO`** (agregado el 28-ago-2026, con las respuestas B2
+  y B3 de Bancard). Debajo del bloque rojo, `Destino` y `Plazo estimado` según
+  el medio con el que se pagó:
+
+  | Medio | Destino | Plazo |
+  | :---- | :---- | :---- |
+  | Tarjeta de crédito | A la misma tarjeta de crédito con la que pagaste. | Entre 48 y 72 horas desde que Alianza carga el pedido de anulación. |
+  | Tarjeta de débito | A la misma tarjeta de débito con la que pagaste. | Depende de cuándo tu banco autorice el movimiento en tu cuenta: no hay un plazo fijo. |
+  | QR Bancard | A la cuenta desde la que pagaste el QR. | Depende de cuándo tu banco acredite el movimiento en tu cuenta: no hay un plazo fijo. |
+
+  Cuando el plazo no lo fija Bancard —débito y QR— se agrega la nota `Bancard no
+  fija un plazo para este medio: la acreditación la resuelve tu banco.` Sin
+  ella, un plazo ausente se lee como un plazo olvidado. **Ningún medio sin SLA
+  puede llevar una cantidad de tiempo en su texto**, y hay un test que lo hace
+  fallar a propósito.
+
+  Este bloque es lo que completa la fila 65 (*"Explicar cancelación y
+  metodología de devolución"*): los cuatro pasos ya explicaban el
+  procedimiento, pero el paso 4 decía *"al medio o cuenta de origen"* sin poder
+  precisar cuál ni cuándo, porque hasta esa respuesta no lo sabíamos. El plazo
+  del QR sigue siendo **inferencia nuestra** —Bancard no lo respondió (B3-bis)—
+  y por eso no le atribuye ningún plazo al proveedor.
+
+  **Corrección del literal de la bajada.** El documento decía *"del premio
+  pagado mediante QR Bancard"*, porque la pantalla se escribió cuando el QR era
+  el único caso. Bajo el orden viejo también se pagaba con débito y con
+  crédito, así que a un expediente legado de tarjeta la pantalla le afirmaba un
+  medio que no era el suyo. La bajada ya no nombra el medio; el medio real se
+  dice en el bloque de arriba, con el dato del expediente. Cuál de las dos
+  variantes se muestra lo decide si el dinero efectivamente entró, no el medio
+  de pago ni la fecha del expediente.
 - **Verificación pública** (`/verificar/<código>`): sin cambios. El pie legal
   nuevo la enlaza desde todas las pantallas.
 - **Asistencia de identidad** (`/asistencia-identidad`): sin cambios de fondo;

@@ -278,7 +278,15 @@ export function obtenerPaymentProvider(): PaymentProvider {
   return resolverAdaptador("PAYMENT", {
     mock: () =>
       crearPaymentProviderMock({
-        fallaForzada: () => (consumirFallaDemo("BANCARD_TIMEOUT") ? "TIMEOUT" : null),
+        fallaForzada: () => {
+          // El orden importa poco —dos palancas armadas a la vez es un caso de
+          // demostración, no de producto— pero el timeout va primero porque
+          // corta antes: si Bancard no contestó, no hay operación que pueda
+          // rechazarse después.
+          if (consumirFallaDemo("BANCARD_TIMEOUT")) return "TIMEOUT";
+          if (consumirFallaDemo("BANCARD_TARJETA_RECHAZADA")) return "RECHAZO_AL_CONFIRMAR";
+          return null;
+        },
         // En demostración la acreditación **no la dispara el reloj**, sino el
         // botón *Pagado* del paso 7 (`POST /api/p7/pagado`), que es lo que en
         // la realidad hace la persona en la app de su banco.

@@ -3,8 +3,7 @@
  * demo": *"forzar fallos puntuales (OTP expirado, intentos agotados, timeout
  * de Bancard, rechazo de Code100)"*).
  *
- * Son los cuatro de CLAUDE.md. No es una lista abierta: cada una existe para
- * mostrar un desenlace concreto.
+ * No es una lista abierta: cada una existe para mostrar un desenlace concreto.
  *
  * **Nota histórica.** Hubo una quinta, `BANCARD_CAPTURA_FALLIDA`, que agregó la
  * auditoría de cumplimiento de P8/P9 para poder ejercitar en vivo la fila 44 de
@@ -29,8 +28,11 @@
  *   vencido y lo rechaza la misma validación de vigencia de siempre.
  * - `OTP_INTENTOS_AGOTADOS` quema los tres intentos contra el repositorio real,
  *   con códigos incorrectos.
- * - `BANCARD_TIMEOUT` y `CODE100_RECHAZO` entran por el `fallaForzada` que los
- *   adaptadores mock de pago y firma ya exponían.
+ * - `BANCARD_TIMEOUT`, `BANCARD_TARJETA_RECHAZADA` y `CODE100_RECHAZO` entran
+ *   por el `fallaForzada` que los adaptadores mock de pago y firma ya exponían.
+ *   Las dos de Bancard son momentos distintos: el timeout ocurre **al abrir**
+ *   la operación y la tarjeta rechazada **al terminar de pagarla**, que es
+ *   cuando contesta el emisor.
  *
  * Igual que la persona activa y el plazo de pago, esto es memoria del proceso
  * y solo funciona con `DEMO_MODE=true`.
@@ -42,6 +44,7 @@ export type FallaDemo =
   | "OTP_EXPIRADO"
   | "OTP_INTENTOS_AGOTADOS"
   | "BANCARD_TIMEOUT"
+  | "BANCARD_TARJETA_RECHAZADA"
   | "CODE100_RECHAZO"
   | "FIRMAS_INSTITUCIONALES_FALLAN"
   | "REGISTRO_CIVIL_CAIDO"
@@ -52,6 +55,7 @@ export const FALLAS_DEMO: readonly FallaDemo[] = [
   "OTP_EXPIRADO",
   "OTP_INTENTOS_AGOTADOS",
   "BANCARD_TIMEOUT",
+  "BANCARD_TARJETA_RECHAZADA",
   "CODE100_RECHAZO",
   "FIRMAS_INSTITUCIONALES_FALLAN",
   "REGISTRO_CIVIL_CAIDO",
@@ -96,6 +100,15 @@ export const DESCRIPCION_FALLA_DEMO: Readonly<
     donde: "Paso 7, al generar el QR o abrir el formulario",
     efecto:
       "Bancard no responde. El reintento reutiliza la misma clave de idempotencia, así que no cobra dos veces.",
+  },
+  BANCARD_TARJETA_RECHAZADA: {
+    rotulo: "Tarjeta rechazada",
+    donde: "Paso 7, al terminar de pagar (no al abrir la operación)",
+    efecto:
+      "La operación se abre bien y el rechazo llega después, cuando la persona termina de pagar: " +
+      "Bancard informa fondos insuficientes (código 51). El pago queda RECHAZADO —no PENDIENTE— " +
+      "y por eso el reintento acuña una clave de idempotencia nueva, que es lo que Bancard exige: " +
+      "un shop_process_id se quema con el intento aunque haya fallado (B10).",
   },
   CODE100_RECHAZO: {
     rotulo: "Rechazo de Code100",

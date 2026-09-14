@@ -164,6 +164,105 @@ describe("PaymentProvider mock · fallas forzadas del panel de demo", () => {
     expect(segundo.referenciaBancard).toBe(primero.referenciaBancard);
     expect(listarOperacionesMock()).toHaveLength(1);
   });
+
+  /**
+   * `RECHAZO_AL_CONFIRMAR` es otro momento que `RECHAZADA`, no otra intensidad:
+   * aquella corta al abrir la operación —la persona nunca ve el formulario— y
+   * esta ocurre al terminar de pagar, que es cuando contesta el emisor. Es el
+   * desenlace que Bancard confirmó que nos llega (B10-bis) y el que le da a
+   * `EstadoPago` su valor `RECHAZADO`.
+   */
+  it("una tarjeta rechazada abre la operación igual y la deja RECHAZADA al pagarla", async () => {
+    const reloj = relojFijo();
+    const p = crearPaymentProviderMock({
+      ahora: reloj.ahora,
+      demoraGeneracionMs: 0,
+      demoraAcreditacionMs: 1_000,
+      fallaForzada: () => "RECHAZO_AL_CONFIRMAR",
+    });
+
+    // A diferencia del timeout, acá sí hay operación: la persona llega al
+    // formulario seguro y recién ahí le rechazan la tarjeta.
+    const debito = await p.iniciarPagoTarjetaDebito(ENTRADA_TARJETA);
+    expect(debito.urlFormularioSeguro).toMatch(/^https?:\/\//);
+    expect((await p.consultarEstadoPago(debito.referenciaBancard))?.estado).toBe("PENDIENTE");
+
+    reloj.avanzar(1_000);
+
+    const rechazado = await p.consultarEstadoPago(debito.referenciaBancard);
+    expect(rechazado?.estado).toBe("RECHAZADO");
+    // Con el código y la descripción del proveedor, no con un texto propio.
+    expect(rechazado?.codigoRespuesta).toBe("51");
+    expect(rechazado?.descripcionRespuesta).toBe("Fondos insuficientes");
+  });
+
+  it("el desenlace se decide al abrir la operación, así que la palanca no se evapora", async () => {
+    // La palanca se consume en el primer intento que la encuentra, y el
+    // desenlace queda pegado a la operación: si dependiera de volver a
+    // consultarla, la segunda lectura la aprobaría.
+    const reloj = relojFijo();
+    let falla: FallaBancardDemo | null = "RECHAZO_AL_CONFIRMAR";
+    const p = crearPaymentProviderMock({
+      ahora: reloj.ahora,
+      demoraGeneracionMs: 0,
+      demoraAcreditacionMs: 1_000,
+      fallaForzada: () => {
+        const actual = falla;
+        falla = null;
+        return actual;
+      },
+    });
+
+    const debito = await p.iniciarPagoTarjetaDebito(ENTRADA_TARJETA);
+    reloj.avanzar(1_000);
+
+    expect((await p.consultarEstadoPago(debito.referenciaBancard))?.estado).toBe("RECHAZADO");
+    expect((await p.consultarEstadoPago(debito.referenciaBancard))?.estado).toBe("RECHAZADO");
+  });
+
+  it("reversar una operación ya rechazada no la cambia: el intento existió", async () => {
+    // Decir "cancelado" borraría el hecho de que hubo un intento, que es
+    // justamente lo que quema el `shop_process_id` (B10).
+    const reloj = relojFijo();
+    const p = crearPaymentProviderMock({
+      ahora: reloj.ahora,
+      demoraGeneracionMs: 0,
+      demoraAcreditacionMs: 1_000,
+      fallaForzada: () => "RECHAZO_AL_CONFIRMAR",
+    });
+
+    const debito = await p.iniciarPagoTarjetaDebito(ENTRADA_TARJETA);
+    reloj.avanzar(1_000);
+
+    expect((await p.cancelarOLiberarReserva(debito.referenciaBancard)).estado).toBe("RECHAZADO");
+  });
+});
+
+/**
+ * G1 · el uso de la reversa que Bancard declara mandatorio: apagar un QR
+ * generado y no pagado cuando el comercio cancela la venta (respuesta B4-bis).
+ * El QR del proveedor vive 3 días y no es configurable (B5-bis), así que la
+ * política de 24 h del expediente la hace cumplir esta llamada o nadie.
+ */
+describe("PaymentProvider mock · apagar un QR emitido y no pagado", () => {
+  it("deja CANCELADO un QR pendiente, y repetirlo no cambia nada", async () => {
+    const p = crearPaymentProviderMock({
+      demoraGeneracionMs: 0,
+      // Nunca se acredita solo: queda pendiente, que es el caso de G1.
+      demoraAcreditacionMs: 24 * 60 * 60 * 1000,
+    });
+
+    const qr = await p.iniciarPagoQr(ENTRADA_QR);
+    expect((await p.consultarEstadoPago(qr.referenciaBancard))?.estado).toBe("PENDIENTE");
+
+    const primera = await p.cancelarOLiberarReserva(qr.referenciaBancard);
+    const segunda = await p.cancelarOLiberarReserva(qr.referenciaBancard);
+
+    expect(primera.estado).toBe("CANCELADO");
+    // Idempotente por referencia: los reintentos de red son esperables acá.
+    expect(segunda).toEqual(primera);
+    expect((await p.consultarEstadoPago(qr.referenciaBancard))?.estado).toBe("CANCELADO");
+  });
 });
 
 describe("PaymentProvider mock · regla inviolable #6", () => {

@@ -99,6 +99,8 @@ interface RespuestaInicio {
 interface RespuestaEstado {
   readonly ok?: boolean;
   readonly motivo?: string;
+  /** `response_code` de Bancard cuando el sondeo trajo un rechazo (G2). */
+  readonly codigoRespuesta?: string;
   readonly confirmado?: boolean;
   readonly siguientePantalla?: string;
 }
@@ -112,7 +114,9 @@ const MENSAJES: Readonly<Record<string, string>> = {
   PLAZO_VENCIDO: AVISO_PLAZO_VENCIDO_P7,
   RUC_INVALIDO: "Revisá el RUC: el formato esperado es 80012345-6.",
   BANCARD_NO_DISPONIBLE: "Bancard no respondió. Volvé a intentar en unos segundos.",
-  BANCARD_RECHAZO: "Bancard rechazó la operación. Probá con otro medio de pago.",
+  BANCARD_RECHAZO:
+    "Bancard rechazó el pago. Podés intentar de nuevo con otra tarjeta o elegir otro medio: " +
+    "no se te cobró nada.",
   PAGO_NO_INICIADO:
     "Bancard no reconoce esta operación, así que seguir esperando no la va a confirmar. " +
     "Generá el pago de nuevo: no se te cobró nada.",
@@ -199,7 +203,25 @@ const MOTIVOS_TERMINALES_SONDEO: ReadonlySet<string> = new Set([
   "EXPEDIENTE_NO_ENCONTRADO",
   "ESTADO_INVALIDO",
   "PAGO_CANCELADO",
+  // Bancard rechazó el intento (G2). Terminal **para este intento**, no para
+  // la pantalla: seguir sondeando no lo va a aprobar, pero la persona sí puede
+  // hacer otro intento — ver `MOTIVOS_QUE_HABILITAN_OTRO_INTENTO`.
+  "BANCARD_RECHAZO",
 ]);
+
+/**
+ * Motivos tras los cuales la pantalla vuelve a dejar pagar.
+ *
+ * Cortar el sondeo no alcanza: mientras haya una operación abierta
+ * (`esperandoAlBanco`) la pantalla bloquea el botón, el cambio de medio y todo
+ * lo demás, así que un rechazo dejaría a la persona mirando un error sin poder
+ * hacer nada. Soltar la operación es lo que la habilita, y es correcto
+ * hacerlo: la operación anterior ya terminó del lado de Bancard —el
+ * `shop_process_id` quedó quemado con el intento (B10)— así que el próximo
+ * botón abre una nueva, con clave de idempotencia nueva. No hay riesgo de
+ * cobro doble: el intento que se suelta es uno que el proveedor ya cerró.
+ */
+const MOTIVOS_QUE_HABILITAN_OTRO_INTENTO: ReadonlySet<string> = new Set(["BANCARD_RECHAZO"]);
 
 const CLASE_CAMPO =
   "h-11 w-full rounded-lg border border-borde-sutil bg-superficie px-3 text-base text-titulo placeholder:text-etiqueta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-naranja-500";
@@ -423,8 +445,23 @@ export function FormularioPagoP7({
 
       const terminal = datos.motivo !== undefined && MOTIVOS_TERMINALES_SONDEO.has(datos.motivo);
       if (terminal && vigente.current) {
-        setOrigenError("SONDEO");
-        setError(MENSAJES[datos.motivo ?? ""] ?? MENSAJES.CUERPO_INVALIDO);
+        const habilitaOtroIntento =
+          datos.motivo !== undefined && MOTIVOS_QUE_HABILITAN_OTRO_INTENTO.has(datos.motivo);
+        // El mensaje se dibuja donde está la acción que sigue. Un error del
+        // sondeo vive dentro de la ventana de Bancard, pero cuando el rechazo
+        // la cierra la acción que sigue es el botón de pagar, así que el
+        // mensaje tiene que aparecer ahí o no aparece en ninguna parte.
+        setOrigenError(habilitaOtroIntento ? "GENERAR" : "SONDEO");
+        // La razón la dice Bancard cuando la dio; el qué hacer, el mensaje.
+        setError(mensajeDeRechazo(datos.motivo, datos.codigoRespuesta));
+        if (habilitaOtroIntento) {
+          // Se suelta la operación cerrada para que la pantalla vuelva a
+          // dejar pagar. El contador de espera también, o el próximo intento
+          // arrancaría con el reloj del anterior.
+          setInstruccion(null);
+          setReferenciaBancard(null);
+          setEsperandoDesde(null);
+        }
       }
       return terminal;
     }
