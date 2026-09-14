@@ -46,7 +46,7 @@ que cada uno es lo que su nombre dice, según la regla de
 | `DOC-ICPP-17.pdf` | Procedimiento de **identificación remota de una persona física** (Res. N.º 529/2024) · 16 p |
 | `DOC-ICPP-18.pdf` | Estructura y contenido del **informe de evaluación de la conformidad** · 11 p |
 | `DOC-ICPP-19.pdf` | Formulario de solicitud de habilitación de servicios anexos para el PCSC reconocido por leyes anteriores · 3 p · **escaneado, sin capa de texto** |
-| `DOC-ICPP-20.pdf` | **Perfil del certificado del prestador NO cualificado** · 15 p |
+| `DOC-ICPP-20.pdf` | **Perfil del certificado del prestador NO cualificado** · 15 p. **Hay una versión 2.0** (`DOC-ICPP-20_V2.0.pdf`, 14 p, 1 161 851 bytes, SHA-256 `188924b8f14332bc52f0574ba8c5bedf4fffbf2019480a63dc598324d727079e`), aprobada por la **Res. MIC 262/2024** (en `docs/normativa/`). No coincide con la huella de abajo: la descarga del 02-sep es otra edición. Antes de citar el perfil, confirmar cuál publica hoy el MIC |
 | `DOC-ICPP-21.pdf` | Proceso de habilitación del servicio de generación o gestión de datos de creación de firma **en nombre del firmante**, para PCSC reconocido por leyes anteriores · 5 p |
 | `DOC-ICPP-23.pdf` | Procedimiento general para solicitudes de autorización de procesos que modifiquen la operativa de un PCSC (Res. N.º 156/2023) · 4 p |
 | `DOC-ICPP-24.pdf` | Proceso de habilitación de **servicios anexos** prestados por el PCSC (Res. N.º 185/2023) · 4 p · **escaneado, sin capa de texto** |

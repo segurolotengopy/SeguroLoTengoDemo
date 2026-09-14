@@ -38,6 +38,215 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-14 · Interconexión con Alianza, la definición del 07-sep, y la carpeta de recepción
+
+**Rama:** `claude/alianza-garantia-integration-9febfc` · **Pedido de Andres:**
+analizar la interconexión con Alianza (firma por SFTP y datos de emisión) y
+redactar la respuesta a su correo; después, analizar la *Definición funcional
+definitiva* de Interseguros del 07-sep; preparar este worktree para lo que
+Rodrigo manda durante el día, y consolidar ramas y worktrees.
+
+### El caso
+
+Alianza pidió la IP pública para habilitar su firewall (el servidor SFTP ya
+está listo) y mandó un TXT de ejemplo de migración de vida colectivo, en
+respuesta al correo de Andres que pedía que firmaran la Solicitud + FIPF y el
+CPC. Ese pedido **contradecía** las enmiendas del 04-sep a D-12 y D-13. La
+definición del 07-sep y dos respuestas de Rodrigo de hoy resuelven parte.
+
+### Qué cambió
+
+- **`docs/recepcion/2026-09-14-interseguros/`** (nuevo, transitorio): dónde
+  deja Andres cada entrega del día (modelo de CPC aprobado, pantallas v4,
+  PDF de legal), qué se contrasta al recibir cada una y las preguntas abiertas
+  P0–P7. Trae copiada la definición del 07-sep. Su `.gitignore` excluye `.txt`
+  y llaves: **el TXT de Alianza tiene nombres y cédulas de personas reales** y
+  no entra al repositorio.
+- Ningún cambio de código ni de decisiones: las enmiendas a D-10, D-12 y D-13
+  esperan el PDF de legal de hoy.
+
+### Qué se estableció
+
+- **Rodrigo (WhatsApp, 14-sep, 10:50):** el CPC **lo emite Interseguros**
+  (SeguroLoTengo) **y lo firma Alianza**; para emitirlo el cliente tiene que
+  haber firmado la Solicitud + FIPF con firma no cualificada y haber pagado.
+  **El modelo de CPC aprobado lo manda Alianza hoy.** Cae la parte de la
+  enmienda del 04-sep a D-12 según la cual Alianza lo emitía «desde su
+  sistema»; la firma de Interseguros con Code100 **no** es precondición.
+- **Sin resolver:** si Alianza firma también la Solicitud + FIPF. La tabla del
+  §11 del 07-sep la pone como firmante; la respuesta de Rodrigo sugiere que
+  solo el CPC. Se le preguntó (P1).
+- **La definición del 07-sep choca con el repo en:** cédula y fecha de
+  nacimiento editables (reglas #8 y #11), retracto eliminado (fila 64 de la
+  matriz), secuencia congelada de 8 pasos con el plan primero (contradice el
+  v3 de 3 pasos), plazo de pago de 10 minutos (D-10 dice 24 h), 3 preguntas
+  médicas + PEP (el mapa 5→8 del 29-ago) y Google Analytics sin
+  consentimiento. Coincide exacto en premios, coberturas e IVA del 10 %.
+- **El TXT de Alianza** es tabulado, CRLF, sin encabezado; en la fila 3 un
+  tabulador doble corre todas las columnas. El premio es el 0,7023 ‰ de la
+  columna 4 en las tres filas. Es un formato de migración, no de emisión.
+- **IP fija:** la plataforma sale por Amplify, que no tiene IP de salida fija.
+  Recomendado: conector SFTP de AWS Transfer Family (IP estáticas, S3 directo).
+  El SFTP de Alianza todavía no está en la tabla de integraciones.
+
+### Consolidación de ramas y worktrees
+
+Relevado contra `origin/main` (1bf8422):
+
+- **El checkout principal tenía trabajo que existía en un solo lugar**: el
+  asistente Terra completo (entrada del 06-sep, cuya rama
+  `feat/asistente-chatbotrag` no existía ni local ni en GitHub), las notas de
+  las reuniones del 02 y 03-sep (la del 03 la cita `CAMBIOS_NECESARIOS.md`),
+  la Ley 6822 oficial firmada, las Res. MIC 1384/2022 y 262/2024, cuatro
+  DOC-ICPP y el logo de Interseguros. **La documentación entra en esta misma
+  rama**: las dos notas en `docs/antecedentes/` con su nombre original (la
+  del 03-sep se cita por ese nombre), el logo en `docs/logos/`, y las tres
+  normas en `docs/normativa/` renombradas según la convención y registradas
+  en `INDICE.md` §1. El asistente se reconstruyó en el worktree
+  `rescate-asistente` (rama `feat/asistente-chatbotrag`), **sin commitear
+  todavía** (ver «Queda abierto»).
+- **Los DOC-ICPP-01, 03 y 07 sueltos coinciden byte a byte** con las huellas
+  de `docs/firma-cualificada/referencias/INDICE.md`: son copias locales, van a
+  esa carpeta (ignorada por git) y no al repo. **El DOC-ICPP-20 v2.0 no
+  coincide** (1 161 851 bytes, SHA-256 `188924b8…079e`): es la versión que
+  aprobó la Res. 262/2024, posterior a la catalogada.
+- **La Res. 1384/2022 no es un hallazgo nuevo**: reglamenta la comunicación de
+  inicio del prestador no cualificado, el escenario E2 que
+  `VALIDACION_LEGAL_FIRMA_INTERNA.md` §4 ya separa del mecanismo interno.
+- `claude/bancred-qr-reversas-e3ecea`: 9 commits **sin push** (Bancard G1/G2).
+- PR #103: el rebase contra `main` choca solo en esta bitácora.
+- Ya cubiertas por `main` (verificado por contenido, no por `git cherry`):
+  `chore/hardening-seguridad`, `claude/eager-blackburn-166061`,
+  `wip/l4-inversion-firma-pago`.
+- 34 ramas remotas ya fusionadas; `demo-v3` es rama de despliegue y no se
+  toca. El perfil `aab1-demo-deployer` no tiene `amplify:ListBranches`, así
+  que las ramas de Amplify se tomaron de `infra/amplify.tf` y de esta bitácora.
+
+### Cómo se ejecutó la consolidación
+
+La sesión no pudo ejecutarla entera: el harness la aísla en su worktree (no
+escribe en archivos de otros) y el clasificador del modo automático frenó los
+pushes, los borrados de ramas, la aprobación y el merge de PRs, y la edición de
+sus propios permisos. No se esquivó ningún bloqueo. Antes de que apareciera el
+aislamiento, la sesión ya había copiado archivos en `rescate-asistente` y
+`rescate-normativa` e iniciado el rebase en `rebase-pr103`.
+
+Lo que faltaba se escribió en un script por secciones, que Andres revisó y
+corrió:
+
+| Sección | Qué hizo | Resultado |
+| :-- | :-- | :-- |
+| 1 | Commit, push y PR del asistente | **#113** |
+| 2 | Conflicto de la bitácora y push del PR #103 | Rebase aplicado, 1275 tests en verde |
+| 3 | Push y PR de `bancred-qr-reversas` | **#114** |
+| 4 | Push y PR de esta rama | **#115**; 14,5 MB de PDF a 23 KiB/s, unos 10 min |
+| 7 | Arreglo de typecheck del #114 (`detalle?.includes`, TS18047) | `09daa12`; 1297 tests en verde |
+| 5 | Borrado de `sharp-cannon`, `rescate-normativa`, 4 ramas locales y **33 ramas remotas ya fusionadas** | Se conservaron `main` y `demo-v3` |
+| 6 | Limpieza del checkout principal, verificada con `cmp` archivo por archivo | Limpio; los DOC-ICPP quedaron en `referencias/` (ignorada) |
+
+**El #114 tenía el CI en rojo por typecheck, no por tests.** Los 1297 tests
+pasaban porque vitest no verifica tipos; el `tsc` del CI encontró
+`evidencia.detalle` (de tipo `string | null`) leído sin `?.`.
+
+### Dependencias de producción: de 6 alertas a 0
+
+Al pushear, GitHub avisó de **6 alertas de Dependabot en `main`: 4 críticas y
+2 altas**. Las críticas eran dos vulnerabilidades de ejecución remota de código
+sin autenticación en `next` 15.5.23 (CVE-2026-75604 y GHSA-2xp9-vwfh-vxw4),
+contadas dos veces (`package.json` y `package-lock.json`), **presentes en
+producción**. Por eso Trivy fallaba en los PRs abiertos, aunque ninguno
+tuviera la culpa.
+
+Se fusionaron en orden, cada uno recién después de verificar el build de
+Amplify del anterior:
+
+| PR | Cambio | Merge | Build de Amplify |
+| :-- | :-- | :-- | :-- |
+| #106 | `next` 15.5.23 → 15.5.25 (sigue en la línea 15) | `42e3fb8` | Job 99: SUCCEED |
+| #108 | `sharp` 0.35.3 → 0.35.4 (libheif) | `a1c1687` | Job 100: SUCCEED |
+| #109 | `js-yaml` 4.3.1 → 4.3.2 | `69897b8` | Job 101: SUCCEED |
+
+El #108 y el #109 se reconstruyeron con `@dependabot rebase` antes de
+fusionarse: cada uno corregía un solo paquete y fallaba en Trivy por los otros.
+**Alertas de Dependabot abiertas en `main` al cerrar: 0.** Después, el #113, el
+#114, el #103 y el #115 se actualizaron contra `main` con `gh pr update-branch`
+(merge, sin force-push), y los cuatro quedaron con todos sus checks en verde.
+
+### Qué hizo Andres
+
+- Aprobó los cinco pasos de consolidación: rescatar el checkout principal,
+  push y PR de `bancred-qr-reversas`, rebase del PR #103, borrar lo obsoleto y
+  commitear esta carpeta.
+- Corrió las secciones 1 a 7 del script.
+- Dio el OK para fusionar el #106, el #108 y el #109 («OK, fusiona el #106 y
+  sigue con #108 y #109»), y después para actualizar los cuatro PRs.
+- **Agregó reglas de permiso** en `.claude/settings.local.json` del worktree
+  (`gh pr view/checks/comment/review/merge/update-branch`) y lo excluyó de git
+  en `.git/info/exclude`. La sesión no podía darse esos permisos: el
+  clasificador lo bloqueó, y está bien que lo haga.
+- Trajo las respuestas de Rodrigo y va a dejar en la carpeta de recepción lo
+  que llegue durante el día.
+
+### Verificaciones
+
+- Rescate del asistente: `npm run typecheck` limpio, `npm run lint` 0 errores
+  y 9 warnings, **1282 tests en 96 archivos en verde**. Son los mismos números
+  que registró la entrada del 06-sep, así que la reconstrucción no perdió nada.
+- Duplicados en el checkout principal: `Ley Nro 6822-2021pdf.pdf` y
+  `Decreto_7576-2022.pdf` idénticos por MD5 a `ley-6822-2021.pdf` y
+  `decreto-7576-2022.pdf`. `Ley Nro 6822-2021.pdf` es otra edición: 48 p,
+  firmada digitalmente.
+- Trivy en `main` después del #106: `Total: 1 (HIGH: 1, CRITICAL: 0)`, solo
+  `sharp`. Después del #108 y el #109: la API de Dependabot devuelve 0 alertas
+  abiertas.
+
+### Los PRs de la consolidación, fusionados
+
+Andres revisó los cuatro y dio el OK uno por uno («Ok, fusiona el #103», «fusiona
+el #114», «cuando termine sigue con el #113», «y después fusiona el #115»). Cada
+merge esperó a que el build de Amplify del anterior terminara en SUCCEED:
+
+| PR | Merge | Build de Amplify |
+| :-- | :-- | :-- |
+| #103 constancia de firma (D-27) | 16:13 UTC, `220f01a` | Job 102: SUCCEED |
+| #114 Bancard G1/G2 | 16:18 UTC, `7f68f83` | Job 103: SUCCEED |
+| #113 asistente Terra | 16:24 UTC, `984b86a` | Job 104: verificado antes de fusionar este PR |
+
+- **Ninguno tiene aprobación formal:** GitHub no admite aprobar un PR que abrió
+  la misma cuenta, y el ruleset de `main` tampoco la exige (estado CLEAN). La
+  constancia del OK de Andres quedó en el mensaje de cada merge.
+- **El #113 chocó en esta bitácora** con lo que trajo el #114. Se resolvió en
+  una rama auxiliar dentro del worktree de la sesión y se pusheó encima de la
+  rama del PR (`750db1f`), sin reescribir historia: las entradas quedaron en
+  orden cronológico inverso, con 1340 tests en verde. Este PR tuvo el mismo
+  conflicto y se resolvió igual.
+- Se borró la rama remota `claude/bancred-integration-docs-t1inpp`, después de
+  comprobar que estaba contenida en `main`.
+
+### Queda abierto
+
+- **Borrar los worktrees `elegant-murdock-de9b28` y `rescate-asistente`**: sus
+  PRs (#114 y #113) ya están fusionados. La sesión no puede borrarlos porque
+  son de otros worktrees.
+- Por decidir: `claude/qr-interno-documentos-bf2u30` (token no adivinable en
+  el QR), cuando llegue el modelo de CPC; `docs/rediseno-lovable-canvas`
+  (`~/slt-rediseno`), cuando llegue la v4.
+- El checkout principal ya está limpio, pero **quedó otra vez detrás de
+  `origin/main`** por los cuatro merges de la tarde: falta otro
+  `git pull --ff-only`.
+- **Borrar `.claude/settings.local.json`** del worktree al cerrar la sesión:
+  Andres lo volvió a crear para los merges de la tarde, y le permite a la
+  sesión aprobar y fusionar cualquier PR.
+- Los PRs de dependabot que quedan (#71, #74, #83, #110, #111, #112) no son de
+  seguridad; se revisan aparte.
+- Preguntas P0–P7 del README de recepción; enmiendas a D-10, D-12 y D-13 con
+  el PDF de legal; correo a Alianza (IP, carpetas, firma incremental, layout
+  de emisión) cuando se cierre P1.
+- Sigue abierta la access key de root del perfil `default` (entrada del
+  05-sep (b)).
+
+---
+
 ## 2026-09-07 (b) · G1 y G2 implementados: el QR se apaga al vencer, y un rechazo deja reintentar
 
 **Rama:** `claude/bancred-qr-reversas-e3ecea` · **Pedido de Andres:** «implementá
