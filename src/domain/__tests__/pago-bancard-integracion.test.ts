@@ -389,7 +389,7 @@ describe("Bancard · G2 · un intento rechazado deja reintentar", () => {
     // La fila 31 pide constancia del rechazo, no una por cada vez que la
     // pantalla preguntó.
     const rechazos = t.evidencias.registros.filter((evidencia) =>
-      evidencia.detalle.includes("estadoPago=RECHAZADO"),
+      evidencia.detalle?.includes("estadoPago=RECHAZADO"),
     );
     expect(rechazos).toHaveLength(1);
   });
