@@ -13,8 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   FIRMANTES_POR_DOCUMENTO,
   firmantesConjuntos,
-  firmantesDe,
-} from "../firmantes-documento";
+  firmantesDe, VERSION_BLOQUE_FIRMAS } from "../firmantes-documento";
 
 describe("firmantes por documento (D-13)", () => {
   it("el cliente firma primero y firma simple, en todo documento que firme", () => {
@@ -97,5 +96,17 @@ describe("firmantes por documento (D-13)", () => {
         expect(firmante.leyenda.trim()).not.toBe("");
       }
     }
+  });
+});
+
+describe("la leyenda del cliente (D-27)", () => {
+  it("cita la Res. 210/2025 y no describe el flujo de un proveedor", () => {
+    const cliente = firmantesDe("PAQUETE").find((f) => f.rol === "CLIENTE");
+    expect(cliente?.leyenda).toContain("210/2025");
+    expect(cliente?.leyenda).toContain("código de un solo uso");
+    expect(cliente?.leyenda.toLowerCase()).not.toContain("enlace");
+  });
+  it("el bloque de firmas lleva versión, para que cada PDF diga con cuál se cerró", () => {
+    expect(VERSION_BLOQUE_FIRMAS).toMatch(/^FIRMAS-v\d+$/);
   });
 });

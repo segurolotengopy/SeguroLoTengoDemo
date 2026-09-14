@@ -370,6 +370,32 @@ export function esMedioDePago(valor: unknown): valor is MedioDePago {
 export type EstadoPago =
   | "PENDIENTE"
   | "CONFIRMADO" // el importe entró
+  /**
+   * Bancard procesó el intento y lo rechazó: fondos insuficientes, tarjeta
+   * inhabilitada, transacción inválida (`response_code` distinto de `00`).
+   *
+   * **No es lo mismo que `CANCELADO`,** y por eso es un estado propio y no una
+   * variante de aquel. `CANCELADO` es una operación que nadie llegó a intentar
+   * —un QR que venció, una venta que el comercio deshizo—; `RECHAZADO` es un
+   * intento que ocurrió y salió mal. La distinción tiene una consecuencia
+   * concreta: el `shop_process_id` de un intento rechazado **queda quemado de
+   * por vida** (respuesta B10 de Bancard), así que reintentar exige abrir una
+   * operación nueva, con clave de idempotencia nueva. Ver
+   * `claveDeIdempotencia` en `src/domain/pago-p7.ts`, que acuña una clave
+   * fresca en cuanto el pago deja de estar `PENDIENTE`.
+   *
+   * Existe recién ahora porque hasta la segunda ronda de consultas no sabíamos
+   * si el rechazo nos llegaba: **B10-bis** confirmó que sí, por las dos vías
+   * —el POST de confirmación se envía también para los pagos rechazados, con
+   * su `response_code`, y `get_confirmation` devuelve la operación rechazada
+   * en vez de `PaymentNotFoundError`—. Sin ese dato, un rechazo era
+   * indistinguible de "todavía no pagó" y la persona quedaba sin reintento
+   * (hueco G2 de `docs/ANALISIS_RESPUESTAS_BANCARD.md`).
+   *
+   * **No mueve el estado del expediente**, que sigue en `FIRMADO`: lo que
+   * fracasó es un intento de cobro, no el contrato.
+   */
+  | "RECHAZADO"
   | "CANCELADO"
   | "DEVUELTO";
 
@@ -665,6 +691,29 @@ export interface CertificadoCobertura {
   readonly firmas: readonly FirmaInstitucional[];
 }
 
+/**
+ * La constancia del acto de firma del cliente, ya cerrada y hasheada (D-27).
+ *
+ * Nace **en la misma escritura** que la firma (`registrarFirmaClienteInterna`),
+ * igual que el certificado nace con el cobro: no existe un expediente firmado
+ * por el cliente sin constancia, ni una constancia sin firma. Es un documento
+ * del motor —`CONST-<correlativo>`— con huella propia, y su huella es lo único
+ * de él que se publica en la verificación pública (regla inviolable #7).
+ *
+ * Los expedientes firmados antes de D-27 traen el campo en `null` y no se
+ * reescriben (regla inviolable #10).
+ */
+export interface ConstanciaFirmaEmitida {
+  /** Identidad del documento: `CONST-<correlativo>`. */
+  readonly codigo: string;
+  /** Documento cuyo acto de firma constata: `PROP-<correlativo>`. */
+  readonly codigoPaquete: string;
+  readonly version: number;
+  /** Regla #4: huella del PDF cerrado, calculada sobre los bytes definitivos. */
+  readonly hashSha256: string;
+  readonly emitidaEn: string; // ISO 8601
+}
+
 // ---------------------------------------------------------------------------
 // Emisión de la póliza (P9)
 // ---------------------------------------------------------------------------
@@ -821,6 +870,8 @@ export interface Expediente {
    * reescriben (regla inviolable #10).
    */
   readonly certificadoCobertura: CertificadoCobertura | null;
+  /** D-27: la constancia del acto de firma del cliente; `null` en firmas de proveedor y en expedientes anteriores. */
+  readonly constanciaFirma: ConstanciaFirmaEmitida | null;
   /** Estado de la emisión en Alianza (P9). No contiene la póliza, solo su estado. */
   readonly poliza: PolizaDelExpediente | null;
   /**
@@ -868,6 +919,7 @@ export function crearExpedienteInicial(input: {
     firma: null,
     firmasInstitucionales: [],
     certificadoCobertura: null,
+    constanciaFirma: null,
     poliza: null,
     devolucion: null,
     expedienteAnteriorId: input.expedienteAnteriorId ?? null,

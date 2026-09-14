@@ -42,7 +42,10 @@ import {
   lectorConMetadataWhatsAppModular,
 } from "./live/otp-provider";
 import { crearClienteWhatsAppModularDesdeEntorno } from "./live/whatsapp-modular";
-import { obtenerOtpPepper, obtenerWhatsAppModularToken } from "../repositories/secrets-client";
+import { obtenerChatbotRagToken, obtenerOtpPepper, obtenerWhatsAppModularToken } from "../repositories/secrets-client";
+import type { AsistenteProvider } from "../ports/asistente-provider";
+import { crearAsistenteChatbotRag } from "./live/asistente-chatbotrag";
+import { crearAsistenteProviderMock } from "./mock/asistente-provider";
 import { crearAlmacenEstadoDemo } from "../repositories";
 import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
@@ -278,7 +281,15 @@ export function obtenerPaymentProvider(): PaymentProvider {
   return resolverAdaptador("PAYMENT", {
     mock: () =>
       crearPaymentProviderMock({
-        fallaForzada: () => (consumirFallaDemo("BANCARD_TIMEOUT") ? "TIMEOUT" : null),
+        fallaForzada: () => {
+          // El orden importa poco —dos palancas armadas a la vez es un caso de
+          // demostración, no de producto— pero el timeout va primero porque
+          // corta antes: si Bancard no contestó, no hay operación que pueda
+          // rechazarse después.
+          if (consumirFallaDemo("BANCARD_TIMEOUT")) return "TIMEOUT";
+          if (consumirFallaDemo("BANCARD_TARJETA_RECHAZADA")) return "RECHAZO_AL_CONFIRMAR";
+          return null;
+        },
         // En demostración la acreditación **no la dispara el reloj**, sino el
         // botón *Pagado* del paso 7 (`POST /api/p7/pagado`), que es lo que en
         // la realidad hace la persona en la app de su banco.
@@ -432,4 +443,24 @@ export function obtenerPlazoPagoMs(): number {
  */
 export function firmasInstitucionalesCaidas(): boolean {
   return consumirFallaDemo("FIRMAS_INSTITUCIONALES_FALLAN");
+}
+
+/**
+ * Asistente conversacional (Terra, ítem 35). `INTEGRATION_ASISTENTE=live` exige
+ * `CHATBOTRAG_URL` en el entorno (no es credencial: identifica el servicio) y
+ * `CHATBOTRAG_TOKEN` en el secret. Sin URL, tira con el nombre de lo que falta
+ * en vez de caer al mock en silencio: un rótulo «real» sobre respuestas
+ * simuladas sería peor que ninguno.
+ */
+export function obtenerAsistenteProvider(): AsistenteProvider {
+  return resolverAdaptador("ASISTENTE", {
+    mock: () => crearAsistenteProviderMock(),
+    live: () => {
+      const baseUrl = process.env.CHATBOTRAG_URL?.trim();
+      if (!baseUrl) {
+        throw new Error("INTEGRATION_ASISTENTE=live sin CHATBOTRAG_URL: definí el origen del servicio ChatbotRAG.");
+      }
+      return crearAsistenteChatbotRag({ baseUrl, clave: obtenerChatbotRagToken });
+    },
+  });
 }

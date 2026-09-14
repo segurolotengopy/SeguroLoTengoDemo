@@ -27,7 +27,10 @@ export type NombrePuerto =
   // Noveno: entrega de los documentos emitidos por los canales verificados
   // (CHG-44). No es el del OTP aunque comparta proveedor: aquel entrega un
   // código, este entrega archivos a alguien ya identificado.
-  | "MESSAGING";
+  | "MESSAGING"
+  // Décimo: el asistente conversacional (Terra, ítem 35). Informativo y
+  // desacoplado del flujo: no comparte puerto con ningún proveedor transaccional.
+  | "ASISTENTE";
 
 export type ModoIntegracion = "mock" | "live";
 

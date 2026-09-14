@@ -32,9 +32,10 @@ import type {
   FirmaInstitucional,
   PaqueteDocumental,
   Pago,
+  ConstanciaFirmaEmitida,
 } from "./tipos";
 import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, pagoAcreditado } from "./tipos";
-import { codigoFipf, codigoSolicitud } from "./documentos";
+import { codigoFipf, codigoSolicitud, codigoConstancia } from "./documentos";
 import { codigoCertificado } from "./certificado-cobertura";
 import { firmantesConjuntos } from "./firmantes-documento";
 import { evaluarElegibilidad } from "./elegibilidad";
@@ -591,9 +592,10 @@ export function registrarFirmaP8(
  */
 export function registrarFirmaClienteInterna(
   expediente: Expediente,
-  firma: Firma,
+  acto: { readonly firma: Firma; readonly constancia: ConstanciaFirmaEmitida },
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
+  const { firma, constancia } = acto;
   if (firma.origen !== "INTERNA") {
     return {
       ok: false,
@@ -616,7 +618,36 @@ export function registrarFirmaClienteInterna(
     return { ok: false, error: "La firma tiene que traer la huella del documento firmado." };
   }
 
-  return transicionarExpediente(expediente, "FIRMADO_CLIENTE", { firma }, ahora);
+  // D-27 · la constancia del acto entra en la misma escritura que la firma,
+  // como el certificado entra con el cobro: un expediente firmado sin su
+  // constancia sería un estado imposible. Y sus códigos tienen que derivar del
+  // correlativo, o el vínculo de la fila 47 se rompe.
+  const correlativo = expediente.numeroPropuesta;
+  if (!correlativo) {
+    return { ok: false, error: "No se puede registrar la firma sin correlativo de propuesta." };
+  }
+  if (constancia.codigo !== codigoConstancia(correlativo)) {
+    return {
+      ok: false,
+      error: `La constancia ${constancia.codigo} no deriva del correlativo ${correlativo}.`,
+    };
+  }
+  if (constancia.codigoPaquete !== expediente.paqueteDocumental.codigo) {
+    return {
+      ok: false,
+      error: `La constancia ${constancia.codigo} no cuelga del paquete ${expediente.paqueteDocumental.codigo}.`,
+    };
+  }
+  if (constancia.hashSha256.trim() === "") {
+    return { ok: false, error: "La constancia tiene que traer la huella de su PDF cerrado." };
+  }
+
+  return transicionarExpediente(
+    expediente,
+    "FIRMADO_CLIENTE",
+    { firma, constanciaFirma: constancia },
+    ahora,
+  );
 }
 
 /**

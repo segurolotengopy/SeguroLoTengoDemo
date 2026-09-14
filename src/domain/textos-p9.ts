@@ -200,6 +200,10 @@ export const NOMBRE_COMPROBANTE_P9 = "Comprobante de pago del premio";
 export const DETALLE_COMPROBANTE_P9 =
   "Constancia del cobro acreditado por Bancard. No es la factura: la emite Alianza Garantía por SIFEN.";
 
+/** D-27 · la constancia del acto de firma, cuarto descargable, solo con firma interna. */
+export const NOMBRE_CONSTANCIA_P9 = "Constancia de tu firma electrónica";
+export const DETALLE_CONSTANCIA_P9 =
+  "Registro del acto con el que firmaste: identidad verificada, código de un solo uso, fecha, hora y huella del documento (Res. SS.SG. N.º 210/2025, arts. 4 y 9).";
 export const BOTON_DESCARGAR_P9 = "DESCARGAR";
 
 // ---------------------------------------------------------------------------

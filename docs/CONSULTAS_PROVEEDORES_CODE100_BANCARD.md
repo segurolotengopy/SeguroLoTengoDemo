@@ -108,3 +108,96 @@ Atentamente,
 Equipo técnico — SeguroLoTengo (operador tecnológico AAB1)
 Interseguros S.A.
 [teléfono de contacto]
+
+---
+
+# Segunda ronda — Bancard (repregunta)
+
+**Fecha de redacción:** 2026-08-27
+**Motivo:** las respuestas recibidas (`docs/Integraciones/Bancard - Respuestas B1 a B13.md`) dejaron cuatro consultas sin responder y abrieron siete puntos nuevos, analizados en `docs/ANALISIS_RESPUESTAS_BANCARD.md` §6.
+
+Van **dos correos separados porque tienen dos destinatarios distintos**: el equipo técnico de integraciones y el equipo comercial / la ejecutiva de cuenta. Los identificadores nuevos siguen la convención de la primera ronda: `-bis` y `-ter` cuelgan de la consulta original de la que nacieron, para que la trazabilidad B1…B13 no se rompa.
+
+**Cambio de contexto que conviene tener presente al leer ambos correos.** Desde la primera ronda invertimos el orden del proceso: **ahora se firma primero y se cobra después** (decisión D-08 del proyecto). El efecto práctico es que la devolución dejó de ser un camino masivo —quien no firma nunca llega a pagar— y quedó reservada a un pedido excepcional del titular sobre un cobro ya acreditado. Eso **baja** la urgencia de B2/B3 pero **no la elimina**: seguimos necesitando saber qué constancia emite Bancard y en qué plazo vuelve el dinero, porque eso es lo que la pantalla le informa a la persona.
+
+---
+
+## Correo 3 — Bancard, equipo técnico de integraciones
+
+**Cuerpo listo para reenviar:** `docs/correos/Correo 3 - Bancard tecnico - segunda ronda (B4-bis a B13-bis).md`
+
+Siete consultas: **B4-bis** (¿la reversa invalida un QR no pagado?), **B5-bis** (¿el TTL de 3 días es configurable?), **B6-bis** (¿hay conciliación diaria para un callback perdido?), **B10-bis** (¿por qué vía nos enteramos de un intento rechazado?), **B8-bis** (política de reintentos del callback), **B8-ter** (confirmar las 4 IP de vPOS) y **B13-bis** (desambiguar "una única URL de confirmación").
+
+Las dos que más pesan son **B4-bis** y **B10-bis**: de sus respuestas depende que las correcciones propuestas para los huecos G1 y G2 del análisis se puedan hacer tal como están planteadas.
+
+---
+
+## Correo 4 — Bancard, equipo comercial / ejecutiva de cuenta
+
+**Cuerpo listo para reenviar:** `docs/correos/Correo 4 - Bancard comercial - devoluciones (B2, B3, B7, B11).md`
+
+**Enviado el 27-ago. B2 y B3 respondidas el 28-ago**; quedan **B7** (hosts, credenciales y certificación de QR) y **B11** (montos mínimos y máximos).
+
+La respuesta a **B2(b)** invirtió el problema: no hay documento que guardar, porque **Bancard no emite constancia de devolución** — el único respaldo es el estado de la transacción en el Portal de Comercios. El respaldo documental lo tiene que producir el trámite, y eso es una decisión de Cumplimiento con Alianza (§2.9 del análisis).
+
+De **B3** nació **B3-bis**, que va en la próxima tanda: al dar los plazos, la respuesta remite a los de tarjeta, y el QR A2A no es ninguno de los dos.
+
+---
+
+---
+
+## Correo 5 — Bancard, unificado y priorizado *(el vigente)*
+
+**Cuerpo listo para reenviar:** `docs/correos/Correo 5 - Bancard unificado - consultas pendientes priorizadas.md`
+
+**Reemplaza a los correos 3 y 4** para todo lo que quedó sin responder. Los dos anteriores fueron a destinatarios distintos y se cruzaron con la tanda de respuestas del 28-ago, así que el estado de cada consulta quedó repartido entre tres hilos. Este los junta: **10 consultas en un solo correo**, agrupadas por impacto sobre el cronograma y con el área que corresponde a cada una, para que Bancard pueda derivarlas internamente sin que nosotros elijamos por ellos a quién escribirle.
+
+| Bloque | Consultas | Criterio |
+| :---- | :---- | :---- |
+| **Bloqueantes** | B7, B13-bis, B4-bis, B10-bis | Sin la respuesta no se puede escribir ni certificar la integración |
+| **Importantes** | B11, B8-ter, B6-bis, B3-bis | No frenan hoy; tienen que estar antes de producción |
+| **Deseables** | B5-bis, B8-bis | Se puede avanzar sin ellas; simplificarían el diseño |
+
+El correo aclara explícitamente que **no hace falta responder todo junto** y que las cuatro del primer bloque desbloquean el trabajo por sí solas. B7 es la única de las diez que no requiere ninguna definición del proveedor: es entrega de datos que ya existen.
+
+---
+
+# Tercera ronda — Bancard (lo que quedó del correo 5)
+
+**Respondidas el 07-sep-2026:** seis de las diez del correo 5 —**B4-bis**, **B5-bis**,
+**B10-bis**, **B6-bis**, **B8-bis** y **B8-ter**—, todas las técnicas salvo B13-bis.
+Están en `docs/Integraciones/Bancard - Respuestas segunda ronda.md` y analizadas en
+`docs/ANALISIS_RESPUESTAS_BANCARD.md` §8. Dos de ellas desbloquean los huecos G1 y G2.
+
+## Correo 6 — Bancard, pendientes tras la segunda ronda *(el vigente)*
+
+**Cuerpo listo para reenviar:** `docs/correos/Correo 6 - Bancard - lo que sigue pendiente tras la segunda ronda.md`
+
+**Reemplaza al correo 5.** Quedan **5 consultas**, y el reparto cambió de área: de las
+cinco, **tres son comerciales**, así que el correo va dirigido en primer término a la
+ejecutiva de cuenta. Soporte técnico ya respondió todo lo suyo salvo B13-bis.
+
+| Bloque | Consultas | Criterio |
+| :---- | :---- | :---- |
+| **Bloqueantes** | B7, B13-bis | Sin ambiente ni definición de URL no se escribe ni se certifica el adaptador |
+| **Importantes** | B11, B3-bis, B10-ter | No frenan el trabajo de dominio; tienen que estar antes de producción |
+
+**B10-ter es la única consulta nueva** y nace de una precisión de las propias respuestas:
+B10-bis(b) distinguió el `shop_process_id` con **iframe abandonado** —sin intento
+registrado— del que tuvo un intento rechazado, y B10-bis(c) igual indica generar una
+operación nueva. De si eso es restricción o recomendación depende que
+`claveDeIdempotencia` pueda seguir reutilizando la clave de un pago `PENDIENTE`, que es
+hoy nuestra protección contra el doble clic.
+
+**B7 sigue siendo el pendiente más viejo y el más barato de resolver:** se prometió el
+27-ago, es el único que no requiere ninguna definición del proveedor, y sin él la rama QR
+no se puede ni empezar.
+
+---
+
+> **Por qué estos correos no están transcriptos acá y los dos primeros sí.** Se
+> pidieron como archivos sueltos para reenviar, y tener el mismo texto en dos lugares
+> es la forma más segura de que uno de los dos quede viejo. El cuerpo vive en
+> `docs/correos/`; este documento conserva la trazabilidad B1…B13 y el porqué de cada
+> consulta. Si se agrega una pregunta, se agrega en el archivo del correo y se
+> actualiza el resumen de arriba.

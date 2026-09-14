@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Archivo, DM_Sans, Geist_Mono } from "next/font/google";
 import { BandaDemo } from "@/components/shared/BandaDemo";
 import { AvisoCookies } from "@/components/shared/AvisoCookies";
+import { ChatFlotante } from "@/components/shared/ChatFlotante";
+import { asistenteHabilitado } from "@/app/api/asistente/_habilitado";
 import { SCRIPT_TEMA_INICIAL } from "@/components/shared/tema";
 import { flujoV3Activo } from "@/domain/flujo-vigente";
 import "./globals.css";
@@ -65,6 +67,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             tapaba los botones (ver `AvisoCookies`). */}
         <AvisoCookies />
         {children}
+        {/* Asistente conversacional (Terra, ítem 35). Último en el DOM y solo con
+            ASISTENTE_ENABLED=true; se oculta solo en las pantallas transaccionales
+            (ver `ChatFlotante`). Montado acá y no por pantalla: convención de UI. */}
+        {asistenteHabilitado() ? <ChatFlotante /> : null}
       </body>
     </html>
   );

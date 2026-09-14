@@ -633,7 +633,17 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
       ejecutar: async (repo) => {
         const { provider, lector } = otpFalso();
         return registrarActoDeFirmaCliente(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
+          {
+            otpProvider: provider,
+            lectorOtp: lector,
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+            // Un derivado no llega a firmar: si el acto intentara emitir la
+            // constancia (D-27), la prueba tiene que fallar a lo grande.
+            emitirConstancia: async () => {
+              throw new Error("La constancia no debe emitirse sobre un expediente derivado.");
+            },
+          },
           {
             expedienteId: EXPEDIENTE_ID,
             canal: "WHATSAPP",
@@ -751,6 +761,11 @@ describe("3. Inventario de rutas de la API", () => {
      * P9 (emisión).
      */
     const SOLO_LECTURA: readonly string[] = [
+      // El asistente conversacional (Terra, ítem 35) no recibe el expediente:
+      // no lee la cookie, no lo busca ni lo transiciona. Es informativo y está
+      // desacoplado del flujo por diseño (sección «Asistente IA» de CLAUDE.md).
+      "asistente/agente",
+      "asistente/mensaje",
       // La consola administrativa consulta y autentica; no transiciona nada.
       "admin-consola/buscar",
       "admin-consola/expediente",

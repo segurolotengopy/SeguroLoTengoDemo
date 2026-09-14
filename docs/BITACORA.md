@@ -200,22 +200,43 @@ fusionarse: cada uno corregía un solo paquete y fallaba en Trivy por los otros.
   `sharp`. Después del #108 y el #109: la API de Dependabot devuelve 0 alertas
   abiertas.
 
+### Los PRs de la consolidación, fusionados
+
+Andres revisó los cuatro y dio el OK uno por uno («Ok, fusiona el #103», «fusiona
+el #114», «cuando termine sigue con el #113», «y después fusiona el #115»). Cada
+merge esperó a que el build de Amplify del anterior terminara en SUCCEED:
+
+| PR | Merge | Build de Amplify |
+| :-- | :-- | :-- |
+| #103 constancia de firma (D-27) | 16:13 UTC, `220f01a` | Job 102: SUCCEED |
+| #114 Bancard G1/G2 | 16:18 UTC, `7f68f83` | Job 103: SUCCEED |
+| #113 asistente Terra | 16:24 UTC, `984b86a` | Job 104: verificado antes de fusionar este PR |
+
+- **Ninguno tiene aprobación formal:** GitHub no admite aprobar un PR que abrió
+  la misma cuenta, y el ruleset de `main` tampoco la exige (estado CLEAN). La
+  constancia del OK de Andres quedó en el mensaje de cada merge.
+- **El #113 chocó en esta bitácora** con lo que trajo el #114. Se resolvió en
+  una rama auxiliar dentro del worktree de la sesión y se pusheó encima de la
+  rama del PR (`750db1f`), sin reescribir historia: las entradas quedaron en
+  orden cronológico inverso, con 1340 tests en verde. Este PR tuvo el mismo
+  conflicto y se resolvió igual.
+- Se borró la rama remota `claude/bancred-integration-docs-t1inpp`, después de
+  comprobar que estaba contenida en `main`.
+
 ### Queda abierto
 
-- **Revisión humana y merge de #113, #114, #103 y #115**, todos en verde. Cada
-  merge despliega a producción: OK de Andres PR por PR.
-- **Después de fusionar el #114**, borrar la rama remota
-  `claude/bancred-integration-docs-t1inpp`, que ya viene incluida ahí, y el
-  worktree `elegant-murdock-de9b28`. **Después de fusionar el #113**, borrar el
-  worktree `rescate-asistente`.
+- **Borrar los worktrees `elegant-murdock-de9b28` y `rescate-asistente`**: sus
+  PRs (#114 y #113) ya están fusionados. La sesión no puede borrarlos porque
+  son de otros worktrees.
 - Por decidir: `claude/qr-interno-documentos-bf2u30` (token no adivinable en
   el QR), cuando llegue el modelo de CPC; `docs/rediseno-lovable-canvas`
   (`~/slt-rediseno`), cuando llegue la v4.
-- El checkout principal quedó en `1bf8422`, **6 commits detrás** de
-  `origin/main`, con el script de consolidación suelto en su raíz: falta
-  `git pull --ff-only` y borrar el script.
+- El checkout principal ya está limpio, pero **quedó otra vez detrás de
+  `origin/main`** por los cuatro merges de la tarde: falta otro
+  `git pull --ff-only`.
 - **Borrar `.claude/settings.local.json`** del worktree al cerrar la sesión:
-  hoy le permite aprobar y fusionar cualquier PR.
+  Andres lo volvió a crear para los merges de la tarde, y le permite a la
+  sesión aprobar y fusionar cualquier PR.
 - Los PRs de dependabot que quedan (#71, #74, #83, #110, #111, #112) no son de
   seguridad; se revisan aparte.
 - Preguntas P0–P7 del README de recepción; enmiendas a D-10, D-12 y D-13 con
@@ -223,6 +244,427 @@ fusionarse: cada uno corregía un solo paquete y fallaba en Trivy por los otros.
   de emisión) cuando se cierre P1.
 - Sigue abierta la access key de root del perfil `default` (entrada del
   05-sep (b)).
+
+---
+
+## 2026-09-07 (b) · G1 y G2 implementados: el QR se apaga al vencer, y un rechazo deja reintentar
+
+**Rama:** `claude/bancred-qr-reversas-e3ecea` · **Pedido de Andres:** «implementá
+G1 y G2», sobre el análisis de la segunda ronda de respuestas de Bancard que
+acababa de entrar.
+
+### El caso
+
+Los dos huecos que el análisis del 27-ago dejó escritos como *«corrección
+condicionada a una respuesta que no tenemos»* dejaron de estar condicionados con
+las respuestas del 07-sep. Ninguno de los dos depende de tener ambiente ni
+credenciales de Bancard: viven en el dominio y en el mock.
+
+### G1 · Al vencer, la operación se apaga en Bancard
+
+**El problema.** El QR del proveedor vive **3 días** (B5) y no es configurable
+(B5-bis); el expediente vence a las **24 horas** (D-10). Quedaban hasta dos días
+en los que alguien podía pagar un QR que apuntaba a un expediente terminal —
+dinero cobrado sin contrato vigente, que es justo lo que D-08 fue diseñado para
+hacer imposible. `cancelarOLiberarReserva` existía en el puerto y **no tenía
+ningún llamador** en el dominio.
+
+**Lo implementado.** `aplicarVencimiento` invoca la reversa sobre la referencia
+pendiente y asienta el desenlace en evidencia propia
+(`P7_REVERSA_OPERACION`, con `motivoReversa=VENCIMIENTO_EXPEDIENTE`).
+
+**La decisión de diseño que costó pensar fue el orden.** El análisis decía «en la
+misma escritura», y una llamada HTTP no puede estar dentro de una escritura. Las
+dos opciones no son simétricas:
+
+- *Reversar y después escribir*: si un sondeo concurrente confirmó el pago, la
+  escritura falla por bloqueo optimista — pero **la reversa ya ocurrió**. Queda
+  un expediente `PAGO_CONFIRMADO`, con su certificado emitido, y el dinero
+  devuelto. Es la peor combinación posible, la misma que §3.3 del análisis
+  señala para el callback.
+- *Escribir y después reversar*: **haber ganado la escritura es la prueba de que
+  nadie confirmó el pago.** El bloqueo optimista, que ya estaba, hace el trabajo.
+
+Se eligió la segunda, y hay un test que fija el orden: un espía mira qué estado
+tenía el expediente **en el instante** de la reversa, y exige `VENCIDO`.
+
+**Los dos casos de borde, los dos con test.** Si el pago se acredita entre la
+escritura y la reversa, la reversa lo devuelve: se asienta como evidencia
+**FALLIDA** con `dineroDevuelto=true`, porque es raro y tiene que poder
+encontrarse después. Si la reversa falla, el expediente vence igual —la
+caducidad la decide nuestro reloj, no Bancard— con `reversaAplicada=false`: lo
+que se pierde es la garantía de que el QR quedó apagado, y queda escrito.
+
+### Un tercer disparador que apareció implementando G1
+
+El vencimiento no era la única forma en que el expediente deja de honrar una
+operación abierta. **`Expediente.pago` guarda un solo intento**, así que cambiar
+de medio de pago reemplaza el anterior y lo vuelve invisible — mientras del lado
+de Bancard sigue vivo sus 3 días. Un QR huérfano que alguien pague deja dinero
+entrando contra una operación que nadie mira, con la persona pagando dos veces.
+
+Es el mismo defecto que G1 con otro disparador, así que entró con la misma
+maquinaria: `iniciarPagoP7` apaga el intento abandonado
+(`INTENTO_REEMPLAZADO`) **antes** de abrir el siguiente, para que no exista
+ningún instante con dos operaciones vivas. Si esa reversa falla, el pago nuevo
+se abre igual: no dejar pagar por una falla de Bancard sería castigar a la
+persona por algo que no es suyo.
+
+La regla que quedó es más general que la que pedía el análisis: **toda operación
+que el expediente deja de referenciar se apaga**, y la evidencia dice por cuál de
+los dos motivos.
+
+Está fuera de lo que Andres pidió y entró igual porque dejarlo afuera habría
+significado terminar G1 con un agujero conocido del mismo tipo.
+
+### G2 · El rechazo de tarjeta es un estado
+
+`EstadoPago` suma **`RECHAZADO`**. El sondeo lo asienta con el `response_code`
+del proveedor y el expediente **no se mueve**: sigue en `FIRMADO`, porque lo que
+fracasó es un intento de cobro y no el contrato.
+
+`claveDeIdempotencia` **no necesitó ninguna rama nueva** —le alcanza con que el
+pago haya dejado de estar `PENDIENTE`—, que es exactamente lo que el análisis
+anticipaba como «el cambio de menor superficie». Con eso el reintento acuña
+clave nueva, que es lo que Bancard exige: el `shop_process_id` se quema con el
+intento **aunque haya fallado** (B10).
+
+**Lo que el análisis no había previsto: había que soltar la operación en la
+pantalla.** Cortar el sondeo no alcanzaba. Desde la decisión del 01-sep, mientras
+hay una operación abierta P7 bloquea el botón, el cambio de medio y todo lo
+demás; así que un rechazo dejaba a la persona mirando un error correcto **sin
+poder hacer nada con él**. Ahora la pantalla suelta la operación rechazada, y es
+seguro hacerlo: el `shop_process_id` ya quedó cerrado del lado de Bancard, así
+que no hay riesgo de cobro doble por soltar un intento que el proveedor ya
+terminó.
+
+### Qué cambió
+
+- `src/domain/tipos.ts` — `RECHAZADO` en `EstadoPago`, con el porqué de que sea
+  un estado propio y no una variante de `CANCELADO`.
+- `src/domain/pago-p7.ts` — `apagarOperacionEnBancard` y
+  `reversarOperacionAbierta` (G1 y el intento reemplazado), la rama de rechazo
+  del sondeo (G2), `PASO_EVIDENCIA_REVERSA_P7` y los dos motivos de reversa.
+- `src/ports/payment-provider.ts` — el contrato dice ahora que la reversa apaga
+  un QR no pagado (B4-bis), que un rechazo se devuelve como estado y no como
+  `null` (B10-bis), y que las ventanas de reversa difieren por medio (B1).
+- `src/adapters/mock/payment-provider.ts` — `OperacionMock.desenlace`, la
+  palanca `RECHAZO_AL_CONFIRMAR`, y la reversa idempotente sobre un rechazo.
+  De paso, la cabecera dejó de describir la preautorización, que D-02 había
+  retirado hace tres semanas.
+- `src/adapters/mock/fallas-demo.ts` + `registro.ts` — palanca
+  `BANCARD_TARJETA_RECHAZADA`.
+- **Tests nuevos**: `src/domain/__tests__/pago-bancard-integracion.test.ts`
+  (13, el dominio contra el **adaptador real**, no contra un doble escrito en
+  el propio test), `e2e/v3/05-pago-bancard.spec.ts` y su helper
+  `e2e/v3/soporte/llegar-a-firmado.ts`.
+- `src/app/api/p7/estado/route.ts` y `FormularioPagoP7.tsx` — el
+  `codigoRespuesta` sube hasta la pantalla y el rechazo rehabilita el botón.
+- `CLAUDE.md`, `ESPECIFICACION_PANTALLAS.md` y
+  `ANALISIS_RESPUESTAS_BANCARD.md` §8.9.
+
+### El E2E de v3 encontró un bug de G2 que los 1296 unitarios no vieron
+
+**Y encontrarlo costó dos correcciones de rumbo, las dos pedidas por Andres.**
+
+La primera: se estaba verificando contra la batería **equivocada**.
+`npm run test:e2e` lleva `testIgnore: ["**/v3/**"]`, así que corre la de v2; la
+del demo vigente es `npm run test:e2e:v3`. Lo señaló Andres —«estamos en el
+tercer demo»—. Verificado antes de tocar nada: el trabajo **no** estaba
+perdido, porque `pago-y-firma/PagoYFirma.tsx` monta el mismo
+`FormularioPagoP7`, y el dominio y `/api/p7/*` son compartidos. Lo único
+equivocado era contra qué se estaba probando.
+
+La segunda: correr la batería entera en un worktree cuesta demasiado. De ahí
+que el spec nuevo sea **uno solo** y acotado a Bancard.
+
+**El bug.** El spec de v3 falló **2 de 2** corridas con:
+
+```
+{"ok":false,"motivo":"CONFLICTO_CONCURRENCIA"}   →  HTTP 409
+```
+
+La rama de `RECHAZADO` que este mismo trabajo agregó escribía el expediente
+**en cada sondeo**, reasentando siempre el mismo hecho. La pantalla habilita el
+botón apenas ve el rechazo, así que un sondeo en vuelo escribía entre la
+lectura y la escritura de `iniciarPagoP7` y le hacía perder el bloqueo
+optimista — y abrir un pago **no se reintenta a propósito**, porque reintentar
+podría abrir una segunda operación en Bancard. Resultado: le decíamos a la
+persona «podés intentar de nuevo» y el intento moría con un 409. Exactamente lo
+contrario de lo que G2 buscaba.
+
+**El arreglo** es la propiedad que las otras dos ramas del sondeo ya tenían: el
+rechazo se asienta una sola vez y los sondeos siguientes devuelven lo mismo sin
+escribir, evidencia incluida (la fila 31 pide constancia del rechazo, no una por
+cada vez que la pantalla preguntó).
+
+**Por qué los tests de integración no lo vieron, y qué se hizo al respecto.** El
+repositorio en memoria **no tiene bloqueo optimista**, así que la carrera no se
+puede reproducir ahí. Hizo falta el navegador y DynamoDB de verdad. El test que
+lo fija mide entonces la propiedad que **sí** es observable sin locking —cuántas
+veces se escribió el expediente y cuántos registros de evidencia quedaron—, no
+el conflicto. Verificado por mutación: con el guard desactivado, falla.
+
+**Cómo se encontró, que es la parte reutilizable.** Las dos primeras corridas se
+fueron en adivinar selectores, cinco minutos cada una. La tercera cambió el
+método: en vez de esperar el modal, esperar **la respuesta del POST** y meter su
+cuerpo en el mensaje del `expect`.
+
+```ts
+const [apertura] = await Promise.all([
+  page.waitForResponse((r) => r.url().includes("/api/p7/pago") && r.request().method() === "POST"),
+  pagar.click(),
+]);
+expect(apertura.status(), await apertura.text()).toBe(200);
+```
+
+Eso convirtió «el botón no aparece» en «el servidor devuelve 409 con este
+motivo» en una sola corrida. Vale para cualquier spec que espere una pantalla
+que depende de una llamada.
+
+**Un intermitente registrado con su prueba, como pide esta bitácora:** el spec
+pasó 1 vez y falló 3 (1 aislada + 2 de `--repeat-each=2`) **antes** del arreglo;
+después, **2 de 2 en verde**. La corrida que pasó era la afortunada, no al revés
+— conviene no cerrar un intermitente con una sola corrida buena.
+
+### Un bug que casi se escapa
+
+Al soltar la operación rechazada, el mensaje de error desaparecía. El error del
+sondeo se dibuja **dentro de la ventana simulada de Bancard**, y cerrar esa
+ventana —que es justamente lo que hace soltar la operación— se lo llevaba
+puesto: la persona quedaba con el botón habilitado y sin ninguna explicación de
+por qué había vuelto al principio. El arreglo sigue la regla que el propio
+archivo ya tenía escrita —«el mensaje va donde está la acción que lo produjo»—:
+cuando el rechazo habilita otro intento, el error se dibuja junto al botón de
+pagar y no dentro de la ventana que se cerró.
+
+### Una decisión de mock que vale la pena registrar
+
+El desenlace de una operación simulada se decide **al abrirla**, no al
+consultarla, y queda pegado a ella. Si dependiera de la consulta, el botón
+*Simular que ya pagué* de la demostración —que es por donde pasa toda
+demostración desplegada— habría aprobado un pago cuya palanca decía rechazarlo:
+la palanca se consume en un solo intento, y ese intento era la apertura. Tiene
+test propio.
+
+### Qué hizo Andres
+
+- Pidió implementar G1 y G2 sobre el análisis de la sesión anterior.
+
+### Verificaciones
+
+- `npm run typecheck` — limpio. `npm run lint` — 0 errores, 8 warnings
+  preexistentes (`<img>` de Next).
+- `npm test` — **1297 tests en verde** (+32 sobre los 1265 con los que arrancó
+  la sesión).
+- `npm run test:e2e:v3 e2e/v3/05-pago-bancard.spec.ts --repeat-each=2` —
+  **2 de 2 en verde** (1,9 y 2,1 min). **Ojo:** no correr `npm run lint`
+  mientras Playwright escribe `playwright-report/`; da 3035 problemas
+  fantasma que desaparecen al terminar.
+- **Prueba de mutación de los tests nuevos**, porque un test verde que nunca
+  ejerció el código es peor que ninguno: con la reversa cortocircuitada y la
+  rama de `RECHAZADO` desactivada, **9 de los 11 tests de G1/G2 fallan**. Los
+  dos que sobreviven son los que verifican ausencias («sin operación abierta no
+  llama a Bancard», «no emite certificado»), que pasan por construcción.
+- `npm run test:e2e`. **Ojo con el primer intento:** salió con código 143 y no
+  es un fallo de tests — es SIGTERM, la suite tarda más que el timeout con el
+  que se la lanzó. Hay que correrla en segundo plano sin techo de tiempo.
+- **La pantalla no tiene tests unitarios**: el repositorio no tiene ningún
+  `.test.tsx`, así que el camino de UI del rechazo lo cubre solo E2E.
+
+### Queda abierto
+
+- **Decidir el "tiempo X"** antes de reversar por callback ausente. Bancard
+  recomienda **5 minutos** (B8-bis) y lo explica: es lo que tarda alguien en
+  abrir su app y tipear el PIN. Es parámetro de producto y hoy no existe.
+- **Límite de intentos de tarjeta en P7** (3 por expediente, recomendado por el
+  análisis §4.2). Depende de G2, que ya está: conviene hacerlo junto con el
+  rate limiting del Lote 6, con el que se solapa.
+- **`payment_card_type`** para asentar el medio realmente usado y no el elegido
+  en la pantalla. El mock puede simularlo antes del adaptador `live/`.
+- **B7 y B13-bis** siguen bloqueando el adaptador `live/`. `Correo 6` está
+  redactado y espera que Andres lo mande.
+- **PR de esta rama**: trae el rescate de `claude/bancred-integration-docs-t1inpp`
+  además de este trabajo.
+
+---
+
+## 2026-09-07 · Bancard responde la segunda ronda: los dos huecos condicionados tienen arreglo
+
+**Rama:** `claude/bancred-qr-reversas-e3ecea` · **Pedido de Andres:** «sobre la
+integración con Bancard, fijate el status y considera este conjunto de
+respuestas», con las seis respuestas técnicas pegadas en el mensaje.
+
+### El caso
+
+Andres pasó las respuestas de Bancard a **B4-bis, B10-bis, B8-ter, B6-bis,
+B5-bis y B8-bis** — seis de las diez consultas pendientes del correo 5.
+
+Lo primero que apareció al buscar el estado no fue el estado: fue que **el
+trabajo de Bancard no estaba en `main`**. Vivía entero en
+`claude/bancred-integration-docs-t1inpp`, 5 commits, **sin PR desde el 28-ago** y
+**122 commits atrás**. La bitácora del 21-ago ya lo tenía anotado como «rescatar
+o archivar — Andres», y ahí seguía. Sin esa rama, las respuestas nuevas no
+tenían contra qué leerse: las preguntas, el análisis que las originó y los
+huecos G1/G2 estaban todos ahí.
+
+Así que la sesión hizo dos cosas: **rescatar la rama** y **analizar la ronda
+nueva** encima.
+
+### Qué cambió
+
+**1. La rama vieja se fusionó.** Dos conflictos, los dos por contenido que
+`main` reescribió después:
+
+- **`CLAUDE.md`** — `main` había partido en dos la fila de los PDF de Bancard
+  (D-02 sacó la preautorización del puerto). Se conservan las dos filas de
+  `main` y se agrega la fila de las respuestas, ya redactada con las dos rondas.
+- **`ESPECIFICACION_PANTALLAS.md`** — `main` lo reescribió al flujo de 3 pasos,
+  así que el bloque «adónde vuelve y cuándo» de Pantalla B cayó dentro de la
+  sección de pago. Se conservó «Reglas del sistema» donde estaba y el bloque se
+  reubicó en «Pantallas que se conservan del flujo anterior», que es donde vive
+  hoy Pantalla B.
+
+**Un bug de higiene que el merge destapó:** `textos-devolucion.ts` citaba
+«Res. SS SG. 215/15». `main` prohibió esa errata **después** de que la rama se
+escribiera (`higiene-de-citas.test.ts`), así que el merge dejó la suite en rojo
+con 1 test fallando. Corregido a **215/17**.
+
+**2. Las respuestas nuevas entraron con su análisis.**
+
+- `docs/Integraciones/Bancard - Respuestas segunda ronda.md` + el `.txt`
+  original sin editar, con el mismo criterio que la primera ronda.
+- `docs/ANALISIS_RESPUESTAS_BANCARD.md` **§8**, con un aviso arriba de todo para
+  que nadie lea §3 y §6 sin §8.
+- `docs/correos/Correo 6 …` con los 5 puntos que siguen abiertos, y la sección
+  «Tercera ronda» en el documento de trazabilidad.
+- `payment-provider.ts` (mock): el comentario de `VIGENCIA_QR_MINUTOS` ahora
+  dice que **el proveedor no puede hacer cumplir esa vigencia**.
+
+### El hallazgo: G1 y G2 estaban bien diseñados, y ahora se pueden implementar
+
+Los dos huecos que el análisis del 27-ago dejó escritos como *«corrección
+condicionada a una respuesta que no tenemos»* quedaron confirmados **en su forma
+exacta**. No hay que rediseñar nada:
+
+- **G1 — el QR sobrevive al vencimiento.** `B4-bis`: la reversa *«permite
+  inactivar o invalidar un QR que haya sido generado y que aún no haya sido
+  pagado»*, y usarla al cancelar la venta es **mandatorio**. `B5-bis` lo repite
+  sin que se lo preguntáramos y **con nuestro propio plazo de ejemplo**: el TTL
+  de 3 días no se configura, pero *«el comercio puede implementar una lógica
+  interna para inactivar el QR transcurridas 24 horas […] mediante la API
+  (revert)»*. La pregunta era si le estábamos por dar a la reversa un uso que el
+  proveedor no previó; la respuesta es que es **el uso que el proveedor previó**.
+- **G2 — tras un rechazo, la persona queda sin reintento.** `B10-bis`: el
+  rechazo llega **por callback** *y* lo devuelve **`get_confirmation`**. El caso
+  (c) que preocupaba —un intento quemado del que no podamos enterarnos— **no
+  existe**.
+
+### Lo que la ronda cambió además del desbloqueo
+
+- **`B8-bis` es la respuesta que más mueve el diseño y no era la más esperada.**
+  Bancard **no reintenta** el callback —se envía una sola vez— y ante timeout
+  **reversa la transacción sola**. Consecuencia: el presupuesto de 5 s deja de
+  ser prolijidad y pasa a ser el borde de un precipicio; un handler lento **una
+  sola vez** pierde el cobro. Refuerza el invariante de G3: el callback
+  persiste y responde, la transición y el certificado siguen en
+  `confirmarPagoP7`.
+- **`B6-bis` no se respondió en su literal.** Preguntamos por el callback que
+  *no llega* y la primera mitad describe el que *llega y tarda*. La segunda
+  mitad sí da lo pedido: hay **reportería de ventas QR en el Portal de
+  Comercios**. Es conciliación **manual**, sin API ni archivo de cierre. El
+  riesgo de la fila 31 queda **acotado** —por la reversa automática de
+  B8-bis— pero no cerrado: sobrevive la franja del callback que llegó,
+  respondimos bien, y **nuestra** persistencia falló.
+- **Una discrepancia menor, anotada para que no se arrastre:** B8 y el documento
+  de QR dicen **5 s** para responder el callback; B6-bis menciona **10 s**. La
+  lectura probable es que el de 10 s sea umbral de sospecha y no presupuesto,
+  pero es inferencia nuestra. No hace falta consultarlo: con cualquiera de los
+  dos números el handler tiene que responder en decenas de milisegundos.
+- **Una consulta nueva, B10-ter.** B10-bis(b) distinguió el `shop_process_id`
+  con **iframe abandonado** —sin intento, `PaymentNotFoundError`— del que tuvo un
+  intento rechazado; pero (c) igual indica generar una operación nueva. Si eso
+  es restricción y no recomendación, `claveDeIdempotencia` **no puede** seguir
+  reutilizando la clave de un pago `PENDIENTE`, y hay que mover a otro lado la
+  protección contra el doble clic. No se decidió acá: se preguntó.
+
+### Qué hizo Andres
+
+- Aportó las seis respuestas de Bancard del 07-sep.
+- Pidió explícitamente mirar el status antes de considerarlas — que es lo que
+  destapó la rama sin mergear.
+
+### Verificaciones
+
+- `npm run typecheck` — limpio.
+- `npm run lint` — 0 errores, 8 warnings preexistentes (`<img>` de Next).
+- `npm test` — **93 archivos, 1265 tests, todos en verde** (5,5 s). Antes de
+  corregir la errata de la 215/15, el merge dejaba **1 test fallando**
+  (`higiene-de-citas`); es la prueba de que ese test hace lo que promete.
+- El merge se verificó de a partes: `devolucion-por-medio.test.ts` (8 tests)
+  pasaba solo, así que el rojo no venía de la rama rescatada.
+
+### Queda abierto
+
+- **Implementar G1** — `vencerPlazoPagoP7` invoca `cancelarOLiberarReserva` en
+  la misma escritura que transiciona a `VENCIDO`, con la evidencia distinguiendo
+  *reversado por vencimiento* de *reversado por callback ausente*. Le daría su
+  primer llamador a un método del puerto que hoy no tiene ninguno. **No depende
+  de ambiente ni credenciales**: es dominio y mock.
+- **Implementar G2** — `RECHAZADO` en `EstadoPago`, asentado en el sondeo, con
+  su palanca en el panel de demo. Tampoco depende de Bancard.
+- **Decidir el caso de borde de G1**: qué pasa si el pago se acredita entre que
+  vence el plazo y que la reversa llega (`response_code 71`).
+- **Reclamar B7 y B13-bis**, las dos bloqueantes. B7 se prometió el 27-ago, es
+  el pendiente más viejo y el único que no requiere ninguna definición del
+  proveedor. `Correo 6` está redactado y listo para enviar — **lo manda Andres**.
+- **Conciliación manual de QR y respaldo documental de devoluciones**: misma
+  clase de decisión, mismo dueño (Cumplimiento con Alianza), conviene
+  resolverlas juntas. No es tarea técnica.
+- **Abrir PR de esta rama.** Trae el rescate de una rama vieja además del
+  trabajo nuevo, así que conviene que Andres mire el merge antes del merge.
+
+---
+
+## 2026-09-06 · El asistente Terra entra como décimo puerto, sobre el servicio ChatbotRAG
+
+### El caso
+
+Andres pidió (06-sep-2026) aplicar al demo un chatbot que dependa enteramente de los parámetros de cada seguro (eligiendo el tipo de seguro), con RAG, sin revelar información confidencial y que oriente según cada persona. La especificación de Terra (`docs/SeguroLoTengo_Asistente_IA_y_Configuracion.pdf`) llevaba desde agosto marcada «fuera de alcance»; este es el pedido explícito que CLAUDE.md exigía para tocarla. La decisión de arquitectura fue **no embeber un modelo en este repo** sino consumir un servicio propio, `ChatbotRAG` (repo `segurolotengopy/ChatbotRAG`, Cloud Run, Vertex AI como nube de ejemplo con Bedrock intercambiable), por el patrón ports/adapters que el repo ya usa. Así las reglas de este repo (SDKs solo en adapters, `fetch` solo en adapters) se respetan, y el mismo servicio sirve después a WhatsApp o a la app.
+
+### Qué cambió
+
+- **Puerto nuevo** `src/ports/asistente-provider.ts` (`AsistenteProvider`: `describir`, `responder`). La firma no tiene dónde poner el expediente, la cédula, la salud ni la tarjeta: la regla #7 es estructural, no una validación.
+- **Caso de uso** `src/domain/asistente.ts`: valida forma, exige que `perfilId` sea un producto de `PRODUCTOS`, y **filtra localmente** cédula (con y sin puntos, por contexto), tarjeta (Luhn), salud y PEP en primera persona, y códigos. Un texto bloqueado no viaja al proveedor ni a la bitácora. El filtro se repite acá aunque el servicio tenga el suyo: la regla #7 es de este repositorio.
+- **Adaptador mock** `src/adapters/mock/asistente-provider.ts`: responde desde `catalogo.ts`, `ACLARACION_COBERTURAS` y `textos-plan.ts` por palabras clave. Los productos «próximamente» no reciben precios. **Adaptador live** `src/adapters/live/asistente-chatbotrag.ts`: único `fetch` al servicio, bearer resuelto desde Secrets Manager (`CHATBOTRAG_TOKEN`, opcional en `SecretosApp` como el de WhatsApp-Modular), sin reintentos, sin logs del texto.
+- `registro.ts`: `obtenerAsistenteProvider()` (`INTEGRATION_ASISTENTE`; `live` exige `CHATBOTRAG_URL` o tira). `adapters/index.ts`: puerto `ASISTENTE`.
+- **Rutas** `/api/asistente/agente` (GET) y `/api/asistente/mensaje` (POST), ambas 404 sin `ASISTENTE_ENABLED=true`. Límite por IP `LIMITE_ASISTENTE` (30 / 10 min) en `rate-limit.ts`. Registradas como `SOLO_LECTURA` en `derivado-manual-sin-salida.test.ts`: no tocan el expediente.
+- **Widget** `src/components/shared/ChatFlotante.tsx`, montado al final del `layout` (convención: no por pantalla). Selector del seguro (un perfil por producto), tokens semánticos + `naranja-600` con `dark:`, `min-h-tap`, `role="dialog"`, Escape, foco. Sin cookies ni `localStorage` (fila 85 intacta); id de conversación en el estado de React. Oculto en `/identidad`, `/declaraciones`, `/pago`, `/firma`, `/pago-y-firma`, `/whatsapp`, `/demo-panel`, `/admin-consola`. z-index 70 bajo la píldora de CTA (80).
+- `amplify.yml`: `ASISTENTE_ENABLED`, `INTEGRATION_ASISTENTE`, `CHATBOTRAG_URL` en el bucle de `.env.production`.
+- Documentación: fila 35 en `Tabla de Integraciones externas - Tabla.csv`, `docs/Integraciones/CHATBOTRAG.md` (contrato, variables, mapa de archivos, corpus), sección «Asistente IA (Terra)» de `CLAUDE.md` reescrita (ya no «fuera de alcance»), lista de puertos a 10, checklist punto 8.
+- **Corpus del servicio** derivado de textos versionados de este repo: OFERTA-CONFIO-v2, coberturas v1.0, T&C v1.1, documentación precontractual v1.1, consultas y reclamos v1.1, entidades (D-19: sin inventar teléfonos ni correos). El plazo de retracto viaja como «pendiente de definición legal», igual que acá.
+
+### Qué hizo Andres
+
+- Decidió la topología (servicio independiente, no librería embebida), el alcance de la primera entrega y aplicar el estándar DevSecOps al repo nuevo (respuestas a las tres preguntas de la sesión, 06-sep-2026).
+- No ejecutó nada en este repo: la sesión trabajó sobre una copia y entrega la rama `feat/asistente-chatbotrag` para su revisión.
+
+### Verificaciones
+
+- `npm run typecheck`: limpio. `npm run lint`: 0 errores (los 6 warnings preexistentes).
+- `FLUJO_V3=false npx vitest run`: **1282 tests, 96 archivos, todo en verde** (baseline de la sesión: 1257 / 92; el higiene-de-citas fallaba en la copia solo porque faltaba el CSV de cumplimiento, que se agregó a la copia).
+- Tests nuevos: `domain/__tests__/asistente.test.ts` (filtros: cédula 4.523.118 / CI 4523118 / Gs. 319.000 no es cédula; «¿cubre cáncer?» pasa, «tengo cáncer» no), `adapters/mock/__tests__/asistente-provider.test.ts` (+ contrato), `adapters/live/__tests__/asistente-chatbotrag.test.ts` (bearer, perfil, canal; 429/404/5xx; red caída), `app/api/__tests__/asistente-no-filtra-datos-sensibles.test.ts` (dato sensible no llega al proveedor ni a `console.*`; 404 apagado; 429 al mensaje 31). `contratos-cableados.test.ts` reconoce el contrato nuevo.
+- Contra el servicio con proveedor simulado (repo ChatbotRAG): «¿Cuánto cuesta el plan CONFÍO+?» → Gs. 522.500 citando OFERTA-CONFIO-v2; «¿carencia por cáncer?» → 180 días citando coberturas v1.0; «Tengo cáncer» → bloqueado (`entrada:salud`); «¿margen interno?» → sin respaldo (la fuente interna no se indexa); «me importa más el menor premio» → recomendación determinista CONFÍO con aclaración.
+- **No se ejecutó E2E ni build de Next en esta sesión** (la copia no tiene las fotos de `public/v3` ni `.next`).
+
+### Queda abierto
+
+1. **Desplegar el servicio ChatbotRAG** (Cloud Run, proyecto GCP a definir por Andres) y crear el cliente `segurolotengo-web` con su clave; cargar `CHATBOTRAG_TOKEN` en `slt-demo-app-secrets` y `CHATBOTRAG_URL`, `INTEGRATION_ASISTENTE=live`, `ASISTENTE_ENABLED=true` en Amplify. Hasta entonces el demo funciona en mock.
+2. **Registrar en `infra/`** la variable `CHATBOTRAG_TOKEN` del secret (Terraform tiene `ignore_changes`; se agrega a mano como el de WhatsApp-Modular).
+3. **Aprobación de contenido**: el corpus del servicio se derivó de los textos de este repo; Interseguros/Alianza deben aprobarlo como «fuentes aprobadas» (Fase 1 de la especificación) y repetir la aprobación en cada cambio de versión.
+4. **200 casos de prueba** (Fase 4 de la especificación) contra el servicio con Vertex real, incluidos ataques de instrucciones; hoy solo hay pruebas unitarias y simuladas.
+5. **E2E**: agregar un escenario Playwright del widget (abrir, preguntar, dato sensible bloqueado) cuando `ASISTENTE_ENABLED` esté encendido en el entorno de pruebas.
+6. Decidir si el widget debe verse en `/confirmacion` (hoy sí) y en la landing v2 `/plan` (hoy sí).
 
 ---
 
@@ -550,6 +992,93 @@ sesión, y la rama `claude/elegant-murdock-de9b28` volvió a quedar limpia.
 - **`ANALISIS_INTEGRACIONES_CODE100_BANCARD.md` §6 punto 4** sigue diciendo que
   el refactor está pendiente. Ya no lo está: lo hizo D-02. Conviene cerrarlo ahí
   para que no dispare una tercera vez el mismo trabajo.
+## 2026-09-04 (c) · La constancia verificable de la firma no cualificada (D-27)
+
+**Rama:** `feat/constancia-firma-verificable` · **Pedido de Andres:** «Requiero
+verificar que se generará un QR o link para obtener las evidencias
+sustentables, con referencia a la norma, de la firma no cualificada del
+usuario» → verificación, propuesta, y «De acuerdo con tu propuesta, vamos».
+
+### El caso
+
+La evidencia del acto de firma interna **existía** —`constancia-firma.ts`
+proyecta los tres requisitos del art. 4 de la Res. 210/2025 y el art. 9, y el
+panel de la confirmación la muestra— pero **ningún QR ni enlace llevaba a
+ella**: el QR del PDF apunta a `/verificar/<código>`, que mostraba al
+proponente como «Firma simple · fecha» y nada más; la constancia solo se
+servía por la cookie de la sesión; y el bloque de firmas del paquete seguía
+diciendo «mediante enlace seguro» —el flujo de un proveedor— sin citar la
+norma. El art. 9 exige que lo conservado quede **disponible para consulta del
+cliente y de la SIS**; la consola cubría a la SIS y al cliente solo mientras
+durara su sesión.
+
+### Qué cambió
+
+- **Cuarto documento del motor, `CONST-<correlativo>`.** La constancia se
+  cierra, se hashea y se guarda **dentro del acto de firma**
+  (`registrarActoDeFirmaCliente` → `emitirConstanciaFirma`, inyectada como
+  `DependenciasFirmaCliente.emitirConstancia` por la misma razón de ciclos que
+  el certificado) y entra al expediente **en la misma escritura** que la firma
+  (`registrarFirmaClienteInterna` recibe `{ firma, constancia }` y valida que
+  los códigos deriven del correlativo). Sin constancia no hay firma:
+  `CONSTANCIA_NO_EMITIDA`, el expediente queda como estaba, el código ya se
+  consumió. `Expediente.constanciaFirma` (`null` en firmas de proveedor y en
+  expedientes anteriores). Clave en S3 con la huella, como el CPC.
+- **Un solo núcleo para el panel y el PDF.** `proyectarConstanciaFirma` y
+  `armarContenidoConstancia` comparten `armarNucleo(expediente, acto,
+  historial)`: el PDF no puede afirmar nada que el panel no muestre. El
+  contenido del PDF formatea los instantes; el panel los formatea en pantalla.
+- **Plantilla `renderizarConstancia`**: naturaleza de la firma, los tres
+  pilares del art. 4 con la huella del documento y las de las capturas a fila
+  entera, respaldo normativo (arts. 4 y 9 parafraseados), y dos advertencias
+  —no es un certificado de prestador; no acredita cobertura—. Se renderizó y
+  se revisó a ojo: dos carillas, corte entre pilares, sin duplicados (una
+  primera versión repetía «Documento firmado» y se retiró).
+- **Verificación pública.** `/verificar/<código>` del paquete firmado
+  internamente publica «Firma del proponente · cómo se respalda»: naturaleza,
+  **Res. SS.SG. 210/2025, arts. 4 y 9**, categorías de evidencia (nunca
+  valores) y código + **huella de la constancia** con enlace a su propia
+  verificación; `CONST-…` se verifica por su código. Ningún dato personal
+  (regla #7, test que lo vigila).
+- **Descarga y confirmación.** `GET /api/p8/documento?codigo=CONST-…` sirve
+  el PDF cotejando la huella; el resumen de P9 trae `constancia`; cuarta
+  tarjeta «Constancia de tu firma electrónica» solo con firma interna; el
+  panel de evidencia enlaza el mismo PDF.
+- **Leyenda del cliente en el bloque de firmas** (`firmantes-documento.ts`):
+  deja «enlace seguro» y cita el acto y la norma; `VERSION_BLOQUE_FIRMAS =
+  "FIRMAS-v2"` se imprime en el paquete. Los PDF cerrados conservan su huella.
+- **Documentos:** D-27 en `DECISIONES.md`; `CLAUDE.md` (regla de los
+  descargables: cuatro; sección nueva «La constancia del acto de firma»);
+  `ESPECIFICACION_PANTALLAS.md` (confirmación: quinta tarjeta y bloque del
+  QR).
+
+### Qué hizo Andres
+
+- Pidió la verificación y aprobó la propuesta completa (dos niveles: público
+  por el QR sin datos personales; PDF cerrado para el titular).
+- Mergeó el PR #102 antes de esta sesión, a pedido.
+
+### Verificaciones
+
+- `npm run typecheck` en verde; `npm run lint` 0 errores (8 warnings
+  preexistentes); **`npm test`: 93 archivos, 1275 tests en verde**
+  (18 nuevos: emisión y determinismo de la constancia, transición con
+  constancia, acto sin constancia, verificación por código y sin datos
+  personales, leyenda con norma, enlace al PDF en la proyección).
+- PDF de muestra renderizado con una prueba descartable (no versionada) y
+  revisado página por página.
+- **No corrida:** la E2E de Playwright (v3 `04-camino-feliz` sigue vigente: el
+  panel conserva sus textos; la tarjeta nueva no la afirma ningún spec).
+
+### Queda abierto
+
+- **Entrega de la constancia por los canales verificados con acuse**
+  (CHG-44) junto con los otros documentos, y un **enlace firmado con
+  vencimiento** para volver a pedirla sin sesión: es lo que termina de cumplir
+  la disponibilidad para el cliente del art. 9.
+- El QR de la constancia apunta a su propia verificación; la constancia no
+  entra en el PDF firmado (nace después de la firma) y no hace falta.
+- Correr la E2E v3 antes del merge.
 
 ---
 

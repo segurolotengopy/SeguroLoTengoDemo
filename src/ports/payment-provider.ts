@@ -216,6 +216,15 @@ export interface PaymentProvider {
    * referencia: es un desenlace posible y no un error de programación, así
    * que el dominio tiene que poder distinguirlo de "existe y está pendiente"
    * en vez de recibir un objeto inventado.
+   *
+   * **Un intento rechazado se devuelve como `RECHAZADO` con su
+   * `codigoRespuesta`, no como `null`.** Lo confirmó Bancard por escrito
+   * (respuesta **B10-bis(b)**): *"si el pago fue procesado y rechazado, la API
+   * de consulta devolverá el resultado de dicha operación junto con su
+   * response_code de rechazo"*, y `PaymentNotFoundError` —o sea `null`— queda
+   * reservado al caso en que **no hubo ningún intento**, por ejemplo si la
+   * persona abandonó el iframe. Confundir los dos casos dejaría a alguien con
+   * la tarjeta rechazada esperando un pago que ya fracasó.
    */
   consultarEstadoPago(referenciaBancard: string): Promise<EstadoConsultaPago | null>;
 
@@ -228,9 +237,27 @@ export interface PaymentProvider {
    * con qué condiciones lo define Alianza, y el portal solo asienta el
    * resultado — la devolución se ejecuta fuera del flujo digital.
    *
+   * **También apaga un QR emitido y no pagado, y hacerlo es el uso que el
+   * proveedor declara mandatorio.** Respuesta **B4-bis**: *"la API de revert
+   * permite inactivar o invalidar un QR que haya sido generado y que aún no
+   * haya sido pagado"*, y *"es mandatorio invocar la operación de reversa
+   * siempre que el cajero cancele la venta desde el sistema del comercio"*. Es
+   * lo que hace posible que el vencimiento del expediente cierre la operación
+   * en Bancard en vez de dejar un QR pagable colgado — el QR dinámico vive
+   * **3 días** (B5) y esa vigencia **no es configurable** (B5-bis), así que la
+   * política de 24 h la hace cumplir el portal o no la hace cumplir nadie.
+   *
    * Idempotente por `referenciaBancard`: invocarlo sobre una referencia que ya
-   * está `CANCELADO` o `DEVUELTO` devuelve el mismo `EstadoConsultaPago` sin
-   * error ni efecto adicional. Los reintentos de red son esperables acá.
+   * está `RECHAZADO`, `CANCELADO` o `DEVUELTO` devuelve el mismo
+   * `EstadoConsultaPago` sin error ni efecto adicional. Los reintentos de red
+   * son esperables acá.
+   *
+   * **Ventanas distintas según el medio, y ninguna es responsabilidad del
+   * dominio.** Para QR la reversa opera mientras el QR viva; para vPOS el
+   * rollback tiene ventana de un día —crédito hasta el cuponado de las 20:00 o
+   * las 00:00, débito solo el mismo día (respuesta B1)—. Una reversa fuera de
+   * ventana es un desenlace esperable, no una excepción: el adaptador la
+   * reporta como el estado que corresponda y el caller la asienta.
    */
   cancelarOLiberarReserva(referenciaBancard: string): Promise<EstadoConsultaPago>;
 }

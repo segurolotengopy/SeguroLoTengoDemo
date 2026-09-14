@@ -39,7 +39,14 @@ import { registrarFirmaClienteInterna } from "./expediente";
 import { enmascararCelular } from "./telefono";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { OtpProvider } from "../ports/otp-provider";
-import type { CanalFirma, DocumentoCerrado, Expediente, Firma, RegistroEvidencia } from "./tipos";
+import type {
+  CanalFirma,
+  ConstanciaFirmaEmitida,
+  DocumentoCerrado,
+  Expediente,
+  Firma,
+  RegistroEvidencia,
+} from "./tipos";
 import type {
   ContextoPeticion,
   LectorMetadataOtp,
@@ -58,7 +65,24 @@ export const PASO_EVIDENCIA_ACTO_FIRMA_CLIENTE = "FIRMA_CLIENTE_ACTO";
 // Dependencias
 // ---------------------------------------------------------------------------
 
-export interface DependenciasFirmaCliente {
+/**
+ * Quien cierra y guarda el PDF de la constancia (D-27). Entra inyectado y no
+ * importado por la misma razón que `DependenciasP7.emitirCertificado`: quien
+ * lo implementa vive en `src/documentos/`, que importa a este dominio, y al
+ * revés sería un ciclo. Es obligatorio en el tipo para que el compilador
+ * impida un acto de firma capaz de firmar sin dejar constancia.
+ */
+export type EmisorConstanciaFirma = (entrada: {
+  readonly expediente: Expediente;
+  readonly acto: ActoDeFirmaCliente;
+  readonly historial: readonly RegistroEvidencia[];
+}) => Promise<
+  | { readonly ok: true; readonly constancia: ConstanciaFirmaEmitida }
+  | { readonly ok: false; readonly motivo: string; readonly detalle?: string }
+>;
+
+/** Lo que hace falta para pedir el código de firma: no emite documentos. */
+export interface DependenciasOtpFirmaCliente {
   readonly otpProvider: OtpProvider;
   /**
    * Para saber **de qué acto es** un `otpId` antes de aceptarlo como firma.
@@ -73,6 +97,11 @@ export interface DependenciasFirmaCliente {
   readonly nuevoId?: () => string;
 }
 
+/** Lo que hace falta para firmar: además de lo anterior, quien emite la constancia. */
+export interface DependenciasFirmaCliente extends DependenciasOtpFirmaCliente {
+  readonly emitirConstancia: EmisorConstanciaFirma;
+}
+
 /** Distingue "el expediente no podía firmar" de "perdí la carrera de escritura". */
 class ErrorTransicionFirma extends Error {}
 
@@ -81,7 +110,7 @@ interface Reloj {
   readonly nuevoId: () => string;
 }
 
-function resolverReloj(deps: DependenciasFirmaCliente): Reloj {
+function resolverReloj(deps: DependenciasOtpFirmaCliente): Reloj {
   return {
     ahora: deps.ahora ?? (() => new Date().toISOString()),
     nuevoId: deps.nuevoId ?? (() => `EV-${Math.random().toString(36).slice(2, 12)}`),
@@ -135,6 +164,12 @@ export type MotivoRechazoFirmaCliente =
   | "OTP_NO_ENCONTRADO"
   /** El expediente no está en el estado desde el que se puede firmar. */
   | "ESTADO_INVALIDO"
+  /**
+   * El código era correcto pero la constancia del acto no se pudo cerrar y
+   * guardar (D-27). Sin constancia no hay firma: el expediente queda como
+   * estaba y **el código ya se consumió**, así que hay que pedir uno nuevo.
+   */
+  | "CONSTANCIA_NO_EMITIDA"
   /**
    * Otra escritura ganó la carrera y el conflicto persistió tras los
    * reintentos. **El código ya se consumió**: no se puede reintentar la firma
@@ -195,7 +230,7 @@ function formatearDetalle(datos: Readonly<Record<string, string | number | boole
 }
 
 async function registrarEvidencia(
-  deps: DependenciasFirmaCliente,
+  deps: DependenciasOtpFirmaCliente,
   reloj: Reloj,
   entrada: {
     readonly expedienteId: string;
@@ -252,7 +287,7 @@ export type ResultadoSolicitudOtpFirma =
  * aunque llegue al mismo teléfono (regla inviolable #1).
  */
 export async function solicitarOtpDeFirmaCliente(
-  deps: DependenciasFirmaCliente,
+  deps: DependenciasOtpFirmaCliente,
   entrada: EntradaSolicitudOtpFirma,
 ): Promise<ResultadoSolicitudOtpFirma> {
   const reloj = resolverReloj(deps);
@@ -445,6 +480,29 @@ export async function registrarActoDeFirmaCliente(
     hashDocumentoFirmado: documento.hashSha256,
   };
 
+  // D-27 · la constancia del acto se cierra y se guarda **antes** de la
+  // transición, y entra con la firma en la misma escritura. Si no se puede
+  // emitir, no hay firma: el código ya se consumió (regla #1, uso único) y el
+  // desenlace lo dice, pero el expediente queda exactamente como estaba.
+  const historial = await deps.evidencias.obtenerHistorial(expediente.id);
+  const emision = await deps.emitirConstancia({ expediente, acto, historial });
+  if (!emision.ok) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_ACTO_FIRMA_CLIENTE,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: {
+        otpId: entrada.otpId,
+        motivo: "CONSTANCIA_NO_EMITIDA",
+        detalle: `${emision.motivo}${emision.detalle ? `: ${emision.detalle}` : ""}`,
+      },
+    });
+    return { ok: false, motivo: "CONSTANCIA_NO_EMITIDA" };
+  }
+  const constancia = emision.constancia;
+
   let persistido = false;
   try {
     persistido = await conReintentoPorConflicto(
@@ -454,7 +512,7 @@ export async function registrarActoDeFirmaCliente(
           throw new ErrorTransicionFirma("El expediente desapareció entre la lectura y la escritura.");
         }
 
-        const transicion = registrarFirmaClienteInterna(actual, firma, fecha);
+        const transicion = registrarFirmaClienteInterna(actual, { firma, constancia }, fecha);
         if (!transicion.ok) throw new ErrorTransicionFirma(transicion.error);
 
         await deps.expedientes.guardar(transicion.expediente, actual.actualizadoEn);
@@ -504,6 +562,8 @@ export async function registrarActoDeFirmaCliente(
       documento: `${acto.codigoDocumento} v${acto.versionDocumento}`,
       seccionFipf: acto.codigoFipf,
       hashDocumento: acto.hashDocumento,
+      constancia: `${constancia.codigo} v${constancia.version}`,
+      hashConstancia: constancia.hashSha256,
     },
     aceptacion: {
       versionTexto: entrada.versionTextoAceptado,

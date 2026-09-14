@@ -31,7 +31,10 @@ import { PLANES } from "../catalogo";
 import {
   PASO_EVIDENCIA_CONFIRMACION_P7,
   PASO_EVIDENCIA_INICIO_P7,
+  PASO_EVIDENCIA_REVERSA_P7,
   PASO_EVIDENCIA_VENCIMIENTO_P7,
+  MOTIVO_REVERSA_VENCIMIENTO,
+  MOTIVO_REVERSA_INTENTO_REEMPLAZADO,
   RUTA_PANTALLA_B,
   confirmarPagoP7,
   iniciarPagoP7,
@@ -99,8 +102,19 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
  * `idempotencyKey`, igual que exige el puerto. Con `estadoTrasAcreditar` se
  * fija a qué estado llega la operación al consultarla.
  */
-function bancardFalso(opciones: { estadoTrasAcreditar?: EstadoPago | null } = {}) {
+function bancardFalso(
+  opciones: {
+    estadoTrasAcreditar?: EstadoPago | null;
+    /** Estado al que llega la operación al reversarla (G1). */
+    estadoTrasReversar?: EstadoPago;
+    /** Hace que la reversa explote, como un proveedor que no contesta. */
+    reversaExplota?: boolean;
+    /** Se ejecuta al invocarse la reversa: sirve para observar el orden. */
+    alReversar?: (referenciaBancard: string) => void;
+  } = {},
+) {
   const llamadas: { metodo: string; idempotencyKey: string; montoGs: number }[] = [];
+  const reversas: string[] = [];
   const porClave = new Map<string, string>();
   const medios = new Map<string, MedioDePago>();
   let contador = 0;
@@ -155,10 +169,29 @@ function bancardFalso(opciones: { estadoTrasAcreditar?: EstadoPago | null } = {}
             : null,
       };
     },
-    cancelarOLiberarReserva: vi.fn(),
+    async cancelarOLiberarReserva(referenciaBancard) {
+      reversas.push(referenciaBancard);
+      opciones.alReversar?.(referenciaBancard);
+      if (opciones.reversaExplota) {
+        throw new Error("Bancard no respondió a la reversa (simulado).");
+      }
+      const estado = opciones.estadoTrasReversar ?? "CANCELADO";
+      return {
+        referenciaBancard,
+        medio: medios.get(referenciaBancard) ?? "QR_BANCARD",
+        estado,
+        montoGs: PREMIO,
+        ultimos4Digitos: null,
+        actualizadoEn: AHORA,
+        // Un QR que se apaga sin haberse pagado es, en el vocabulario de
+        // Bancard, `12` (transacción inválida).
+        codigoRespuesta: estado === "CANCELADO" ? "12" : null,
+        descripcionRespuesta: estado === "CANCELADO" ? (CODIGOS_RESPUESTA_BANCARD["12"] ?? null) : null,
+      };
+    },
   };
 
-  return { provider, llamadas };
+  return { provider, llamadas, reversas };
 }
 
 /** Expediente en DECLARACIONES_OK, listo para P7. */
@@ -724,8 +757,12 @@ describe("pago · caducidad del expediente firmado sin pagar", () => {
   /** Un reloj después del plazo del fixture. */
   const VENCIDO = "2026-08-10T15:03:00.001Z";
 
-  function armarConReloj(expediente: Expediente, ahora: string) {
-    const base = armar(expediente);
+  function armarConReloj(
+    expediente: Expediente,
+    ahora: string,
+    bancard = bancardFalso(),
+  ) {
+    const base = armar(expediente, bancard);
     return { ...base, deps: { ...base.deps, ahora: () => ahora } };
   }
 
@@ -798,6 +835,275 @@ describe("pago · caducidad del expediente firmado sin pagar", () => {
     // Con el pago después de la firma (D-08) el expediente vence sin haber
     // cobrado nunca: no hay premio que devolver ni reserva que liberar.
     expect(registro?.detalle).toContain("consecuencia=CADUCIDAD_SIN_COBRO");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// G1 · al vencer, la operación de Bancard se apaga
+// ---------------------------------------------------------------------------
+
+/**
+ * El QR de Bancard vive **3 días** (respuesta B5) y no es configurable
+ * (B5-bis), contra las 24 horas del expediente (D-10). Sin reversa quedan
+ * hasta dos días en los que alguien puede pagar un QR que apunta a un
+ * expediente terminal, que es justo lo que D-08 fue diseñado para hacer
+ * imposible. La reversa apaga ese QR y usarla al cancelar la venta es el uso
+ * que el proveedor declara mandatorio (B4-bis).
+ */
+describe("pago · G1 · al vencer se reversa la operación abierta en Bancard", () => {
+  const VENCIDO = "2026-08-10T15:03:00.001Z";
+
+  function armarConReloj(expediente: Expediente, ahora: string, bancard = bancardFalso()) {
+    const base = armar(expediente, bancard);
+    return { ...base, deps: { ...base.deps, ahora: () => ahora } };
+  }
+
+  /** Abre un QR y devuelve el entorno con el reloj ya pasado el plazo. */
+  async function conQrAbiertoYPlazoCumplido(
+    bancard = bancardFalso({ estadoTrasAcreditar: null }),
+  ) {
+    const entorno = armar(expedienteListoParaPagar(), bancard);
+    await iniciarPagoP7(entorno.deps, ENTRADA_QR);
+    return armarConReloj(entorno.expedientes.actual(), VENCIDO, bancard);
+  }
+
+  it("invoca la reversa sobre la referencia pendiente y deja el pago cancelado", async () => {
+    const entorno = await conQrAbiertoYPlazoCumplido();
+
+    await vencerPlazoPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    expect(entorno.bancard.reversas).toEqual(["REF-1"]);
+    expect(entorno.expedientes.actual().estado).toBe("VENCIDO");
+    expect(entorno.expedientes.actual().pago?.estado).toBe("CANCELADO");
+  });
+
+  it("reversa recién después de haber ganado la escritura del vencimiento", async () => {
+    // Es lo único que evita el peor desenlace: reversar un cobro que sí se
+    // confirmó. La escritura lleva bloqueo optimista, así que haberla ganado
+    // prueba que ningún sondeo concurrente confirmó el pago.
+    const entorno = await conQrAbiertoYPlazoCumplido();
+    // El espía se arma después, cuando el repositorio ya existe: lo que mira
+    // es qué estado tenía el expediente **en el instante** de la reversa.
+    let estadoAlReversar: string | null = null;
+    const espia = bancardFalso({
+      estadoTrasAcreditar: null,
+      alReversar: () => {
+        estadoAlReversar = entorno.expedientes.actual().estado;
+      },
+    });
+
+    await vencerPlazoPagoP7(
+      { ...entorno.deps, pagos: espia.provider },
+      { expedienteId: "EXP-TEST-1", contexto: CONTEXTO },
+    );
+
+    expect(espia.reversas).toHaveLength(1);
+    expect(estadoAlReversar).toBe("VENCIDO");
+  });
+
+  it("deja evidencia propia de la reversa, con el motivo", async () => {
+    const entorno = await conQrAbiertoYPlazoCumplido();
+
+    await vencerPlazoPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_REVERSA_P7,
+    );
+    expect(registro?.resultado).toBe("EXITOSO");
+    // Por qué se reversó es una pregunta de auditoría: `cancelarOLiberarReserva`
+    // tiene dos usos y hay que poder distinguirlos.
+    expect(registro?.detalle).toContain(`motivoReversa=${MOTIVO_REVERSA_VENCIMIENTO}`);
+    expect(registro?.detalle).toContain("reversaAplicada=true");
+    expect(registro?.detalle).toContain("dineroDevuelto=false");
+    expect(registro?.detalle).toContain("referenciaBancard=REF-1");
+  });
+
+  it("sin operación abierta no llama a Bancard", async () => {
+    const entorno = armarConReloj(expedienteListoParaPagar(), VENCIDO);
+
+    await vencerPlazoPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    expect(entorno.bancard.reversas).toEqual([]);
+  });
+
+  it("si la reversa falla el expediente vence igual, y queda asentado", async () => {
+    // La caducidad la decide nuestro reloj, no Bancard. Lo que se pierde es la
+    // garantía de que el QR quedó apagado, y por eso queda escrito.
+    const entorno = await conQrAbiertoYPlazoCumplido(
+      bancardFalso({ estadoTrasAcreditar: null, reversaExplota: true }),
+    );
+
+    const resultado = await vencerPlazoPagoP7(entorno.deps, {
+      expedienteId: "EXP-TEST-1",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado).toMatchObject({ ok: true, vencio: true });
+    expect(entorno.expedientes.actual().estado).toBe("VENCIDO");
+    // El pago sigue pendiente: no sabemos qué pasó del otro lado.
+    expect(entorno.expedientes.actual().pago?.estado).toBe("PENDIENTE");
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_REVERSA_P7,
+    );
+    expect(registro?.resultado).toBe("FALLIDO");
+    expect(registro?.detalle).toContain("reversaAplicada=false");
+  });
+
+  it("si el dinero había entrado en el intervalo, la reversa lo devuelve y se nota", async () => {
+    // Franja imposible de cerrar —son dos sistemas— pero sí de detectar: la
+    // reversa devuelve DEVUELTO cuando había dinero adentro.
+    const entorno = await conQrAbiertoYPlazoCumplido(
+      bancardFalso({ estadoTrasAcreditar: null, estadoTrasReversar: "DEVUELTO" }),
+    );
+
+    await vencerPlazoPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    expect(entorno.expedientes.actual().pago?.estado).toBe("DEVUELTO");
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_REVERSA_P7,
+    );
+    // FALLIDO aunque la reversa funcionó: lo que falló es el diseño, no la
+    // llamada. Alguien tiene que poder encontrar este caso después.
+    expect(registro?.resultado).toBe("FALLIDO");
+    expect(registro?.detalle).toContain("dineroDevuelto=true");
+  });
+
+  it("cambiar de medio apaga la operación anterior antes de abrir la nueva", async () => {
+    // Mismo problema que G1 con otro disparador: `Expediente.pago` guarda un
+    // solo intento, así que el anterior se vuelve invisible en cuanto se lo
+    // reemplaza — y del lado de Bancard sigue vivo 3 días.
+    const bancard = bancardFalso({ estadoTrasAcreditar: null });
+    const entorno = armar(expedienteListoParaPagar(), bancard);
+
+    await iniciarPagoP7(entorno.deps, ENTRADA_QR);
+    await iniciarPagoP7(entorno.deps, { ...ENTRADA_QR, medio: "TARJETA_DEBITO" });
+
+    expect(entorno.bancard.reversas).toEqual(["REF-1"]);
+    // Y la operación nueva se abrió igual.
+    expect(entorno.expedientes.actual().pago?.referenciaBancard).toBe("REF-2");
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_REVERSA_P7,
+    );
+    expect(registro?.detalle).toContain(`motivoReversa=${MOTIVO_REVERSA_INTENTO_REEMPLAZADO}`);
+  });
+
+  it("reintentar el mismo intento no apaga nada: la clave se reutiliza", async () => {
+    // Es el caso del doble click y del retry de red. Reversar acá cancelaría la
+    // operación que la persona está por pagar.
+    const bancard = bancardFalso({ estadoTrasAcreditar: null });
+    const entorno = armar(expedienteListoParaPagar(), bancard);
+
+    await iniciarPagoP7(entorno.deps, ENTRADA_QR);
+    await iniciarPagoP7(entorno.deps, ENTRADA_QR);
+
+    expect(entorno.bancard.reversas).toEqual([]);
+    expect(entorno.expedientes.actual().pago?.referenciaBancard).toBe("REF-1");
+  });
+
+  it("si no se puede apagar la anterior, el pago nuevo se abre igual", async () => {
+    // No dejar pagar por una falla de Bancard sería castigar a la persona por
+    // algo que no es suyo. Queda la evidencia.
+    const bancard = bancardFalso({ estadoTrasAcreditar: null, reversaExplota: true });
+    const entorno = armar(expedienteListoParaPagar(), bancard);
+
+    await iniciarPagoP7(entorno.deps, ENTRADA_QR);
+    const segundo = await iniciarPagoP7(entorno.deps, { ...ENTRADA_QR, medio: "TARJETA_DEBITO" });
+
+    expect(segundo.ok).toBe(true);
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_REVERSA_P7,
+    );
+    expect(registro?.resultado).toBe("FALLIDO");
+    expect(registro?.detalle).toContain("reversaAplicada=false");
+  });
+
+  it("un segundo vencimiento no vuelve a reversar", async () => {
+    const entorno = await conQrAbiertoYPlazoCumplido();
+
+    await vencerPlazoPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+    await vencerPlazoPagoP7(entorno.deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
+
+    // El expediente ya VENCIDO sale por la rama de arriba de `aplicarVencimiento`:
+    // ni escritura, ni evidencia, ni llamada al proveedor.
+    expect(entorno.bancard.reversas).toEqual(["REF-1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// G2 · el rechazo de tarjeta es un estado, y deja reintentar
+// ---------------------------------------------------------------------------
+
+/**
+ * Hasta B10-bis no sabíamos si el rechazo nos llegaba, y sin poder asentarlo un
+ * intento rechazado era indistinguible de uno que todavía no ocurrió: la
+ * persona quedaba sin reintento posible porque `claveDeIdempotencia` reutilizaba
+ * la clave de un pago eternamente `PENDIENTE`, y Bancard quema el
+ * `shop_process_id` con el intento aunque haya fallado (B10).
+ */
+describe("pago · G2 · Bancard rechaza el intento", () => {
+  const ENTRADA_DEBITO = { ...ENTRADA_QR, medio: "TARJETA_DEBITO" as const };
+
+  async function conIntentoRechazado() {
+    const bancard = bancardFalso({ estadoTrasAcreditar: "RECHAZADO" });
+    const entorno = armar(expedienteListoParaPagar(), bancard);
+    await iniciarPagoP7(entorno.deps, ENTRADA_DEBITO);
+    const resultado = await confirmarPagoP7(entorno.deps, {
+      expedienteId: "EXP-TEST-1",
+      contexto: CONTEXTO,
+    });
+    return { ...entorno, resultado };
+  }
+
+  it("asienta el pago como RECHAZADO sin mover el expediente", async () => {
+    const entorno = await conIntentoRechazado();
+
+    expect(entorno.resultado).toMatchObject({ ok: false, motivo: "BANCARD_RECHAZO" });
+    expect(entorno.expedientes.actual().pago?.estado).toBe("RECHAZADO");
+    // Lo que fracasó es un intento de cobro, no el contrato.
+    expect(entorno.expedientes.actual().estado).toBe("FIRMADO");
+  });
+
+  it("no emite Certificado de Cobertura Provisional", async () => {
+    const entorno = await conIntentoRechazado();
+
+    expect(entorno.expedientes.actual().certificadoCobertura).toBeNull();
+  });
+
+  it("deja el reintento habilitado: la clave de idempotencia cambia y se abre otra operación", async () => {
+    // Es el punto de todo G2. Bancard quema el `shop_process_id` con el intento
+    // aunque haya fallado (B10), así que reintentar con la misma clave abriría
+    // una operación que el proveedor ya dio por usada.
+    const entorno = await conIntentoRechazado();
+    const claveDelRechazado = entorno.expedientes.actual().pago?.idempotencyKey;
+
+    const reintento = await iniciarPagoP7(entorno.deps, ENTRADA_DEBITO);
+
+    expect(reintento.ok).toBe(true);
+    if (!reintento.ok) return;
+    expect(entorno.expedientes.actual().pago?.idempotencyKey).not.toBe(claveDelRechazado);
+    expect(reintento.referenciaBancard).not.toBe("REF-1");
+    expect(entorno.bancard.llamadas).toHaveLength(2);
+  });
+
+  it("sube el código de Bancard a la pantalla y lo deja en la evidencia", async () => {
+    // La razón la pone el proveedor; la pantalla solo agrega qué hacer.
+    const bancard = bancardFalso({ estadoTrasAcreditar: "RECHAZADO" });
+    const entorno = armar(expedienteListoParaPagar(), bancard);
+    await iniciarPagoP7(entorno.deps, ENTRADA_DEBITO);
+
+    // El doble solo devuelve código con `CONFIRMADO`, así que acá se comprueba
+    // la forma —que el campo exista en el resultado— y no un valor inventado.
+    const resultado = await confirmarPagoP7(entorno.deps, {
+      expedienteId: "EXP-TEST-1",
+      contexto: CONTEXTO,
+    });
+    expect(resultado.ok).toBe(false);
+
+    const registro = entorno.evidencias.registros.find(
+      (evidencia) =>
+        evidencia.paso === PASO_EVIDENCIA_CONFIRMACION_P7 && evidencia.resultado === "FALLIDO",
+    );
+    expect(registro?.detalle).toContain("estadoPago=RECHAZADO");
   });
 });
 
