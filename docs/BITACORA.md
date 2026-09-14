@@ -98,9 +98,13 @@ Relevado contra `origin/main` (1bf8422):
   `feat/asistente-chatbotrag` no existía ni local ni en GitHub), las notas de
   las reuniones del 02 y 03-sep (la del 03 la cita `CAMBIOS_NECESARIOS.md`),
   la Ley 6822 oficial firmada, las Res. MIC 1384/2022 y 262/2024, cuatro
-  DOC-ICPP y el logo de Interseguros. Se reconstruyó en dos worktrees nuevos
-  (`rescate-asistente`, `rescate-normativa`); **sin commitear todavía** (ver
-  «Queda abierto»).
+  DOC-ICPP y el logo de Interseguros. **La documentación entra en esta misma
+  rama**: las dos notas en `docs/antecedentes/` con su nombre original (la
+  del 03-sep se cita por ese nombre), el logo en `docs/logos/`, y las tres
+  normas en `docs/normativa/` renombradas según la convención y registradas
+  en `INDICE.md` §1. El asistente se reconstruyó en el worktree
+  `rescate-asistente` (rama `feat/asistente-chatbotrag`), **sin commitear
+  todavía** (ver «Queda abierto»).
 - **Los DOC-ICPP-01, 03 y 07 sueltos coinciden byte a byte** con las huellas
   de `docs/firma-cualificada/referencias/INDICE.md`: son copias locales, van a
   esa carpeta (ignorada por git) y no al repo. **El DOC-ICPP-20 v2.0 no
@@ -140,13 +144,18 @@ Relevado contra `origin/main` (1bf8422):
 
 - **Bloqueado por permisos de la sesión:** la escritura en archivos de otros
   worktrees (el harness aísla la sesión en el suyo) y la tanda de borrado y
-  push (el clasificador del modo automático la frenó). Quedan sin hacer: los
-  commits de los dos rescates, la fila de índice de las normas nuevas, la
-  resolución del conflicto del PR #103, el push y PR de `bancred`, y el borrado
-  de `sharp-cannon`, de las 3 ramas locales y de las 32 remotas. Andres decide
-  cómo seguir.
-- **No limpiar el checkout principal** hasta que los dos rescates estén
-  commiteados y pusheados: hoy es la única copia versionable de ese trabajo.
+  push (el clasificador del modo automático la frenó). Antes de que apareciera
+  el aislamiento, la sesión ya había copiado archivos en `rescate-asistente` y
+  `rescate-normativa` e iniciado el rebase en `rebase-pr103`. Lo que falta está
+  en un script por secciones, para que Andres lo revise y lo corra: commit,
+  push y PR del asistente (1), conflicto y push del PR #103 (2), push y PR de
+  `bancred` (3), push y PR de esta rama (4), borrado de `sharp-cannon`, de
+  `rescate-normativa` (quedó redundante), de 4 ramas locales y de las
+  remotas ya fusionadas salvo `main` y `demo-v3` (5), y limpieza del checkout
+  principal (6).
+- **No limpiar el checkout principal** (sección 6) hasta que las secciones 1
+  y 4 estén pusheadas: hoy es la única copia de ese trabajo. La sección 6 lo
+  verifica archivo por archivo con `cmp` antes de borrar nada.
 - Preguntas P0–P7 del README de recepción; enmiendas a D-10, D-12 y D-13 con
   el PDF de legal; correo a Alianza (IP, carpetas, firma incremental, layout
   de emisión) cuando se cierre P1.
