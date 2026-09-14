@@ -63,8 +63,14 @@ frontend:
         # bearer del otp-service vive en Secrets Manager bajo la clave
         # `WHATSAPP_MODULAR_TOKEN`, justamente porque acá terminaría escrito en
         # `.env.production` dentro del artefacto de build.
+        #
+        # Las tres del asistente (Terra, ítem 35): `ASISTENTE_ENABLED=true`
+        # monta el widget y abre `/api/asistente/*` (apagado: 404, como la
+        # consola); `INTEGRATION_ASISTENTE=live` enchufa el servicio ChatbotRAG
+        # cuyo origen dice `CHATBOTRAG_URL`. El bearer del servicio vive en
+        # Secrets Manager bajo `CHATBOTRAG_TOKEN`, nunca acá.
         - |
-          for var in FLUJO_V3 DEMO_MODE ADMIN_CONSOLE_ENABLED DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN INTEGRATION_IDENTITY INTEGRATION_IDENTITY_SELFIE IDENTITY_PAISES_CEDULA INTEGRATION_OTP WHATSAPP_MODULAR_URL INTEGRATION_OTP_EMAIL OTP_EMAIL_FROM; do
+          for var in FLUJO_V3 DEMO_MODE ADMIN_CONSOLE_ENABLED DYNAMODB_TABLE S3_BUCKET APP_SECRETS_ARN INTEGRATION_IDENTITY INTEGRATION_IDENTITY_SELFIE IDENTITY_PAISES_CEDULA INTEGRATION_OTP WHATSAPP_MODULAR_URL INTEGRATION_OTP_EMAIL OTP_EMAIL_FROM ASISTENTE_ENABLED INTEGRATION_ASISTENTE CHATBOTRAG_URL; do
             if [ -n "${!var:-}" ]; then echo "$var=${!var}" >> .env.production; fi
           done
         - npm run build
