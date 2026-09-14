@@ -417,6 +417,48 @@ exacta**. No hay que rediseñar nada:
 
 ---
 
+## 2026-09-06 · El asistente Terra entra como décimo puerto, sobre el servicio ChatbotRAG
+
+### El caso
+
+Andres pidió (06-sep-2026) aplicar al demo un chatbot que dependa enteramente de los parámetros de cada seguro (eligiendo el tipo de seguro), con RAG, sin revelar información confidencial y que oriente según cada persona. La especificación de Terra (`docs/SeguroLoTengo_Asistente_IA_y_Configuracion.pdf`) llevaba desde agosto marcada «fuera de alcance»; este es el pedido explícito que CLAUDE.md exigía para tocarla. La decisión de arquitectura fue **no embeber un modelo en este repo** sino consumir un servicio propio, `ChatbotRAG` (repo `segurolotengopy/ChatbotRAG`, Cloud Run, Vertex AI como nube de ejemplo con Bedrock intercambiable), por el patrón ports/adapters que el repo ya usa. Así las reglas de este repo (SDKs solo en adapters, `fetch` solo en adapters) se respetan, y el mismo servicio sirve después a WhatsApp o a la app.
+
+### Qué cambió
+
+- **Puerto nuevo** `src/ports/asistente-provider.ts` (`AsistenteProvider`: `describir`, `responder`). La firma no tiene dónde poner el expediente, la cédula, la salud ni la tarjeta: la regla #7 es estructural, no una validación.
+- **Caso de uso** `src/domain/asistente.ts`: valida forma, exige que `perfilId` sea un producto de `PRODUCTOS`, y **filtra localmente** cédula (con y sin puntos, por contexto), tarjeta (Luhn), salud y PEP en primera persona, y códigos. Un texto bloqueado no viaja al proveedor ni a la bitácora. El filtro se repite acá aunque el servicio tenga el suyo: la regla #7 es de este repositorio.
+- **Adaptador mock** `src/adapters/mock/asistente-provider.ts`: responde desde `catalogo.ts`, `ACLARACION_COBERTURAS` y `textos-plan.ts` por palabras clave. Los productos «próximamente» no reciben precios. **Adaptador live** `src/adapters/live/asistente-chatbotrag.ts`: único `fetch` al servicio, bearer resuelto desde Secrets Manager (`CHATBOTRAG_TOKEN`, opcional en `SecretosApp` como el de WhatsApp-Modular), sin reintentos, sin logs del texto.
+- `registro.ts`: `obtenerAsistenteProvider()` (`INTEGRATION_ASISTENTE`; `live` exige `CHATBOTRAG_URL` o tira). `adapters/index.ts`: puerto `ASISTENTE`.
+- **Rutas** `/api/asistente/agente` (GET) y `/api/asistente/mensaje` (POST), ambas 404 sin `ASISTENTE_ENABLED=true`. Límite por IP `LIMITE_ASISTENTE` (30 / 10 min) en `rate-limit.ts`. Registradas como `SOLO_LECTURA` en `derivado-manual-sin-salida.test.ts`: no tocan el expediente.
+- **Widget** `src/components/shared/ChatFlotante.tsx`, montado al final del `layout` (convención: no por pantalla). Selector del seguro (un perfil por producto), tokens semánticos + `naranja-600` con `dark:`, `min-h-tap`, `role="dialog"`, Escape, foco. Sin cookies ni `localStorage` (fila 85 intacta); id de conversación en el estado de React. Oculto en `/identidad`, `/declaraciones`, `/pago`, `/firma`, `/pago-y-firma`, `/whatsapp`, `/demo-panel`, `/admin-consola`. z-index 70 bajo la píldora de CTA (80).
+- `amplify.yml`: `ASISTENTE_ENABLED`, `INTEGRATION_ASISTENTE`, `CHATBOTRAG_URL` en el bucle de `.env.production`.
+- Documentación: fila 35 en `Tabla de Integraciones externas - Tabla.csv`, `docs/Integraciones/CHATBOTRAG.md` (contrato, variables, mapa de archivos, corpus), sección «Asistente IA (Terra)» de `CLAUDE.md` reescrita (ya no «fuera de alcance»), lista de puertos a 10, checklist punto 8.
+- **Corpus del servicio** derivado de textos versionados de este repo: OFERTA-CONFIO-v2, coberturas v1.0, T&C v1.1, documentación precontractual v1.1, consultas y reclamos v1.1, entidades (D-19: sin inventar teléfonos ni correos). El plazo de retracto viaja como «pendiente de definición legal», igual que acá.
+
+### Qué hizo Andres
+
+- Decidió la topología (servicio independiente, no librería embebida), el alcance de la primera entrega y aplicar el estándar DevSecOps al repo nuevo (respuestas a las tres preguntas de la sesión, 06-sep-2026).
+- No ejecutó nada en este repo: la sesión trabajó sobre una copia y entrega la rama `feat/asistente-chatbotrag` para su revisión.
+
+### Verificaciones
+
+- `npm run typecheck`: limpio. `npm run lint`: 0 errores (los 6 warnings preexistentes).
+- `FLUJO_V3=false npx vitest run`: **1282 tests, 96 archivos, todo en verde** (baseline de la sesión: 1257 / 92; el higiene-de-citas fallaba en la copia solo porque faltaba el CSV de cumplimiento, que se agregó a la copia).
+- Tests nuevos: `domain/__tests__/asistente.test.ts` (filtros: cédula 4.523.118 / CI 4523118 / Gs. 319.000 no es cédula; «¿cubre cáncer?» pasa, «tengo cáncer» no), `adapters/mock/__tests__/asistente-provider.test.ts` (+ contrato), `adapters/live/__tests__/asistente-chatbotrag.test.ts` (bearer, perfil, canal; 429/404/5xx; red caída), `app/api/__tests__/asistente-no-filtra-datos-sensibles.test.ts` (dato sensible no llega al proveedor ni a `console.*`; 404 apagado; 429 al mensaje 31). `contratos-cableados.test.ts` reconoce el contrato nuevo.
+- Contra el servicio con proveedor simulado (repo ChatbotRAG): «¿Cuánto cuesta el plan CONFÍO+?» → Gs. 522.500 citando OFERTA-CONFIO-v2; «¿carencia por cáncer?» → 180 días citando coberturas v1.0; «Tengo cáncer» → bloqueado (`entrada:salud`); «¿margen interno?» → sin respaldo (la fuente interna no se indexa); «me importa más el menor premio» → recomendación determinista CONFÍO con aclaración.
+- **No se ejecutó E2E ni build de Next en esta sesión** (la copia no tiene las fotos de `public/v3` ni `.next`).
+
+### Queda abierto
+
+1. **Desplegar el servicio ChatbotRAG** (Cloud Run, proyecto GCP a definir por Andres) y crear el cliente `segurolotengo-web` con su clave; cargar `CHATBOTRAG_TOKEN` en `slt-demo-app-secrets` y `CHATBOTRAG_URL`, `INTEGRATION_ASISTENTE=live`, `ASISTENTE_ENABLED=true` en Amplify. Hasta entonces el demo funciona en mock.
+2. **Registrar en `infra/`** la variable `CHATBOTRAG_TOKEN` del secret (Terraform tiene `ignore_changes`; se agrega a mano como el de WhatsApp-Modular).
+3. **Aprobación de contenido**: el corpus del servicio se derivó de los textos de este repo; Interseguros/Alianza deben aprobarlo como «fuentes aprobadas» (Fase 1 de la especificación) y repetir la aprobación en cada cambio de versión.
+4. **200 casos de prueba** (Fase 4 de la especificación) contra el servicio con Vertex real, incluidos ataques de instrucciones; hoy solo hay pruebas unitarias y simuladas.
+5. **E2E**: agregar un escenario Playwright del widget (abrir, preguntar, dato sensible bloqueado) cuando `ASISTENTE_ENABLED` esté encendido en el entorno de pruebas.
+6. Decidir si el widget debe verse en `/confirmacion` (hoy sí) y en la landing v2 `/plan` (hoy sí).
+
+---
+
 ## 2026-09-05 (c) · La 071/2019 entra al repo, y D-24 queda enmendada: CONFÍO va por régimen normal
 
 **Rama:** `docs/d24-regimen-normal-y-seprelad-71` · **Pedido de Andres:** leer la

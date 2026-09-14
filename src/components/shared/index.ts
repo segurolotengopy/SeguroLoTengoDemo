@@ -48,3 +48,5 @@ export type { Tema } from "./tema";
 export { ModalEvidenciaFirma } from "./ModalEvidenciaFirma";
 export { BandaPasosV3 } from "./BandaPasosV3";
 export { AvisoCtaFlotante } from "./AvisoCtaFlotante";
+export { ChatFlotante } from "./ChatFlotante";
+export type { ChatFlotanteProps } from "./ChatFlotante";

@@ -89,6 +89,17 @@ export const LIMITE_OTP_VERIFICACION: PoliticaLimite = {
   ventanaSegundos: 10 * 60,
 };
 
+/**
+ * El asistente conversacional cuesta tokens por mensaje (L6). Treinta mensajes
+ * en diez minutos por IP alcanzan para una conversación real y frenan un bucle;
+ * el servicio ChatbotRAG aplica además su propio cupo por cliente.
+ */
+export const LIMITE_ASISTENTE: PoliticaLimite = {
+  nombre: "asistente-mensaje",
+  maximo: 30,
+  ventanaSegundos: 10 * 60,
+};
+
 export type RegistroLimite = readonly number[];
 
 export interface ResultadoLimite {

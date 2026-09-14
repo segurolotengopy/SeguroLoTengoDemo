@@ -761,6 +761,11 @@ describe("3. Inventario de rutas de la API", () => {
      * P9 (emisión).
      */
     const SOLO_LECTURA: readonly string[] = [
+      // El asistente conversacional (Terra, ítem 35) no recibe el expediente:
+      // no lee la cookie, no lo busca ni lo transiciona. Es informativo y está
+      // desacoplado del flujo por diseño (sección «Asistente IA» de CLAUDE.md).
+      "asistente/agente",
+      "asistente/mensaje",
       // La consola administrativa consulta y autentica; no transiciona nada.
       "admin-consola/buscar",
       "admin-consola/expediente",

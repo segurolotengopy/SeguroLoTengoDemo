@@ -38,6 +38,12 @@ export interface SecretosApp {
    * artefacto de build.
    */
   readonly WHATSAPP_MODULAR_TOKEN?: string;
+  /**
+   * Bearer del servicio ChatbotRAG (asistente Terra, ítem 35). Opcional por la
+   * misma razón que el de WhatsApp-Modular: Terraform no puede agregarlo a un
+   * secret ya desplegado.
+   */
+  readonly CHATBOTRAG_TOKEN?: string;
 }
 
 function esSecretosApp(valor: unknown): valor is SecretosApp {
@@ -48,7 +54,8 @@ function esSecretosApp(valor: unknown): valor is SecretosApp {
     typeof registro.OTP_PEPPER === "string" &&
     typeof registro.ADMIN_CONSOLE_KEY === "string" &&
     (registro.WHATSAPP_MODULAR_TOKEN === undefined ||
-      typeof registro.WHATSAPP_MODULAR_TOKEN === "string")
+      typeof registro.WHATSAPP_MODULAR_TOKEN === "string") &&
+    (registro.CHATBOTRAG_TOKEN === undefined || typeof registro.CHATBOTRAG_TOKEN === "string")
   );
 }
 
@@ -127,6 +134,21 @@ export async function obtenerWhatsAppModularToken(): Promise<string> {
       "INTEGRATION_OTP=live sin WHATSAPP_MODULAR_TOKEN: agregá esa clave al secret " +
         "slt-demo-app-secrets (Terraform no puede, tiene ignore_changes sobre secret_string) " +
         "o definila como variable de entorno en desarrollo local.",
+    );
+  }
+  return token;
+}
+
+/**
+ * Bearer del servicio ChatbotRAG (asistente Terra). Mismo criterio que el de
+ * WhatsApp-Modular: falla con el nombre exacto de lo que falta.
+ */
+export async function obtenerChatbotRagToken(): Promise<string> {
+  const token = (await obtenerSecretosApp()).CHATBOTRAG_TOKEN;
+  if (!token) {
+    throw new Error(
+      "INTEGRATION_ASISTENTE=live sin CHATBOTRAG_TOKEN: agregá esa clave al secret " +
+        "slt-demo-app-secrets o definila como variable de entorno en desarrollo local.",
     );
   }
   return token;

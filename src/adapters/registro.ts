@@ -42,7 +42,10 @@ import {
   lectorConMetadataWhatsAppModular,
 } from "./live/otp-provider";
 import { crearClienteWhatsAppModularDesdeEntorno } from "./live/whatsapp-modular";
-import { obtenerOtpPepper, obtenerWhatsAppModularToken } from "../repositories/secrets-client";
+import { obtenerChatbotRagToken, obtenerOtpPepper, obtenerWhatsAppModularToken } from "../repositories/secrets-client";
+import type { AsistenteProvider } from "../ports/asistente-provider";
+import { crearAsistenteChatbotRag } from "./live/asistente-chatbotrag";
+import { crearAsistenteProviderMock } from "./mock/asistente-provider";
 import { crearAlmacenEstadoDemo } from "../repositories";
 import { crearIdentityProviderMock } from "./mock/identity-provider";
 import { crearOtpProviderMock } from "./mock/otp-provider";
@@ -440,4 +443,24 @@ export function obtenerPlazoPagoMs(): number {
  */
 export function firmasInstitucionalesCaidas(): boolean {
   return consumirFallaDemo("FIRMAS_INSTITUCIONALES_FALLAN");
+}
+
+/**
+ * Asistente conversacional (Terra, ítem 35). `INTEGRATION_ASISTENTE=live` exige
+ * `CHATBOTRAG_URL` en el entorno (no es credencial: identifica el servicio) y
+ * `CHATBOTRAG_TOKEN` en el secret. Sin URL, tira con el nombre de lo que falta
+ * en vez de caer al mock en silencio: un rótulo «real» sobre respuestas
+ * simuladas sería peor que ninguno.
+ */
+export function obtenerAsistenteProvider(): AsistenteProvider {
+  return resolverAdaptador("ASISTENTE", {
+    mock: () => crearAsistenteProviderMock(),
+    live: () => {
+      const baseUrl = process.env.CHATBOTRAG_URL?.trim();
+      if (!baseUrl) {
+        throw new Error("INTEGRATION_ASISTENTE=live sin CHATBOTRAG_URL: definí el origen del servicio ChatbotRAG.");
+      }
+      return crearAsistenteChatbotRag({ baseUrl, clave: obtenerChatbotRagToken });
+    },
+  });
 }

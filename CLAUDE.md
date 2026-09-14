@@ -97,7 +97,7 @@ Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente
 | `Tabla de Integraciones externas - Tabla.csv` y `SeguroLoTengo-integraciones-externas-alta-resolucion.pdf`                                                                  | Catálogo de las integraciones externas reales que los adaptadores `live/` deberán implementar algún día (Bancard, Code100, SEBAOT, Infobip, Entrust, ComplyAdvantage, etc.), agrupadas en 30 procesos / 6 categorías, con proveedor y estado de decisión de cada una. Ver "Reglas transversales de integraciones" más abajo para el resumen no negociable.   |
 | `Cumplimiento SeguroLoTengo.pdf`                                                                                                                                            | Versión narrativa de la matriz de cumplimiento; usar como respaldo textual cuando el CSV no alcance el detalle necesario.                                                                                                                                                                                                                                    |
 | `CONFIGURACION_SES.md`                                                                                                                                                      | Guía operativa del OTP de correo (P4) sobre Amazon SES: sandbox y sus tres límites, verificación de remitente y destinatarios, salida a producción, deliverability con dominio propio, y el reparto de permisos entre el rol de cómputo y el usuario local. Leela antes de tocar `INTEGRATION_OTP_EMAIL` o `infra/ses-correo-otp.tf`.                        |
-| `SeguroLoTengo_Asistente_IA_y_Configuracion.pdf`                                                                                                                            | Especificación del asistente Terra — **fuera de alcance de esta demo por ahora**, ver sección "Asistente IA (Terra)" más abajo.                                                                                                                                                                                                                              |
+| `SeguroLoTengo_Asistente_IA_y_Configuracion.pdf` + `Integraciones/CHATBOTRAG.md`                                                                                            | Especificación del asistente Terra y su implementación como puerto `AsistenteProvider` sobre el servicio ChatbotRAG (ítem 35). Ver sección "Asistente IA (Terra)" más abajo.                                                                                                                                                                              |
 | `MATRIZ_LEGAL_V4.md` + `MATRIZ_LEGAL_V4_2026-08-16.pdf` | **Matriz de referencia regulatoria (V4, corte 16-ago-2026).** Se declara prevalente sobre la versión anterior y corrige errores de cita verificables del CSV. Ante conflicto entre el CSV y la V4, manda la V4. |
 | `normativa/` + `normativa/CATALOGO.md` | Las normas mismas, en PDF, con el nombre derivado de su contenido — verificado abriendo cada una. Antes de citar un artículo, comprobá que la norma esté acá y leída: el catálogo dice cuáles se leyeron de primera mano y cuáles vienen de fuentes secundarias. Las dos centrales del canal son la **Res. SS.SG. 210/2025** (art. 4: firma simple del proponente con OTP; art. 5: firma cualificada obligatoria del corredor; art. 9: conservación) y la **231/2025** (pólizas electrónicas). |
 | `VALIDACION_LEGAL_FIRMA_INTERNA.md` | Por qué SeguroLoTengo puede generar la firma no cualificada del cliente sin ser prestador registrado, qué exigiría serlo, y la convergencia en dos fases con el proyecto Firmas-NoCualificadas. |
@@ -261,9 +261,9 @@ Toda transición pasa por `src/domain/expediente.ts`. **Ningún Route Handler mo
 
 ## Arquitectura de puertos y adaptadores
 
-Los 9 proveedores externos viven detrás de interfaces en `src/ports/`:
+Los 10 proveedores externos viven detrás de interfaces en `src/ports/`:
 
-`OtpProvider` · `IdentityProvider` · `ComplianceProvider` · `PaymentProvider` · `SignatureProvider` · `PolicyIssuer` · `EvidenceStore` · `RegistroCivilProvider` · `MessagingProvider`
+`OtpProvider` · `IdentityProvider` · `ComplianceProvider` · `PaymentProvider` · `SignatureProvider` · `PolicyIssuer` · `EvidenceStore` · `RegistroCivilProvider` · `MessagingProvider` · `AsistenteProvider`
 
 `MessagingProvider` (CHG-44) es el noveno y **no es el del OTP**, aunque compartan proveedor real: aquel entrega un código de seis dígitos y gestiona su ciclo de vida; este entrega **archivos ya emitidos** a alguien que ya está identificado. Solo tiene mock, y el `live` no es una tarea pendiente cualquiera: WhatsApp-Modular expone hoy un `otp-service` y ningún endpoint de documentos, así que no hay contrato que implementar — inventarlo sería inventar la integración, el mismo criterio que dejó el webhook de Code100 declarado y sin implementar (PEN-02).
 
@@ -528,16 +528,20 @@ Stack de proveedores reales previsto para cuando existan adaptadores `live/` (no
 
 ---
 
-## Asistente IA (Terra) — fuera de alcance por ahora
+## Asistente IA (Terra) — implementado como puerto, apagado por defecto
 
-`docs/SeguroLoTengo_Asistente_IA_y_Configuracion.pdf` especifica un asistente conversacional ("Terra") para el sitio público. **No está implementado ni planificado para esta sesión ni las próximas** — no es una de las 12 pantallas ni forma parte del flujo de contratación. Se documenta acá solo como referencia para cuando se confirme como requerimiento:
+Desde el 06-sep-2026 el asistente conversacional existe en el código, como el **décimo puerto** (`AsistenteProvider`, ítem 35 de la tabla de integraciones), y sigue **fuera del flujo de contratación**: no es una de las 12 pantallas, no recibe el expediente y no tiene camino hacia Bancard, Code100 ni SEBAOT. Documentación de la integración en `docs/Integraciones/CHATBOTRAG.md`; el servicio vive en el repositorio `segurolotengopy/ChatbotRAG`.
 
-- Solo respondería con respaldo documental aprobado y versionado (File Search / vector store); sin respaldo, deriva a un asesor humano — nunca inventa.
-- Podría responder: planes, premios, coberturas, sumas, carencias, exclusiones, edades, beneficiarios, proceso de contratación/pago/firma/entrega, procedimiento de siniestros aprobado.
-- No podría responder ni procesar: elegibilidad o cobertura de un caso particular, diagnósticos/pronósticos médicos, promesas de indemnización, datos de salud/PEP/tarjeta, ni ejecutar pago, firma, emisión o modificación de pólizas.
-- Debería quedar desacoplado en código del flujo transaccional (Bancard, Code100, SEBAOT): ninguna función del asistente podría invocar esos servicios.
+Lo que se implementó y cómo se cumple la especificación original (`docs/SeguroLoTengo_Asistente_IA_y_Configuracion.pdf`):
 
-No crear código, pantallas ni dependencias para esto sin que se pida explícitamente como una tarea nueva.
+- **Solo responde con respaldo documental aprobado y versionado.** El servicio hace recuperación (RAG) sobre un corpus derivado de los textos versionados de este repo (`catalogo.ts`, `textos-aclaraciones.ts`, `textos-legales.ts`, `entidades.ts`), un perfil por producto del selector. Sin respaldo, responde un texto fijo y deriva a Interseguros; **nunca inventa**.
+- **No recibe cédula, salud, PEP, tarjeta ni códigos.** Dos filtros en serie: `src/domain/asistente.ts` (este repo, regla inviolable #7) y las compuertas de entrada del servicio. Un texto bloqueado no viaja a la IA, no se recuerda y no se registra: solo la categoría.
+- **No decide casos.** Las compuertas de salida del servicio reemplazan respuestas que nieguen ser IA, prometan indemnización o afirmen elegibilidad.
+- **Desacoplado en código.** `dependenciasAsistente()` no pide repositorios; el caso de uso no conoce `transicionarExpediente`; la conversación no genera evidencia.
+
+Operación: `ASISTENTE_ENABLED=true` monta el widget (`ChatFlotante`, último en el `layout`, oculto en las pantallas transaccionales) y abre `/api/asistente/*`; apagado, 404. `INTEGRATION_ASISTENTE=mock` (por defecto) responde desde `catalogo.ts`; `live` exige `CHATBOTRAG_URL` y el bearer `CHATBOTRAG_TOKEN` en Secrets Manager.
+
+Reglas al tocarlo: el widget **no usa cookies ni almacenamiento** (fila 85 sigue siendo verdad); cualquier texto nuevo que el asistente pueda citar sale de un documento versionado del corpus, no se escribe en el prompt; y ninguna pantalla del flujo lo monta por su cuenta.
 
 ---
 
@@ -552,7 +556,7 @@ Además de `npm run typecheck && npm run lint && npm test`:
 5. ¿Se generan y persisten las evidencias probatorias correspondientes (hash, timestamp, IP, canal, resultado) vía `EvidenceStore`?
 6. ¿La firma, si aplica, va sobre el documento único y con los firmantes que declara `firmantes-documento.ts` (D-13)?
 7. ¿El pago, si aplica, ocurre **después** de la firma (D-08) y es idempotente? ¿El único estado de origen es `FIRMADO`? ¿El Certificado de Cobertura Provisional se emite en la misma escritura que el cobro (D-12, CMP-07)? ¿La emisión exige el cobro confirmado (fila 44)?
-8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica, o (a futuro) al asistente IA?
+8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica o al asistente IA? (El asistente tiene su propio test de no filtración: `src/app/api/__tests__/asistente-no-filtra-datos-sensibles.test.ts`.)
 
 ---
 
