@@ -42,6 +42,7 @@ interface FirmaInstitucional {
 interface Constancia {
   readonly documento: { readonly codigo: string; readonly version: number };
   readonly naturaleza: { readonly norma: string };
+  readonly pdf: { readonly codigo: string; readonly version: number; readonly hashSha256: string } | null;
   readonly firmadoEn: string;
   readonly pilares: readonly Pilar[];
   readonly firmasInstitucionales: readonly FirmaInstitucional[];
@@ -118,6 +119,15 @@ export function ModalEvidenciaFirma({ alCerrar }: { readonly alCerrar: () => voi
               <code className="truncate font-mono text-[11px] text-etiqueta">
                 {constancia.documento.codigo} v{constancia.documento.version}
               </code>
+            ) : null}
+            {constancia?.pdf ? (
+              // D-27 · la misma constancia, cerrada y con huella, para llevar.
+              <a
+                href={`/api/p8/documento?codigo=${encodeURIComponent(constancia.pdf.codigo)}&descargar=1`}
+                className="w-fit text-xs font-semibold text-azul-700 underline underline-offset-2 dark:text-azul-300"
+              >
+                Descargar la constancia en PDF ({constancia.pdf.codigo})
+              </a>
             ) : null}
           </div>
           <button

@@ -38,9 +38,11 @@ export {
   PASO_EVIDENCIA_DOCUMENTOS,
   archivarDocumentosFirmados,
   claveCertificado,
+  claveConstancia,
   claveDocumento,
   claveDocumentoFirmado,
   emitirCertificadoCobertura,
+  emitirConstanciaFirma,
   generarComprobantePago,
   generarPaqueteDocumental,
 } from "./servicio";
@@ -50,13 +52,20 @@ export type {
   DependenciasDocumentos,
   DocumentoGenerado,
   MotivoRechazoCertificado,
+  MotivoRechazoConstancia,
   MotivoRechazoDocumentos,
   RepositorioArchivos,
   ResultadoArchivadoFirmados,
   ResultadoComprobantePago,
   ResultadoEmitirCertificado,
+  ResultadoEmitirConstancia,
   ResultadoGenerarPaquete,
 } from "./servicio";
-export { renderizarCertificado, renderizarComprobante, renderizarPaquete } from "./plantillas";
+export {
+  renderizarCertificado,
+  renderizarComprobante,
+  renderizarConstancia,
+  renderizarPaquete,
+} from "./plantillas";
 export { generarMatrizQr } from "./qr";
 export type { MatrizQr } from "./qr";

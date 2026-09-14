@@ -12,7 +12,7 @@ import type {
   PaqueteDocumental,
   Pago,
 } from "../tipos";
-import { crearExpedienteInicial } from "../tipos";
+import { crearExpedienteInicial, ConstanciaFirmaEmitida } from "../tipos";
 import { PLANES } from "../catalogo";
 import {
   registrarFirmasInstitucionales,
@@ -20,8 +20,9 @@ import {
   transicionarExpediente,
 } from "../expediente";
 import { PASOS_FLUJO } from "../rutas-flujo";
+import { VERSION_INICIAL_CONSTANCIA } from "../constancia-firma";
 import { firmantesConjuntos } from "../firmantes-documento";
-import { codigoFipf, codigoSolicitud } from "../documentos";
+import { codigoFipf, codigoSolicitud, codigoConstancia } from "../documentos";
 import {
   VERSION_INICIAL_CERTIFICADO,
   codigoCertificado,
@@ -29,6 +30,7 @@ import {
   inicioCoberturaDesde,
 } from "../certificado-cobertura";
 import { firmantesDe } from "../firmantes-documento";
+import type { EmisorConstanciaFirma } from "../firma-cliente";
 import type { EmisorCertificadoCobertura } from "../pago-p7";
 
 export const declaracionesCompatibles: Declaraciones = {
@@ -299,6 +301,24 @@ export const certificadoFixture: CertificadoCobertura = (() => {
  * `emitirCertificadoCobertura`; los de P7 solo necesitan que la dependencia
  * exista y responda, que es lo que el compilador ahora les exige.
  */
+/** D-27 · la constancia con la que firma el fixture interno. */
+export const constanciaFixture: ConstanciaFirmaEmitida = {
+  codigo: codigoConstancia(NUMERO_PROPUESTA_FIJO),
+  codigoPaquete: codigoSolicitud(NUMERO_PROPUESTA_FIJO),
+  version: VERSION_INICIAL_CONSTANCIA,
+  hashSha256: "d".repeat(64),
+  emitidaEn: "2026-08-09T15:03:00.000Z",
+};
+
+export function emisorConstanciaFalso(
+  opciones: { readonly falla?: boolean } = {},
+): EmisorConstanciaFirma {
+  return async ({ acto }) => {
+    if (opciones.falla) return { ok: false, motivo: "ALMACENAMIENTO_INCONSISTENTE" };
+    return { ok: true, constancia: { ...constanciaFixture, emitidaEn: acto.firmadoEn } };
+  };
+}
+
 export function emisorCertificadoFalso(
   opciones: { readonly falla?: boolean } = {},
 ): EmisorCertificadoCobertura {

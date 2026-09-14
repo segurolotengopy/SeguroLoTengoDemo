@@ -633,7 +633,17 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
       ejecutar: async (repo) => {
         const { provider, lector } = otpFalso();
         return registrarActoDeFirmaCliente(
-          { otpProvider: provider, lectorOtp: lector, expedientes: repo, evidencias: evidenciasFalsas() },
+          {
+            otpProvider: provider,
+            lectorOtp: lector,
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+            // Un derivado no llega a firmar: si el acto intentara emitir la
+            // constancia (D-27), la prueba tiene que fallar a lo grande.
+            emitirConstancia: async () => {
+              throw new Error("La constancia no debe emitirse sobre un expediente derivado.");
+            },
+          },
           {
             expedienteId: EXPEDIENTE_ID,
             canal: "WHATSAPP",

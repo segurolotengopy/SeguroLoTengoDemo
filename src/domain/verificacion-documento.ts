@@ -36,6 +36,7 @@
  * Libre de `node:*`, como el resto de los módulos de contenido de documentos.
  */
 import {
+  PREFIJO_CONSTANCIA,
   PREFIJO_FIPF,
   PREFIJO_SOLICITUD,
   codigoFipf,
@@ -47,9 +48,10 @@ import {
   formatearInstante,
 } from "./certificado-cobertura";
 import { PREFIJO_COMPROBANTE } from "./comprobante-pago";
+import { NORMA_FIRMA_SIMPLE, TITULO_CONSTANCIA } from "./constancia-firma";
 import { firmantesDe } from "./firmantes-documento";
 import type { DocumentoFirmable, ModalidadFirma, NivelFirma, RolFirmante } from "./firmantes-documento";
-import type { Expediente } from "./tipos";
+import type { CanalFirma, Expediente } from "./tipos";
 
 // ---------------------------------------------------------------------------
 // Interpretación del código
@@ -60,7 +62,12 @@ import type { Expediente } from "./tipos";
  * verifique: quien escanee o tipee un `REC-…` tiene que recibir una
  * explicación, no un "no encontrado" que sugiera que su comprobante es falso.
  */
-export type TipoDocumentoCodigo = "PAQUETE" | "SECCION_FIPF" | "CERTIFICADO" | "COMPROBANTE";
+export type TipoDocumentoCodigo =
+  | "PAQUETE"
+  | "SECCION_FIPF"
+  | "CERTIFICADO"
+  | "COMPROBANTE"
+  | "CONSTANCIA";
 
 export interface CodigoInterpretado {
   readonly tipo: TipoDocumentoCodigo;
@@ -77,6 +84,7 @@ const PREFIJOS: Readonly<Record<string, TipoDocumentoCodigo>> = {
   [PREFIJO_FIPF]: "SECCION_FIPF",
   [PREFIJO_CERTIFICADO]: "CERTIFICADO",
   [PREFIJO_COMPROBANTE]: "COMPROBANTE",
+  [PREFIJO_CONSTANCIA]: "CONSTANCIA",
 };
 
 /**
@@ -122,6 +130,26 @@ export interface FirmanteVerificado {
   readonly certificado: string | null;
 }
 
+/**
+ * La firma del proponente, tal como se publica (D-27). Solo cuando la firma la
+ * generó el portal: dice qué es, bajo qué norma, y **qué** evidencia la
+ * respalda —categorías, nunca valores—, más la huella de la constancia para
+ * cotejar el archivo que el titular tiene. Ningún dato personal (regla #7).
+ */
+export interface FirmaProponenteVerificada {
+  readonly nivel: "SIMPLE_NO_CUALIFICADA";
+  readonly emisor: "SEGUROLOTENGO";
+  readonly norma: string;
+  readonly firmadoEn: string;
+  readonly canal: CanalFirma;
+  readonly respaldos: readonly string[];
+  readonly constancia: {
+    readonly codigo: string;
+    readonly version: number;
+    readonly hashSha256: string;
+  } | null;
+}
+
 export interface DocumentoVerificado {
   readonly codigo: string;
   readonly correlativo: string;
@@ -136,6 +164,8 @@ export interface DocumentoVerificado {
   readonly firmantes: readonly FirmanteVerificado[];
   /** Solo el certificado: desde cuándo y hasta cuándo rige la cobertura. */
   readonly vigencia: { readonly inicio: string; readonly fin: string } | null;
+  /** D-27: `null` en el certificado, en el comprobante y en firmas de proveedor. */
+  readonly firmaDelProponente: FirmaProponenteVerificada | null;
 }
 
 export type MotivoNoVerificable =
@@ -193,6 +223,42 @@ function firmantesVerificados(
  * vez de lanzar es deliberado: un código que no existe es una respuesta
  * legítima de esta página, no un error del sistema.
  */
+/**
+ * Qué respalda la firma del proponente, en categorías (D-27). Cada frase
+ * afirma solo lo que el expediente registró: la biometría entra si la captura
+ * la aprobó, el canal es el que la firma nombra, y el resto son propiedades
+ * del acto interno que el dominio garantiza por construcción.
+ */
+function firmaDelProponente(expediente: Expediente): FirmaProponenteVerificada | null {
+  const firma = expediente.firma;
+  if (!firma || firma.origen !== "INTERNA") return null;
+  const captura = expediente.identidad?.captura;
+  const respaldos: string[] = [
+    "Identidad verificada antes de firmar con la cédula de identidad" +
+      (captura?.pruebaDeVidaAprobada ? ", prueba de vida" : "") +
+      (captura?.coincidenciaFacialAprobada ? " y coincidencia facial con el documento" : "") +
+      ".",
+    `Código de un solo uso enviado al ${
+      firma.canal === "WHATSAPP" ? "WhatsApp" : "correo electrónico"
+    } verificado, exclusivo de este acto (art. 4).`,
+    "Documento cerrado y con huella SHA-256 calculada antes de habilitar la firma; la huella publicada arriba es la del archivo firmado.",
+    "Fecha y hora, dirección IP, dispositivo y sesión del acto conservados en un registro que no se sobrescribe ni se borra (art. 9).",
+    "Texto aceptado al firmar conservado con su versión.",
+  ];
+  const constancia = expediente.constanciaFirma;
+  return {
+    nivel: "SIMPLE_NO_CUALIFICADA",
+    emisor: "SEGUROLOTENGO",
+    norma: NORMA_FIRMA_SIMPLE,
+    firmadoEn: formatearInstante(firma.firmadoEn),
+    canal: firma.canal,
+    respaldos,
+    constancia: constancia
+      ? { codigo: constancia.codigo, version: constancia.version, hashSha256: constancia.hashSha256 }
+      : null,
+  };
+}
+
 export function verificarDocumento(
   expediente: Expediente | null,
   interpretado: CodigoInterpretado,
@@ -204,6 +270,29 @@ export function verificarDocumento(
   }
   if (!expediente || expediente.numeroPropuesta !== correlativo) {
     return { ok: false, motivo: "NO_ENCONTRADO", codigo };
+  }
+
+  if (tipo === "CONSTANCIA") {
+    const constancia = expediente.constanciaFirma;
+    if (!constancia) return { ok: false, motivo: "NO_ENCONTRADO", codigo };
+
+    return {
+      ok: true,
+      documento: {
+        codigo: constancia.codigo,
+        correlativo,
+        titulo: TITULO_CONSTANCIA,
+        version: constancia.version,
+        hashSha256: constancia.hashSha256,
+        selloDeTiempo: formatearInstante(constancia.emitidaEn),
+        codigoVinculado: constancia.codigoPaquete,
+        // Nadie firma la constancia: es el registro del acto, no un documento
+        // que se suscriba. Lo que la respalda es lo que ella misma enumera.
+        firmantes: [],
+        vigencia: null,
+        firmaDelProponente: firmaDelProponente(expediente),
+      },
+    };
   }
 
   if (tipo === "CERTIFICADO") {
@@ -225,6 +314,7 @@ export function verificarDocumento(
           inicio: formatearInstante(certificado.inicioCobertura),
           fin: formatearInstante(certificado.finCobertura),
         },
+        firmaDelProponente: null,
       },
     };
   }
@@ -257,6 +347,7 @@ export function verificarDocumento(
         firma ? { firmadoEn: firma.firmadoEn } : null,
       ),
       vigencia: null,
+      firmaDelProponente: firmaDelProponente(expediente),
     },
   };
 }
