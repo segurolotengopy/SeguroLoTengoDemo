@@ -38,6 +38,123 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-14 · Interconexión con Alianza, la definición del 07-sep, y la carpeta de recepción
+
+**Rama:** `claude/alianza-garantia-integration-9febfc` · **Pedido de Andres:**
+analizar la interconexión con Alianza (firma por SFTP y datos de emisión) y
+redactar la respuesta a su correo; después, analizar la *Definición funcional
+definitiva* de Interseguros del 07-sep; preparar este worktree para lo que
+Rodrigo manda durante el día, y consolidar ramas y worktrees.
+
+### El caso
+
+Alianza pidió la IP pública para habilitar su firewall (el servidor SFTP ya
+está listo) y mandó un TXT de ejemplo de migración de vida colectivo, en
+respuesta al correo de Andres que pedía que firmaran la Solicitud + FIPF y el
+CPC. Ese pedido **contradecía** las enmiendas del 04-sep a D-12 y D-13. La
+definición del 07-sep y dos respuestas de Rodrigo de hoy resuelven parte.
+
+### Qué cambió
+
+- **`docs/recepcion/2026-09-14-interseguros/`** (nuevo, transitorio): dónde
+  deja Andres cada entrega del día (modelo de CPC aprobado, pantallas v4,
+  PDF de legal), qué se contrasta al recibir cada una y las preguntas abiertas
+  P0–P7. Trae copiada la definición del 07-sep. Su `.gitignore` excluye `.txt`
+  y llaves: **el TXT de Alianza tiene nombres y cédulas de personas reales** y
+  no entra al repositorio.
+- Ningún cambio de código ni de decisiones: las enmiendas a D-10, D-12 y D-13
+  esperan el PDF de legal de hoy.
+
+### Qué se estableció
+
+- **Rodrigo (WhatsApp, 14-sep, 10:50):** el CPC **lo emite Interseguros**
+  (SeguroLoTengo) **y lo firma Alianza**; para emitirlo el cliente tiene que
+  haber firmado la Solicitud + FIPF con firma no cualificada y haber pagado.
+  **El modelo de CPC aprobado lo manda Alianza hoy.** Cae la parte de la
+  enmienda del 04-sep a D-12 según la cual Alianza lo emitía «desde su
+  sistema»; la firma de Interseguros con Code100 **no** es precondición.
+- **Sin resolver:** si Alianza firma también la Solicitud + FIPF. La tabla del
+  §11 del 07-sep la pone como firmante; la respuesta de Rodrigo sugiere que
+  solo el CPC. Se le preguntó (P1).
+- **La definición del 07-sep choca con el repo en:** cédula y fecha de
+  nacimiento editables (reglas #8 y #11), retracto eliminado (fila 64 de la
+  matriz), secuencia congelada de 8 pasos con el plan primero (contradice el
+  v3 de 3 pasos), plazo de pago de 10 minutos (D-10 dice 24 h), 3 preguntas
+  médicas + PEP (el mapa 5→8 del 29-ago) y Google Analytics sin
+  consentimiento. Coincide exacto en premios, coberturas e IVA del 10 %.
+- **El TXT de Alianza** es tabulado, CRLF, sin encabezado; en la fila 3 un
+  tabulador doble corre todas las columnas. El premio es el 0,7023 ‰ de la
+  columna 4 en las tres filas. Es un formato de migración, no de emisión.
+- **IP fija:** la plataforma sale por Amplify, que no tiene IP de salida fija.
+  Recomendado: conector SFTP de AWS Transfer Family (IP estáticas, S3 directo).
+  El SFTP de Alianza todavía no está en la tabla de integraciones.
+
+### Consolidación de ramas y worktrees
+
+Relevado contra `origin/main` (1bf8422):
+
+- **El checkout principal tenía trabajo que existía en un solo lugar**: el
+  asistente Terra completo (entrada del 06-sep, cuya rama
+  `feat/asistente-chatbotrag` no existía ni local ni en GitHub), las notas de
+  las reuniones del 02 y 03-sep (la del 03 la cita `CAMBIOS_NECESARIOS.md`),
+  la Ley 6822 oficial firmada, las Res. MIC 1384/2022 y 262/2024, cuatro
+  DOC-ICPP y el logo de Interseguros. Se reconstruyó en dos worktrees nuevos
+  (`rescate-asistente`, `rescate-normativa`); **sin commitear todavía** (ver
+  «Queda abierto»).
+- **Los DOC-ICPP-01, 03 y 07 sueltos coinciden byte a byte** con las huellas
+  de `docs/firma-cualificada/referencias/INDICE.md`: son copias locales, van a
+  esa carpeta (ignorada por git) y no al repo. **El DOC-ICPP-20 v2.0 no
+  coincide** (1 161 851 bytes, SHA-256 `188924b8…079e`): es la versión que
+  aprobó la Res. 262/2024, posterior a la catalogada.
+- **La Res. 1384/2022 no es un hallazgo nuevo**: reglamenta la comunicación de
+  inicio del prestador no cualificado, el escenario E2 que
+  `VALIDACION_LEGAL_FIRMA_INTERNA.md` §4 ya separa del mecanismo interno.
+- `claude/bancred-qr-reversas-e3ecea`: 9 commits **sin push** (Bancard G1/G2).
+- PR #103: el rebase contra `main` choca solo en esta bitácora.
+- Ya cubiertas por `main` (verificado por contenido, no por `git cherry`):
+  `chore/hardening-seguridad`, `claude/eager-blackburn-166061`,
+  `wip/l4-inversion-firma-pago`.
+- 34 ramas remotas ya fusionadas; `demo-v3` es rama de despliegue y no se
+  toca. El perfil `aab1-demo-deployer` no tiene `amplify:ListBranches`, así
+  que las ramas de Amplify se tomaron de `infra/amplify.tf` y de esta bitácora.
+
+### Qué hizo Andres
+
+- Aprobó los cinco pasos de consolidación: rescatar el checkout principal,
+  push y PR de `bancred-qr-reversas`, rebase del PR #103, borrar lo obsoleto y
+  commitear esta carpeta.
+- Trajo las respuestas de Rodrigo y va a dejar en la carpeta de recepción lo
+  que llegue durante el día.
+
+### Verificaciones
+
+- Rescate del asistente: `npm run typecheck` limpio, `npm run lint` 0 errores
+  y 9 warnings, **1282 tests en 96 archivos en verde**. Son los mismos números
+  que registró la entrada del 06-sep, así que la reconstrucción no perdió nada.
+- Duplicados en el checkout principal: `Ley Nro 6822-2021pdf.pdf` y
+  `Decreto_7576-2022.pdf` idénticos por MD5 a `ley-6822-2021.pdf` y
+  `decreto-7576-2022.pdf`. `Ley Nro 6822-2021.pdf` es otra edición: 48 p,
+  firmada digitalmente.
+
+### Queda abierto
+
+- **Bloqueado por permisos de la sesión:** la escritura en archivos de otros
+  worktrees (el harness aísla la sesión en el suyo) y la tanda de borrado y
+  push (el clasificador del modo automático la frenó). Quedan sin hacer: los
+  commits de los dos rescates, la fila de índice de las normas nuevas, la
+  resolución del conflicto del PR #103, el push y PR de `bancred`, y el borrado
+  de `sharp-cannon`, de las 3 ramas locales y de las 32 remotas. Andres decide
+  cómo seguir.
+- **No limpiar el checkout principal** hasta que los dos rescates estén
+  commiteados y pusheados: hoy es la única copia versionable de ese trabajo.
+- Preguntas P0–P7 del README de recepción; enmiendas a D-10, D-12 y D-13 con
+  el PDF de legal; correo a Alianza (IP, carpetas, firma incremental, layout
+  de emisión) cuando se cierre P1.
+- Sigue abierta la access key de root del perfil `default` (entrada del
+  05-sep (b)).
+
+---
+
 ## 2026-09-05 (c) · La 071/2019 entra al repo, y D-24 queda enmendada: CONFÍO va por régimen normal
 
 **Rama:** `docs/d24-regimen-normal-y-seprelad-71` · **Pedido de Andres:** leer la

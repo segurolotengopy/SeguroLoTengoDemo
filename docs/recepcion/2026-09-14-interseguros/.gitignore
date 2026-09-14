@@ -1,0 +1,14 @@
+# Lo que nunca entra al repositorio desde esta carpeta.
+#
+# - Datos personales reales: el TXT de ejemplo de Alianza trae nombres y
+#   cédulas de asegurados reales. Se analiza desde Descargas, no desde acá.
+# - Credenciales del SFTP de Alianza: IP, usuario, clave o llave privada van a
+#   Secrets Manager, nunca a un archivo del repo.
+*.txt
+*.pem
+*.key
+*.ppk
+id_rsa*
+id_ed25519*
+*credencial*
+*password*
