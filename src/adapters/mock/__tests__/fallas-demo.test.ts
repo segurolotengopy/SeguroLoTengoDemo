@@ -49,7 +49,14 @@ describe("fallas forzadas del panel de demo", () => {
     // con espera creciente y la otra la diferencia entre `ENVIADO` y
     // `ACUSADO`, que es de donde cuelga CMP-05. Con una sola no se puede
     // enseñar que aceptar no es entregar.
+    // `BANCARD_TARJETA_RECHAZADA` la trajo G2, y es **otro momento** que el
+    // timeout, no una variante: aquella corta al abrir la operación y esta
+    // ocurre al terminar de pagarla, que es cuando contesta el emisor. Sin
+    // ella no se puede mostrar el desenlace que Bancard confirmó que nos llega
+    // (B10-bis) ni, sobre todo, que el reintento **funciona** porque acuña una
+    // clave de idempotencia nueva.
     expect([...FALLAS_DEMO].sort()).toEqual([
+      "BANCARD_TARJETA_RECHAZADA",
       "BANCARD_TIMEOUT",
       "CODE100_RECHAZO",
       "ENTREGA_NO_DISPONIBLE",

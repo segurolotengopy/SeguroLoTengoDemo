@@ -10,9 +10,12 @@ import {
   BAJADA_PANTALLA_B_SIN_COBRO,
   PASOS_DEVOLUCION,
   PASOS_CADUCIDAD_SIN_COBRO,
+  NOTA_PLAZO_LO_FIJA_EL_BANCO,
   ROTULO_ASEGURADO_B,
   ROTULO_CORREO_B,
+  ROTULO_DESTINO_DEVOLUCION,
   ROTULO_DOCUMENTO_B,
+  ROTULO_PLAZO_DEVOLUCION,
   ROTULO_ESTADO_FINAL_B,
   ROTULO_ESTADO_PANTALLA_B,
   ROTULO_PAGO_BANCARD_B,
@@ -20,21 +23,29 @@ import {
   ROTULO_PROPUESTA_B,
   ROTULO_WHATSAPP_B,
   TITULO_CADUCIDAD_SIN_COBRO,
+  TITULO_DESTINO_DEVOLUCION,
   TITULO_PROCEDIMIENTO_DEVOLUCION,
   TITULO_RESUMEN_CASO,
   TITULO_SEGUIMIENTO_FIRMA,
 } from "@/domain/textos-pantalla-b";
+import { devolucionPorMedio } from "@/domain/textos-devolucion";
+import { esMedioDePago } from "@/domain/tipos";
 
 /**
  * Los bloques de la Pantalla B que dependen del expediente: la bajada del
  * encabezado, `SEGUIMIENTO DE FIRMA`, `RESUMEN DEL CASO`, el procedimiento y el
  * estado final del pie.
  *
- * Dos variantes, según cómo se pagó (ver la divergencia declarada en
- * `textos-pantalla-b.ts`): con QR o débito hay premio cobrado y por lo tanto
- * devolución; con crédito hubo una reserva que se liberó y no hay nada que
- * devolver. La pantalla no le puede decir a la persona que se inició una
- * devolución de plata que nunca salió de su cuenta.
+ * Dos variantes, según **si el dinero entró o no** (ver la divergencia
+ * declarada en `textos-pantalla-b.ts`). El criterio dejó de depender del medio
+ * cuando se descartó la preautorización (D-02): hoy los tres medios cobran
+ * directo, así que no hay ninguno que deje una reserva liberada en vez de un
+ * cobro. Lo decide `hayPremioQueDevolver`, y la pantalla no le puede decir a
+ * la persona que se inició una devolución de plata que nunca salió de su
+ * cuenta.
+ *
+ * El **medio** sí decide otra cosa: adónde vuelve el dinero y en cuánto tiempo
+ * (respuestas B2 y B3 de Bancard). Eso lo resuelve `devolucionPorMedio`.
  */
 
 interface HitoCalculado {
@@ -121,6 +132,11 @@ export function CasoVencido() {
 
   const conDevolucion = caso?.hayPremioQueDevolver !== false;
   const pasos = conDevolucion ? PASOS_DEVOLUCION : PASOS_CADUCIDAD_SIN_COBRO;
+  // `caso` viene de un fetch, así que `medio` es `string | null` y no el tipo
+  // del dominio. Se valida acá: un valor inesperado cae en el texto genérico,
+  // que es cierto para cualquier medio, en vez de indexar el registro con una
+  // clave que no existe.
+  const destino = devolucionPorMedio(esMedioDePago(caso?.medio) ? caso.medio : null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -237,6 +253,27 @@ export function CasoVencido() {
         <p className="rounded-lg border border-rojo-300 bg-rojo-50 px-4 py-3 text-sm font-bold text-rojo-900 dark:border-rojo-700 dark:bg-rojo-950 dark:text-rojo-100">
           {conDevolucion ? AVISO_DEVOLUCION_SOLO_AL_ORIGEN : AVISO_CADUCIDAD_SIN_COBRO}
         </p>
+
+        {/* Adónde vuelve el dinero y cuándo (fila 65). Solo en la variante con
+            devolución: sin cobro no hay nada que volver a ningún lado. */}
+        {conDevolucion ? (
+          <div className="flex flex-col gap-2 rounded-lg border border-borde-tenue bg-superficie-suave p-3">
+            <h3 className="text-[11px] font-bold tracking-wide text-etiqueta">
+              {TITULO_DESTINO_DEVOLUCION}
+            </h3>
+            <p className="text-xs text-cuerpo">
+              <span className="font-semibold text-titulo">{ROTULO_DESTINO_DEVOLUCION}:</span>{" "}
+              {destino.destino}
+            </p>
+            <p className="text-xs text-cuerpo">
+              <span className="font-semibold text-titulo">{ROTULO_PLAZO_DEVOLUCION}:</span>{" "}
+              {destino.plazo}
+            </p>
+            {destino.plazoLoFijaElBanco ? (
+              <p className="text-xs text-etiqueta">{NOTA_PLAZO_LO_FIJA_EL_BANCO}</p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       {/* Estado final del expediente (pie de la especificación) */}

@@ -10,7 +10,7 @@
  * 2. `confirmarPagoP7` — el sondeo que hace la pantalla mientras espera. Es lo
  *    único que puede llevar el expediente de FIRMADO a PAGO_CONFIRMADO.
  * 3. `vencerPlazoPagoP7` — el plazo de 24 horas cumplido sin cobro: FIRMADO →
- *    VENCIDO (D-10).
+ *    VENCIDO (D-10), **y la operación abierta en Bancard se apaga**.
  *
  * ## D-08 · este paso ahora va después de la firma
  *
@@ -51,6 +51,15 @@
  * impedir cobros o eventos duplicados"*, Ley 6822/21, art. 68(1); Res. BCP
  * 25/21, art. 8).
  *
+ * **Una operación que el expediente deja de referenciar se apaga.** El QR de
+ * Bancard vive 3 días (respuesta B5) y no es configurable (B5-bis), así que una
+ * operación abandonada sobrevive al expediente que la abrió y sigue siendo
+ * pagable: dinero entrando contra algo que nadie mira. Pasa por dos caminos
+ * —el expediente vence, o la persona abre otro intento y el anterior queda
+ * huérfano— y los dos invocan `cancelarOLiberarReserva`, que es el uso que el
+ * proveedor declara mandatorio al cancelar una venta (B4-bis). La evidencia
+ * dice por cuál de los dos motivos.
+ *
  * ## Datos de tarjeta (regla inviolable #6)
  *
  * Ni el tipo de entrada ni el de salida de este módulo tienen un campo donde
@@ -70,7 +79,7 @@ import { randomUUID } from "node:crypto";
 import { desglosePremio } from "./catalogo";
 import { ErrorEscrituraConcurrente, conReintentoPorConflicto } from "./concurrencia";
 import type { EvidenceStore } from "../ports/evidence-store";
-import type { PaymentProvider } from "../ports/payment-provider";
+import type { EstadoConsultaPago, PaymentProvider } from "../ports/payment-provider";
 import { ErrorBancard } from "../ports/payment-provider";
 import {
   registrarIntentoPagoP7,
@@ -82,6 +91,7 @@ import type {
   CertificadoCobertura,
   DatosFacturacionP7,
   EstadoExpediente,
+  EstadoPago,
   Expediente,
   MedioDePago,
   Pago,
@@ -146,6 +156,38 @@ export const PASO_EVIDENCIA_INICIO_P7 = "P7_INICIO_PAGO";
 export const PASO_EVIDENCIA_CONFIRMACION_P7 = "P7_CONFIRMACION_PAGO";
 export const PASO_EVIDENCIA_VENCIMIENTO_P7 = "P7_VENCIMIENTO_PLAZO_PAGO";
 export const PASO_EVIDENCIA_CERTIFICADO_P7 = "P7_CERTIFICADO_COBERTURA";
+/**
+ * Reversa de la operación abierta en Bancard (G1).
+ *
+ * Es evidencia propia y no un campo del vencimiento porque son dos hechos con
+ * dos contrapartes: uno lo decide el reloj del portal y el otro lo ejecuta el
+ * proveedor, y pueden discrepar —la reversa puede fallar, o llegar tarde—.
+ * Un auditor que pregunte *"¿el QR quedó apagado?"* tiene que poder mirar un
+ * registro que responda eso y no inferirlo del vencimiento.
+ */
+export const PASO_EVIDENCIA_REVERSA_P7 = "P7_REVERSA_OPERACION";
+
+/**
+ * Por qué se reversó. Va a la evidencia porque `cancelarOLiberarReserva` tiene
+ * dos usos distintos —apagar un QR no pagado y resolver un pago incierto— y
+ * *"¿por qué se deshizo esta operación?"* es una pregunta de auditoría, no de
+ * depuración. Es el mismo criterio con el que el origen de la confirmación de
+ * firma (`SONDEO` / `RETORNO_NAVEGADOR`) viaja a la evidencia en CHG-33.
+ */
+export const MOTIVO_REVERSA_VENCIMIENTO = "VENCIMIENTO_EXPEDIENTE";
+
+/**
+ * La persona abrió un intento nuevo y el anterior quedó abandonado — cambió de
+ * medio de pago, típicamente.
+ *
+ * Es el mismo problema que G1 con otro disparador: una operación que el
+ * expediente **deja de referenciar** sigue viva del lado de Bancard hasta 3
+ * días (B5), y `Expediente.pago` guarda un solo intento, así que el anterior se
+ * vuelve invisible en cuanto se lo reemplaza. Si alguien pagara ese QR
+ * huérfano, el dinero entraría contra una operación que nadie mira, y la
+ * persona habría pagado dos veces.
+ */
+export const MOTIVO_REVERSA_INTENTO_REEMPLAZADO = "INTENTO_REEMPLAZADO";
 
 export const URL_RETORNO_TARJETA_POR_DEFECTO = "/pago/retorno";
 
@@ -192,9 +234,18 @@ export function normalizarRuc(entrada: string): string | null {
  * Bancard.
  *
  * Genera una clave nueva cuando el intento anterior ya no sirve: la persona
- * cambió de medio de pago, o el QR anterior se canceló o venció. Son intentos
- * legítimamente distintos y cada uno necesita su propia clave — por eso el
- * puerto advierte que `propuestaId` no alcanza como sustituto.
+ * cambió de medio de pago, el QR anterior se canceló o venció, **o Bancard
+ * rechazó el intento**. Son intentos legítimamente distintos y cada uno
+ * necesita su propia clave — por eso el puerto advierte que `propuestaId` no
+ * alcanza como sustituto.
+ *
+ * El caso del rechazo es el que obliga, y no solo el que conviene: el
+ * `shop_process_id` de un intento **queda quemado aunque el intento haya
+ * fallado** (respuesta B10 de Bancard), así que reintentar con la misma clave
+ * reabriría una operación que el proveedor ya dio por usada y el segundo
+ * intento no podría prosperar. La función no necesitó ninguna rama nueva para
+ * eso: le alcanza con que el pago haya dejado de estar `PENDIENTE`, que es
+ * justamente lo que `RECHAZADO` hace posible representar.
  */
 export function claveDeIdempotencia(
   pagoAnterior: Pago | null,
@@ -325,6 +376,13 @@ export type ResultadoConfirmarPagoP7 =
       readonly ok: false;
       readonly motivo: MotivoRechazoP7;
       readonly detalle?: string;
+      /**
+       * `response_code` de Bancard cuando el sondeo trajo un rechazo. Mismo
+       * criterio que en `ResultadoIniciarPagoP7`: la razón la pone el
+       * proveedor y la pantalla solo agrega qué hacer. "Fondos insuficientes"
+       * y "Tarjeta inhabilitada" mandan a la persona a cosas distintas.
+       */
+      readonly codigoRespuesta?: string;
       /** A dónde mandar a la persona cuando el rechazo la saca del flujo. */
       readonly siguientePantalla?: typeof RUTA_PANTALLA_B;
     };
@@ -438,7 +496,22 @@ async function registrarEvidencia(
  *
  * **Vencer ya no cuesta plata.** Bajo el orden nuevo el expediente caduca
  * antes de cobrar, así que no hay premio que devolver ni reserva que liberar:
- * la evidencia lo registra como caducidad sin cobro y ahí termina.
+ * la evidencia lo registra como caducidad sin cobro.
+ *
+ * **Pero sí hay que apagar el QR** (G1). Marcar el expediente no alcanza,
+ * porque la operación sigue viva del otro lado: el QR dinámico de Bancard dura
+ * **3 días** (respuesta B5) contra las 24 horas de D-10, y esa vigencia **no
+ * es configurable por comercio** (B5-bis). Sin la reversa quedan hasta dos
+ * días en los que alguien puede pagar un QR que apunta a un expediente
+ * terminal — dinero cobrado sin contrato vigente, que es exactamente lo que la
+ * inversión pago ↔ firma de D-08 fue diseñada para hacer imposible.
+ *
+ * La forma de apagarlo la declaró el proveedor: la reversa por `hook_alias`
+ * *"permite inactivar o invalidar un QR que haya sido generado y que aún no
+ * haya sido pagado"*, y usarla al cancelar la venta es **mandatorio**
+ * (respuesta B4-bis; B5-bis la repite con nuestro propio plazo de ejemplo).
+ * Un expediente que vence **es** la cancelación de la venta desde el sistema
+ * del comercio.
  */
 async function aplicarVencimiento(
   deps: DependenciasP7,
@@ -482,7 +555,161 @@ async function aplicarVencimiento(
     },
   });
 
-  return { expediente: transicion.expediente, vencio: true };
+  // G1 · recién ahora, con la escritura ganada. Ver `reversarOperacionAbierta`.
+  const conReversa = await reversarOperacionAbierta(
+    deps,
+    reloj,
+    transicion.expediente,
+    contexto,
+  );
+
+  return { expediente: conReversa, vencio: true };
+}
+
+/**
+ * Cierra en Bancard la operación que quedó abierta cuando el expediente venció
+ * (G1), y asienta el desenlace.
+ *
+ * ## Por qué ocurre **después** de persistir el vencimiento, y no antes
+ *
+ * Es lo único que evita el peor desenlace posible: reversar un cobro que sí se
+ * confirmó. La escritura del vencimiento lleva bloqueo optimista contra
+ * `actualizadoEn`, así que **haberla ganado es la prueba de que ningún sondeo
+ * concurrente confirmó el pago** — si lo hubiera hecho, la escritura habría
+ * fallado y no se llegaría hasta acá. Al revés —reversar y después escribir—
+ * un sondeo que ganara la carrera dejaría un expediente `PAGO_CONFIRMADO`, con
+ * su Certificado de Cobertura Provisional emitido, y el dinero devuelto.
+ *
+ * Queda una franja: que el pago se acredite entre la escritura y la reversa.
+ * No se puede cerrar —son dos sistemas— pero sí se puede **detectar**: la
+ * reversa devuelve el estado resultante, y `DEVUELTO` significa que había
+ * dinero adentro. Se asienta como evidencia FALLIDA con `dineroDevuelto=true`,
+ * que es lo que le permite a alguien encontrarlo después. El expediente no
+ * vuelve del vencimiento: `VENCIDO` es terminal.
+ *
+ * ## Nada de esto puede deshacer el vencimiento
+ *
+ * Si el proveedor no contesta, o la referencia no existe, el expediente ya
+ * venció igual: la caducidad la decide nuestro reloj, no Bancard. El fallo se
+ * asienta como evidencia y la función devuelve el expediente como estaba. Lo
+ * que se pierde en ese caso es la garantía de que el QR quedó apagado, y por
+ * eso queda escrito.
+ */
+async function reversarOperacionAbierta(
+  deps: DependenciasP7,
+  reloj: Reloj,
+  expediente: Expediente,
+  contexto: ContextoPeticion,
+): Promise<Expediente> {
+  const pago = expediente.pago;
+  // Solo hay algo que apagar si quedó una operación viva. Un pago ya
+  // `CANCELADO`, `RECHAZADO` o `DEVUELTO` es un final del lado del proveedor, y
+  // uno `CONFIRMADO` no puede coexistir con un vencimiento (la máquina de
+  // estados solo vence desde FIRMADO).
+  if (!pago || pago.estado !== "PENDIENTE" || !pago.referenciaBancard) return expediente;
+
+  const estado = await apagarOperacionEnBancard(
+    deps,
+    reloj,
+    expediente,
+    pago,
+    contexto,
+    MOTIVO_REVERSA_VENCIMIENTO,
+  );
+  if (estado === null) return expediente;
+
+  // Segunda escritura, y a propósito: el estado del pago solo se puede saber
+  // después de preguntarle al proveedor, y preguntarle antes de ganar la
+  // escritura del vencimiento es justamente lo que no se puede hacer. El
+  // expediente ya es terminal, así que nadie más lo escribe y el conflicto es
+  // casi imposible; si igual ocurre se deja asentado y se sigue, porque la
+  // evidencia de la reversa —que es la probatoria, regla #10— ya quedó escrita
+  // y `Pago.estado` es una proyección de conveniencia.
+  const actualizado: Expediente = {
+    ...expediente,
+    pago: { ...pago, estado },
+    actualizadoEn: reloj.ahora(),
+  };
+  try {
+    await deps.expedientes.guardar(actualizado, expediente.actualizadoEn);
+  } catch (error) {
+    if (error instanceof ErrorEscrituraConcurrente) return expediente;
+    throw error;
+  }
+  return actualizado;
+}
+
+/**
+ * Le pide a Bancard que deshaga una operación abierta y asienta el desenlace.
+ *
+ * Devuelve el estado al que llegó la operación, o `null` si el proveedor no
+ * contestó. **No persiste nada**: quién guarda el resultado —y si lo guarda—
+ * depende del camino que la llamó, porque los dos disparadores escriben el
+ * expediente en momentos distintos.
+ */
+async function apagarOperacionEnBancard(
+  deps: DependenciasP7,
+  reloj: Reloj,
+  expediente: Expediente,
+  pago: Pago,
+  contexto: ContextoPeticion,
+  motivoReversa: string,
+): Promise<EstadoPago | null> {
+  if (!pago.referenciaBancard) return null;
+
+  const fecha = reloj.ahora();
+  const base = {
+    medio: pago.medio,
+    montoGs: pago.montoGs,
+    referenciaBancard: pago.referenciaBancard,
+    numeroPropuesta: expediente.numeroPropuesta,
+    idempotencyKey: pago.idempotencyKey,
+  };
+
+  let resultado: EstadoConsultaPago;
+  try {
+    resultado = await deps.pagos.cancelarOLiberarReserva(pago.referenciaBancard);
+  } catch (error) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_REVERSA_P7,
+      fecha,
+      contexto,
+      resultado: "FALLIDO",
+      detalle: {
+        ...resumenSeguroP7({ ...base, estadoPago: pago.estado }),
+        motivoReversa,
+        // Lo que hay que saber después: la operación puede haber quedado
+        // pagable. No se reintenta acá — un bucle de reintentos contra el
+        // proveedor no es cosa de ninguno de los dos caminos que llaman acá.
+        reversaAplicada: false,
+        error: error instanceof Error ? error.message : "desconocido",
+      },
+    });
+    return null;
+  }
+
+  // `DEVUELTO` es el caso de borde: el dinero había entrado antes de que la
+  // reversa llegara, así que no canceló nada — lo devolvió. Es raro y es
+  // importante que se note.
+  const dineroDevuelto = resultado.estado === "DEVUELTO";
+
+  await registrarEvidencia(deps, reloj, {
+    expedienteId: expediente.id,
+    paso: PASO_EVIDENCIA_REVERSA_P7,
+    fecha,
+    contexto,
+    resultado: dineroDevuelto ? "FALLIDO" : "EXITOSO",
+    detalle: {
+      ...resumenSeguroP7({ ...base, estadoPago: resultado.estado }),
+      motivoReversa,
+      reversaAplicada: true,
+      dineroDevuelto,
+      ...(resultado.codigoRespuesta ? { codigoRespuesta: resultado.codigoRespuesta } : {}),
+    },
+  });
+
+  return resultado.estado;
 }
 
 // ---------------------------------------------------------------------------
@@ -590,6 +817,30 @@ async function intentarIniciarPagoP7(
   const numeroPropuesta = expediente.numeroPropuesta;
   const idempotencyKey = claveDeIdempotencia(expediente.pago, medio, montoGs, reloj.nuevoId);
   const urlRetorno = deps.urlRetornoTarjeta ?? URL_RETORNO_TARJETA_POR_DEFECTO;
+
+  // Una clave nueva sobre un pago que sigue `PENDIENTE` significa que el
+  // intento anterior queda **abandonado**: la persona cambió de medio. Hay que
+  // apagar esa operación antes de abrir la siguiente, por la misma razón que
+  // G1 —el QR del proveedor vive 3 días (B5) y `Expediente.pago` guarda un solo
+  // intento, así que el anterior se vuelve invisible en cuanto se lo
+  // reemplaza—. Un QR huérfano que alguien pague deja dinero entrando contra
+  // una operación que nadie mira, con la persona pagando dos veces.
+  //
+  // Va **antes** de abrir la nueva y no después: así no hay ningún instante con
+  // dos operaciones vivas para el mismo expediente. Si el proveedor no
+  // contesta, queda la evidencia y el pago sigue igual — no dejar pagar por
+  // esto sería castigar a la persona por una falla de Bancard.
+  const anterior = expediente.pago;
+  if (anterior && anterior.estado === "PENDIENTE" && anterior.idempotencyKey !== idempotencyKey) {
+    await apagarOperacionEnBancard(
+      deps,
+      reloj,
+      expediente,
+      anterior,
+      entrada.contexto,
+      MOTIVO_REVERSA_INTENTO_REEMPLAZADO,
+    );
+  }
 
   let referenciaBancard: string;
   let instruccion: InstruccionDePago;
@@ -790,6 +1041,74 @@ async function intentarConfirmarPagoP7(
   const consulta = await deps.pagos.consultarEstadoPago(pago.referenciaBancard);
   if (!consulta) {
     return { ok: false, motivo: "PAGO_NO_INICIADO" };
+  }
+
+  // G2 · Bancard procesó el intento y lo rechazó. **No es un error del
+  // sistema ni un final del expediente**: es un intento de cobro que salió mal
+  // y la persona tiene que poder hacer otro, con otra tarjeta o con otro
+  // medio. El expediente se queda en FIRMADO y solo cambia el `Pago`.
+  //
+  // Que este camino exista lo habilitó B10-bis: el rechazo llega por las dos
+  // vías —el callback lo notifica y `get_confirmation` lo devuelve con su
+  // `response_code`—, así que se puede asentar en vez de quedar confundido con
+  // "todavía no pagó". Asentarlo es lo que hace que el reintento funcione:
+  // `claveDeIdempotencia` acuña una clave nueva en cuanto el pago deja de
+  // estar `PENDIENTE`, y con ella el adaptador abre el `shop_process_id` nuevo
+  // que Bancard exige (B10).
+  if (consulta.estado === "RECHAZADO") {
+    // **Idempotente, y no por prolijidad.** El rechazo se asienta una sola vez;
+    // los sondeos que lleguen después devuelven lo mismo sin escribir.
+    //
+    // Sin esto, cada sondeo reescribía el expediente con el mismo hecho, y eso
+    // rompía el reintento: la pantalla habilita el botón apenas ve el rechazo,
+    // y un sondeo en vuelo que escribiera entre la lectura y la escritura de
+    // `iniciarPagoP7` le hacía perder el bloqueo optimista. Como abrir un pago
+    // **no** se reintenta a propósito —reintentar podría abrir una segunda
+    // operación en Bancard—, el resultado era un `CONFLICTO_CONCURRENCIA` que
+    // dejaba a la persona sin poder pagar justo después de decirle que podía.
+    // Lo encontró el E2E de v3, en 1 de 2 corridas.
+    //
+    // Es la misma propiedad que `respuestaDePagoYaConfirmado` le da a la rama
+    // del cobro acreditado, y la que el sondeo pendiente ya tenía por no
+    // escribir nada. La evidencia también entra acá: la fila 31 pide constancia
+    // del rechazo, no una por cada vez que la pantalla preguntó.
+    if (pago.estado === "RECHAZADO") {
+      return {
+        ok: false,
+        motivo: "BANCARD_RECHAZO",
+        codigoRespuesta: consulta.codigoRespuesta ?? undefined,
+      };
+    }
+
+    await deps.expedientes.guardar(
+      { ...expediente, pago: { ...pago, estado: "RECHAZADO" }, actualizadoEn: fecha },
+      expediente.actualizadoEn,
+    );
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: entrada.expedienteId,
+      paso: PASO_EVIDENCIA_CONFIRMACION_P7,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: {
+        ...resumenSeguroP7({
+          medio: pago.medio,
+          montoGs: pago.montoGs,
+          referenciaBancard: pago.referenciaBancard,
+          estadoPago: "RECHAZADO",
+          numeroPropuesta: expediente.numeroPropuesta,
+          idempotencyKey: pago.idempotencyKey,
+        }),
+        // El código del proveedor, no una traducción nuestra: es lo que la
+        // persona le va a decir a quien la atienda.
+        ...(consulta.codigoRespuesta ? { codigoRespuesta: consulta.codigoRespuesta } : {}),
+      },
+    });
+    return {
+      ok: false,
+      motivo: "BANCARD_RECHAZO",
+      codigoRespuesta: consulta.codigoRespuesta ?? undefined,
+    };
   }
 
   if (consulta.estado === "CANCELADO") {

@@ -55,6 +55,7 @@ import type {
 } from "../domain/documentos";
 import type { ContenidoCertificado, CoberturaCertificado } from "../domain/certificado-cobertura";
 import type { ContenidoComprobante } from "../domain/comprobante-pago";
+import type { ContenidoConstancia } from "../domain/constancia-firma";
 
 const AUTOR_PDF = "Interseguros S.A. · SeguroLoTengo.com";
 
@@ -672,5 +673,100 @@ function dibujarComprobante(
 export function renderizarComprobante(contenido: ContenidoComprobante): Uint8Array {
   return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
     dibujarComprobante(documento, contenido, total),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Constancia del acto de firma del cliente (D-27)
+// ---------------------------------------------------------------------------
+
+/** Valores que no entran en media columna: huellas, dispositivo, sesión. */
+function esValorLargo(campo: CampoDocumento): boolean {
+  return campo.valor.length > 40;
+}
+
+/**
+ * Un pilar de la constancia: su explicación y sus hechos. Los hechos cortos
+ * van a dos columnas; los largos —huellas de 64 caracteres, el agente de
+ * usuario— ocupan la fila entera, porque una huella recortada no se puede
+ * comparar contra nada.
+ */
+function bloquePilar(lienzo: Lienzo, numero: number, pilar: ContenidoConstancia["pilares"][number]): void {
+  // El título reserva espacio para la explicación y la primera fila de hechos:
+  // un encabezado solo al pie de la carilla parece una sección vacía.
+  seccion(lienzo, numero, pilar.titulo, 64);
+  lienzo.pagina.parrafo(MARGEN, lienzo.y, ANCHO_UTIL, pilar.explicacion, {
+    tamano: 7.4,
+    color: TINTA,
+    interlineado: 9.4,
+  });
+  lienzo.y += partirEnLineas(pilar.explicacion, "regular", 7.4, ANCHO_UTIL).length * 9.4 + 6;
+
+  const cortos = pilar.hechos.filter((h) => !esValorLargo(h));
+  const largos = pilar.hechos.filter(esValorLargo);
+  if (cortos.length > 0) grillaDeCampos(lienzo, cortos, 2);
+  for (const largo of largos) grillaDeCampos(lienzo, [largo], 1);
+}
+
+/**
+ * Dibuja la constancia completa.
+ *
+ * El orden es el de la pregunta que se le hace a este documento: qué firma es
+ * y bajo qué norma, y después los tres requisitos del art. 4 en el orden en
+ * que la norma los nombra —identificación, integridad, trazabilidad—, cada
+ * uno con la evidencia que lo satisface. Las dos
+ * advertencias de qué **no** es van al final, en rojo, porque la confusión
+ * cara es tomar esto por un certificado de prestador.
+ */
+function dibujarConstancia(
+  documento: DocumentoPdf,
+  contenido: ContenidoConstancia,
+  totalPaginas: number,
+): number {
+  const lienzo = crearLienzo(documento, (pagina, numeroPagina) =>
+    dibujarEncabezado(pagina, contenido.encabezado, numeroPagina, totalPaginas),
+  );
+
+  lienzo.pagina.texto(MARGEN, lienzo.y - 4, `Acto de firma del ${contenido.encabezado.selloDeTiempo}`, {
+    fuente: "negrita",
+    tamano: 7,
+    color: ETIQUETA,
+    alineacion: "centro",
+    ancho: ANCHO_UTIL,
+  });
+  lienzo.y += 8;
+
+  franja(lienzo, contenido.leyendaQueEs, "verde");
+
+  seccion(lienzo, 1, "Naturaleza de la firma");
+  grillaDeCampos(lienzo, contenido.naturaleza, 2);
+
+  // Los tres requisitos del art. 4, en el orden en que la norma los nombra. El
+  // documento firmado y su huella van dentro de «Qué firmaste», que es su
+  // pilar: imprimirlos también aparte los decía dos veces.
+  contenido.pilares.forEach((pilar, indice) => bloquePilar(lienzo, 2 + indice, pilar));
+
+  seccion(lienzo, 2 + contenido.pilares.length, "Respaldo normativo");
+  lienzo.pagina.parrafo(MARGEN, lienzo.y, ANCHO_UTIL, contenido.leyendaNorma, {
+    tamano: 7,
+    color: TINTA,
+    interlineado: 9,
+  });
+  lienzo.y += partirEnLineas(contenido.leyendaNorma, "regular", 7, ANCHO_UTIL).length * 9 + 8;
+
+  franja(lienzo, contenido.leyendaNoEsCertificado, "rojo");
+  franja(lienzo, contenido.leyendaVerificacion, "neutro");
+
+  pie(lienzo, contenido.encabezado);
+  return lienzo.numeroPagina;
+}
+
+/**
+ * La constancia cerrada y lista para hashear: mismo motor determinista que los
+ * otros documentos, porque su huella es lo que la verificación pública publica.
+ */
+export function renderizarConstancia(contenido: ContenidoConstancia): Uint8Array {
+  return renderizarEnDosPasadas(contenido.encabezado, (documento, total) =>
+    dibujarConstancia(documento, contenido, total),
   );
 }
