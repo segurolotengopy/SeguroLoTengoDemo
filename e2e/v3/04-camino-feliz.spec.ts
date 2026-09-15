@@ -14,6 +14,7 @@
 import { writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
+import { BOTON_CONTINUAR_PLAN } from "@/domain/textos-plan";
 import { leerCodigoOtpDelPanel, prepararEscenario } from "../support/demo-panel";
 import {
   celularLocal,
@@ -105,7 +106,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await esperarHidratacion(page);
   const tarjeta = page.getByRole("article").nth(1); // CONFÍO+
   await tarjeta.getByRole("radio").click();
-  await page.getByRole("button", { name: "CONTINUAR CON EL PLAN SELECCIONADO →" }).click();
+  await page.getByRole("button", { name: BOTON_CONTINUAR_PLAN, exact: true }).click();
 
   // ── Paso 2 · beneficiario + 5 preguntas + aceptación agrupada 2 ───────
   await expect(page.getByText("✓ Plan elegido: CONFÍO+", { exact: false })).toBeVisible();

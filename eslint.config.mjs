@@ -24,6 +24,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Artefactos de Playwright (reportes y trazas incluyen JS empaquetado).
     "playwright-report/**",
+    // La batería v3 escribe su propio reporte (`playwright.v3.config.ts`): sin
+    // esto, una corrida E2E v3 deja trazas que suman miles de «errores» al lint.
+    "playwright-report-v3/**",
     "test-results/**",
     // Worktrees de git: son **otras copias del repo**, con su propio ciclo de
     // vida y su propio lint. Sin esto, cualquier worktree con un build hecho
