@@ -1,12 +1,15 @@
 /**
  * `POST /api/p8/firma-interna/verificar` — el código de firma tipeado cierra
- * el acto interno del cliente: `PAQUETE_GENERADO → FIRMADO_CLIENTE`.
+ * el acto interno del cliente: `PAQUETE_GENERADO → FIRMADO_CLIENTE`, con el
+ * plazo de pago (D-32: 10 minutos) abierto en la misma escritura.
  *
  * El texto y la versión que quedan firmados los pone el servidor
- * (`textos-pago-firma.ts`): el navegador solo manda el código. Las firmas
- * institucionales las aplica después el sondeo de siempre
- * (`GET /api/p8/estado`), igual que cuando el cliente firmaba en Code100 —
- * el tramo cualificado no distingue quién ejecutó la del cliente.
+ * (`textos-pago-firma.ts`): el navegador solo manda el código.
+ *
+ * **Enmienda del 04-sep-2026 a D-08 (D-38, D-42).** `FIRMADO_CLIENTE` ya
+ * habilita el cobro: no hay ningún tramo institucional que este endpoint, ni
+ * el sondeo de `GET /api/p8/estado`, tengan que esperar. La firma cualificada
+ * de Interseguros se aplica después del pago, desde `emision-p9.ts`.
  */
 import {
   COOKIE_EXPEDIENTE,
@@ -15,6 +18,7 @@ import {
   resolverContextoHttp,
   respuestaJson,
 } from "@/app/api/_http/contexto-peticion";
+import { obtenerPlazoPagoMs } from "@/adapters/registro";
 import { dependenciasP1 } from "@/app/api/p1/_dependencias";
 import { emisorConstanciaFirma } from "@/app/api/p8/_dependencias";
 import { registrarActoDeFirmaCliente } from "@/domain/firma-cliente";
@@ -61,7 +65,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const resultado = await registrarActoDeFirmaCliente(
-    { ...dependenciasP1(), emitirConstancia: emisorConstanciaFirma(request) },
+    {
+      ...dependenciasP1(),
+      emitirConstancia: emisorConstanciaFirma(request),
+      // D-32 · 10 minutos, salvo que el panel de demo lo haya comprimido.
+      plazoPagoMs: obtenerPlazoPagoMs(),
+    },
     {
     expedienteId,
     canal: cuerpo.canal,
