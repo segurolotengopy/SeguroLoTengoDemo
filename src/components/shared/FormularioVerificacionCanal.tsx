@@ -59,6 +59,7 @@ const MENSAJES_COMUNES: Readonly<Record<string, string>> = {
   YA_UTILIZADO: "Ese código ya fue usado. Pedí uno nuevo.",
   OTP_NO_ENCONTRADO: "No encontramos el código. Pedí uno nuevo.",
   OTP_DE_OTRO_EXPEDIENTE: "No encontramos el código. Pedí uno nuevo.",
+  OTP_REEMPLAZADO: "Ese código fue reemplazado por uno más nuevo. Ingresá el último que te enviamos.",
   SESION_INVALIDA: "Se perdió la sesión. Volvé a empezar el proceso.",
   ERROR_ENVIO: "No pudimos enviar el código. Intentá de nuevo en un momento.",
   CUERPO_INVALIDO: "No pudimos procesar el pedido. Intentá de nuevo.",

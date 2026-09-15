@@ -38,6 +38,7 @@ import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, pagoAcreditado } from "
 import { codigoFipf, codigoSolicitud, codigoConstancia } from "./documentos";
 import { codigoCertificado } from "./certificado-cobertura";
 import { firmantesConjuntos } from "./firmantes-documento";
+import type { PropositoOtp } from "../ports/otp-provider";
 import { evaluarElegibilidad } from "./elegibilidad";
 import { flujoV3Activo } from "./flujo-vigente";
 
@@ -468,6 +469,42 @@ export function registrarPaqueteDocumental(
   }
 
   return transicionarExpediente(expediente, "PAQUETE_GENERADO", { paqueteDocumental: paquete }, ahora);
+}
+
+// ---------------------------------------------------------------------------
+// OTP vigente por propósito (manual funcional v4, 03A)
+// ---------------------------------------------------------------------------
+
+/**
+ * Asienta `otpId` como el OTP vigente de `proposito` **sin mover el estado**.
+ * Desde esta escritura cualquier otro `otpId` de ese propósito queda
+ * reemplazado: *"Un nuevo OTP invalida el anterior"*. Ver
+ * `OtpVigentePorProposito` en `tipos.ts`.
+ */
+export function registrarOtpVigente(
+  expediente: Expediente,
+  proposito: PropositoOtp,
+  otpId: string,
+  ahora: string = new Date().toISOString(),
+): Expediente {
+  return {
+    ...expediente,
+    otpVigente: { ...expediente.otpVigente, [proposito]: otpId },
+    actualizadoEn: ahora,
+  };
+}
+
+/**
+ * El `otpId` vigente de `proposito` cuando `otpId` **no** es él; `null` si
+ * `otpId` es el vigente o si el propósito no tiene ninguno asentado.
+ */
+export function otpVigenteQueLoReemplaza(
+  expediente: Expediente,
+  proposito: PropositoOtp,
+  otpId: string,
+): string | null {
+  const vigente = expediente.otpVigente[proposito];
+  return vigente !== undefined && vigente !== otpId ? vigente : null;
 }
 
 // ---------------------------------------------------------------------------

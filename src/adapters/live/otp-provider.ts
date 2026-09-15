@@ -33,9 +33,12 @@
  * `otp-service` no tiene endpoint de reenvío: reenviar es pedir un OTP nuevo
  * para el mismo destino y propósito, y su rate limiter aplica el cooldown de
  * 60 s. El `otpId` resultante es NUEVO y es el que vuelve al motor (que ya
- * propaga `envio.otpId` a la pantalla). El OTP anterior queda huérfano dentro
- * de WhatsApp-Modular hasta vencer: ninguna pantalla conserva su `otpId`, así
- * que no hay camino para verificarlo.
+ * propaga `envio.otpId` a la pantalla). El OTP anterior sigue vivo dentro de
+ * WhatsApp-Modular hasta vencer, y este adaptador lo verificaría si alguien
+ * armara la petición con su `otpId`. Quien lo apaga es el dominio, no el
+ * adaptador: cada emisión asienta el `otpId` nuevo en `Expediente.otpVigente`
+ * y la verificación rechaza cualquier otro con `OTP_REEMPLAZADO` sin llegar
+ * acá (manual funcional v4, 03A: "Un nuevo OTP invalida el anterior").
  */
 import { randomUUID } from "node:crypto";
 import { canalCoherenteConProposito } from "../../ports/otp-provider";

@@ -38,6 +38,119 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-15 · Un nuevo OTP invalida el anterior
+
+**Rama:** `claude/practical-brahmagupta-e30c22` · **Pedido de Andres:**
+corregir el defecto confirmado hoy en la verificación de OTP, en el dominio y
+no en el adaptador, para los propósitos `VERIFICACION_CELULAR` y `FIRMA`.
+
+### El caso
+
+`verificarOtpDeCanal` (`src/domain/verificacion-canal.ts`) comprobaba que el
+`otpId` existiera, fuera del expediente y del propósito, pero **no que fuera el
+último emitido**. El acto de firma interna (`registrarActoDeFirmaCliente`)
+tenía el mismo hueco. Los proveedores no lo tapan:
+
+- **WhatsApp-Modular** (live) no tiene reenvío: cada pedido acuña un `otpId`
+  nuevo y el anterior sigue verificable del lado del servicio hasta vencer. El
+  comentario del adaptador decía que quedaba "huérfano" porque ninguna pantalla
+  guardaba su `otpId`, y eso no alcanza: cualquiera arma la petición a mano.
+- **El mock** rota el código dentro del mismo `otpId` al reenviar (ahí el viejo
+  sí muere), pero un pedido desde cero, con el cooldown cumplido, acuña otro
+  `otpId` y no apaga el anterior.
+
+El manual funcional v4 de Interseguros (14-sep, sección 03A) exige *"Un nuevo
+OTP invalida el anterior"*, y para el reenvío *"invalidar OTP anterior, emitir
+uno nuevo y reiniciar vigencia e intentos"*. La transcripción del manual está
+ignorada por git (`.txt`) y hoy solo existe en el worktree
+`analisis-handoff-front-5c7ab1`, en
+`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/`.
+
+### Qué cambió
+
+- **`Expediente.otpVigente`** (`tipos.ts`): el `otpId` vigente **por
+  propósito**, no por canal. Por eso pedir el código de firma por el otro
+  canal, o pasar a la contingencia SMS el día que exista, reemplaza al anterior
+  sin código adicional. No es evidencia: es un puntero que se pisa a propósito.
+- **`registrarOtpVigente` y `otpVigenteQueLoReemplaza`** (`expediente.ts`),
+  puras, junto a las demás escrituras de campos del expediente.
+- **`asentarOtpVigente`** (`verificacion-canal.ts`): después de cada emisión
+  exitosa (envío, reenvío y código de firma) guarda el `otpId` nuevo con
+  reintento por conflicto. Si no puede asentarlo, el envío se informa como
+  fallido (`ERROR_ENVIO` / `OTP_NO_ENVIADO`, evidencia
+  `OTP_VIGENTE_NO_ASENTADO`): el anterior seguiría vigente y el código recién
+  enviado sería rechazado, así que no se le da a la persona un código que no va
+  a servir.
+- **Rechazo `OTP_REEMPLAZADO`** en la verificación de canal, en el acto de
+  firma y en el reenvío. Se corta **antes** de llamar al proveedor, como el
+  rechazo por propósito: no gasta ningún intento del vigente. Queda evidencia
+  `FALLIDO` con el `otpId` presentado y el vigente (regla #10). Reenviar un
+  código reemplazado también se rechaza: el mock le rotaría el código y lo
+  volvería vigente, apagando el que la persona tiene en pantalla.
+- **La evidencia de cada emisión** lleva ahora `otpId` y, cuando corresponde,
+  `otpReemplazado`: el momento de la invalidación queda asentado, no solo el
+  rechazo posterior.
+- **Expedientes anteriores**: el repositorio lee el campo ausente como `{}` y no
+  los reescribe (regla #10). Un propósito sin OTP asentado no exige nada; lo
+  único que queda afuera es el código emitido antes del despliegue, que vence a
+  los 5 minutos.
+- Rutas y pantallas: `OTP_REEMPLAZADO` responde 409 en el reenvío de P1 y en
+  la firma interna (P1 verificar ya daba 409 por omisión); mensaje accionable
+  en P1 v2, en el formulario de canal compartido y en `FirmaInternaV3`, que
+  además suelta el `otpId` para que se pida uno nuevo.
+- Comentario de `src/adapters/live/otp-provider.ts` corregido: el adaptador
+  sigue sin invalidar nada; quien lo hace es el dominio. Además la regla vive en
+  DynamoDB, así que no depende de la metadata en memoria de ese adaptador.
+
+### Qué hizo Andres
+
+Confirmó el defecto y pidió la corrección (15-sep). No ejecutó nada en esta
+sesión.
+
+### Verificaciones
+
+- `src/domain/__tests__/otp-reemplazado.test.ts`, **13 tests** corridos contra
+  los **dos** proveedores: el mock y el live de WhatsApp-Modular con un
+  `otp-service` en memoria que no invalida nada, como el real. Cubre: un pedido
+  desde cero reemplaza al anterior, el viejo falla sin llegar al proveedor y el
+  nuevo conserva sus tres intentos; la evidencia de la emisión; el reenvío; el
+  reenvío de un código reemplazado; el expediente anterior a la regla; y en
+  `FIRMA` también el cambio de canal. Más 1 test del repositorio (lectura sin
+  el campo).
+- **En rojo contra `HEAD` (4b23b57)**, en un worktree temporal: los 13 fallan,
+  y el código viejo devolvía `ok: true`: verificaba el WhatsApp y **firmaba**
+  con el `otpId` reemplazado.
+- `npm run typecheck`: 0 errores. `npm run lint`: 0 errores, 9 warnings
+  anteriores, ninguno en los 13 archivos tocados (ESLint sobre ellos, limpio).
+  `npm test`: **1354 tests en 100 archivos**, en verde.
+- **Tropiezo, atajado antes del push:** el typecheck se corrió antes de agregar
+  el test del repositorio, y el primer commit se hizo con `npm test` solo,
+  que no verifica tipos. `npm run verify`, el paso 1 de la política de
+  despliegue, encontró `TS2704` (`delete` sobre una propiedad `readonly`); se
+  corrigió y se enmendó el commit, que todavía no estaba subido. Es el mismo
+  patrón que el #114: vitest en verde no prueba nada sobre los tipos.
+- `npm run seguridad`: 0 vulnerabilidades en 252 dependencias y 0 hallazgos
+  de IaC en 12 archivos. Corrió con la organización de Snyk `andresalberdi`,
+  no con `segurolotengo.py`.
+- No se abrió la vista previa: el cambio solo se ve armando la petición a mano,
+  y `preview_start` sirve el repo principal, no este worktree.
+
+### Queda abierto
+
+- **Sin push ni PR**: Andres decide cuándo pasa a `main`, por la cadena de
+  `docs/POLITICA_DE_DESPLIEGUE.md`.
+- **No revisado:** el OTP de la firma simulada de Code100 (`firma-p8.ts`,
+  `OtpFirmaRemoto`) guarda su `otpId` en la sesión de firma y no pasa por este
+  motor. Quedó fuera del alcance pedido.
+- **Contingencia SMS:** no existe en el código. Cuando se implemente, entra
+  como otro canal del mismo propósito y queda cubierta; solo hay que emitirla
+  por `enviarOtpDeCanal` / `solicitarOtpDeFirmaCliente`, no por fuera.
+- **Dos emisiones simultáneas** para el mismo expediente: gana la última
+  escritura del puntero, y la pantalla puede quedarse con la otra. El cooldown
+  de 60 s lo vuelve improbable; no tiene test.
+
+---
+
 ## 2026-09-14 · Interconexión con Alianza, la definición del 07-sep, y la carpeta de recepción
 
 **Rama:** `claude/alianza-garantia-integration-9febfc` · **Pedido de Andres:**

@@ -34,7 +34,8 @@
 import { randomUUID } from "node:crypto";
 import type { CanalOtp, OtpProvider, PropositoOtp } from "../ports/otp-provider";
 import type { EvidenceStore } from "../ports/evidence-store";
-import { transicionarExpediente } from "./expediente";
+import { conReintentoPorConflicto } from "./concurrencia";
+import { otpVigenteQueLoReemplaza, registrarOtpVigente, transicionarExpediente } from "./expediente";
 import { COOLDOWN_REENVIO_MS } from "./reglas-otp";
 import { crearExpedienteInicial } from "./tipos";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "./tipos";
@@ -138,7 +139,9 @@ export type MotivoRechazoEnvio =
   | "DESTINO_INVALIDO"
   | "ESTADO_INVALIDO"
   | "REENVIO_BLOQUEADO"
-  | "ERROR_ENVIO";
+  | "ERROR_ENVIO"
+  /** Solo en el reenvío: se pidió reenviar un código que otro ya reemplazó. */
+  | "OTP_REEMPLAZADO";
 
 export type ResultadoEnvioCanal =
   | {
@@ -171,6 +174,8 @@ export type MotivoRechazoVerificacion =
   | "OTP_NO_ENCONTRADO"
   | "OTP_DE_OTRO_EXPEDIENTE"
   | "PROPOSITO_INCORRECTO"
+  /** Es de este expediente y propósito, pero después se emitió otro: ese es el vigente. */
+  | "OTP_REEMPLAZADO"
   | "CODIGO_INCORRECTO"
   | "INTENTOS_AGOTADOS"
   | "EXPIRADO"
@@ -249,6 +254,60 @@ async function registrarEvidencia(
     detalle: formatearDetalle(entrada.detalle),
   };
   await deps.evidencias.guardar(registro);
+}
+
+// ---------------------------------------------------------------------------
+// OTP vigente (manual funcional v4, 03A: "Un nuevo OTP invalida el anterior")
+// ---------------------------------------------------------------------------
+
+export type ResultadoAsentarOtpVigente =
+  | { readonly ok: true; readonly reemplazado: string | null }
+  | { readonly ok: false };
+
+/**
+ * Asienta `otpId` como el vigente de su propósito y devuelve el que reemplazó
+ * (`null` si no había otro). Lo llaman el motor de canal y el acto de firma
+ * después de cada emisión exitosa.
+ *
+ * Relee dentro del reintento por conflicto, así el reemplazado es el que
+ * estaba de verdad al escribir. Si `otpId` ya es el vigente —el reenvío del
+ * mock rota el código dentro del mismo `otpId`— no escribe nada.
+ *
+ * `ok: false` quiere decir que el código salió pero no quedó como vigente: el
+ * anterior lo sigue siendo y este sería rechazado. Quien llama lo trata como
+ * un envío fallido, para no darle a la persona un código que no va a servir.
+ */
+export async function asentarOtpVigente(
+  expedientes: RepositorioExpediente,
+  entrada: {
+    readonly expedienteId: string;
+    readonly proposito: PropositoOtp;
+    readonly otpId: string;
+    readonly fecha: string;
+  },
+): Promise<ResultadoAsentarOtpVigente> {
+  return conReintentoPorConflicto<ResultadoAsentarOtpVigente>(
+    async () => {
+      const actual = await expedientes.obtenerPorId(entrada.expedienteId);
+      if (!actual) return { ok: false };
+      const anterior = actual.otpVigente[entrada.proposito] ?? null;
+      if (anterior === entrada.otpId) return { ok: true, reemplazado: null };
+      await expedientes.guardar(
+        registrarOtpVigente(actual, entrada.proposito, entrada.otpId, entrada.fecha),
+        actual.actualizadoEn,
+      );
+      return { ok: true, reemplazado: anterior };
+    },
+    () => ({ ok: false }),
+  );
+}
+
+/** Detalle de evidencia de una emisión: qué `otpId` nació y cuál dejó de valer. */
+function detalleEmision(otpId: string, asentado: { readonly reemplazado: string | null }) {
+  return {
+    otpId,
+    ...(asentado.reemplazado === null ? {} : { otpReemplazado: asentado.reemplazado }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -385,6 +444,28 @@ export async function enviarOtpDeCanal(
       : { ok: false, motivo: "ERROR_ENVIO", expedienteId: expediente.id };
   }
 
+  // Pedir un código desde cero —con el cooldown ya cumplido— emite un `otpId`
+  // nuevo y el proveedor no apaga el anterior. Asentarlo acá es lo que hace
+  // que el anterior deje de verificar.
+  const asentado = await asentarOtpVigente(deps.expedientes, {
+    expedienteId: expediente.id,
+    proposito: config.proposito,
+    otpId: envio.otpId,
+    fecha,
+  });
+  if (!asentado.ok) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: config.pasosEvidencia.envio,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      versionTextoAceptado: config.versionTextoAceptado,
+      detalle: { destinoEnmascarado, otpId: envio.otpId, motivo: "OTP_VIGENTE_NO_ASENTADO" },
+    });
+    return { ok: false, motivo: "ERROR_ENVIO", expedienteId: expediente.id };
+  }
+
   await registrarEvidencia(deps, reloj, {
     expedienteId: expediente.id,
     paso: config.pasosEvidencia.envio,
@@ -392,7 +473,11 @@ export async function enviarOtpDeCanal(
     contexto: entrada.contexto,
     resultado: "EXITOSO",
     versionTextoAceptado: config.versionTextoAceptado,
-    detalle: { destinoEnmascarado, referenciaEnvio: envio.referenciaEnvio },
+    detalle: {
+      destinoEnmascarado,
+      referenciaEnvio: envio.referenciaEnvio,
+      ...detalleEmision(envio.otpId, asentado),
+    },
   });
 
   return {
@@ -436,6 +521,32 @@ export async function reenviarOtpDeCanal(
   }
   const destinoEnmascarado = config.enmascarar(previo.destino);
 
+  // Reenviar un código ya reemplazado lo resucitaría: el mock le rota el
+  // código dentro del mismo `otpId` y quedaría vigente otra vez, apagando el
+  // que la persona tiene en pantalla.
+  const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+  if (!expediente) {
+    return { ok: false, motivo: "ESTADO_INVALIDO", expedienteId: entrada.expedienteId };
+  }
+  const vigente = otpVigenteQueLoReemplaza(expediente, config.proposito, entrada.otpId);
+  if (vigente) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: entrada.expedienteId,
+      paso: config.pasosEvidencia.reenvio,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      versionTextoAceptado: null,
+      detalle: {
+        destinoEnmascarado,
+        motivo: "OTP_REEMPLAZADO",
+        otpId: entrada.otpId,
+        otpVigente: vigente,
+      },
+    });
+    return { ok: false, motivo: "OTP_REEMPLAZADO", expedienteId: entrada.expedienteId };
+  }
+
   const envio = await deps.otpProvider.reenviarOtp(entrada.otpId);
 
   if (!envio.ok) {
@@ -471,6 +582,28 @@ export async function reenviarOtpDeCanal(
       : { ok: false, motivo: "ERROR_ENVIO", expedienteId: entrada.expedienteId };
   }
 
+  // WhatsApp-Modular no tiene reenvío: devuelve un `otpId` nuevo y el
+  // anterior sigue vivo del lado del servicio. El mock devuelve el mismo, y
+  // asentarlo no escribe nada.
+  const asentado = await asentarOtpVigente(deps.expedientes, {
+    expedienteId: entrada.expedienteId,
+    proposito: config.proposito,
+    otpId: envio.otpId,
+    fecha,
+  });
+  if (!asentado.ok) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: entrada.expedienteId,
+      paso: config.pasosEvidencia.reenvio,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      versionTextoAceptado: null,
+      detalle: { destinoEnmascarado, otpId: envio.otpId, motivo: "OTP_VIGENTE_NO_ASENTADO" },
+    });
+    return { ok: false, motivo: "ERROR_ENVIO", expedienteId: entrada.expedienteId };
+  }
+
   await registrarEvidencia(deps, reloj, {
     expedienteId: entrada.expedienteId,
     paso: config.pasosEvidencia.reenvio,
@@ -478,7 +611,11 @@ export async function reenviarOtpDeCanal(
     contexto: entrada.contexto,
     resultado: "EXITOSO",
     versionTextoAceptado: null,
-    detalle: { destinoEnmascarado, referenciaEnvio: envio.referenciaEnvio },
+    detalle: {
+      destinoEnmascarado,
+      referenciaEnvio: envio.referenciaEnvio,
+      ...detalleEmision(envio.otpId, asentado),
+    },
   });
 
   return {
@@ -533,6 +670,31 @@ export async function verificarOtpDeCanal(
   }
 
   const destinoEnmascarado = config.enmascarar(registroOtp.destino);
+
+  // Manual funcional v4, 03A: "Un nuevo OTP invalida el anterior". Existir,
+  // ser de este expediente y de este propósito no alcanza: tiene que ser el
+  // último emitido. Como el rechazo del propósito, se corta antes de llamar
+  // al proveedor, así un código reemplazado no gasta nada del vigente.
+  const expedienteAntes = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+  if (!expedienteAntes) return { ok: false, motivo: "ESTADO_INVALIDO" };
+  const vigente = otpVigenteQueLoReemplaza(expedienteAntes, config.proposito, entrada.otpId);
+  if (vigente) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: entrada.expedienteId,
+      paso: config.pasosEvidencia.verificacion,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      versionTextoAceptado: null,
+      detalle: {
+        destinoEnmascarado,
+        motivo: "OTP_REEMPLAZADO",
+        otpId: entrada.otpId,
+        otpVigente: vigente,
+      },
+    });
+    return { ok: false, motivo: "OTP_REEMPLAZADO" };
+  }
 
   const verificacion = await deps.otpProvider.verificarOtp({
     otpId: entrada.otpId,
