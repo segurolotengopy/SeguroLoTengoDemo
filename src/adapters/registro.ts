@@ -43,6 +43,12 @@ import {
 } from "./live/otp-provider";
 import { crearClienteWhatsAppModularDesdeEntorno } from "./live/whatsapp-modular";
 import { obtenerChatbotRagToken, obtenerOtpPepper, obtenerWhatsAppModularToken } from "../repositories/secrets-client";
+import { TransferClient } from "@aws-sdk/client-transfer";
+import type { IntercambioAseguradora } from "../ports/intercambio-aseguradora";
+import { leerConfiguracionIntercambio } from "../domain/intercambio-aseguradora";
+import { crearIntercambioAseguradoraMock } from "./mock/intercambio-aseguradora";
+import { crearIntercambioAseguradoraSftp } from "./live/intercambio-aseguradora-sftp";
+import { crearBandejaIntercambioRepository } from "../repositories";
 import type { AsistenteProvider } from "../ports/asistente-provider";
 import { crearAsistenteChatbotRag } from "./live/asistente-chatbotrag";
 import { crearAsistenteProviderMock } from "./mock/asistente-provider";
@@ -336,6 +342,39 @@ export function obtenerMessagingProvider(): MessagingProvider {
           "MessagingProvider. WhatsApp-Modular no expone hoy un endpoint de entrega de " +
           "documentos; ver la cabecera de src/ports/messaging-provider.ts.",
       );
+    },
+  });
+}
+
+/**
+ * Intercambio de PDF con Alianza (ítem 36).
+ *
+ * `INTEGRATION_INTERCAMBIO_ASEGURADORA=live` exige `ALIANZA_SFTP_CONNECTOR_ID`
+ * y `ALIANZA_SFTP_BUCKET`, que Terraform inyecta en Amplify solo con
+ * `alianza_sftp_habilitado = true`. Sin ellos tira con el nombre de lo que
+ * falta, en vez de caer al mock en silencio.
+ *
+ * Qué documentos viajan lo dice `INTERCAMBIO_ASEGURADORA_DOCUMENTOS`, igual en
+ * los dos modos: sin configurarla, no sale ninguno (P1 sigue abierta).
+ */
+export function obtenerIntercambioAseguradora(): IntercambioAseguradora {
+  const configuracion = leerConfiguracionIntercambio();
+  return resolverAdaptador("INTERCAMBIO_ASEGURADORA", {
+    mock: () => crearIntercambioAseguradoraMock({ configuracion }),
+    live: () => {
+      const connectorId = process.env.ALIANZA_SFTP_CONNECTOR_ID?.trim();
+      if (!connectorId) {
+        throw new Error(
+          "INTEGRATION_INTERCAMBIO_ASEGURADORA=live sin ALIANZA_SFTP_CONNECTOR_ID: aplicá infra/alianza-sftp.tf " +
+            "(docs/CONFIGURACION_SFTP_ALIANZA.md).",
+        );
+      }
+      return crearIntercambioAseguradoraSftp({
+        cliente: new TransferClient({ region: process.env.AWS_REGION ?? "us-east-1" }),
+        bandeja: crearBandejaIntercambioRepository(),
+        connectorId,
+        configuracion,
+      });
     },
   });
 }

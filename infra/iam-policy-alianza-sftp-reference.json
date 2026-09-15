@@ -1,0 +1,39 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TransferConectoresSltDemo",
+      "Effect": "Allow",
+      "Action": [
+        "transfer:CreateConnector",
+        "transfer:DescribeConnector",
+        "transfer:UpdateConnector",
+        "transfer:DeleteConnector",
+        "transfer:TestConnection",
+        "transfer:TagResource",
+        "transfer:UntagResource",
+        "transfer:ListTagsForResource",
+        "transfer:StartDirectoryListing",
+        "transfer:ListFileTransferResults"
+      ],
+      "Resource": "arn:aws:transfer:us-east-1:120005938663:connector/*"
+    },
+    {
+      "Sid": "TransferListarConectores",
+      "Effect": "Allow",
+      "Action": "transfer:ListConnectors",
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamPassRoleToTransfer",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::120005938663:role/aab1-demo-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "transfer.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

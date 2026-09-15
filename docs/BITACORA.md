@@ -38,6 +38,140 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-15 · Intercambio de PDF con Alianza por SFTP: conector con IP fijas, VPN preparada y puerto nuevo
+
+**Rama:** `worktree-agent-a3b7f95d946e813b6` (desde `main`, `4b23b57`) ·
+**Pedido de Andres (15-sep):** construir el envío y la recepción de PDF con
+Alianza por el SFTP que propusieron el 14-sep, con una IP de salida fija en
+Terraform, y dejar lista y apagada la VPN IPsec por si la piden.
+
+### El caso
+
+Alianza tiene el servidor SFTP listo detrás de un firewall que habilita por IP
+pública. Amplify no tiene IP de salida fija (entrada del 14-sep). Tampoco
+respondieron si quieren VPN. Además sigue abierto qué documentos firma Alianza:
+el CPC es seguro, la Solicitud + FIPF depende de P1 (conflictos C-4 y C-5).
+
+### Qué cambió
+
+- **Ítem 36** en `docs/Tabla de Integraciones externas - Tabla.csv`, antes que
+  el código.
+- **`infra/alianza-sftp.tf`**, detrás de `alianza_sftp_habilitado` (default
+  `false`):
+  - el conector `aws_transfer_connector` con egreso por Internet;
+  - un bucket de tránsito propio. No se usa el de evidencias porque su Object
+    Lock exige checksum en cada escritura y no está documentado que el conector
+    la mande;
+  - el rol del conector, de mínimo privilegio;
+  - el secreto **sin valor**;
+  - el permiso del rol de Amplify;
+  - el output con las IP.
+
+  **Las IP no salen del recurso**, que solo expone `arn` y `connector_id`, sino
+  del data source `aws_transfer_connector` (`service_managed_egress_ip_addresses`).
+  Las variables de la app entran por un `merge` en `amplify.tf`, que queda vacío
+  mientras el intercambio esté apagado.
+- **`infra/alianza-vpn.tf`**, detrás de `alianza_vpn_habilitada`. **Hallazgo
+  que evita otra arquitectura:** desde octubre de 2025 el conector admite egreso
+  `VPC_LATTICE` y AWS documenta el caso de un servidor alcanzado por
+  Site-to-Site VPN. Por eso no hacen falta Lambda, ECS ni NAT propio. El archivo
+  crea la VPC con dos subredes, VGW, customer gateway, la conexión con rutas
+  estáticas, el resource gateway y la resource configuration hacia la IP privada.
+  Al encenderla, el conector cambia de egreso y `url` pasa a ser nula.
+- **Permisos del deployer** en dos políticas aparte
+  (`iam-policy-alianza-sftp-reference.json` e `iam-policy-alianza-vpn-reference.json`):
+  la principal ya está en 5 versiones.
+- **Puerto `IntercambioAseguradora`**, el undécimo
+  (`src/ports/intercambio-aseguradora.ts`):
+  - operaciones: enviar, pedir y obtener un listado, pedir y obtener una
+    recepción, archivar lo recibido y consultar una transferencia;
+  - el estado se deriva de eventos que solo crecen;
+  - idempotente por la huella del archivo;
+  - sin métodos de borrado.
+- **Dominio** (`src/domain/intercambio-aseguradora.ts`):
+  - qué documentos viajan lo dice `INTERCAMBIO_ASEGURADORA_DOCUMENTOS`, **sin
+    valor por defecto**, así que el código no decide P1;
+  - el nombre remoto se deriva del código y la versión, porque los logs del
+    conector registran rutas (regla #7).
+- **Mock:** simula el conector y a Alianza firmando, que devuelve el mismo PDF
+  con una **revisión incremental de utilería** (el prefijo coincide; la firma
+  no tiene valor).
+- **Live** (`@aws-sdk/client-transfer`):
+  - operaciones: `StartFileTransfer`, `ListFileTransferResults`,
+    `StartDirectoryListing` y `StartRemoteMove`;
+  - sube como `.tmp` y renombra, el JSON primero y después el PDF;
+  - `StartRemoteDelete` existe y no se usa: lo procesado se mueve a `procesados/`.
+- **Estado del live en S3**, en `src/repositories/bandeja-intercambio-repository.ts`:
+  - cada escritura usa `If-None-Match: *`, así que la idempotencia es atómica
+    entre instancias de Amplify;
+  - cada evento es un objeto que no se sobrescribe (regla #10).
+- **Contrato compartido:** corre contra el mock y contra el live con un doble
+  del conector y del servidor.
+- **No se hizo, a propósito:** la transición de estados y la verificación
+  PAdES. Son del lote de firma (`DISENO_FIRMA_EN_LOTE.md`), que consume este puerto.
+- `docs/CONFIGURACION_SFTP_ALIANZA.md` (guía nueva) y una sección en `infra/README.md`.
+
+**Dependencia nueva:** `@aws-sdk/client-transfer` (^3.1132.0). Es el único
+cliente de Transfer Family y es de la misma familia que los otros cinco clientes
+de AWS del proyecto. Instalarlo subió 18 paquetes `@aws-sdk/*` y `@smithy/*`
+compartidos, dentro de sus rangos `^`.
+
+### Qué hizo Andres
+
+- Pidió el trabajo y fijó los límites: sin `apply`, sin comandos AWS que
+  modifiquen nada, sin enviar el correo, sin push.
+- No ejecutó nada todavía: todo lo operativo está en «Queda abierto».
+
+### Verificaciones
+
+- Punto de partida: typecheck limpio, lint 0 errores y 9 warnings,
+  **1340 tests en 99 archivos**.
+- Al cerrar: typecheck limpio, lint 0 errores y los mismos 9 warnings,
+  **1399 tests en 103 archivos**.
+- `terraform validate`: `Success! The configuration is valid.` (provider 6.61.0).
+- `terraform plan` de solo lectura, con `AWS_PROFILE=aab1-demo-deployer` y contra
+  el state del checkout principal: `0 to add, 2 to change, 0 to destroy`. Los 2
+  cambios son los presupuestos, porque pasé un correo de alerta de ejemplo, y
+  **nada en Amplify**.
+- Nombres de recursos, atributos y APIs contrastados con la documentación de AWS
+  y del provider (URLs en la cabecera de cada archivo).
+- **No verificado:** que el conector acepte claves ed25519, la política
+  criptográfica que necesite el servidor de Alianza, y que la resource
+  configuration por IP funcione en la práctica sobre la VPN. Se prueban con
+  `test-connection`.
+
+### Queda abierto
+
+- **Alianza:**
+  - host público y puerto (10.0.7.101 es interna);
+  - clave de host y su huella, confirmada por otro canal;
+  - usuario y aceptación de clave SSH;
+  - carpetas, más `procesados/`;
+  - `.tmp` y renombrar;
+  - formato de respuesta;
+  - firma incremental;
+  - si quieren VPN.
+- **Rodrigo (P1):** qué va en `INTERCAMBIO_ASEGURADORA_DOCUMENTOS`.
+- **Andres, con administración:** adjuntar `SLTDemoAlianzaSftpPolicy`.
+- **Andres:**
+  - generar la clave SSH;
+  - `apply -target` del secreto;
+  - cargar el valor;
+  - `apply` completo;
+  - mandar las 3 IP;
+  - `test-connection`.
+
+  El orden está en la guía.
+- **Cambios propuestos al borrador del correo:** en el informe de la sesión, sin
+  tocar el borrador.
+- **Para el lote de firma:**
+  - limitar la espera de un listado (si el conector no llega, el archivo nunca
+    aparece);
+  - asentar en `EvidenceStore` los eventos del puerto;
+  - decidir si el bucket de tránsito pasa a KMS.
+
+---
+
 ## 2026-09-15 · Un nuevo OTP invalida el anterior
 
 **Rama:** `claude/practical-brahmagupta-e30c22` · **Pedido de Andres:**
