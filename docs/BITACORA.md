@@ -76,6 +76,10 @@ selector: habría escondido el problema en vez de arreglarlo.
 
 - Detectó la falla (15-sep, sobre `bdbea0b` y la rama del PR #120) y pidió
   que se priorizara corregir la UI.
+- Autorizó descargar Chromium 1243 y pidió quitar el MCP de Lovable, que no va
+  a usar (`claude mcp remove lovable -s user`). CLAUDE.md todavía nombra el
+  «MCP de Lovable» como vía para leer el prototipo v3; la otra vía, el clon
+  hermano `../slt-diseno-lovable`, sigue disponible.
 
 ### Verificaciones
 
@@ -89,12 +93,12 @@ selector: habría escondido el problema en vez de arreglarlo.
   No se descargó nada: se usó el Chromium **1234** en caché
   (`~/.cache/ms-playwright/chromium-1234`) con un config local temporal
   (`executablePath`), que se borró al terminar.
+- Después, con el OK de Andres, se instaló Chromium **1243**
+  (`npx playwright install chromium`, 114 MiB). El spec 04 repasó con la
+  configuración normal: **1 passed** (44 s).
 
 ### Queda abierto
 
-- Instalar Chromium 1243 (`npx playwright install chromium`, necesita el OK
-  de Andres) para correr la batería con la versión que pide Playwright 1.63
-  sin trucos de configuración.
 - No se corrió la batería e2e completa, solo el spec 04. El cambio toca
   únicamente la rama «coincidencia facial rechazada», que los demás specs no
   recorren.
