@@ -78,6 +78,17 @@ solo sirva a expedientes que ya la tenían aplicada de antes de la enmienda.
 `vencerPlazoSiCorresponde` vence desde `FIRMADO_CLIENTE` y, como legado, desde
 `FIRMADO`.
 
+**Corregido en la revisión de la sesión principal:** así como quedó, un
+`FIRMADO` del grafo nuevo —ya cobrado, con la institucional diferida
+aplicada— conservaba el `plazoPagoVenceEn` de la firma del cliente. Pasados
+esos 10 minutos, cualquier lectura que llamara a `vencerPlazoSiCorresponde`
+(la consola, un sondeo) lo pasaba a `VENCIDO` por la arista legada: un
+expediente pagado declarado vencido. Con la firma de Interseguros en lote
+(D-38) el expediente puede quedar horas en `FIRMADO`, así que no era un borde.
+Se agregó una guarda: **un cobro acreditado apaga el reloj**, sea cual sea el
+estado. `vencimiento-con-cobro.test.ts` falla sin la guarda (1 de 2) y pasa con
+ella; suite en 1346 tests, 100 archivos.
+
 **Firmantes (`src/domain/firmantes-documento.ts`, D-42).** `ModalidadFirma`
 suma `DIFERIDO`. `PAQUETE` queda en dos firmantes: CLIENTE (simple, en el
 acto) e INTERSEGUROS (cualificada, `DIFERIDO`). Alianza sale del paquete.

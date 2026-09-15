@@ -760,6 +760,15 @@ export function registrarFirmasInstitucionales(
  * `plazoPagoVenceEn` calculado ahí, y este chequeo lo sigue respetando sin
  * reescribirlos (regla inviolable #10).
  *
+ * **`FIRMADO` con cobro acreditado nunca vence.** Desde la enmienda, `FIRMADO`
+ * también es el estado de un expediente *ya cobrado* al que se le aplicó la
+ * firma institucional diferida, y ese expediente conserva el
+ * `plazoPagoVenceEn` que se abrió con la firma del cliente. Sin esta guarda,
+ * pasados esos 10 minutos cualquier lectura (la consola, un sondeo) lo movería
+ * a `VENCIDO` por la arista legada: un expediente pagado declarado vencido. Con
+ * la firma de Interseguros en lote (D-38) puede quedar horas en `FIRMADO`, así
+ * que no es un caso de borde.
+ *
  * Un expediente que cerró su paquete y nunca firmó no vence: no hay firma ni
  * dinero de por medio, no bloquea la cédula y ponerle un estado terminal no
  * protegería nada. La caducidad de la *sesión* de firma es un hecho distinto y
@@ -782,6 +791,10 @@ export function vencerPlazoSiCorresponde(
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
   if (!ESTADOS_QUE_VENCEN.includes(expediente.estado)) return { ok: true, expediente };
+
+  // Lo que caduca es un expediente firmado y **no pagado**. Un cobro acreditado
+  // apaga el reloj, sea cual sea el estado desde el que se lo mire.
+  if (expediente.pago && pagoAcreditado(expediente.pago.estado)) return { ok: true, expediente };
 
   if (!expediente.plazoPagoVenceEn || ahora < expediente.plazoPagoVenceEn) {
     return { ok: true, expediente };
