@@ -51,7 +51,12 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   if (!resultado.ok) {
-    const status = resultado.motivo === "REENVIO_BLOQUEADO" ? 429 : 502;
+    const status =
+      resultado.motivo === "REENVIO_BLOQUEADO"
+        ? 429
+        : resultado.motivo === "OTP_REEMPLAZADO" || resultado.motivo === "ESTADO_INVALIDO"
+          ? 409
+          : 502;
     return respuestaJson(
       {
         ok: false,
