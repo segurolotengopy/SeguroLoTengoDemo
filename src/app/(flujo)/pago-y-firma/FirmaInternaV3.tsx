@@ -44,6 +44,9 @@ const MENSAJES: Readonly<Record<string, string>> = {
   INTENTOS_AGOTADOS: "Se agotaron los intentos de este código. Pedí un código nuevo.",
   CODIGO_EXPIRADO: "El código venció. Pedí un código nuevo.",
   CODIGO_YA_UTILIZADO: "Ese código ya se usó. Pedí un código nuevo.",
+  // Solo pasa si se pidió otro código en otra pestaña: esta ya no tiene el
+  // vigente, así que la salida es pedir uno nuevo acá.
+  OTP_REEMPLAZADO: "Pediste un código más nuevo y este dejó de valer. Pedí un código nuevo y usá solo el último.",
   ESTADO_INVALIDO: "Tu trámite ya no está en este paso. Recargá la página para retomarlo.",
   PAQUETE_NO_CERRADO: "Los documentos todavía no están listos. Esperá unos segundos y recargá.",
 };
@@ -154,7 +157,8 @@ export function FirmaInternaV3({ onCompletado }: { onCompletado: () => void }) {
         if (
           datos.motivo === "INTENTOS_AGOTADOS" ||
           datos.motivo === "CODIGO_EXPIRADO" ||
-          datos.motivo === "CODIGO_YA_UTILIZADO"
+          datos.motivo === "CODIGO_YA_UTILIZADO" ||
+          datos.motivo === "OTP_REEMPLAZADO"
         ) {
           setOtpId(null);
           setCodigo("");

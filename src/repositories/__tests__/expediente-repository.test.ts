@@ -69,4 +69,15 @@ describe("ExpedienteRepository (DynamoDB, con cliente falso)", () => {
       repo.guardar({ ...inicial, actualizadoEn: "2026-01-01T00:10:00.000Z" }, inicial.actualizadoEn),
     ).rejects.toThrow(/modificado por otra escritura/);
   });
+
+  it("un expediente anterior al 15-sep-2026, sin `otpVigente`, se lee con el mapa vacío", async () => {
+    const { repo } = crearRepo();
+    const actual = crearExpedienteInicial({ id: "EXP-1", ahora: "2026-01-01T00:00:00.000Z" });
+    const legado: Record<string, unknown> = { ...actual };
+    delete legado.otpVigente;
+    await repo.crear(legado as unknown as typeof actual);
+
+    const recuperado = await repo.obtenerPorId("EXP-1");
+    expect(recuperado?.otpVigente).toEqual({});
+  });
 });

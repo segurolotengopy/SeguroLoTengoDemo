@@ -179,6 +179,17 @@ export function crearExpedienteRepositoryDynamoDb(
     return { ...expediente, plazoPagoVenceEn: legado ?? null };
   }
 
+  /**
+   * Los expedientes anteriores al 15-sep-2026 no traen `otpVigente`. Se leen
+   * con el mapa vacío —ningún OTP asentado, así que la verificación no les
+   * exige nada— y no se reescriben (regla inviolable #10): la primera emisión
+   * de un OTP nuevo lo completa sola.
+   */
+  function conOtpVigente(expediente: Expediente): Expediente {
+    const guardado = (expediente as Partial<Pick<Expediente, "otpVigente">>).otpVigente;
+    return guardado === undefined ? { ...expediente, otpVigente: {} } : expediente;
+  }
+
   /** Resuelve ids a expedientes, salteando los que ya no existan. */
   async function hidratar(ids: readonly string[]): Promise<readonly Expediente[]> {
     const expedientes: Expediente[] = [];
@@ -267,7 +278,7 @@ export function crearExpedienteRepositoryDynamoDb(
       );
       if (!respuesta.Item) return null;
       const item = respuesta.Item as { pk: string; sk: string; entityType: string } & Expediente;
-      return conPlazoDePago(quitarClavesInternas(item));
+      return conOtpVigente(conPlazoDePago(quitarClavesInternas(item)));
     },
 
     async guardar(expediente: Expediente, actualizadoEnEsperado?: string): Promise<void> {
