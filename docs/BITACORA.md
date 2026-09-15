@@ -38,6 +38,150 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-15 (c) · Base visual v4 y pantalla 02 (selección de plan)
+
+**Rama:** `feat/v4-base-visual` (worktree `analisis-handoff-front-5c7ab1`) ·
+**Pedido de Andres:** implementar la base visual del handoff de pantallas v4
+(paleta, tipografía, cabecera de tres marcas, stepper de 5 etapas) y la
+pantalla 02 (selección de plan), sobre `PANTALLA_02_SELECCION_PLAN_APROBADA_FINAL.png`
+y el manual funcional.
+
+### El caso
+
+D-28 a D-42 (Bloque G de `docs/plan/DECISIONES.md`) ya estaban decididas
+desde el 15-sep, pero sin código: la paleta, la tipografía, la cabecera y el
+stepper seguían siendo los de `docs/GUIA_DE_ESTILOS.md` (DM Sans, naranja,
+modo oscuro, "Paso N de 8"), y el producto seguía llamándose CONFÍO con los
+premios de agosto. `ANALISIS.md` §9 fija el plan: primero la base
+compartida, después una pantalla por sesión — esta sesión hizo las dos
+cosas porque la base sin ninguna pantalla que la probara no se podía
+verificar contra el arte.
+
+### Qué cambió
+
+**Dominio.** `src/domain/rutas-flujo.ts`: `PasoDelFlujo` suma `etapa` (1 a
+5, D-36) y `TOTAL_ETAPAS = 5`; nueva `etapaDePaso(slug)`. Mapeo de los ocho
+slugs v2 a las cinco etapas, documentado en el código (tabla en el propio
+archivo): `/plan`→1, `/whatsapp` y `/preparacion`→2, `/identidad`→3,
+`/declaraciones` y `/firma`→4, `/pago` y `/confirmacion`→5. `numeroDePaso` y
+`TOTAL_PASOS` (8) no cambian: siguen gobernando la navegación
+siguiente/anterior. `src/domain/catalogo.ts`: nombre comercial CONFÍO → VIVE,
+premios 319.000/522.500/726.000 → 390.000/575.000/760.000 (manual v4 p. 5),
+`ID_VERSION_OFERTA` sube a `OFERTA-VIVE-v1`. Las sumas aseguradas no
+cambiaron: son las mismas de CONFÍO. `PlanId` interno (`CONFIO`,
+`CONFIO_PLUS`, `CONFIO_TOTAL`) no se tocó (regla #10, hay expedientes con
+esos ids). `src/domain/textos-plan.ts`: reescrito sobre el arte v4 —
+carencias corregidas (90/1/1 días, antes 180/30/1, buscado y corregido
+donde el manual lo pide), botón "CONTINUAR" (antes "CONTINUAR CON EL PLAN
+SELECCIONADO →"), enlace "Ver coberturas, exclusiones y condiciones" (antes
+"+ Info sobre…"), rótulos de cobertura sin dos puntos y con el texto exacto
+del arte, aclaración legal transcrita literal. El texto de "Inicio de
+cobertura" **no** se tocó: es el conflicto abierto C-3, dejado con el texto
+vigente del repo (24 h después del pago) en vez del "al acreditarse el pago"
+del arte.
+
+**Compartidos.** `globals.css`: tokens `v4-navy`, `v4-rojo`, `v4-azul`,
+`v4-atenuado`, `v4-header-bg` (aditivos, no reemplazan las escalas
+existentes); `--font-sans` pasa de DM Sans a Arimo, con pila de respaldo
+`"Helvetica Neue", Helvetica, Arial, sans-serif`. `layout.tsx`: carga Arimo
+con `next/font/google` (pesos 400-700); DM Sans se conserva para
+`[data-flujo="v3"]`. `tema.ts`: `SCRIPT_TEMA_INICIAL` fuerza tema claro sin
+leer `localStorage` ni el sistema (D-29); `aplicarTema`/`esTema` intactos.
+`HeaderInstitucional.tsx`: reescrito — tres marcas (SeguroLoTengo,
+Interseguros, Alianza) separadas por filetes, franja clara, línea roja al
+pie, y el slot `indicador` pasa a ser una banda de ancho completo debajo de
+la línea (antes vivía arriba a la derecha, junto a los logos); sin
+`ToggleTema`. `StepperPasos.tsx`: reescrito sobre `etapaDePaso`/
+`TOTAL_ETAPAS` — cinco puntos con línea roja y "N de 5", en vez de "Paso N
+de {TOTAL_PASOS}". `BandaDemo.tsx` y `AvisoCookies.tsx`: recoloreados a la
+paleta v4 (navy/rojo en vez de naranja); el contenido del aviso de cookies
+no se tocó (C-2 sigue abierto). Nuevo `public/marca/seguro-lo-tengo-provisional.png`
+(recorte del arte aprobado, provisional hasta que Interseguros mande el
+SVG); se reutilizaron `interseguros-logo.svg` y `alianza-logo.svg`, ya
+existentes en el repo desde una sesión anterior.
+
+**Pantalla 02.** `src/app/(flujo)/plan/page.tsx` y `SelectorDePlanes.tsx`
+reescritos sobre el arte: título de dos líneas (navy/rojo), tarjeta de
+video con ícono rojo, línea de producto inscrito, tres tarjetas con radio en
+la cabecera (no al pie) y "PLAN RECOMENDADO" en VIVE TOTAL sin
+preselección, un único enlace de coberturas debajo de las tres tarjetas (no
+uno por tarjeta, que era el formato anterior), tres fichas lado a lado en
+escritorio, aclaración con ícono, CTA roja a todo el ancho deshabilitada
+hasta elegir. Se quitaron las pestañas de producto (`PestanasDeProducto`):
+el arte de la 02 no las dibuja. El componente `SelectorDePlanes` conserva
+intacto el camino `canvas` (v3, usado por `/seguro`) detrás del mismo prop
+booleano; solo se reescribió la rama por defecto (v4).
+
+**No se reprodujeron del arte, a propósito:** la ilustración de los tres
+escudos (no llegó como archivo — se dejó el espacio libre); el ícono de
+menú hamburguesa (abre 01B, fuera de este alcance); el texto de "Inicio de
+vigencia/cobertura" (C-3, sin resolver).
+
+**Documentación.** `docs/GUIA_DE_ESTILOS.md` suma la §8 "Paleta y
+tipografía v4", con una nota al inicio de que reemplaza a las secciones 1-7
+para el flujo. `CLAUDE.md` → "Convenciones de UI": stepper de 5 etapas en
+vez de "Paso N de 8", tema oscuro retirado (D-29), Arimo en vez de DM Sans
+(D-39).
+
+**Tests actualizados** (premios, nombre comercial y versión de oferta, en
+los que dependían de CONFÍO/319.000 y no eran arbitrarios):
+`catalogo.test.ts`, `documentos.test.ts`, `pdf.test.ts`,
+`seleccion-plan.test.ts`, `asistente-provider.test.ts` (mock). No se tocaron
+`bancard-emvco.test.ts` ni `logs-sin-datos-sensibles.test.ts`: sus importes
+319.000/522.500 son arbitrarios, no dependen del catálogo.
+`e2e/support/flujo.ts`: rótulos de plan VIVE/VIVE+/VIVE TOTAL y el texto del
+botón "CONTINUAR".
+
+### Qué hizo Andres
+
+Encargó la tarea con el detalle de qué reproducir del arte, qué decisiones
+ya tomadas aplicar (paleta, D-29, D-30, D-35, D-36, D-39) y qué divergencias
+dejar explícitas sin resolver (C-2, C-3, hamburguesa, ilustración).
+
+### Verificaciones
+
+- `npm run typecheck`: en verde.
+- `npm run lint`: 0 errores, 9 warnings — los mismos 9 que tiene `main` sin
+  tocar (verificado con `git stash`); ninguno nuevo.
+- `npm test`: **1419 tests, 105 archivos, todos en verde.**
+- `npm run test:e2e` (envoltorio con Chromium 1234, sobre este worktree):
+  `e2e/01-camino-feliz.spec.ts` — **1 passed** (P0→P9 completo con Mónica
+  Gorena Tapia, incluida la selección de VIVE en la pantalla rediseñada).
+- Capturas con Playwright + Chromium 1234 (no el `chrome-headless-shell`
+  del envoltorio: con Arimo variable, esa build renderiza mal un texto en
+  mayúsculas — "ENTENDIDO" salía "ENT ENDIDO" — que con el Chromium
+  completo se ve correcto; es un defecto del binario de pruebas, no del
+  código) contra `/plan` y `/whatsapp` en `localhost:3100`, servidas desde
+  este worktree. Verificado a mano: el CTA pasa de deshabilitado (rosa
+  pálido) a habilitado (rojo sólido) al elegir un plan, en las dos
+  resoluciones.
+
+### Queda abierto
+
+- El logo de SeguroLoTengo sigue siendo el PNG recortado del arte
+  (`seguro-lo-tengo-provisional.png`): reemplazar cuando Interseguros mande
+  el SVG (pendiente #4 de `ANALISIS.md` §7).
+- **Divergencia sin resolver, para Andres:** la cabecera v4 muestra el
+  nombre y el logo "seguroLOtengo" sin la compuerta de `marcaVisible()`
+  (`NEXT_PUBLIC_MARCA_FANTASIA_AUTORIZADA`) que D-03 exige para exponer la
+  marca de fantasía en el frente público sin autorización expresa de la
+  SIS. El arte de Interseguros la muestra sin condicionarla a ese flag; se
+  implementó tal cual la pide el arte porque así lo indicó explícitamente
+  el pedido de esta sesión, pero el conflicto con D-03/ALR-03 no está en la
+  lista C-1..C-14 de `ANALISIS.md` y conviene que Andres lo resuelva
+  expresamente antes de un despliegue real.
+- Conflictos abiertos que la sesión dejó intactos, tal como se pidió: C-2
+  (contenido del aviso de cookies), C-3 (texto de inicio de cobertura).
+- El resto de las ocho pantallas del flujo v2 sigue con la paleta y la
+  tipografía anteriores (naranja, DM Sans salvo el `--font-sans` global que
+  ya es Arimo en todas): se migran una por sesión, como pide `CLAUDE.md`.
+- `IconoEscudo` (el escudo de la tarjeta de plan de la maqueta v2 anterior)
+  se borró de `SelectorDePlanes.tsx` por quedar sin uso; si alguna pantalla
+  vieja lo necesitaba importado desde ahí, no la había — se verificó con
+  `grep` antes de borrarlo.
+
+---
+
 ## 2026-09-15 (b) · Lote «Cierre v4 · dominio»: plazo de 10 minutos, firma institucional diferida al pago, Alianza fuera del paquete
 
 **Rama:** `feat/cierre-v4-dominio` (worktree `analisis-handoff-front-5c7ab1`) ·

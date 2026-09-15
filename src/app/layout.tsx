@@ -1,6 +1,6 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
-import { Archivo, DM_Sans, Geist_Mono } from "next/font/google";
+import { Archivo, Arimo, DM_Sans, Geist_Mono } from "next/font/google";
 import { BandaDemo } from "@/components/shared/BandaDemo";
 import { AvisoCookies } from "@/components/shared/AvisoCookies";
 import { ChatFlotante } from "@/components/shared/ChatFlotante";
@@ -11,8 +11,19 @@ import "./globals.css";
 // El sistema de diseño del canvas, portado tal cual y scopeado a v3.
 import "./canvas-v3.css";
 
-// DM Sans: la tipografía del sitio institucional interseguros360.com
-// (docs/GUIA_DE_ESTILOS.md → "Tipografía").
+// Arimo (D-39): tipografía del flujo desde el handoff de pantallas v4 —
+// libre, gratuita y de métrica parecida a Nimbus Sans (docs/GUIA_DE_ESTILOS.md
+// → "Paleta y tipografía v4"). Reemplaza a DM Sans como `--font-sans`.
+const arimo = Arimo({
+  variable: "--font-arimo",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+// DM Sans: la tipografía del sitio institucional interseguros360.com que
+// usaba el flujo antes del handoff v4. Se sigue cargando porque
+// `[data-flujo="v3"]` (canvas-v3.css) la sigue nombrando explícitamente; el
+// flujo vigente ya no la usa como `--font-sans` (ver globals.css).
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
@@ -54,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       // La piel del canvas (paleta, Archivo, esquinas rectas) se activa por
       // tokens bajo este atributo — ver el bloque v3 de globals.css.
       data-flujo={flujoV3Activo() ? "v3" : undefined}
-      className={`${dmSans.variable} ${geistMono.variable} ${archivo.variable} h-full antialiased`}
+      className={`${arimo.variable} ${dmSans.variable} ${geistMono.variable} ${archivo.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_INICIAL }} />

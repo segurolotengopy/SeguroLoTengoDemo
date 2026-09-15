@@ -5,6 +5,13 @@
  * El tema claro es el especificado en docs/ESPECIFICACION_PANTALLAS.md; el
  * oscuro es una capa de accesibilidad/comodidad agregada por decisión de
  * producto (no hay obligación normativa detrás).
+ *
+ * **Forzado a claro desde el 15-sep-2026 (D-29).** La primera fase del
+ * handoff de pantallas v4 sale solo en tema claro; el botón de día/noche se
+ * retiró de `HeaderInstitucional`. Los tokens semánticos y las funciones de
+ * abajo se conservan intactos para retomar el oscuro más adelante — lo único
+ * que cambia es que `SCRIPT_TEMA_INICIAL` ya no lee ni la preferencia
+ * guardada ni la del sistema operativo.
  */
 
 export type Tema = "claro" | "oscuro";
@@ -24,13 +31,15 @@ export function aplicarTema(tema: Tema): void {
 }
 
 /**
- * Script que corre en el `<head>`, antes del primer pintado, para evitar el
- * destello de tema equivocado: si el usuario ya eligió, respeta su elección;
- * si no, sigue la preferencia del sistema operativo.
+ * Script que corre en el `<head>`, antes del primer pintado.
+ *
+ * **D-29 (15-sep-2026): fuerza el tema claro**, sin leer `localStorage` ni la
+ * preferencia del sistema operativo — una preferencia oscura guardada de
+ * antes de esta fase no se aplica. Antes de D-29 este script respetaba la
+ * elección guardada y, si no había ninguna, la preferencia del sistema; ese
+ * comportamiento vuelve el día que se retome el tema oscuro.
  *
  * Se inyecta como texto (no como módulo) justamente porque tiene que
  * ejecutarse antes de que React hidrate. Ver `layout.tsx`.
  */
-export const SCRIPT_TEMA_INICIAL = `(function(){try{var g=localStorage.getItem(${JSON.stringify(
-  CLAVE_TEMA,
-)});if(g!=="claro"&&g!=="oscuro"){g=window.matchMedia("(prefers-color-scheme: dark)").matches?"oscuro":"claro";}var r=document.documentElement;r.dataset.tema=g;r.style.colorScheme=g==="oscuro"?"dark":"light";}catch(e){}})();`;
+export const SCRIPT_TEMA_INICIAL = `(function(){try{var r=document.documentElement;r.dataset.tema="claro";r.style.colorScheme="light";}catch(e){}})();`;
