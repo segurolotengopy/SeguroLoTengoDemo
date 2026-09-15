@@ -1,5 +1,6 @@
 /**
- * Catálogo versionado de la oferta del Seguro de Vida Oncológico CONFÍO.
+ * Catálogo versionado de la oferta del Seguro de Vida Oncológico VIVE (nombre
+ * comercial desde el manual funcional v4, 15-sep-2026; antes "CONFÍO").
  *
  * Valores transcritos textualmente de docs/ESPECIFICACION_PANTALLAS.md → P2,
  * tabla "Tres planes (valores exactos)". NO son datos de prueba: son el
@@ -70,36 +71,41 @@ function premioDeEntorno(valor: string | undefined, porDefecto: number): number 
   return Number.isInteger(numero) && numero > 0 ? numero : porDefecto;
 }
 
+// Los nombres de variable de entorno conservan el sufijo "CONFIO_*" a
+// propósito: identifican al `PlanId` interno (que no se renombra, regla
+// inviolable #10 — hay expedientes guardados con esos ids), no al nombre
+// comercial. El valor por defecto que devuelven ya es "VIVE" (manual
+// funcional v4, p. 5).
 export const PLANES: Readonly<Record<PlanId, Plan>> = {
   CONFIO: {
     id: "CONFIO",
-    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_NOMBRE, "CONFÍO"),
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_NOMBRE, "VIVE"),
     muerteCualquierCausaGs: 3_500_000,
     indemnizacionCancerGs: 50_000_000,
     rentaHospitalariaTotalGs: 7_500_000,
     rentaHospitalariaPorDiaGs: 500_000,
     gastosMedicosAccidenteGs: 7_000_000,
-    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PREMIO_GS, 319_000),
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PREMIO_GS, 390_000),
   },
   CONFIO_PLUS: {
     id: "CONFIO_PLUS",
-    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_NOMBRE, "CONFÍO+"),
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_NOMBRE, "VIVE+"),
     muerteCualquierCausaGs: 5_000_000,
     indemnizacionCancerGs: 75_000_000,
     rentaHospitalariaTotalGs: 11_250_000,
     rentaHospitalariaPorDiaGs: 750_000,
     gastosMedicosAccidenteGs: 10_000_000,
-    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_PREMIO_GS, 522_500),
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_PREMIO_GS, 575_000),
   },
   CONFIO_TOTAL: {
     id: "CONFIO_TOTAL",
-    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_NOMBRE, "CONFÍO TOTAL"),
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_NOMBRE, "VIVE TOTAL"),
     muerteCualquierCausaGs: 7_000_000,
     indemnizacionCancerGs: 100_000_000,
     rentaHospitalariaTotalGs: 15_000_000,
     rentaHospitalariaPorDiaGs: 1_000_000,
     gastosMedicosAccidenteGs: 14_000_000,
-    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_PREMIO_GS, 726_000),
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_PREMIO_GS, 760_000),
   },
 };
 
@@ -110,7 +116,12 @@ export const ORDEN_PLANES: readonly PlanId[] = ["CONFIO", "CONFIO_PLUS", "CONFIO
 // Oferta versionada
 // ---------------------------------------------------------------------------
 
-export const NOMBRE_PRODUCTO = "Seguro de Vida Oncológico CONFÍO";
+/**
+ * Nombre comercial congelado en el manual funcional v4 (p. 5, "Producto,
+ * planes y condiciones congeladas"): pasa de CONFÍO a VIVE. Cambió el 15-sep-2026,
+ * junto con los premios (D-28, handoff de pantallas v4 de Interseguros).
+ */
+export const NOMBRE_PRODUCTO = "Seguro de Vida Oncológico VIVE";
 
 /**
  * Identificación del producto ante la Superintendencia de Seguros (CHG-03).
@@ -250,11 +261,17 @@ export const DOCUMENTO_COBERTURAS_POR_PLAN: Readonly<Record<PlanId, "coberturas"
  */
 /**
  * v2 (20-ago-2026): los premios pasaron a ser los de `PantallasDemo2.pdf`
- * —319.000 / 522.500 / 726.000— por aprobación de gerencia. Los expedientes
- * que eligieron plan bajo la v1 conservan su premio y su hash, que no se
- * recalculan (regla inviolable #10).
+ * —319.000 / 522.500 / 726.000— por aprobación de gerencia.
+ *
+ * v1 del producto VIVE (15-sep-2026): el manual funcional v4 (p. 5) congela
+ * el producto como "Seguro de Vida Oncológico VIVE", con planes VIVE / VIVE+ /
+ * VIVE TOTAL y premios 390.000 / 575.000 / 760.000. Las sumas aseguradas no
+ * cambiaron (mismos importes que CONFÍO); lo que cambió es el nombre
+ * comercial y el premio. Los expedientes que eligieron plan bajo `OFERTA-CONFIO-v2`
+ * conservan su premio, su nombre y su hash, que no se recalculan (regla
+ * inviolable #10).
  */
-export const ID_VERSION_OFERTA = "OFERTA-CONFIO-v2";
+export const ID_VERSION_OFERTA = "OFERTA-VIVE-v1";
 
 export interface OfertaVersionada {
   readonly idVersion: string;

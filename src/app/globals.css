@@ -38,19 +38,26 @@
   --color-azul-900: #1b304f;
   --color-azul-950: #111f34;
 
-  /* Naranja Interseguros — 500 = naranja del isologo, 600 = primario del
-     sitio interseguros360.com (hsl(24 85% 40%)). */
-  --color-naranja-50: #fdf4ec;
-  --color-naranja-100: #fbe3cd;
-  --color-naranja-200: #f6c69c;
-  --color-naranja-300: #f0a264;
-  --color-naranja-400: #e88135;
-  --color-naranja-500: #e2660f;
-  --color-naranja-600: #bd550f;
-  --color-naranja-700: #98450e;
-  --color-naranja-800: #7a380f;
-  --color-naranja-900: #642f10;
-  --color-naranja-950: #371806;
+  /* Escala de acción. El nombre `naranja` es histórico: era el naranja de
+     Interseguros (500 = #e2660f del isologo). Desde la base visual v4
+     (15-sep-2026, D-28/D-39, manual funcional p. 6: «CTA principal rojo»,
+     «no añadir sombreado naranja») la escala entera se reancla en el rojo v4
+     #FF1721, para que todas las pantallas que todavía no se rehicieron según
+     su arte tomen la paleta nueva sin tocar su estructura. Se reemplaza el
+     valor y no el nombre para no reescribir cientos de clases a la vez; cada
+     pantalla pasa a los tokens `v4-*` cuando se rehace. 700+ quedan oscuros
+     para texto sobre fondos claros con contraste AA. */
+  --color-naranja-50: #fff1f1;
+  --color-naranja-100: #ffe0e1;
+  --color-naranja-200: #ffc6c8;
+  --color-naranja-300: #ff9ea1;
+  --color-naranja-400: #ff666b;
+  --color-naranja-500: #ff1721;
+  --color-naranja-600: #e0101a;
+  --color-naranja-700: #bb0c14;
+  --color-naranja-800: #9a0f16;
+  --color-naranja-900: #7f1318;
+  --color-naranja-950: #460408;
 
   /* Verde Alianza — ancla 400 = #8dc63f (isologo); 600+ oscurecidos para
      texto con contraste AA. */
@@ -127,6 +134,28 @@
   --text-h3: clamp(1.05rem, 0.98rem + 0.4vw, 1.2rem);
   --text-h3--line-height: 1.3;
   --text-h3--font-weight: 600;
+
+  /*
+   * Paleta v4 (D-39, Bloque G de docs/plan/DECISIONES.md; ver
+   * docs/GUIA_DE_ESTILOS.md → "Paleta y tipografía v4"), del manual funcional
+   * del handoff de pantallas v4 (14-sep-2026), página 6 "Línea gráfica
+   * congelada": navy #071F78, rojo #FF1721, azul #0876F9, azul atenuado
+   * #55709D y blanco. Prefijo "v4-" a propósito: son tokens **aditivos**, no
+   * un reemplazo de las escalas de arriba (azul/naranja/rojo/verde/hueso)
+   * — esas siguen gobernando las pantallas que todavía no se migraron a v4
+   * pantalla por pantalla (D-28, una pantalla por sesión). Hoy los usan los
+   * componentes compartidos (cabecera, stepper, franja de demo, aviso de
+   * cookies) y la pantalla 02; el resto del flujo los va a adoptar cuando se
+   * porte.
+   */
+  --color-v4-navy: #071f78;
+  --color-v4-rojo: #ff1721;
+  --color-v4-azul: #0876f9;
+  --color-v4-atenuado: #55709d;
+  /* Franja de la cabecera v4: tinte muy claro del navy, no blanco puro —
+     así se ve en el arte (PANTALLA_02, PANTALLA_03A). No es uno de los
+     cuatro colores congelados: es una derivación de uso, documentada acá. */
+  --color-v4-header-bg: #eef2fb;
 }
 
 /*
@@ -156,7 +185,8 @@
     var(--color-borde-tarjeta) 10%,
     transparent
   );
-  --tema-titulo: var(--color-hueso-900);
+  /* v4: los títulos van en navy, como en todos los artes aprobados. */
+  --tema-titulo: var(--color-v4-navy);
   --tema-cuerpo: var(--color-hueso-800);
   --tema-etiqueta: var(--color-hueso-600);
 }
@@ -193,7 +223,11 @@
   --color-cuerpo: var(--tema-cuerpo);
   --color-etiqueta: var(--tema-etiqueta);
 
-  --font-sans: var(--font-dm-sans);
+  /* Arimo (D-39): reemplaza a DM Sans como tipografía del flujo desde el
+     handoff de pantallas v4 (15-sep-2026). DM Sans sigue cargada — la usa
+     `[data-flujo="v3"]` (canvas-v3.css) — pero deja de ser el `font-sans`
+     por defecto. */
+  --font-sans: var(--font-arimo);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -204,8 +238,10 @@ html {
 body {
   background: var(--tema-fondo);
   color: var(--tema-titulo);
-  /* DM Sans: la tipografía de interseguros360.com (docs/GUIA_DE_ESTILOS.md). */
-  font-family: var(--font-dm-sans), system-ui, Arial, Helvetica, sans-serif;
+  /* Arimo (D-39, GUIA_DE_ESTILOS.md → "Paleta y tipografía v4"): la fuente
+     libre y gratuita más parecida a Nimbus Sans que pide el manual v4, con
+     pila de respaldo del sistema. */
+  font-family: var(--font-arimo), "Helvetica Neue", Helvetica, Arial, sans-serif;
   /* Cifras tabulares en todo el sistema: los importes en guaraníes deben
      alinearse verticalmente entre los tres planes. */
   font-variant-numeric: tabular-nums;
