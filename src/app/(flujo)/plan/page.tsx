@@ -190,6 +190,7 @@ export default async function PantallaSeleccionDePlan() {
             una Nota y no una Resolución. */}
         <p className="text-center text-xs text-etiqueta">
           <span className="font-semibold text-cuerpo">{ROTULO_PRODUCTO_INSCRITO}</span>{" "}
+          {REGISTRO_PRODUCTO.denominacionRegistral} · Código de Registro N.º{" "}
           <span className="tabular-nums">{REGISTRO_PRODUCTO.codigo}</span> ·{" "}
           <span className="tabular-nums">{REGISTRO_PRODUCTO.acto}</span>
           {REGISTRO_PRODUCTO.esProvisional ? (

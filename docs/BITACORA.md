@@ -156,6 +156,20 @@ dejar explícitas sin resolver (C-2, C-3, hamburguesa, ilustración).
   pálido) a habilitado (rojo sólido) al elegir un plan, en las dos
   resoluciones.
 
+**Ajustes de la revisión de la sesión principal** (Andres vio las capturas y
+decidió tres cosas):
+
+- **La paleta v4 se extiende a todo el flujo, sin tocar la estructura.** La
+  escala `naranja-*` de `globals.css` pasa a anclarse en el rojo v4 `#FF1721`
+  (el nombre queda por historia; cada pantalla pasa a los tokens `v4-*` cuando
+  se rehace según su arte), y los títulos (`--tema-titulo`) pasan a navy. Así
+  WhatsApp, identidad, declaraciones, firma y pago dejan de verse naranjas.
+- **La línea del producto inscrito** lleva ahora la denominación registral
+  completa y «Código de Registro N.º», como en el arte.
+- **D-03 modificada:** la cabecera muestra siempre el logo de SeguroLoTengo; el
+  flag `MARCA_FANTASIA_AUTORIZADA` se conserva para los demás usos, y la
+  autorización de la SIS sigue siendo compuerta de producción.
+
 ### Queda abierto
 
 - El logo de SeguroLoTengo sigue siendo el PNG recortado del arte

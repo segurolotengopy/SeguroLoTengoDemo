@@ -249,11 +249,14 @@ function TarjetaPlan({
       <dl className="flex flex-col gap-2.5 border-t border-hueso-100 pt-3">
         {COBERTURAS.map(({ etiqueta, trazo, valor }) => (
           <div key={etiqueta} className="flex items-baseline justify-between gap-3">
-            <dt className="flex items-center gap-1.5 text-xs text-cuerpo">
+            {/* Etiqueta y valor comparten el ancho: con `shrink-0` en el valor,
+                «Hasta Gs. 1.000.000/día · Máx. 15 días» se salía de la tarjeta a
+                375 px y aplastaba la etiqueta en tres líneas. */}
+            <dt className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-cuerpo">
               <IconoCobertura trazo={trazo} />
               {etiqueta}
             </dt>
-            <dd className="shrink-0 text-right text-xs font-bold text-v4-navy tabular-nums">
+            <dd className="min-w-0 max-w-[55%] text-right text-xs font-bold text-v4-navy tabular-nums">
               {valor(plan)}
             </dd>
           </div>
