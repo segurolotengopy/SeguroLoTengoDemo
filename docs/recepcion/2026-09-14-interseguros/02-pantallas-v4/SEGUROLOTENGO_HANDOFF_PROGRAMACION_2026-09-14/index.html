@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es-PY">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Handoff técnico de las pantallas recuperadas de SeguroLoTengo.com">
+  <title>SeguroLoTengo · Handoff de programación</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23071F78'/%3E%3Cpath d='M15 31 27 43 50 18' fill='none' stroke='%23FF1721' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">SeguroLoTengo.com</p>
+      <h1>Handoff de programación</h1>
+    </div>
+    <div class="topbar-actions">
+      <a class="button secondary" href="data/screens.json" download>Descargar JSON</a>
+      <a class="button secondary" href="data/screen_manifest.csv" download>Descargar CSV</a>
+    </div>
+  </header>
+
+  <section class="release-alert" aria-labelledby="release-title">
+    <div>
+      <strong id="release-title">Regla de liberación</strong>
+      <span>Programar como definitivo únicamente lo marcado APROBADA FINAL.</span>
+    </div>
+    <span class="alert-code">04E continúa pendiente</span>
+  </section>
+
+  <section class="metrics" id="metrics" aria-label="Resumen del archivo"></section>
+
+  <main class="workspace">
+    <aside class="sidebar" aria-label="Inventario de pantallas">
+      <div class="filters">
+        <label>
+          Estado
+          <select id="status-filter">
+            <option value="development">Aprobadas para programar</option>
+            <option value="approved">Todos los artefactos aprobados</option>
+            <option value="candidate">Candidatas / pendientes</option>
+            <option value="all">Todo el archivo</option>
+          </select>
+        </label>
+        <label>
+          Código o grupo
+          <select id="group-filter">
+            <option value="all">Todos los códigos</option>
+          </select>
+        </label>
+        <label>
+          Buscar
+          <input id="search-filter" type="search" placeholder="Ej.: 03C, OTP, cédula">
+        </label>
+      </div>
+      <p class="result-count" id="result-count"></p>
+      <nav class="screen-list" id="screen-list" aria-label="Pantallas disponibles"></nav>
+    </aside>
+
+    <section class="viewer" aria-live="polite">
+      <div class="viewer-heading">
+        <div>
+          <div class="code-line">
+            <span class="screen-code" id="screen-code">—</span>
+            <span class="status-badge" id="status-badge">—</span>
+          </div>
+          <h2 id="screen-title">Seleccione una pantalla</h2>
+          <p id="group-title"></p>
+        </div>
+        <div class="viewer-actions">
+          <button class="icon-button" id="previous-screen" type="button" aria-label="Pantalla anterior">←</button>
+          <button class="icon-button" id="next-screen" type="button" aria-label="Pantalla siguiente">→</button>
+          <a class="button" id="open-source" href="#" target="_blank" rel="noreferrer">Abrir PNG original</a>
+        </div>
+      </div>
+
+      <div class="viewer-grid">
+        <figure class="device-stage">
+          <img id="screen-image" alt="Referencia visual de la pantalla seleccionada">
+          <figcaption id="screen-caption"></figcaption>
+        </figure>
+
+        <aside class="technical-card" aria-labelledby="technical-title">
+          <h3 id="technical-title">Ficha funcional</h3>
+          <dl id="technical-details"></dl>
+          <a class="text-link is-hidden" id="linked-spec" href="#">Abrir especificación vinculada</a>
+          <details>
+            <summary>Integridad del archivo</summary>
+            <code id="integrity"></code>
+          </details>
+        </aside>
+      </div>
+
+      <section class="pending-section" aria-labelledby="pending-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Control de alcance</p>
+            <h2 id="pending-title">Pantallas que todavía bloquean el cierre</h2>
+          </div>
+        </div>
+        <div class="pending-grid" id="pending-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <span>SeguroLoTengo — canal digital de Interseguros S.A.</span>
+    <span>Alianza Garantía Seguros y Reaseguros S.A. — aseguradora</span>
+  </footer>
+
+  <script src="data/screens.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

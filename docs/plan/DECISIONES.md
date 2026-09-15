@@ -58,6 +58,7 @@ y obtener aprobación"*).
 
 ### D-10 · Caducidad del expediente firmado sin pagar
 - **DECIDIDA (19-ago-2026): caduca a las 24 h.**
+- **MODIFICADA (15-sep-2026) por D-32:** el plazo pasa a **10 minutos desde la firma del cliente**, como fija el manual funcional v4. Pendiente de implementar.
 - **Verificación pedida sobre Code100:** su documentación (`docs/Integraciones/Documentacion Firmador - API FLOW.pdf`) **sí expone caducidad de sesión** — `POST /signature/getSessionId` devuelve `fecha_expiracion` y `expirado: true/false` — pero **no documenta una duración fija**; en su ejemplo, una sesión creada 14-ene 17:10 UTC expira 15-ene 14:12 (≈21 h). Implementación en consecuencia: el plazo de 24 h del expediente es **nuestro**, y el estado de la sesión de firma se toma de `fecha_expiracion`/`expirado` del proveedor cuando exista, sin hardcodear su política. Confirmar la duración exacta se suma a las consultas PEN-01/PEN-02.
 
 ### D-11 · PDF unificado
@@ -88,6 +89,7 @@ y obtener aprobación"*).
 
 ### D-19 · Datos institucionales
 - **DECIDIDA (19-ago-2026):** quedan **parametrizables**; Andres/Rodrigo pasan los datos cuando los tengan. Hoy se usan los de la Matriz §1 (direcciones y web de ambas empresas) y marcadores rotulados para lo que falta: teléfono y correo de atención de Interseguros, correo de atención de Alianza y número del botón de WhatsApp. `segurolotengo@interseguros360.com` queda confirmado solo para retracto y derechos de datos hasta nueva indicación.
+- **Datos recibidos (14-sep-2026, manual funcional v4, pantalla 01D):** WhatsApp de Interseguros **+595 991 478 468**; correo **segurolotengo@interseguros360.com**; oficina **Avda. Aviadores del Chaco 2351, Edificio Plaza Center, 7.º piso, Asunción**; sitio **interseguros360.com**. Completan `WHATSAPP_ATENCION` y el correo de atención de `entidades.ts`, al implementar 01D. El teléfono fijo y el correo de atención de Alianza siguen sin dato.
 
 ## Bloque D — Operativos y técnicos
 
@@ -250,6 +252,58 @@ La lista de la matriz de campos coincide con la norma en los dos regímenes.
 - **La regla D-05 («tres descargables y ninguno más») se amplía a cuatro**, y la constancia se distingue de los otros tres: no es contractual ni de cobertura, es el registro probatorio del acto, y el propio PDF lo dice en rojo.
 - **La leyenda del cliente en el bloque de firmas del paquete** deja de decir «mediante enlace seguro» —era el flujo de un proveedor— y cita el acto que ocurre y su norma; el bloque lleva versión impresa (`FIRMAS-v2`). Los PDF ya cerrados conservan su huella (reglas #4 y #10).
 - **Pendiente:** entregar la constancia por los canales verificados con acuse junto con los otros documentos (CHG-44) y un enlace firmado con vencimiento para volver a pedirla sin sesión.
+
+## Bloque G — Pantallas v4 y manual funcional (15-sep-2026)
+
+Origen: el handoff de pantallas v4 y el manual funcional que Rodrigo Fernández
+(Interseguros) mandó el 14-sep-2026 (`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/`).
+El contraste con el repositorio, los conflictos que siguen abiertos (C-1 a
+C-12) y el plan de implementación están en el `ANALISIS.md` de esa carpeta.
+Todas las entradas de este bloque las decidió Andres el 15-sep-2026.
+
+### D-28 · Fuente de verdad de las pantallas v4
+- **DECIDIDA:** el paquete v4 reemplaza como fuente visual al prototipo v3 de Lovable, que queda superado. **Orden de autoridad:** (1) el **manual funcional**, (2) el arte `APROBADA_FINAL`, (3) `screens.json`, la especificación de 03D y las reglas globales. Esto invierte el orden que declaran el handoff y el manual, que ponen el arte primero. Solo se implementa lo `APROBADA_FINAL` con `approved_for_development = true`. Por encima del manual siguen estando las reglas inviolables de `CLAUDE.md` y la matriz de cumplimiento: donde choquen, se señala y no se implementa.
+- **Los 103 PNG (73 MB) y el PDF del manual no se versionan:** quedan como referencia local. Se versionan el manifiesto con el SHA-256 de cada arte y la transcripción de texto del manual con la huella del original.
+
+### D-29 · Sin modo oscuro en la primera fase
+- **DECIDIDA:** la primera fase de v4 sale **solo en tema claro**. El botón de día/noche de `HeaderInstitucional` no se muestra en el flujo v4. Los tokens semánticos se conservan para retomarlo más adelante.
+
+### D-30 · Web app responsiva
+- **DECIDIDA:** mobile-first, y **en anchos de escritorio los componentes van lado a lado**. Los artes son todos de celular, así que la disposición de escritorio de cada pantalla se deriva de su arte móvil sin cambiar orden, textos ni jerarquía, y se aprueba con capturas.
+
+### D-31 · Datos extraídos editables; elegibilidad y bloqueo con el OCR
+- **DECIDIDA:** en 03D **todos los datos extraídos se pueden editar**, salvo el tipo de documento, y **cada cambio se registra**. La **elegibilidad por edad (regla #8) y el bloqueo por cédula (regla #11) se calculan con el valor que el OCR leyó de la cédula**, frente y dorso (el MRZ cuando lo hay; el registro civil para la cédula del formato anterior, como hoy). Las dos reglas no cambian de letra. El dato corregido se guarda como **declarado**, aparte del leído, y la evidencia de la corrección lleva los dos valores.
+- **Abierto:** qué se imprime en la Solicitud cuando el dato declarado difiere del leído, y si una discrepancia en la cédula o en la fecha de nacimiento manda el caso a revisión.
+
+### D-32 · Plazo de pago de 10 minutos
+- **DECIDIDA:** el plazo para pagar es de **10 minutos desde la firma del cliente**. **Modifica D-10** (24 h). La consecuencia es que la reversa de la operación de Bancard por `hook_alias` pasa a correr al minuto 10, y que el reloj arranca en `FIRMADO_CLIENTE`, en línea con la enmienda del 04-sep a D-08.
+
+### D-33 · Preguntas de salud
+- **DECIDIDA:** las preguntas son las del paquete v4: **tres preguntas médicas en 04A** (compatibles: 1 = Sí, 2 = No, 3 = No) y la **condición PEP en 03E**. Las demás declaraciones del v2 se reubican así: vigencia y carencias, entrega digital y corredor pasan a 04D; la veracidad se acepta con la firma en 04E (conflicto C-10). Una respuesta incompatible deriva a revisión manual y nunca rechaza en automático (regla #5).
+
+### D-34 · Analítica sin datos sensibles
+- **DECIDIDA:** la analítica **no recibe datos sensibles**. Las reglas (punto único de entrada, rutas excluidas, saneamiento de URL y título, lista cerrada de eventos, test que lo hace cumplir) están en `ANALISIS.md` §5.4. Que Google Analytics pueda instalarse sin opción de rechazo es otra cosa y sigue abierto con Legal (C-2, fila 85).
+
+### D-35 · Voseo
+- **DECIDIDA:** todo el desarrollo va **en voseo**, aunque el arte esté en usted o en tú. Los consentimientos en primera persona no cambian. Las adaptaciones pantalla por pantalla están en `02-pantallas-v4/textos/`.
+
+### D-36 · Etapas efectivas del stepper
+- **DECIDIDA:** las pantallas se corrigen para que sean **consistentes con los pasos efectivos**: cinco etapas (Plan · Verificación · Actividad e ingresos · Declaraciones y firma · Pago y confirmación), con la numeración que dibujan los artes y no el `main_stage` del JSON. Una pantalla terminal muestra la etapa en la que el flujo se detuvo. Tabla y correcciones en `ANALISIS.md` §4.
+
+### D-37 · SMS de contingencia sobre AWS
+- **DECIDIDA:** la contingencia por SMS del OTP del celular (03A) sale **inicialmente por AWS End User Messaging SMS**. Queda registrada en la fila 2 de la tabla de integraciones. Paraguay no admite remitente propio (ni sender ID, ni número largo, ni código corto): la entrega es *best effort*. Hay que salir del sandbox antes de producción.
+
+### D-38 · Firma de Interseguros en lote, por fuera del sistema
+- **DECIDIDA:** en la primera fase, **Interseguros firma en lote con su firma cualificada, por fuera del sistema**, después del pago. El sistema provee la **entrega** (lote exportable con manifiesto y huellas) y la **recepción** (carga de los PDF firmados, emparejados por el prefijo de la revisión incremental). **Modifica D-13** en cómo llega la firma, no en quién firma. Diseño, en estado de propuesta: `docs/plan/DISENO_FIRMA_EN_LOTE.md`.
+
+### D-39 · Tipografía
+- **DECIDIDA:** una fuente **libre y parecida a Nimbus Sans**. Se adopta **Arimo** (SIL OFL 1.1, Google Fonts, pesos variables de 400 a 700, métrica de Arial), cargada con `next/font/google`. La alternativa más fiel al dibujo, TeX Gyre Heros (GUST Font License, derivada de URW Nimbus Sans L), solo trae 400 y 700 y hay que autoalojarla. La Nimbus Sans de URW base35 no sirve como webfont comercial: su excepción AGPL cubre PostScript y PDF, no `@font-face`. **Reemplaza** a DM Sans de `docs/GUIA_DE_ESTILOS.md` para el flujo v4.
+
+### D-40 · Sin detección automática de alteración documental
+- **DECIDIDA:** por ahora **no se contrata un proveedor** que detecte la alteración del documento. El estado «posible alteración» de 03C (03C_19) no tiene quién lo dispare. Que lo dispare la inconsistencia MRZ ↔ frente de `mrz.ts` es una propuesta abierta (C-12).
+
+### D-41 · Pantallas sin arte aprobado
+- **ESTABLECIDA:** Andres ya consultó por **03E** (candidata), **04E**, **05A** y **05B** (sin arte). **No se implementan** hasta que tengan arte `APROBADA_FINAL`. Sus reglas funcionales del manual se usan para el dominio, no para dibujar.
 
 ## Actualizaciones que la Matriz V4 necesita (consecuencia de la ronda 1)
 

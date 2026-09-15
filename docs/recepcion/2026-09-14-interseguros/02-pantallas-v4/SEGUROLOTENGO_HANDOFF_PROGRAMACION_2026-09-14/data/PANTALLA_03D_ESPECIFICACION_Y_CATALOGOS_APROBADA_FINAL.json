@@ -1,0 +1,4046 @@
+{
+  "screen": "03D · Datos personales",
+  "status": "APROBADA FINAL",
+  "rules": {
+    "all_visible_fields_required": true,
+    "all_fields_editable_except": [
+      "document_type"
+    ],
+    "document_type_locked_value": "Cédula de identidad",
+    "modifications_logged": true,
+    "neighborhood_open_text": true,
+    "non_eligibility_only_when_age_outside": {
+      "min": 18,
+      "max": 64
+    },
+    "document_errors_resolved_in_screen": "03C"
+  },
+  "fields": [
+    {
+      "id": "document_type",
+      "label": "Tipo de documento",
+      "type": "select",
+      "required": true,
+      "editable": false
+    },
+    {
+      "id": "document_number",
+      "label": "Número de cédula",
+      "type": "text",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "names",
+      "label": "Nombres",
+      "type": "text",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "paternal_surname",
+      "label": "Apellido paterno",
+      "type": "text",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "maternal_surname",
+      "label": "Apellido materno",
+      "type": "text",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "birth_date",
+      "label": "Fecha de nacimiento",
+      "type": "date",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "age",
+      "label": "Edad calculada",
+      "type": "calculated",
+      "required": false,
+      "editable": false
+    },
+    {
+      "id": "sex",
+      "label": "Sexo",
+      "type": "select",
+      "catalog": "sexo",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "marital_status",
+      "label": "Estado civil",
+      "type": "select",
+      "catalog": "estado_civil",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "birth_country",
+      "label": "País de nacimiento",
+      "type": "searchable_select",
+      "catalog": "pais_nacimiento",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "nationality",
+      "label": "Nacionalidad",
+      "type": "searchable_select",
+      "catalog": "nacionalidad",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "residence_country",
+      "label": "País de residencia",
+      "type": "searchable_select",
+      "catalog": "pais_residencia",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "address",
+      "label": "Dirección",
+      "type": "text",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "city",
+      "label": "Ciudad",
+      "type": "searchable_select",
+      "catalog": "ciudad",
+      "required": true,
+      "editable": true
+    },
+    {
+      "id": "neighborhood",
+      "label": "Barrio o zona",
+      "type": "text",
+      "required": true,
+      "editable": true
+    }
+  ],
+  "catalogs": {
+    "sexo": {
+      "field": "Sexo",
+      "source": "Decisión cerrada del proyecto; selector de identidad",
+      "searchable": false,
+      "options": [
+        {
+          "value": "femenino",
+          "label": "Femenino",
+          "order": 1,
+          "active": true
+        },
+        {
+          "value": "masculino",
+          "label": "Masculino",
+          "order": 2,
+          "active": true
+        }
+      ]
+    },
+    "estado_civil": {
+      "field": "Estado civil",
+      "source": "Decisión cerrada del proyecto; selector de identidad",
+      "searchable": false,
+      "options": [
+        {
+          "value": "soltero_a",
+          "label": "Soltero/a",
+          "order": 1,
+          "active": true
+        },
+        {
+          "value": "casado_a",
+          "label": "Casado/a",
+          "order": 2,
+          "active": true
+        },
+        {
+          "value": "union_de_hecho",
+          "label": "Unión de hecho",
+          "order": 3,
+          "active": true
+        },
+        {
+          "value": "divorciado_a",
+          "label": "Divorciado/a",
+          "order": 4,
+          "active": true
+        },
+        {
+          "value": "viudo_a",
+          "label": "Viudo/a",
+          "order": 5,
+          "active": true
+        }
+      ]
+    },
+    "pais_nacimiento": {
+      "field": "País de nacimiento",
+      "source": "Catálogo técnico ISO de países en español",
+      "searchable": true,
+      "options": [
+        {
+          "value": "afganistan",
+          "label": "Afganistán",
+          "order": 1,
+          "active": true
+        },
+        {
+          "value": "albania",
+          "label": "Albania",
+          "order": 2,
+          "active": true
+        },
+        {
+          "value": "alemania",
+          "label": "Alemania",
+          "order": 3,
+          "active": true
+        },
+        {
+          "value": "andorra",
+          "label": "Andorra",
+          "order": 4,
+          "active": true
+        },
+        {
+          "value": "angola",
+          "label": "Angola",
+          "order": 5,
+          "active": true
+        },
+        {
+          "value": "antigua_y_barbuda",
+          "label": "Antigua y Barbuda",
+          "order": 6,
+          "active": true
+        },
+        {
+          "value": "arabia_saudita",
+          "label": "Arabia Saudita",
+          "order": 7,
+          "active": true
+        },
+        {
+          "value": "argelia",
+          "label": "Argelia",
+          "order": 8,
+          "active": true
+        },
+        {
+          "value": "argentina",
+          "label": "Argentina",
+          "order": 9,
+          "active": true
+        },
+        {
+          "value": "armenia",
+          "label": "Armenia",
+          "order": 10,
+          "active": true
+        },
+        {
+          "value": "australia",
+          "label": "Australia",
+          "order": 11,
+          "active": true
+        },
+        {
+          "value": "austria",
+          "label": "Austria",
+          "order": 12,
+          "active": true
+        },
+        {
+          "value": "azerbaiyan",
+          "label": "Azerbaiyán",
+          "order": 13,
+          "active": true
+        },
+        {
+          "value": "bahamas",
+          "label": "Bahamas",
+          "order": 14,
+          "active": true
+        },
+        {
+          "value": "banglades",
+          "label": "Bangladés",
+          "order": 15,
+          "active": true
+        },
+        {
+          "value": "barbados",
+          "label": "Barbados",
+          "order": 16,
+          "active": true
+        },
+        {
+          "value": "barein",
+          "label": "Baréin",
+          "order": 17,
+          "active": true
+        },
+        {
+          "value": "belgica",
+          "label": "Bélgica",
+          "order": 18,
+          "active": true
+        },
+        {
+          "value": "belice",
+          "label": "Belice",
+          "order": 19,
+          "active": true
+        },
+        {
+          "value": "benin",
+          "label": "Benín",
+          "order": 20,
+          "active": true
+        },
+        {
+          "value": "bielorrusia",
+          "label": "Bielorrusia",
+          "order": 21,
+          "active": true
+        },
+        {
+          "value": "birmania",
+          "label": "Birmania",
+          "order": 22,
+          "active": true
+        },
+        {
+          "value": "bolivia",
+          "label": "Bolivia",
+          "order": 23,
+          "active": true
+        },
+        {
+          "value": "bosnia_y_herzegovina",
+          "label": "Bosnia y Herzegovina",
+          "order": 24,
+          "active": true
+        },
+        {
+          "value": "botsuana",
+          "label": "Botsuana",
+          "order": 25,
+          "active": true
+        },
+        {
+          "value": "brasil",
+          "label": "Brasil",
+          "order": 26,
+          "active": true
+        },
+        {
+          "value": "brunei",
+          "label": "Brunéi",
+          "order": 27,
+          "active": true
+        },
+        {
+          "value": "bulgaria",
+          "label": "Bulgaria",
+          "order": 28,
+          "active": true
+        },
+        {
+          "value": "burkina_faso",
+          "label": "Burkina Faso",
+          "order": 29,
+          "active": true
+        },
+        {
+          "value": "burundi",
+          "label": "Burundi",
+          "order": 30,
+          "active": true
+        },
+        {
+          "value": "butan",
+          "label": "Bután",
+          "order": 31,
+          "active": true
+        },
+        {
+          "value": "cabo_verde",
+          "label": "Cabo Verde",
+          "order": 32,
+          "active": true
+        },
+        {
+          "value": "camboya",
+          "label": "Camboya",
+          "order": 33,
+          "active": true
+        },
+        {
+          "value": "camerun",
+          "label": "Camerún",
+          "order": 34,
+          "active": true
+        },
+        {
+          "value": "canada",
+          "label": "Canadá",
+          "order": 35,
+          "active": true
+        },
+        {
+          "value": "catar",
+          "label": "Catar",
+          "order": 36,
+          "active": true
+        },
+        {
+          "value": "chad",
+          "label": "Chad",
+          "order": 37,
+          "active": true
+        },
+        {
+          "value": "chile",
+          "label": "Chile",
+          "order": 38,
+          "active": true
+        },
+        {
+          "value": "china",
+          "label": "China",
+          "order": 39,
+          "active": true
+        },
+        {
+          "value": "chipre",
+          "label": "Chipre",
+          "order": 40,
+          "active": true
+        },
+        {
+          "value": "ciudad_del_vaticano",
+          "label": "Ciudad del Vaticano",
+          "order": 41,
+          "active": true
+        },
+        {
+          "value": "colombia",
+          "label": "Colombia",
+          "order": 42,
+          "active": true
+        },
+        {
+          "value": "comoras",
+          "label": "Comoras",
+          "order": 43,
+          "active": true
+        },
+        {
+          "value": "corea_del_norte",
+          "label": "Corea del Norte",
+          "order": 44,
+          "active": true
+        },
+        {
+          "value": "corea_del_sur",
+          "label": "Corea del Sur",
+          "order": 45,
+          "active": true
+        },
+        {
+          "value": "costa_de_marfil",
+          "label": "Costa de Marfil",
+          "order": 46,
+          "active": true
+        },
+        {
+          "value": "costa_rica",
+          "label": "Costa Rica",
+          "order": 47,
+          "active": true
+        },
+        {
+          "value": "croacia",
+          "label": "Croacia",
+          "order": 48,
+          "active": true
+        },
+        {
+          "value": "cuba",
+          "label": "Cuba",
+          "order": 49,
+          "active": true
+        },
+        {
+          "value": "dinamarca",
+          "label": "Dinamarca",
+          "order": 50,
+          "active": true
+        },
+        {
+          "value": "dominica",
+          "label": "Dominica",
+          "order": 51,
+          "active": true
+        },
+        {
+          "value": "ecuador",
+          "label": "Ecuador",
+          "order": 52,
+          "active": true
+        },
+        {
+          "value": "egipto",
+          "label": "Egipto",
+          "order": 53,
+          "active": true
+        },
+        {
+          "value": "el_salvador",
+          "label": "El Salvador",
+          "order": 54,
+          "active": true
+        },
+        {
+          "value": "emiratos_arabes_unidos",
+          "label": "Emiratos Árabes Unidos",
+          "order": 55,
+          "active": true
+        },
+        {
+          "value": "eritrea",
+          "label": "Eritrea",
+          "order": 56,
+          "active": true
+        },
+        {
+          "value": "eslovaquia",
+          "label": "Eslovaquia",
+          "order": 57,
+          "active": true
+        },
+        {
+          "value": "eslovenia",
+          "label": "Eslovenia",
+          "order": 58,
+          "active": true
+        },
+        {
+          "value": "espana",
+          "label": "España",
+          "order": 59,
+          "active": true
+        },
+        {
+          "value": "estados_unidos",
+          "label": "Estados Unidos",
+          "order": 60,
+          "active": true
+        },
+        {
+          "value": "estonia",
+          "label": "Estonia",
+          "order": 61,
+          "active": true
+        },
+        {
+          "value": "esuatini",
+          "label": "Esuatini",
+          "order": 62,
+          "active": true
+        },
+        {
+          "value": "etiopia",
+          "label": "Etiopía",
+          "order": 63,
+          "active": true
+        },
+        {
+          "value": "filipinas",
+          "label": "Filipinas",
+          "order": 64,
+          "active": true
+        },
+        {
+          "value": "finlandia",
+          "label": "Finlandia",
+          "order": 65,
+          "active": true
+        },
+        {
+          "value": "fiyi",
+          "label": "Fiyi",
+          "order": 66,
+          "active": true
+        },
+        {
+          "value": "francia",
+          "label": "Francia",
+          "order": 67,
+          "active": true
+        },
+        {
+          "value": "gabon",
+          "label": "Gabón",
+          "order": 68,
+          "active": true
+        },
+        {
+          "value": "gambia",
+          "label": "Gambia",
+          "order": 69,
+          "active": true
+        },
+        {
+          "value": "georgia",
+          "label": "Georgia",
+          "order": 70,
+          "active": true
+        },
+        {
+          "value": "ghana",
+          "label": "Ghana",
+          "order": 71,
+          "active": true
+        },
+        {
+          "value": "granada",
+          "label": "Granada",
+          "order": 72,
+          "active": true
+        },
+        {
+          "value": "grecia",
+          "label": "Grecia",
+          "order": 73,
+          "active": true
+        },
+        {
+          "value": "guatemala",
+          "label": "Guatemala",
+          "order": 74,
+          "active": true
+        },
+        {
+          "value": "guinea",
+          "label": "Guinea",
+          "order": 75,
+          "active": true
+        },
+        {
+          "value": "guinea_bisau",
+          "label": "Guinea-Bisáu",
+          "order": 76,
+          "active": true
+        },
+        {
+          "value": "guinea_ecuatorial",
+          "label": "Guinea Ecuatorial",
+          "order": 77,
+          "active": true
+        },
+        {
+          "value": "guyana",
+          "label": "Guyana",
+          "order": 78,
+          "active": true
+        },
+        {
+          "value": "haiti",
+          "label": "Haití",
+          "order": 79,
+          "active": true
+        },
+        {
+          "value": "honduras",
+          "label": "Honduras",
+          "order": 80,
+          "active": true
+        },
+        {
+          "value": "hungria",
+          "label": "Hungría",
+          "order": 81,
+          "active": true
+        },
+        {
+          "value": "india",
+          "label": "India",
+          "order": 82,
+          "active": true
+        },
+        {
+          "value": "indonesia",
+          "label": "Indonesia",
+          "order": 83,
+          "active": true
+        },
+        {
+          "value": "irak",
+          "label": "Irak",
+          "order": 84,
+          "active": true
+        },
+        {
+          "value": "iran",
+          "label": "Irán",
+          "order": 85,
+          "active": true
+        },
+        {
+          "value": "irlanda",
+          "label": "Irlanda",
+          "order": 86,
+          "active": true
+        },
+        {
+          "value": "islandia",
+          "label": "Islandia",
+          "order": 87,
+          "active": true
+        },
+        {
+          "value": "islas_marshall",
+          "label": "Islas Marshall",
+          "order": 88,
+          "active": true
+        },
+        {
+          "value": "islas_salomon",
+          "label": "Islas Salomón",
+          "order": 89,
+          "active": true
+        },
+        {
+          "value": "israel",
+          "label": "Israel",
+          "order": 90,
+          "active": true
+        },
+        {
+          "value": "italia",
+          "label": "Italia",
+          "order": 91,
+          "active": true
+        },
+        {
+          "value": "jamaica",
+          "label": "Jamaica",
+          "order": 92,
+          "active": true
+        },
+        {
+          "value": "japon",
+          "label": "Japón",
+          "order": 93,
+          "active": true
+        },
+        {
+          "value": "jordania",
+          "label": "Jordania",
+          "order": 94,
+          "active": true
+        },
+        {
+          "value": "kazajistan",
+          "label": "Kazajistán",
+          "order": 95,
+          "active": true
+        },
+        {
+          "value": "kenia",
+          "label": "Kenia",
+          "order": 96,
+          "active": true
+        },
+        {
+          "value": "kirguistan",
+          "label": "Kirguistán",
+          "order": 97,
+          "active": true
+        },
+        {
+          "value": "kiribati",
+          "label": "Kiribati",
+          "order": 98,
+          "active": true
+        },
+        {
+          "value": "kuwait",
+          "label": "Kuwait",
+          "order": 99,
+          "active": true
+        },
+        {
+          "value": "laos",
+          "label": "Laos",
+          "order": 100,
+          "active": true
+        },
+        {
+          "value": "lesoto",
+          "label": "Lesoto",
+          "order": 101,
+          "active": true
+        },
+        {
+          "value": "letonia",
+          "label": "Letonia",
+          "order": 102,
+          "active": true
+        },
+        {
+          "value": "libano",
+          "label": "Líbano",
+          "order": 103,
+          "active": true
+        },
+        {
+          "value": "liberia",
+          "label": "Liberia",
+          "order": 104,
+          "active": true
+        },
+        {
+          "value": "libia",
+          "label": "Libia",
+          "order": 105,
+          "active": true
+        },
+        {
+          "value": "liechtenstein",
+          "label": "Liechtenstein",
+          "order": 106,
+          "active": true
+        },
+        {
+          "value": "lituania",
+          "label": "Lituania",
+          "order": 107,
+          "active": true
+        },
+        {
+          "value": "luxemburgo",
+          "label": "Luxemburgo",
+          "order": 108,
+          "active": true
+        },
+        {
+          "value": "macedonia_del_norte",
+          "label": "Macedonia del Norte",
+          "order": 109,
+          "active": true
+        },
+        {
+          "value": "madagascar",
+          "label": "Madagascar",
+          "order": 110,
+          "active": true
+        },
+        {
+          "value": "malasia",
+          "label": "Malasia",
+          "order": 111,
+          "active": true
+        },
+        {
+          "value": "malaui",
+          "label": "Malaui",
+          "order": 112,
+          "active": true
+        },
+        {
+          "value": "maldivas",
+          "label": "Maldivas",
+          "order": 113,
+          "active": true
+        },
+        {
+          "value": "mali",
+          "label": "Malí",
+          "order": 114,
+          "active": true
+        },
+        {
+          "value": "malta",
+          "label": "Malta",
+          "order": 115,
+          "active": true
+        },
+        {
+          "value": "marruecos",
+          "label": "Marruecos",
+          "order": 116,
+          "active": true
+        },
+        {
+          "value": "mauricio",
+          "label": "Mauricio",
+          "order": 117,
+          "active": true
+        },
+        {
+          "value": "mauritania",
+          "label": "Mauritania",
+          "order": 118,
+          "active": true
+        },
+        {
+          "value": "mexico",
+          "label": "México",
+          "order": 119,
+          "active": true
+        },
+        {
+          "value": "micronesia",
+          "label": "Micronesia",
+          "order": 120,
+          "active": true
+        },
+        {
+          "value": "moldavia",
+          "label": "Moldavia",
+          "order": 121,
+          "active": true
+        },
+        {
+          "value": "monaco",
+          "label": "Mónaco",
+          "order": 122,
+          "active": true
+        },
+        {
+          "value": "mongolia",
+          "label": "Mongolia",
+          "order": 123,
+          "active": true
+        },
+        {
+          "value": "montenegro",
+          "label": "Montenegro",
+          "order": 124,
+          "active": true
+        },
+        {
+          "value": "mozambique",
+          "label": "Mozambique",
+          "order": 125,
+          "active": true
+        },
+        {
+          "value": "namibia",
+          "label": "Namibia",
+          "order": 126,
+          "active": true
+        },
+        {
+          "value": "nauru",
+          "label": "Nauru",
+          "order": 127,
+          "active": true
+        },
+        {
+          "value": "nepal",
+          "label": "Nepal",
+          "order": 128,
+          "active": true
+        },
+        {
+          "value": "nicaragua",
+          "label": "Nicaragua",
+          "order": 129,
+          "active": true
+        },
+        {
+          "value": "niger",
+          "label": "Níger",
+          "order": 130,
+          "active": true
+        },
+        {
+          "value": "nigeria",
+          "label": "Nigeria",
+          "order": 131,
+          "active": true
+        },
+        {
+          "value": "noruega",
+          "label": "Noruega",
+          "order": 132,
+          "active": true
+        },
+        {
+          "value": "nueva_zelanda",
+          "label": "Nueva Zelanda",
+          "order": 133,
+          "active": true
+        },
+        {
+          "value": "oman",
+          "label": "Omán",
+          "order": 134,
+          "active": true
+        },
+        {
+          "value": "paises_bajos",
+          "label": "Países Bajos",
+          "order": 135,          "active": true
+        },
+        {
+          "value": "pakistan",
+          "label": "Pakistán",
+          "order": 136,
+          "active": true
+        },
+        {
+          "value": "palaos",
+          "label": "Palaos",
+          "order": 137,
+          "active": true
+        },
+        {
+          "value": "palestina",
+          "label": "Palestina",
+          "order": 138,
+          "active": true
+        },
+        {
+          "value": "panama",
+          "label": "Panamá",
+          "order": 139,
+          "active": true
+        },
+        {
+          "value": "papua_nueva_guinea",
+          "label": "Papúa Nueva Guinea",
+          "order": 140,
+          "active": true
+        },
+        {
+          "value": "paraguay",
+          "label": "Paraguay",
+          "order": 141,
+          "active": true
+        },
+        {
+          "value": "peru",
+          "label": "Perú",
+          "order": 142,
+          "active": true
+        },
+        {
+          "value": "polonia",
+          "label": "Polonia",
+          "order": 143,
+          "active": true
+        },
+        {
+          "value": "portugal",
+          "label": "Portugal",
+          "order": 144,
+          "active": true
+        },
+        {
+          "value": "reino_unido",
+          "label": "Reino Unido",
+          "order": 145,
+          "active": true
+        },
+        {
+          "value": "republica_centroafricana",
+          "label": "República Centroafricana",
+          "order": 146,
+          "active": true
+        },
+        {
+          "value": "republica_checa",
+          "label": "República Checa",
+          "order": 147,
+          "active": true
+        },
+        {
+          "value": "republica_del_congo",
+          "label": "República del Congo",
+          "order": 148,
+          "active": true
+        },
+        {
+          "value": "republica_democratica_del_congo",
+          "label": "República Democrática del Congo",
+          "order": 149,
+          "active": true
+        },
+        {
+          "value": "republica_dominicana",
+          "label": "República Dominicana",
+          "order": 150,
+          "active": true
+        },
+        {
+          "value": "ruanda",
+          "label": "Ruanda",
+          "order": 151,
+          "active": true
+        },
+        {
+          "value": "rumania",
+          "label": "Rumania",
+          "order": 152,
+          "active": true
+        },
+        {
+          "value": "rusia",
+          "label": "Rusia",
+          "order": 153,
+          "active": true
+        },
+        {
+          "value": "samoa",
+          "label": "Samoa",
+          "order": 154,
+          "active": true
+        },
+        {
+          "value": "san_cristobal_y_nieves",
+          "label": "San Cristóbal y Nieves",
+          "order": 155,
+          "active": true
+        },
+        {
+          "value": "san_marino",
+          "label": "San Marino",
+          "order": 156,
+          "active": true
+        },
+        {
+          "value": "san_vicente_y_las_granadinas",
+          "label": "San Vicente y las Granadinas",
+          "order": 157,
+          "active": true
+        },
+        {
+          "value": "santa_lucia",
+          "label": "Santa Lucía",
+          "order": 158,
+          "active": true
+        },
+        {
+          "value": "santo_tome_y_principe",
+          "label": "Santo Tomé y Príncipe",
+          "order": 159,
+          "active": true
+        },
+        {
+          "value": "senegal",
+          "label": "Senegal",
+          "order": 160,
+          "active": true
+        },
+        {
+          "value": "serbia",
+          "label": "Serbia",
+          "order": 161,
+          "active": true
+        },
+        {
+          "value": "seychelles",
+          "label": "Seychelles",
+          "order": 162,
+          "active": true
+        },
+        {
+          "value": "sierra_leona",
+          "label": "Sierra Leona",
+          "order": 163,
+          "active": true
+        },
+        {
+          "value": "singapur",
+          "label": "Singapur",
+          "order": 164,
+          "active": true
+        },
+        {
+          "value": "siria",
+          "label": "Siria",
+          "order": 165,
+          "active": true
+        },
+        {
+          "value": "somalia",
+          "label": "Somalia",
+          "order": 166,
+          "active": true
+        },
+        {
+          "value": "sri_lanka",
+          "label": "Sri Lanka",
+          "order": 167,
+          "active": true
+        },
+        {
+          "value": "sudafrica",
+          "label": "Sudáfrica",
+          "order": 168,
+          "active": true
+        },
+        {
+          "value": "sudan",
+          "label": "Sudán",
+          "order": 169,
+          "active": true
+        },
+        {
+          "value": "sudan_del_sur",
+          "label": "Sudán del Sur",
+          "order": 170,
+          "active": true
+        },
+        {
+          "value": "suecia",
+          "label": "Suecia",
+          "order": 171,
+          "active": true
+        },
+        {
+          "value": "suiza",
+          "label": "Suiza",
+          "order": 172,
+          "active": true
+        },
+        {
+          "value": "surinam",
+          "label": "Surinam",
+          "order": 173,
+          "active": true
+        },
+        {
+          "value": "tailandia",
+          "label": "Tailandia",
+          "order": 174,
+          "active": true
+        },
+        {
+          "value": "tanzania",
+          "label": "Tanzania",
+          "order": 175,
+          "active": true
+        },
+        {
+          "value": "tayikistan",
+          "label": "Tayikistán",
+          "order": 176,
+          "active": true
+        },
+        {
+          "value": "timor_oriental",
+          "label": "Timor Oriental",
+          "order": 177,
+          "active": true
+        },
+        {
+          "value": "togo",
+          "label": "Togo",
+          "order": 178,
+          "active": true
+        },
+        {
+          "value": "tonga",
+          "label": "Tonga",
+          "order": 179,
+          "active": true
+        },
+        {
+          "value": "trinidad_y_tobago",
+          "label": "Trinidad y Tobago",
+          "order": 180,
+          "active": true
+        },
+        {
+          "value": "tunez",
+          "label": "Túnez",
+          "order": 181,
+          "active": true
+        },
+        {
+          "value": "turkmenistan",
+          "label": "Turkmenistán",
+          "order": 182,
+          "active": true
+        },
+        {
+          "value": "turquia",
+          "label": "Turquía",
+          "order": 183,
+          "active": true
+        },
+        {
+          "value": "tuvalu",
+          "label": "Tuvalu",
+          "order": 184,
+          "active": true
+        },
+        {
+          "value": "ucrania",
+          "label": "Ucrania",
+          "order": 185,
+          "active": true
+        },
+        {
+          "value": "uganda",
+          "label": "Uganda",
+          "order": 186,
+          "active": true
+        },
+        {
+          "value": "uruguay",
+          "label": "Uruguay",
+          "order": 187,
+          "active": true
+        },
+        {
+          "value": "uzbekistan",
+          "label": "Uzbekistán",
+          "order": 188,
+          "active": true
+        },
+        {
+          "value": "vanuatu",
+          "label": "Vanuatu",
+          "order": 189,
+          "active": true
+        },
+        {
+          "value": "venezuela",
+          "label": "Venezuela",
+          "order": 190,
+          "active": true
+        },
+        {
+          "value": "vietnam",
+          "label": "Vietnam",
+          "order": 191,
+          "active": true
+        },
+        {
+          "value": "yemen",
+          "label": "Yemen",
+          "order": 192,
+          "active": true
+        },
+        {
+          "value": "yibuti",
+          "label": "Yibuti",
+          "order": 193,
+          "active": true
+        },
+        {
+          "value": "zambia",
+          "label": "Zambia",
+          "order": 194,
+          "active": true
+        },
+        {
+          "value": "zimbabue",
+          "label": "Zimbabue",
+          "order": 195,
+          "active": true
+        }
+      ]
+    },
+    "nacionalidad": {
+      "field": "Nacionalidad",
+      "source": "Catálogo técnico de nacionalidad basado en país",
+      "searchable": true,
+      "options": [
+        {
+          "value": "afganistan",
+          "label": "Afganistán",
+          "order": 1,
+          "active": true
+        },
+        {
+          "value": "albania",
+          "label": "Albania",
+          "order": 2,
+          "active": true
+        },
+        {
+          "value": "alemania",
+          "label": "Alemania",
+          "order": 3,
+          "active": true
+        },
+        {
+          "value": "andorra",
+          "label": "Andorra",
+          "order": 4,
+          "active": true
+        },
+        {
+          "value": "angola",
+          "label": "Angola",
+          "order": 5,
+          "active": true
+        },
+        {
+          "value": "antigua_y_barbuda",
+          "label": "Antigua y Barbuda",
+          "order": 6,
+          "active": true
+        },
+        {
+          "value": "arabia_saudita",
+          "label": "Arabia Saudita",
+          "order": 7,
+          "active": true
+        },
+        {
+          "value": "argelia",
+          "label": "Argelia",
+          "order": 8,
+          "active": true
+        },
+        {
+          "value": "argentina",
+          "label": "Argentina",
+          "order": 9,
+          "active": true
+        },
+        {
+          "value": "armenia",
+          "label": "Armenia",
+          "order": 10,
+          "active": true
+        },
+        {
+          "value": "australia",
+          "label": "Australia",
+          "order": 11,
+          "active": true
+        },
+        {
+          "value": "austria",
+          "label": "Austria",
+          "order": 12,
+          "active": true
+        },
+        {
+          "value": "azerbaiyan",
+          "label": "Azerbaiyán",
+          "order": 13,
+          "active": true
+        },
+        {
+          "value": "bahamas",
+          "label": "Bahamas",
+          "order": 14,
+          "active": true
+        },
+        {
+          "value": "banglades",
+          "label": "Bangladés",
+          "order": 15,
+          "active": true
+        },
+        {
+          "value": "barbados",
+          "label": "Barbados",
+          "order": 16,
+          "active": true
+        },
+        {
+          "value": "barein",
+          "label": "Baréin",
+          "order": 17,
+          "active": true
+        },
+        {
+          "value": "belgica",
+          "label": "Bélgica",
+          "order": 18,
+          "active": true
+        },
+        {
+          "value": "belice",
+          "label": "Belice",
+          "order": 19,
+          "active": true
+        },
+        {
+          "value": "benin",
+          "label": "Benín",
+          "order": 20,
+          "active": true
+        },
+        {
+          "value": "bielorrusia",
+          "label": "Bielorrusia",
+          "order": 21,
+          "active": true
+        },
+        {
+          "value": "birmania",
+          "label": "Birmania",
+          "order": 22,
+          "active": true
+        },
+        {
+          "value": "bolivia",
+          "label": "Bolivia",
+          "order": 23,
+          "active": true
+        },
+        {
+          "value": "bosnia_y_herzegovina",
+          "label": "Bosnia y Herzegovina",
+          "order": 24,
+          "active": true
+        },
+        {
+          "value": "botsuana",
+          "label": "Botsuana",
+          "order": 25,
+          "active": true
+        },
+        {
+          "value": "brasil",
+          "label": "Brasil",
+          "order": 26,
+          "active": true
+        },
+        {
+          "value": "brunei",
+          "label": "Brunéi",
+          "order": 27,
+          "active": true
+        },
+        {
+          "value": "bulgaria",
+          "label": "Bulgaria",
+          "order": 28,
+          "active": true
+        },
+        {
+          "value": "burkina_faso",
+          "label": "Burkina Faso",
+          "order": 29,
+          "active": true
+        },
+        {
+          "value": "burundi",
+          "label": "Burundi",
+          "order": 30,
+          "active": true
+        },
+        {
+          "value": "butan",
+          "label": "Bután",
+          "order": 31,
+          "active": true
+        },
+        {
+          "value": "cabo_verde",
+          "label": "Cabo Verde",
+          "order": 32,
+          "active": true
+        },
+        {
+          "value": "camboya",
+          "label": "Camboya",
+          "order": 33,
+          "active": true
+        },
+        {
+          "value": "camerun",
+          "label": "Camerún",
+          "order": 34,
+          "active": true
+        },
+        {
+          "value": "canada",
+          "label": "Canadá",
+          "order": 35,
+          "active": true
+        },
+        {
+          "value": "catar",
+          "label": "Catar",
+          "order": 36,
+          "active": true
+        },
+        {
+          "value": "chad",
+          "label": "Chad",
+          "order": 37,
+          "active": true
+        },
+        {
+          "value": "chile",
+          "label": "Chile",
+          "order": 38,
+          "active": true
+        },
+        {
+          "value": "china",
+          "label": "China",
+          "order": 39,
+          "active": true
+        },
+        {
+          "value": "chipre",
+          "label": "Chipre",
+          "order": 40,
+          "active": true
+        },
+        {
+          "value": "ciudad_del_vaticano",
+          "label": "Ciudad del Vaticano",
+          "order": 41,
+          "active": true
+        },
+        {
+          "value": "colombia",
+          "label": "Colombia",
+          "order": 42,
+          "active": true
+        },
+        {
+          "value": "comoras",
+          "label": "Comoras",
+          "order": 43,
+          "active": true
+        },
+        {
+          "value": "corea_del_norte",
+          "label": "Corea del Norte",
+          "order": 44,
+          "active": true
+        },
+        {
+          "value": "corea_del_sur",
+          "label": "Corea del Sur",
+          "order": 45,
+          "active": true
+        },
+        {
+          "value": "costa_de_marfil",
+          "label": "Costa de Marfil",
+          "order": 46,
+          "active": true
+        },
+        {
+          "value": "costa_rica",
+          "label": "Costa Rica",
+          "order": 47,
+          "active": true
+        },
+        {
+          "value": "croacia",
+          "label": "Croacia",
+          "order": 48,
+          "active": true
+        },
+        {
+          "value": "cuba",
+          "label": "Cuba",
+          "order": 49,
+          "active": true
+        },
+        {
+          "value": "dinamarca",
+          "label": "Dinamarca",
+          "order": 50,
+          "active": true
+        },
+        {
+          "value": "dominica",
+          "label": "Dominica",
+          "order": 51,
+          "active": true
+        },
+        {
+          "value": "ecuador",
+          "label": "Ecuador",
+          "order": 52,
+          "active": true
+        },
+        {
+          "value": "egipto",
+          "label": "Egipto",
+          "order": 53,
+          "active": true
+        },
+        {
+          "value": "el_salvador",
+          "label": "El Salvador",
+          "order": 54,
+          "active": true
+        },
+        {
+          "value": "emiratos_arabes_unidos",
+          "label": "Emiratos Árabes Unidos",
+          "order": 55,
+          "active": true
+        },
+        {
+          "value": "eritrea",
+          "label": "Eritrea",
+          "order": 56,
+          "active": true
+        },
+        {
+          "value": "eslovaquia",
+          "label": "Eslovaquia",
+          "order": 57,
+          "active": true
+        },
+        {
+          "value": "eslovenia",
+          "label": "Eslovenia",
+          "order": 58,
+          "active": true
+        },
+        {
+          "value": "espana",
+          "label": "España",
+          "order": 59,
+          "active": true
+        },
+        {
+          "value": "estados_unidos",
+          "label": "Estados Unidos",
+          "order": 60,
+          "active": true
+        },
+        {
+          "value": "estonia",
+          "label": "Estonia",
+          "order": 61,
+          "active": true
+        },
+        {
+          "value": "esuatini",
+          "label": "Esuatini",
+          "order": 62,
+          "active": true
+        },
+        {
+          "value": "etiopia",
+          "label": "Etiopía",
+          "order": 63,
+          "active": true
+        },
+        {
+          "value": "filipinas",
+          "label": "Filipinas",
+          "order": 64,
+          "active": true
+        },
+        {
+          "value": "finlandia",
+          "label": "Finlandia",
+          "order": 65,
+          "active": true
+        },
+        {
+          "value": "fiyi",
+          "label": "Fiyi",
+          "order": 66,
+          "active": true
+        },
+        {
+          "value": "francia",
+          "label": "Francia",
+          "order": 67,
+          "active": true
+        },
+        {
+          "value": "gabon",
+          "label": "Gabón",
+          "order": 68,
+          "active": true
+        },
+        {
+          "value": "gambia",
+          "label": "Gambia",
+          "order": 69,
+          "active": true
+        },
+        {
+          "value": "georgia",
+          "label": "Georgia",
+          "order": 70,
+          "active": true
+        },
+        {
+          "value": "ghana",
+          "label": "Ghana",
+          "order": 71,
+          "active": true
+        },
+        {
+          "value": "granada",
+          "label": "Granada",
+          "order": 72,
+          "active": true
+        },
+        {
+          "value": "grecia",
+          "label": "Grecia",
+          "order": 73,
+          "active": true
+        },
+        {
+          "value": "guatemala",
+          "label": "Guatemala",
+          "order": 74,
+          "active": true
+        },
+        {
+          "value": "guinea",
+          "label": "Guinea",
+          "order": 75,
+          "active": true
+        },
+        {
+          "value": "guinea_bisau",
+          "label": "Guinea-Bisáu",
+          "order": 76,
+          "active": true
+        },
+        {
+          "value": "guinea_ecuatorial",
+          "label": "Guinea Ecuatorial",
+          "order": 77,
+          "active": true
+        },
+        {
+          "value": "guyana",
+          "label": "Guyana",
+          "order": 78,
+          "active": true
+        },
+        {
+          "value": "haiti",
+          "label": "Haití",
+          "order": 79,
+          "active": true
+        },
+        {
+          "value": "honduras",
+          "label": "Honduras",
+          "order": 80,
+          "active": true
+        },
+        {
+          "value": "hungria",
+          "label": "Hungría",
+          "order": 81,
+          "active": true
+        },
+        {
+          "value": "india",
+          "label": "India",
+          "order": 82,
+          "active": true
+        },
+        {
+          "value": "indonesia",
+          "label": "Indonesia",
+          "order": 83,
+          "active": true
+        },
+        {
+          "value": "irak",
+          "label": "Irak",
+          "order": 84,
+          "active": true
+        },
+        {
+          "value": "iran",
+          "label": "Irán",
+          "order": 85,
+          "active": true
+        },
+        {
+          "value": "irlanda",
+          "label": "Irlanda",
+          "order": 86,
+          "active": true
+        },
+        {
+          "value": "islandia",
+          "label": "Islandia",
+          "order": 87,
+          "active": true
+        },
+        {
+          "value": "islas_marshall",
+          "label": "Islas Marshall",
+          "order": 88,
+          "active": true
+        },
+        {
+          "value": "islas_salomon",
+          "label": "Islas Salomón",
+          "order": 89,
+          "active": true
+        },
+        {
+          "value": "israel",
+          "label": "Israel",
+          "order": 90,
+          "active": true
+        },
+        {
+          "value": "italia",
+          "label": "Italia",
+          "order": 91,
+          "active": true
+        },
+        {
+          "value": "jamaica",
+          "label": "Jamaica",
+          "order": 92,
+          "active": true
+        },
+        {
+          "value": "japon",
+          "label": "Japón",
+          "order": 93,
+          "active": true
+        },
+        {
+          "value": "jordania",
+          "label": "Jordania",
+          "order": 94,
+          "active": true
+        },
+        {
+          "value": "kazajistan",
+          "label": "Kazajistán",
+          "order": 95,
+          "active": true
+        },
+        {
+          "value": "kenia",
+          "label": "Kenia",
+          "order": 96,
+          "active": true
+        },
+        {
+          "value": "kirguistan",
+          "label": "Kirguistán",
+          "order": 97,
+          "active": true
+        },
+        {
+          "value": "kiribati",
+          "label": "Kiribati",
+          "order": 98,
+          "active": true
+        },
+        {
+          "value": "kuwait",
+          "label": "Kuwait",
+          "order": 99,
+          "active": true
+        },
+        {
+          "value": "laos",
+          "label": "Laos",
+          "order": 100,
+          "active": true
+        },
+        {
+          "value": "lesoto",
+          "label": "Lesoto",
+          "order": 101,
+          "active": true
+        },
+        {
+          "value": "letonia",
+          "label": "Letonia",
+          "order": 102,
+          "active": true
+        },
+        {
+          "value": "libano",
+          "label": "Líbano",
+          "order": 103,
+          "active": true
+        },
+        {
+          "value": "liberia",
+          "label": "Liberia",
+          "order": 104,
+          "active": true
+        },
+        {
+          "value": "libia",
+          "label": "Libia",
+          "order": 105,
+          "active": true
+        },
+        {          "value": "liechtenstein",
+          "label": "Liechtenstein",
+          "order": 106,
+          "active": true
+        },
+        {
+          "value": "lituania",
+          "label": "Lituania",
+          "order": 107,
+          "active": true
+        },
+        {
+          "value": "luxemburgo",
+          "label": "Luxemburgo",
+          "order": 108,
+          "active": true
+        },
+        {
+          "value": "macedonia_del_norte",
+          "label": "Macedonia del Norte",
+          "order": 109,
+          "active": true
+        },
+        {
+          "value": "madagascar",
+          "label": "Madagascar",
+          "order": 110,
+          "active": true
+        },
+        {
+          "value": "malasia",
+          "label": "Malasia",
+          "order": 111,
+          "active": true
+        },
+        {
+          "value": "malaui",
+          "label": "Malaui",
+          "order": 112,
+          "active": true
+        },
+        {
+          "value": "maldivas",
+          "label": "Maldivas",
+          "order": 113,
+          "active": true
+        },
+        {
+          "value": "mali",
+          "label": "Malí",
+          "order": 114,
+          "active": true
+        },
+        {
+          "value": "malta",
+          "label": "Malta",
+          "order": 115,
+          "active": true
+        },
+        {
+          "value": "marruecos",
+          "label": "Marruecos",
+          "order": 116,
+          "active": true
+        },
+        {
+          "value": "mauricio",
+          "label": "Mauricio",
+          "order": 117,
+          "active": true
+        },
+        {
+          "value": "mauritania",
+          "label": "Mauritania",
+          "order": 118,
+          "active": true
+        },
+        {
+          "value": "mexico",
+          "label": "México",
+          "order": 119,
+          "active": true
+        },
+        {
+          "value": "micronesia",
+          "label": "Micronesia",
+          "order": 120,
+          "active": true
+        },
+        {
+          "value": "moldavia",
+          "label": "Moldavia",
+          "order": 121,
+          "active": true
+        },
+        {
+          "value": "monaco",
+          "label": "Mónaco",
+          "order": 122,
+          "active": true
+        },
+        {
+          "value": "mongolia",
+          "label": "Mongolia",
+          "order": 123,
+          "active": true
+        },
+        {
+          "value": "montenegro",
+          "label": "Montenegro",
+          "order": 124,
+          "active": true
+        },
+        {
+          "value": "mozambique",
+          "label": "Mozambique",
+          "order": 125,
+          "active": true
+        },
+        {
+          "value": "namibia",
+          "label": "Namibia",
+          "order": 126,
+          "active": true
+        },
+        {
+          "value": "nauru",
+          "label": "Nauru",
+          "order": 127,
+          "active": true
+        },
+        {
+          "value": "nepal",
+          "label": "Nepal",
+          "order": 128,
+          "active": true
+        },
+        {
+          "value": "nicaragua",
+          "label": "Nicaragua",
+          "order": 129,
+          "active": true
+        },
+        {
+          "value": "niger",
+          "label": "Níger",
+          "order": 130,
+          "active": true
+        },
+        {
+          "value": "nigeria",
+          "label": "Nigeria",
+          "order": 131,
+          "active": true
+        },
+        {
+          "value": "noruega",
+          "label": "Noruega",
+          "order": 132,
+          "active": true
+        },
+        {
+          "value": "nueva_zelanda",
+          "label": "Nueva Zelanda",
+          "order": 133,
+          "active": true
+        },
+        {
+          "value": "oman",
+          "label": "Omán",
+          "order": 134,
+          "active": true
+        },
+        {
+          "value": "paises_bajos",
+          "label": "Países Bajos",
+          "order": 135,
+          "active": true
+        },
+        {
+          "value": "pakistan",
+          "label": "Pakistán",
+          "order": 136,
+          "active": true
+        },
+        {
+          "value": "palaos",
+          "label": "Palaos",
+          "order": 137,
+          "active": true
+        },
+        {
+          "value": "palestina",
+          "label": "Palestina",
+          "order": 138,
+          "active": true
+        },
+        {
+          "value": "panama",
+          "label": "Panamá",
+          "order": 139,
+          "active": true
+        },
+        {
+          "value": "papua_nueva_guinea",
+          "label": "Papúa Nueva Guinea",
+          "order": 140,
+          "active": true
+        },
+        {
+          "value": "paraguay",
+          "label": "Paraguay",
+          "order": 141,
+          "active": true
+        },
+        {
+          "value": "peru",
+          "label": "Perú",
+          "order": 142,
+          "active": true
+        },
+        {
+          "value": "polonia",
+          "label": "Polonia",
+          "order": 143,
+          "active": true
+        },
+        {
+          "value": "portugal",
+          "label": "Portugal",
+          "order": 144,
+          "active": true
+        },
+        {
+          "value": "reino_unido",
+          "label": "Reino Unido",
+          "order": 145,
+          "active": true
+        },
+        {
+          "value": "republica_centroafricana",
+          "label": "República Centroafricana",
+          "order": 146,
+          "active": true
+        },
+        {
+          "value": "republica_checa",
+          "label": "República Checa",
+          "order": 147,
+          "active": true
+        },
+        {
+          "value": "republica_del_congo",
+          "label": "República del Congo",
+          "order": 148,
+          "active": true
+        },
+        {
+          "value": "republica_democratica_del_congo",
+          "label": "República Democrática del Congo",
+          "order": 149,
+          "active": true
+        },
+        {
+          "value": "republica_dominicana",
+          "label": "República Dominicana",
+          "order": 150,
+          "active": true
+        },
+        {
+          "value": "ruanda",
+          "label": "Ruanda",
+          "order": 151,
+          "active": true
+        },
+        {
+          "value": "rumania",
+          "label": "Rumania",
+          "order": 152,
+          "active": true
+        },
+        {
+          "value": "rusia",
+          "label": "Rusia",
+          "order": 153,
+          "active": true
+        },
+        {
+          "value": "samoa",
+          "label": "Samoa",
+          "order": 154,
+          "active": true
+        },
+        {
+          "value": "san_cristobal_y_nieves",
+          "label": "San Cristóbal y Nieves",
+          "order": 155,
+          "active": true
+        },
+        {
+          "value": "san_marino",
+          "label": "San Marino",
+          "order": 156,
+          "active": true
+        },
+        {
+          "value": "san_vicente_y_las_granadinas",
+          "label": "San Vicente y las Granadinas",
+          "order": 157,
+          "active": true
+        },
+        {
+          "value": "santa_lucia",
+          "label": "Santa Lucía",
+          "order": 158,
+          "active": true
+        },
+        {
+          "value": "santo_tome_y_principe",
+          "label": "Santo Tomé y Príncipe",
+          "order": 159,
+          "active": true
+        },
+        {
+          "value": "senegal",
+          "label": "Senegal",
+          "order": 160,
+          "active": true
+        },
+        {
+          "value": "serbia",
+          "label": "Serbia",
+          "order": 161,
+          "active": true
+        },
+        {
+          "value": "seychelles",
+          "label": "Seychelles",
+          "order": 162,
+          "active": true
+        },
+        {
+          "value": "sierra_leona",
+          "label": "Sierra Leona",
+          "order": 163,
+          "active": true
+        },
+        {
+          "value": "singapur",
+          "label": "Singapur",
+          "order": 164,
+          "active": true
+        },
+        {
+          "value": "siria",
+          "label": "Siria",
+          "order": 165,
+          "active": true
+        },
+        {
+          "value": "somalia",
+          "label": "Somalia",
+          "order": 166,
+          "active": true
+        },
+        {
+          "value": "sri_lanka",
+          "label": "Sri Lanka",
+          "order": 167,
+          "active": true
+        },
+        {
+          "value": "sudafrica",
+          "label": "Sudáfrica",
+          "order": 168,
+          "active": true
+        },
+        {
+          "value": "sudan",
+          "label": "Sudán",
+          "order": 169,
+          "active": true
+        },
+        {
+          "value": "sudan_del_sur",
+          "label": "Sudán del Sur",
+          "order": 170,
+          "active": true
+        },
+        {
+          "value": "suecia",
+          "label": "Suecia",
+          "order": 171,
+          "active": true
+        },
+        {
+          "value": "suiza",
+          "label": "Suiza",
+          "order": 172,
+          "active": true
+        },
+        {
+          "value": "surinam",
+          "label": "Surinam",
+          "order": 173,
+          "active": true
+        },
+        {
+          "value": "tailandia",
+          "label": "Tailandia",
+          "order": 174,
+          "active": true
+        },
+        {
+          "value": "tanzania",
+          "label": "Tanzania",
+          "order": 175,
+          "active": true
+        },
+        {
+          "value": "tayikistan",
+          "label": "Tayikistán",
+          "order": 176,
+          "active": true
+        },
+        {
+          "value": "timor_oriental",
+          "label": "Timor Oriental",
+          "order": 177,
+          "active": true
+        },
+        {
+          "value": "togo",
+          "label": "Togo",
+          "order": 178,
+          "active": true
+        },
+        {
+          "value": "tonga",
+          "label": "Tonga",
+          "order": 179,
+          "active": true
+        },
+        {
+          "value": "trinidad_y_tobago",
+          "label": "Trinidad y Tobago",
+          "order": 180,
+          "active": true
+        },
+        {
+          "value": "tunez",
+          "label": "Túnez",
+          "order": 181,
+          "active": true
+        },
+        {
+          "value": "turkmenistan",
+          "label": "Turkmenistán",
+          "order": 182,
+          "active": true
+        },
+        {
+          "value": "turquia",
+          "label": "Turquía",
+          "order": 183,
+          "active": true
+        },
+        {
+          "value": "tuvalu",
+          "label": "Tuvalu",
+          "order": 184,
+          "active": true
+        },
+        {
+          "value": "ucrania",
+          "label": "Ucrania",
+          "order": 185,
+          "active": true
+        },
+        {
+          "value": "uganda",
+          "label": "Uganda",
+          "order": 186,
+          "active": true
+        },
+        {
+          "value": "uruguay",
+          "label": "Uruguay",
+          "order": 187,
+          "active": true
+        },
+        {
+          "value": "uzbekistan",
+          "label": "Uzbekistán",
+          "order": 188,
+          "active": true
+        },
+        {
+          "value": "vanuatu",
+          "label": "Vanuatu",
+          "order": 189,
+          "active": true
+        },
+        {
+          "value": "venezuela",
+          "label": "Venezuela",
+          "order": 190,
+          "active": true
+        },
+        {
+          "value": "vietnam",
+          "label": "Vietnam",
+          "order": 191,
+          "active": true
+        },
+        {
+          "value": "yemen",
+          "label": "Yemen",
+          "order": 192,
+          "active": true
+        },
+        {
+          "value": "yibuti",
+          "label": "Yibuti",
+          "order": 193,
+          "active": true
+        },
+        {
+          "value": "zambia",
+          "label": "Zambia",
+          "order": 194,
+          "active": true
+        },
+        {
+          "value": "zimbabue",
+          "label": "Zimbabue",
+          "order": 195,
+          "active": true
+        }
+      ]
+    },
+    "pais_residencia": {
+      "field": "País de residencia",
+      "source": "Catálogo completo de países; actualización aprobada para 03D",
+      "searchable": true,
+      "options": [
+        {
+          "value": "afganistan",
+          "label": "Afganistán",
+          "order": 1,
+          "active": true
+        },
+        {
+          "value": "albania",
+          "label": "Albania",
+          "order": 2,
+          "active": true
+        },
+        {
+          "value": "alemania",
+          "label": "Alemania",
+          "order": 3,
+          "active": true
+        },
+        {
+          "value": "andorra",
+          "label": "Andorra",
+          "order": 4,
+          "active": true
+        },
+        {
+          "value": "angola",
+          "label": "Angola",
+          "order": 5,
+          "active": true
+        },
+        {
+          "value": "antigua_y_barbuda",
+          "label": "Antigua y Barbuda",
+          "order": 6,
+          "active": true
+        },
+        {
+          "value": "arabia_saudita",
+          "label": "Arabia Saudita",
+          "order": 7,
+          "active": true
+        },
+        {
+          "value": "argelia",
+          "label": "Argelia",
+          "order": 8,
+          "active": true
+        },
+        {
+          "value": "argentina",
+          "label": "Argentina",
+          "order": 9,
+          "active": true
+        },
+        {
+          "value": "armenia",
+          "label": "Armenia",
+          "order": 10,
+          "active": true
+        },
+        {
+          "value": "australia",
+          "label": "Australia",
+          "order": 11,
+          "active": true
+        },
+        {
+          "value": "austria",
+          "label": "Austria",
+          "order": 12,
+          "active": true
+        },
+        {
+          "value": "azerbaiyan",
+          "label": "Azerbaiyán",
+          "order": 13,
+          "active": true
+        },
+        {
+          "value": "bahamas",
+          "label": "Bahamas",
+          "order": 14,
+          "active": true
+        },
+        {
+          "value": "banglades",
+          "label": "Bangladés",
+          "order": 15,
+          "active": true
+        },
+        {
+          "value": "barbados",
+          "label": "Barbados",
+          "order": 16,
+          "active": true
+        },
+        {
+          "value": "barein",
+          "label": "Baréin",
+          "order": 17,
+          "active": true
+        },
+        {
+          "value": "belgica",
+          "label": "Bélgica",
+          "order": 18,
+          "active": true
+        },
+        {
+          "value": "belice",
+          "label": "Belice",
+          "order": 19,
+          "active": true
+        },
+        {
+          "value": "benin",
+          "label": "Benín",
+          "order": 20,
+          "active": true
+        },
+        {
+          "value": "bielorrusia",
+          "label": "Bielorrusia",
+          "order": 21,
+          "active": true
+        },
+        {
+          "value": "birmania",
+          "label": "Birmania",
+          "order": 22,
+          "active": true
+        },
+        {
+          "value": "bolivia",
+          "label": "Bolivia",
+          "order": 23,
+          "active": true
+        },
+        {
+          "value": "bosnia_y_herzegovina",
+          "label": "Bosnia y Herzegovina",
+          "order": 24,
+          "active": true
+        },
+        {
+          "value": "botsuana",
+          "label": "Botsuana",
+          "order": 25,
+          "active": true
+        },
+        {
+          "value": "brasil",
+          "label": "Brasil",
+          "order": 26,
+          "active": true
+        },
+        {
+          "value": "brunei",
+          "label": "Brunéi",
+          "order": 27,
+          "active": true
+        },
+        {
+          "value": "bulgaria",
+          "label": "Bulgaria",
+          "order": 28,
+          "active": true
+        },
+        {
+          "value": "burkina_faso",
+          "label": "Burkina Faso",
+          "order": 29,
+          "active": true
+        },
+        {
+          "value": "burundi",
+          "label": "Burundi",
+          "order": 30,
+          "active": true
+        },
+        {
+          "value": "butan",
+          "label": "Bután",
+          "order": 31,
+          "active": true
+        },
+        {
+          "value": "cabo_verde",
+          "label": "Cabo Verde",
+          "order": 32,
+          "active": true
+        },
+        {
+          "value": "camboya",
+          "label": "Camboya",
+          "order": 33,
+          "active": true
+        },
+        {
+          "value": "camerun",
+          "label": "Camerún",
+          "order": 34,
+          "active": true
+        },
+        {
+          "value": "canada",
+          "label": "Canadá",
+          "order": 35,
+          "active": true
+        },
+        {
+          "value": "catar",
+          "label": "Catar",
+          "order": 36,
+          "active": true
+        },
+        {
+          "value": "chad",
+          "label": "Chad",
+          "order": 37,
+          "active": true
+        },
+        {
+          "value": "chile",
+          "label": "Chile",
+          "order": 38,
+          "active": true
+        },
+        {
+          "value": "china",
+          "label": "China",
+          "order": 39,
+          "active": true
+        },
+        {
+          "value": "chipre",
+          "label": "Chipre",
+          "order": 40,
+          "active": true
+        },
+        {
+          "value": "ciudad_del_vaticano",
+          "label": "Ciudad del Vaticano",
+          "order": 41,
+          "active": true
+        },
+        {
+          "value": "colombia",
+          "label": "Colombia",
+          "order": 42,
+          "active": true
+        },
+        {
+          "value": "comoras",
+          "label": "Comoras",
+          "order": 43,
+          "active": true
+        },
+        {
+          "value": "corea_del_norte",
+          "label": "Corea del Norte",
+          "order": 44,
+          "active": true
+        },
+        {
+          "value": "corea_del_sur",
+          "label": "Corea del Sur",
+          "order": 45,
+          "active": true
+        },
+        {
+          "value": "costa_de_marfil",
+          "label": "Costa de Marfil",
+          "order": 46,
+          "active": true
+        },
+        {
+          "value": "costa_rica",
+          "label": "Costa Rica",
+          "order": 47,
+          "active": true
+        },
+        {
+          "value": "croacia",
+          "label": "Croacia",
+          "order": 48,
+          "active": true
+        },
+        {
+          "value": "cuba",
+          "label": "Cuba",
+          "order": 49,
+          "active": true
+        },
+        {
+          "value": "dinamarca",
+          "label": "Dinamarca",
+          "order": 50,
+          "active": true
+        },
+        {
+          "value": "dominica",
+          "label": "Dominica",
+          "order": 51,
+          "active": true
+        },
+        {
+          "value": "ecuador",
+          "label": "Ecuador",
+          "order": 52,
+          "active": true
+        },
+        {
+          "value": "egipto",
+          "label": "Egipto",
+          "order": 53,
+          "active": true
+        },
+        {
+          "value": "el_salvador",
+          "label": "El Salvador",
+          "order": 54,
+          "active": true
+        },
+        {
+          "value": "emiratos_arabes_unidos",
+          "label": "Emiratos Árabes Unidos",
+          "order": 55,
+          "active": true
+        },
+        {
+          "value": "eritrea",
+          "label": "Eritrea",
+          "order": 56,
+          "active": true
+        },
+        {
+          "value": "eslovaquia",
+          "label": "Eslovaquia",
+          "order": 57,
+          "active": true
+        },
+        {
+          "value": "eslovenia",
+          "label": "Eslovenia",
+          "order": 58,
+          "active": true
+        },
+        {
+          "value": "espana",
+          "label": "España",
+          "order": 59,
+          "active": true
+        },
+        {
+          "value": "estados_unidos",
+          "label": "Estados Unidos",
+          "order": 60,
+          "active": true
+        },
+        {
+          "value": "estonia",
+          "label": "Estonia",
+          "order": 61,
+          "active": true
+        },
+        {
+          "value": "esuatini",
+          "label": "Esuatini",
+          "order": 62,
+          "active": true
+        },
+        {
+          "value": "etiopia",
+          "label": "Etiopía",
+          "order": 63,
+          "active": true
+        },
+        {
+          "value": "filipinas",
+          "label": "Filipinas",
+          "order": 64,
+          "active": true
+        },
+        {
+          "value": "finlandia",
+          "label": "Finlandia",
+          "order": 65,
+          "active": true
+        },
+        {
+          "value": "fiyi",
+          "label": "Fiyi",
+          "order": 66,
+          "active": true
+        },
+        {
+          "value": "francia",
+          "label": "Francia",
+          "order": 67,
+          "active": true
+        },
+        {
+          "value": "gabon",
+          "label": "Gabón",
+          "order": 68,
+          "active": true
+        },
+        {
+          "value": "gambia",
+          "label": "Gambia",
+          "order": 69,
+          "active": true
+        },
+        {
+          "value": "georgia",
+          "label": "Georgia",
+          "order": 70,
+          "active": true
+        },
+        {
+          "value": "ghana",
+          "label": "Ghana",
+          "order": 71,
+          "active": true
+        },
+        {
+          "value": "granada",
+          "label": "Granada",
+          "order": 72,
+          "active": true
+        },
+        {
+          "value": "grecia",
+          "label": "Grecia",
+          "order": 73,
+          "active": true
+        },
+        {
+          "value": "guatemala",
+          "label": "Guatemala",
+          "order": 74,
+          "active": true
+        },
+        {
+          "value": "guinea",
+          "label": "Guinea",
+          "order": 75,
+          "active": true
+        },
+        {
+          "value": "guinea_bisau",
+          "label": "Guinea-Bisáu",
+          "order": 76,          "active": true
+        },
+        {
+          "value": "guinea_ecuatorial",
+          "label": "Guinea Ecuatorial",
+          "order": 77,
+          "active": true
+        },
+        {
+          "value": "guyana",
+          "label": "Guyana",
+          "order": 78,
+          "active": true
+        },
+        {
+          "value": "haiti",
+          "label": "Haití",
+          "order": 79,
+          "active": true
+        },
+        {
+          "value": "honduras",
+          "label": "Honduras",
+          "order": 80,
+          "active": true
+        },
+        {
+          "value": "hungria",
+          "label": "Hungría",
+          "order": 81,
+          "active": true
+        },
+        {
+          "value": "india",
+          "label": "India",
+          "order": 82,
+          "active": true
+        },
+        {
+          "value": "indonesia",
+          "label": "Indonesia",
+          "order": 83,
+          "active": true
+        },
+        {
+          "value": "irak",
+          "label": "Irak",
+          "order": 84,
+          "active": true
+        },
+        {
+          "value": "iran",
+          "label": "Irán",
+          "order": 85,
+          "active": true
+        },
+        {
+          "value": "irlanda",
+          "label": "Irlanda",
+          "order": 86,
+          "active": true
+        },
+        {
+          "value": "islandia",
+          "label": "Islandia",
+          "order": 87,
+          "active": true
+        },
+        {
+          "value": "islas_marshall",
+          "label": "Islas Marshall",
+          "order": 88,
+          "active": true
+        },
+        {
+          "value": "islas_salomon",
+          "label": "Islas Salomón",
+          "order": 89,
+          "active": true
+        },
+        {
+          "value": "israel",
+          "label": "Israel",
+          "order": 90,
+          "active": true
+        },
+        {
+          "value": "italia",
+          "label": "Italia",
+          "order": 91,
+          "active": true
+        },
+        {
+          "value": "jamaica",
+          "label": "Jamaica",
+          "order": 92,
+          "active": true
+        },
+        {
+          "value": "japon",
+          "label": "Japón",
+          "order": 93,
+          "active": true
+        },
+        {
+          "value": "jordania",
+          "label": "Jordania",
+          "order": 94,
+          "active": true
+        },
+        {
+          "value": "kazajistan",
+          "label": "Kazajistán",
+          "order": 95,
+          "active": true
+        },
+        {
+          "value": "kenia",
+          "label": "Kenia",
+          "order": 96,
+          "active": true
+        },
+        {
+          "value": "kirguistan",
+          "label": "Kirguistán",
+          "order": 97,
+          "active": true
+        },
+        {
+          "value": "kiribati",
+          "label": "Kiribati",
+          "order": 98,
+          "active": true
+        },
+        {
+          "value": "kuwait",
+          "label": "Kuwait",
+          "order": 99,
+          "active": true
+        },
+        {
+          "value": "laos",
+          "label": "Laos",
+          "order": 100,
+          "active": true
+        },
+        {
+          "value": "lesoto",
+          "label": "Lesoto",
+          "order": 101,
+          "active": true
+        },
+        {
+          "value": "letonia",
+          "label": "Letonia",
+          "order": 102,
+          "active": true
+        },
+        {
+          "value": "libano",
+          "label": "Líbano",
+          "order": 103,
+          "active": true
+        },
+        {
+          "value": "liberia",
+          "label": "Liberia",
+          "order": 104,
+          "active": true
+        },
+        {
+          "value": "libia",
+          "label": "Libia",
+          "order": 105,
+          "active": true
+        },
+        {
+          "value": "liechtenstein",
+          "label": "Liechtenstein",
+          "order": 106,
+          "active": true
+        },
+        {
+          "value": "lituania",
+          "label": "Lituania",
+          "order": 107,
+          "active": true
+        },
+        {
+          "value": "luxemburgo",
+          "label": "Luxemburgo",
+          "order": 108,
+          "active": true
+        },
+        {
+          "value": "macedonia_del_norte",
+          "label": "Macedonia del Norte",
+          "order": 109,
+          "active": true
+        },
+        {
+          "value": "madagascar",
+          "label": "Madagascar",
+          "order": 110,
+          "active": true
+        },
+        {
+          "value": "malasia",
+          "label": "Malasia",
+          "order": 111,
+          "active": true
+        },
+        {
+          "value": "malaui",
+          "label": "Malaui",
+          "order": 112,
+          "active": true
+        },
+        {
+          "value": "maldivas",
+          "label": "Maldivas",
+          "order": 113,
+          "active": true
+        },
+        {
+          "value": "mali",
+          "label": "Malí",
+          "order": 114,
+          "active": true
+        },
+        {
+          "value": "malta",
+          "label": "Malta",
+          "order": 115,
+          "active": true
+        },
+        {
+          "value": "marruecos",
+          "label": "Marruecos",
+          "order": 116,
+          "active": true
+        },
+        {
+          "value": "mauricio",
+          "label": "Mauricio",
+          "order": 117,
+          "active": true
+        },
+        {
+          "value": "mauritania",
+          "label": "Mauritania",
+          "order": 118,
+          "active": true
+        },
+        {
+          "value": "mexico",
+          "label": "México",
+          "order": 119,
+          "active": true
+        },
+        {
+          "value": "micronesia",
+          "label": "Micronesia",
+          "order": 120,
+          "active": true
+        },
+        {
+          "value": "moldavia",
+          "label": "Moldavia",
+          "order": 121,
+          "active": true
+        },
+        {
+          "value": "monaco",
+          "label": "Mónaco",
+          "order": 122,
+          "active": true
+        },
+        {
+          "value": "mongolia",
+          "label": "Mongolia",
+          "order": 123,
+          "active": true
+        },
+        {
+          "value": "montenegro",
+          "label": "Montenegro",
+          "order": 124,
+          "active": true
+        },
+        {
+          "value": "mozambique",
+          "label": "Mozambique",
+          "order": 125,
+          "active": true
+        },
+        {
+          "value": "namibia",
+          "label": "Namibia",
+          "order": 126,
+          "active": true
+        },
+        {
+          "value": "nauru",
+          "label": "Nauru",
+          "order": 127,
+          "active": true
+        },
+        {
+          "value": "nepal",
+          "label": "Nepal",
+          "order": 128,
+          "active": true
+        },
+        {
+          "value": "nicaragua",
+          "label": "Nicaragua",
+          "order": 129,
+          "active": true
+        },
+        {
+          "value": "niger",
+          "label": "Níger",
+          "order": 130,
+          "active": true
+        },
+        {
+          "value": "nigeria",
+          "label": "Nigeria",
+          "order": 131,
+          "active": true
+        },
+        {
+          "value": "noruega",
+          "label": "Noruega",
+          "order": 132,
+          "active": true
+        },
+        {
+          "value": "nueva_zelanda",
+          "label": "Nueva Zelanda",
+          "order": 133,
+          "active": true
+        },
+        {
+          "value": "oman",
+          "label": "Omán",
+          "order": 134,
+          "active": true
+        },
+        {
+          "value": "paises_bajos",
+          "label": "Países Bajos",
+          "order": 135,
+          "active": true
+        },
+        {
+          "value": "pakistan",
+          "label": "Pakistán",
+          "order": 136,
+          "active": true
+        },
+        {
+          "value": "palaos",
+          "label": "Palaos",
+          "order": 137,
+          "active": true
+        },
+        {
+          "value": "palestina",
+          "label": "Palestina",
+          "order": 138,
+          "active": true
+        },
+        {
+          "value": "panama",
+          "label": "Panamá",
+          "order": 139,
+          "active": true
+        },
+        {
+          "value": "papua_nueva_guinea",
+          "label": "Papúa Nueva Guinea",
+          "order": 140,
+          "active": true
+        },
+        {
+          "value": "paraguay",
+          "label": "Paraguay",
+          "order": 141,
+          "active": true
+        },
+        {
+          "value": "peru",
+          "label": "Perú",
+          "order": 142,
+          "active": true
+        },
+        {
+          "value": "polonia",
+          "label": "Polonia",
+          "order": 143,
+          "active": true
+        },
+        {
+          "value": "portugal",
+          "label": "Portugal",
+          "order": 144,
+          "active": true
+        },
+        {
+          "value": "reino_unido",
+          "label": "Reino Unido",
+          "order": 145,
+          "active": true
+        },
+        {
+          "value": "republica_centroafricana",
+          "label": "República Centroafricana",
+          "order": 146,
+          "active": true
+        },
+        {
+          "value": "republica_checa",
+          "label": "República Checa",
+          "order": 147,
+          "active": true
+        },
+        {
+          "value": "republica_del_congo",
+          "label": "República del Congo",
+          "order": 148,
+          "active": true
+        },
+        {
+          "value": "republica_democratica_del_congo",
+          "label": "República Democrática del Congo",
+          "order": 149,
+          "active": true
+        },
+        {
+          "value": "republica_dominicana",
+          "label": "República Dominicana",
+          "order": 150,
+          "active": true
+        },
+        {
+          "value": "ruanda",
+          "label": "Ruanda",
+          "order": 151,
+          "active": true
+        },
+        {
+          "value": "rumania",
+          "label": "Rumania",
+          "order": 152,
+          "active": true
+        },
+        {
+          "value": "rusia",
+          "label": "Rusia",
+          "order": 153,
+          "active": true
+        },
+        {
+          "value": "samoa",
+          "label": "Samoa",
+          "order": 154,
+          "active": true
+        },
+        {
+          "value": "san_cristobal_y_nieves",
+          "label": "San Cristóbal y Nieves",
+          "order": 155,
+          "active": true
+        },
+        {
+          "value": "san_marino",
+          "label": "San Marino",
+          "order": 156,
+          "active": true
+        },
+        {
+          "value": "san_vicente_y_las_granadinas",
+          "label": "San Vicente y las Granadinas",
+          "order": 157,
+          "active": true
+        },
+        {
+          "value": "santa_lucia",
+          "label": "Santa Lucía",
+          "order": 158,
+          "active": true
+        },
+        {
+          "value": "santo_tome_y_principe",
+          "label": "Santo Tomé y Príncipe",
+          "order": 159,
+          "active": true
+        },
+        {
+          "value": "senegal",
+          "label": "Senegal",
+          "order": 160,
+          "active": true
+        },
+        {
+          "value": "serbia",
+          "label": "Serbia",
+          "order": 161,
+          "active": true
+        },
+        {
+          "value": "seychelles",
+          "label": "Seychelles",
+          "order": 162,
+          "active": true
+        },
+        {
+          "value": "sierra_leona",
+          "label": "Sierra Leona",
+          "order": 163,
+          "active": true
+        },
+        {
+          "value": "singapur",
+          "label": "Singapur",
+          "order": 164,
+          "active": true
+        },
+        {
+          "value": "siria",
+          "label": "Siria",
+          "order": 165,
+          "active": true
+        },
+        {
+          "value": "somalia",
+          "label": "Somalia",
+          "order": 166,
+          "active": true
+        },
+        {
+          "value": "sri_lanka",
+          "label": "Sri Lanka",
+          "order": 167,
+          "active": true
+        },
+        {
+          "value": "sudafrica",
+          "label": "Sudáfrica",
+          "order": 168,
+          "active": true
+        },
+        {
+          "value": "sudan",
+          "label": "Sudán",
+          "order": 169,
+          "active": true
+        },
+        {
+          "value": "sudan_del_sur",
+          "label": "Sudán del Sur",
+          "order": 170,
+          "active": true
+        },
+        {
+          "value": "suecia",
+          "label": "Suecia",
+          "order": 171,
+          "active": true
+        },
+        {
+          "value": "suiza",
+          "label": "Suiza",
+          "order": 172,
+          "active": true
+        },
+        {
+          "value": "surinam",
+          "label": "Surinam",
+          "order": 173,
+          "active": true
+        },
+        {
+          "value": "tailandia",
+          "label": "Tailandia",
+          "order": 174,
+          "active": true
+        },
+        {
+          "value": "tanzania",
+          "label": "Tanzania",
+          "order": 175,
+          "active": true
+        },
+        {
+          "value": "tayikistan",
+          "label": "Tayikistán",
+          "order": 176,
+          "active": true
+        },
+        {
+          "value": "timor_oriental",
+          "label": "Timor Oriental",
+          "order": 177,
+          "active": true
+        },
+        {
+          "value": "togo",
+          "label": "Togo",
+          "order": 178,
+          "active": true
+        },
+        {
+          "value": "tonga",
+          "label": "Tonga",
+          "order": 179,
+          "active": true
+        },
+        {
+          "value": "trinidad_y_tobago",
+          "label": "Trinidad y Tobago",
+          "order": 180,
+          "active": true
+        },
+        {
+          "value": "tunez",
+          "label": "Túnez",
+          "order": 181,
+          "active": true
+        },
+        {
+          "value": "turkmenistan",
+          "label": "Turkmenistán",
+          "order": 182,
+          "active": true
+        },
+        {
+          "value": "turquia",
+          "label": "Turquía",
+          "order": 183,
+          "active": true
+        },
+        {
+          "value": "tuvalu",
+          "label": "Tuvalu",
+          "order": 184,
+          "active": true
+        },
+        {
+          "value": "ucrania",
+          "label": "Ucrania",
+          "order": 185,
+          "active": true
+        },
+        {
+          "value": "uganda",
+          "label": "Uganda",
+          "order": 186,
+          "active": true
+        },
+        {
+          "value": "uruguay",
+          "label": "Uruguay",
+          "order": 187,
+          "active": true
+        },
+        {
+          "value": "uzbekistan",
+          "label": "Uzbekistán",
+          "order": 188,
+          "active": true
+        },
+        {
+          "value": "vanuatu",
+          "label": "Vanuatu",
+          "order": 189,
+          "active": true
+        },
+        {
+          "value": "venezuela",
+          "label": "Venezuela",
+          "order": 190,
+          "active": true
+        },
+        {
+          "value": "vietnam",
+          "label": "Vietnam",
+          "order": 191,
+          "active": true
+        },
+        {
+          "value": "yemen",
+          "label": "Yemen",
+          "order": 192,
+          "active": true
+        },
+        {
+          "value": "yibuti",
+          "label": "Yibuti",
+          "order": 193,
+          "active": true
+        },
+        {
+          "value": "zambia",
+          "label": "Zambia",
+          "order": 194,
+          "active": true
+        },
+        {
+          "value": "zimbabue",
+          "label": "Zimbabue",
+          "order": 195,
+          "active": true
+        }
+      ]
+    },
+    "ciudad": {
+      "field": "Ciudad",
+      "source": "Catálogo dependiente de departamento; texto localizable habilitado",
+      "searchable": true,
+      "allows_other": true,
+      "options": [
+        {
+          "value": "asuncion",
+          "label": "Asunción",
+          "order": 1,
+          "active": true
+        },
+        {
+          "value": "concepcion",
+          "label": "Concepción",
+          "order": 2,
+          "active": true
+        },
+        {
+          "value": "horqueta",
+          "label": "Horqueta",
+          "order": 3,
+          "active": true
+        },
+        {
+          "value": "san_lazaro",
+          "label": "San Lázaro",
+          "order": 4,
+          "active": true
+        },
+        {
+          "value": "san_pedro_de_ycuamandiyu",
+          "label": "San Pedro de Ycuamandiyú",
+          "order": 5,
+          "active": true
+        },
+        {
+          "value": "santa_rosa_del_aguaray",
+          "label": "Santa Rosa del Aguaray",
+          "order": 6,
+          "active": true
+        },
+        {
+          "value": "caacupe",
+          "label": "Caacupé",
+          "order": 7,
+          "active": true
+        },
+        {
+          "value": "tobati",
+          "label": "Tobatí",
+          "order": 8,
+          "active": true
+        },
+        {
+          "value": "piribebuy",
+          "label": "Piribebuy",
+          "order": 9,
+          "active": true
+        },
+        {
+          "value": "villarrica",
+          "label": "Villarrica",
+          "order": 10,
+          "active": true
+        },
+        {
+          "value": "independencia",
+          "label": "Independencia",
+          "order": 11,
+          "active": true
+        },
+        {
+          "value": "caaguazu",
+          "label": "Caaguazú",
+          "order": 12,
+          "active": true
+        },
+        {
+          "value": "coronel_oviedo",
+          "label": "Coronel Oviedo",
+          "order": 13,
+          "active": true
+        },
+        {
+          "value": "caazapa",
+          "label": "Caazapá",
+          "order": 14,
+          "active": true
+        },
+        {
+          "value": "san_juan_nepomuceno",
+          "label": "San Juan Nepomuceno",
+          "order": 15,
+          "active": true
+        },
+        {
+          "value": "encarnacion",
+          "label": "Encarnación",
+          "order": 16,
+          "active": true
+        },
+        {
+          "value": "cambyreta",
+          "label": "Cambyretá",
+          "order": 17,
+          "active": true
+        },
+        {
+          "value": "hohenau",
+          "label": "Hohenau",
+          "order": 18,
+          "active": true
+        },
+        {
+          "value": "san_juan_bautista",
+          "label": "San Juan Bautista",
+          "order": 19,
+          "active": true
+        },
+        {
+          "value": "ayolas",
+          "label": "Ayolas",
+          "order": 20,
+          "active": true
+        },
+        {
+          "value": "paraguari",
+          "label": "Paraguarí",
+          "order": 21,
+          "active": true
+        },
+        {
+          "value": "carapegua",
+          "label": "Carapeguá",
+          "order": 22,
+          "active": true
+        },
+        {
+          "value": "ciudad_del_este",
+          "label": "Ciudad del Este",
+          "order": 23,
+          "active": true
+        },
+        {
+          "value": "hernandarias",
+          "label": "Hernandarias",
+          "order": 24,
+          "active": true
+        },
+        {
+          "value": "presidente_franco",
+          "label": "Presidente Franco",
+          "order": 25,
+          "active": true
+        },
+        {
+          "value": "san_lorenzo",
+          "label": "San Lorenzo",
+          "order": 26,
+          "active": true
+        },
+        {
+          "value": "luque",
+          "label": "Luque",
+          "order": 27,
+          "active": true
+        },
+        {
+          "value": "capiata",
+          "label": "Capiatá",
+          "order": 28,
+          "active": true
+        },
+        {
+          "value": "fernando_de_la_mora",
+          "label": "Fernando de la Mora",
+          "order": 29,
+          "active": true
+        },
+        {
+          "value": "lambare",
+          "label": "Lambaré",
+          "order": 30,
+          "active": true
+        },
+        {
+          "value": "mariano_roque_alonso",
+          "label": "Mariano Roque Alonso",
+          "order": 31,
+          "active": true
+        },
+        {
+          "value": "villa_hayes",
+          "label": "Villa Hayes",
+          "order": 32,
+          "active": true
+        },
+        {
+          "value": "benjamin_aceval",
+          "label": "Benjamín Aceval",
+          "order": 33,
+          "active": true
+        },
+        {
+          "value": "pilar",
+          "label": "Pilar",
+          "order": 34,
+          "active": true
+        },
+        {
+          "value": "alberdi",
+          "label": "Alberdi",
+          "order": 35,
+          "active": true
+        },
+        {
+          "value": "pedro_juan_caballero",
+          "label": "Pedro Juan Caballero",
+          "order": 36,
+          "active": true
+        },
+        {
+          "value": "bella_vista_norte",
+          "label": "Bella Vista Norte",
+          "order": 37,
+          "active": true
+        },
+        {
+          "value": "salto_del_guaira",
+          "label": "Salto del Guairá",
+          "order": 38,
+          "active": true
+        },
+        {
+          "value": "curuguaty",
+          "label": "Curuguaty",
+          "order": 39,
+          "active": true
+        },
+        {
+          "value": "fuerte_olimpo",
+          "label": "Fuerte Olimpo",
+          "order": 40,
+          "active": true
+        },
+        {
+          "value": "carmelo_peralta",
+          "label": "Carmelo Peralta",
+          "order": 41,
+          "active": true
+        },
+        {
+          "value": "filadelfia",
+          "label": "Filadelfia",
+          "order": 42,
+          "active": true
+        },
+        {
+          "value": "loma_plata",
+          "label": "Loma Plata",
+          "order": 43,
+          "active": true
+        },
+        {
+          "value": "otra_ciudad_o_localidad",
+          "label": "Otra ciudad o localidad",
+          "order": 44,
+          "active": true
+        }
+      ]
+    }
+  },
+  "visual_states": [
+    {
+      "order": 0,
+      "filename": "PANTALLA_03D_00_DATOS_EXTRAIDOS_CAMPOS_PENDIENTES_APROBADA_FINAL.png"
+    },
+    {
+      "order": 1,
+      "filename": "PANTALLA_03D_01_MENU_SEXO_APROBADA_FINAL.png"
+    },    {
+      "order": 2,
+      "filename": "PANTALLA_03D_02_MENU_ESTADO_CIVIL_APROBADA_FINAL.png"
+    },
+    {
+      "order": 3,
+      "filename": "PANTALLA_03D_03_MENU_PAIS_NACIMIENTO_APROBADA_FINAL.png"
+    },
+    {
+      "order": 4,
+      "filename": "PANTALLA_03D_04_MENU_NACIONALIDAD_APROBADA_FINAL.png"
+    },
+    {
+      "order": 5,
+      "filename": "PANTALLA_03D_05_MENU_PAIS_RESIDENCIA_APROBADA_FINAL.png"
+    },
+    {
+      "order": 6,
+      "filename": "PANTALLA_03D_06_MENU_CIUDAD_APROBADA_FINAL.png"
+    },
+    {
+      "order": 7,
+      "filename": "PANTALLA_03D_07_TODOS_LOS_DATOS_COMPLETOS_APROBADA_FINAL.png"
+    },
+    {
+      "order": 8,
+      "filename": "PANTALLA_03D_08_EDITANDO_DATO_EXTRAIDO_APROBADA_FINAL.png"
+    },
+    {
+      "order": 9,
+      "filename": "PANTALLA_03D_09_CAMBIO_REGISTRADO_APROBADA_FINAL.png"
+    },
+    {
+      "order": 10,
+      "filename": "PANTALLA_03D_10_CAMPO_OBLIGATORIO_FALTANTE_APROBADA_FINAL.png"
+    },
+    {
+      "order": 11,
+      "filename": "PANTALLA_03D_11_FECHA_NACIMIENTO_INVALIDA_APROBADA_FINAL.png"
+    },
+    {
+      "order": 12,
+      "filename": "PANTALLA_03D_12_VALIDANDO_DATOS_APROBADA_FINAL.png"
+    },
+    {
+      "order": 13,
+      "filename": "PANTALLA_03D_13_NO_ELEGIBLE_POR_EDAD_APROBADA_FINAL.png"
+    }
+  ]
+}

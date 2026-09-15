@@ -105,6 +105,20 @@ Enviadas a Rodrigo el 14-sep-2026, salvo la P0, que es de Andres.
 | P6 | ¿Cuáles son los «campos 31 a 35» eliminados? | Inventario de campos |
 | P7 | ¿Legal validó el aviso de cookies de Google Analytics sin aceptar ni rechazar? | Integraciones, fila 85 |
 
+**Estado al 15-sep-2026**, con el handoff de pantallas v4 y el manual funcional
+(`02-pantallas-v4/ANALISIS.md`) y las decisiones D-28 a D-41 de Andres:
+
+| # | Estado |
+| :-- | :-- |
+| P0 | **Resuelta.** v4 tiene 5 etapas con el plan primero y portada. El v3 de Lovable queda superado (D-28, D-36). |
+| P1 | **Contradicha.** El manual (p. 9) pone a Alianza como firmante cualificada de la Solicitud + FIPF, contra el WhatsApp de Rodrigo. Se le vuelve a preguntar (C-4). |
+| P2 | Abierta. |
+| P3 | **Resuelta** (D-31): se editan y se registra el cambio, pero la elegibilidad y el bloqueo se calculan con el OCR. |
+| P4 | El manual no tiene retracto. Choca con la fila 64; va a Legal (C-7). |
+| P5 | **Resuelta** en pantalla (D-33): 3 preguntas médicas y la PEP en 03E. Sigue abierto si `Solicitud.pdf` es el modelo inscripto. |
+| P6 | Abierta. |
+| P7 | El manual adopta Google Analytics sin opción de rechazo. D-34 excluye los datos sensibles; la fila 85 sigue con Legal (C-2). |
+
 Ya respondido (Rodrigo, 14-sep-2026, WhatsApp): **el CPC lo emite Interseguros
 desde SeguroLoTengo y lo firma Alianza**, con dos precondiciones —firma no
 cualificada del cliente sobre la Solicitud + FIPF y pago acreditado—, y **el
