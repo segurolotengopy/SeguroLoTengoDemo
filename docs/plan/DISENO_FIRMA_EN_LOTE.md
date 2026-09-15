@@ -155,8 +155,8 @@ en cualquier validador PAdES externo»*. Es el mismo criterio que el prefijo
 
 ## 7. Preguntas abiertas
 
-1. ¿Alianza firma la Solicitud + FIPF? ¿Antes o después que Interseguros? (P1)
-2. El CPC necesita la firma de Alianza pero es urgente después del pago: ¿entra en un lote o va por otro camino (el SFTP de Alianza)?
+1. ~~¿Alianza firma la Solicitud + FIPF?~~ **Resuelta de forma preliminar (D-42, 15-sep): no.** El lote de la propuesta tiene un solo rol institucional, Interseguros.
+2. ~~¿Por dónde va el CPC?~~ **D-42:** lo genera Interseguros y lo firma Alianza por el intercambio SFTP. No entra en el lote de Interseguros. La recepción puede reusar el emparejamiento por prefijo de §2.
 3. ¿Qué certificado exacto usa cada firmante (sujeto y número de serie)?
 4. ¿La verificación de integridad del CMS (punto 6 de §2) entra en la fase 1, o alcanza con los controles estructurales?
 5. Si llega la firma de un expediente que está en devolución, ¿se guarda sin transición o se rechaza?

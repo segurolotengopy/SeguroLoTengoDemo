@@ -305,6 +305,13 @@ Todas las entradas de este bloque las decidió Andres el 15-sep-2026.
 ### D-41 · Pantallas sin arte aprobado
 - **ESTABLECIDA:** Andres ya consultó por **03E** (candidata), **04E**, **05A** y **05B** (sin arte). **No se implementan** hasta que tengan arte `APROBADA_FINAL`. Sus reglas funcionales del manual se usan para el dominio, no para dibujar.
 
+### D-42 · Firmantes y Certificado de Cobertura Provisional (preliminar)
+- **DECIDIDA, PRELIMINAR (15-sep-2026), «luego veremos si hay cambios»:**
+  - **Solicitud + FIPF (un PDF): dos firmas.** Firma el **cliente**, con firma no cualificada y OTP web, antes del pago. Firma **Interseguros**, con firma cualificada Code100; en la fase 1, en lote por fuera del sistema (D-38). **Alianza no firma la propuesta.** Esto confirma la enmienda del 04-sep a D-13 y deja de lado lo que dice el manual v4 en la p. 9 (conflicto C-4).
+  - **CPC:** lo **genera Interseguros desde SeguroLoTengo**, con el modelo que aprueba Alianza, y **lo firma Alianza**. Esto confirma lo que dijo Rodrigo el 14-sep y **modifica D-12**: cae la parte de la enmienda del 04-sep según la cual Alianza lo emitía desde su sistema. Queda sin efecto también lo que dice el manual en la p. 9 (C-5). La firma de Alianza viaja por el intercambio SFTP con Alianza.
+- **Consecuencia que queda por diseñar:** el CPC necesita la firma de Alianza (unos 5 minutos, por SFTP), así que no puede quedar firmado en la misma escritura que el cobro, como pedía CMP-07. Hay dos momentos: el CPC se **genera** con el cobro y se **entrega firmado** cuando vuelve de Alianza. Falta decidir qué ve la persona mientras tanto (P2).
+- **Consentimiento biométrico (C-13), cerrado:** es obligatorio, y lo cubre la casilla obligatoria de 03B (fotografías, datos biométricos, prueba de vida y coincidencia con la cédula). En 03C no se agrega otra casilla.
+
 ## Actualizaciones que la Matriz V4 necesita (consecuencia de la ronda 1)
 
 Dos decisiones **establecidas** dejan desactualizado el texto de la matriz. No son

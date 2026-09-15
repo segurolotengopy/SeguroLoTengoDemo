@@ -122,6 +122,15 @@ Solo documentación. No hay cambios de código.
 - Decidió los quince puntos del 15-sep, asentados como D-28 a D-41.
 - Pidió que el paso 1 se hiciera con varios agentes, y lanzó en una sesión
   aparte la corrección del OTP anterior.
+- **Definió, de forma preliminar, los firmantes (D-42):**
+  - la Solicitud + FIPF lleva **dos firmas**: el cliente (no cualificada, con
+    OTP web) e Interseguros (cualificada, Code100);
+  - el **CPC lo genera Interseguros y lo firma Alianza**.
+
+  Con eso C-4 y C-5 quedan resueltos de forma preliminar. **Cerró C-13:** la
+  casilla de 03B cubre el consentimiento biométrico, que es obligatorio.
+- Pidió un correo a Rodrigo para que responda las preguntas. Quedó redactado en
+  `BORRADOR_CORREO_RODRIGO_V4.md`, **sin enviar**.
 - Pidió un agente para el **envío y recepción de PDFs con Alianza por SFTP**:
   IP fija con Terraform, y VPN IPsec preparada para cuando Alianza responda.
   Corre en su propio worktree, sin `apply` ni push.

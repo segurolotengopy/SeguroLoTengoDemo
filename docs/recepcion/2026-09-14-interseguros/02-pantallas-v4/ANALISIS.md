@@ -224,8 +224,8 @@ Ver §6.
 | C-1 | El **consentimiento de publicidad** va dentro de la casilla obligatoria del OTP (03A) | **D-01** (19-ago) lo decidió **separado**, desmarcado y revocable (consentimiento libre, Ley 7593/2025) | Andres / Legal |
 | C-2 | **Google Analytics con «He leído y entendido»**, sin opción de rechazo | Fila 85 de la matriz; `textos-legales.ts` promete hoy pedir permiso antes de la analítica | Legal (P7) |
 | C-3 | **La cobertura empieza al acreditarse el pago** (02, 02A, 04D, manual p. 5 y 9) | CHG-41 (cobro + 24 h exactas) y el mensaje de D-18 («24 horas después de tu pago») | Andres |
-| C-4 | **Alianza firma la Solicitud + FIPF** con su proveedor cualificado (manual p. 9) | Enmienda del 04-sep a D-13 (Alianza no firma la propuesta) y el WhatsApp de Rodrigo del 14-sep | Rodrigo (P1) |
-| C-5 | **El CPC lo «emite y firma» Alianza** (manual p. 9) | WhatsApp de Rodrigo del 14-sep, 10:50: «nosotros emitimos el CPC, que es lo que firma Alianza» | Rodrigo |
+| ~~C-4~~ | **Alianza firma la Solicitud + FIPF** con su proveedor cualificado (manual p. 9) | **Resuelto de forma preliminar (D-42):** dos firmas, cliente e Interseguros. Alianza no firma la propuesta | Andres, 15-sep; Rodrigo confirma |
+| ~~C-5~~ | **El CPC lo «emite y firma» Alianza** (manual p. 9) | **Resuelto de forma preliminar (D-42):** lo genera Interseguros desde SeguroLoTengo y lo firma Alianza | Andres, 15-sep; Rodrigo confirma |
 | C-6 | **Entrega:** CPC, póliza y factura por canales verificados «cuando corresponda»; Solicitud y FIPF firmados «cuando corresponda» | D-05 y D-27: cuatro descargas en la confirmación (paquete, CPC, comprobante, constancia) | Andres, cuando haya arte de 05B |
 | C-7 | **No hay retracto** en 01E ni en el menú | Fila 64 de la matriz; `/retracto` existe | Legal (P4) |
 | C-8 | **«Salir y descartar elimina el avance de esa sesión»** (01B) | Regla #10 (la evidencia no se borra). Propuesta: cerrar la sesión y marcar el expediente como abandonado, sin borrar nada | Andres |
@@ -233,14 +233,14 @@ Ver §6.
 | C-10 | La **declaración de veracidad** (#5 del v2) no tiene pantalla en v4 | CMP-20: licitud, veracidad y cuenta propia. Propuesta: van en el PDF y se aceptan al firmar en 04E, como hoy | Andres |
 | C-11 | **«Número sin WhatsApp»** (03A_14) | WhatsApp-Modular tiene que devolver ese error distinguible. Si no puede, el estado no se puede disparar | Técnico, con WhatsApp-Modular |
 | C-12 | El estado **«posible alteración»** (03C_19) | D-40: no hay detector. Propuesta: que lo dispare la inconsistencia MRZ ↔ frente de `mrz.ts` | Andres |
-| C-13 | El manual exige una **casilla de consentimiento biométrico en 03C** (`biometric_identity`, p. 8), pero **ninguno de los 26 estados de 03C la dibuja** | «No agregar ni retirar casillas por interpretación» (manual p. 8) frente a D-28, que pone el manual por encima. La casilla obligatoria de 03B ya autoriza «fotografías y datos biométricos para verificar mi identidad, realizar la prueba de vida» | Rodrigo |
+| ~~C-13~~ | **Cerrado (D-42): la casilla obligatoria de 03B cubre el consentimiento biométrico, que es obligatorio; no se agrega otra casilla en 03C.** El manual exige una **casilla de consentimiento biométrico en 03C** (`biometric_identity`, p. 8), pero **ninguno de los 26 estados de 03C la dibuja** | «No agregar ni retirar casillas por interpretación» (manual p. 8) frente a D-28, que pone el manual por encima. La casilla obligatoria de 03B ya autoriza «fotografías y datos biométricos para verificar mi identidad, realizar la prueba de vida» | Rodrigo |
 | C-14 | 04D habla de «canales **verificados** (WhatsApp y correo electrónico)» | El correo no se verifica con un código (D-06): se declara con doble tipeo. Hay que decir «declarados» o verificar el correo | Rodrigo / Legal |
 
 ## 7. Preguntas
 
 **A Rodrigo:**
 
-1. C-4 y C-5: ¿quién emite el CPC, y firma Alianza la Solicitud + FIPF? ¿En qué orden respecto de Interseguros y del pago?
+1. Confirmar el esquema preliminar de D-42 (dos firmas en la propuesta; el CPC lo genera Interseguros y lo firma Alianza) y corregir la p. 9 del manual. P2: qué recibe el cliente mientras la firma de Alianza sobre el CPC no llega.
 2. C-6: ¿qué se descarga en la confirmación?
 3. Las inconsistencias de §4: el stepper de 03E2, «premio» o «prima», los contadores de reenvío y el título de 03A_11.
 4. El **logo de SeguroLoTengo en vector** (SVG). Solo llegó en PNG.

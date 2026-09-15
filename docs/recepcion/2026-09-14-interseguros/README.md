@@ -111,8 +111,8 @@ Enviadas a Rodrigo el 14-sep-2026, salvo la P0, que es de Andres.
 | # | Estado |
 | :-- | :-- |
 | P0 | **Resuelta.** v4 tiene 5 etapas con el plan primero y portada. El v3 de Lovable queda superado (D-28, D-36). |
-| P1 | **Contradicha.** El manual (p. 9) pone a Alianza como firmante cualificada de la Solicitud + FIPF, contra el WhatsApp de Rodrigo. Se le vuelve a preguntar (C-4). |
-| P2 | Abierta. |
+| P1 | **Resuelta de forma preliminar (D-42, Andres, 15-sep):** la Solicitud + FIPF la firman el cliente e Interseguros; Alianza firma solo el CPC, que genera Interseguros. El manual (p. 9) dice otra cosa y se le pide a Rodrigo corregirlo. |
+| P2 | Abierta, y ahora más relevante: el CPC queda esperando la firma de Alianza. Está en `BORRADOR_CORREO_RODRIGO_V4.md`, punto 10. |
 | P3 | **Resuelta** (D-31): se editan y se registra el cambio, pero la elegibilidad y el bloqueo se calculan con el OCR. |
 | P4 | El manual no tiene retracto. Choca con la fila 64; va a Legal (C-7). |
 | P5 | **Resuelta** en pantalla (D-33): 3 preguntas médicas y la PEP en 03E. Sigue abierto si `Solicitud.pdf` es el modelo inscripto. |
