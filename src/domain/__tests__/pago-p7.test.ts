@@ -405,7 +405,7 @@ describe("P7 · confirmación de la garantía de pago", () => {
     const resultado = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
 
     expect(resultado).toMatchObject({ ok: true, confirmado: false });
-    expect(expedientes.actual().estado).toBe("FIRMADO");
+    expect(expedientes.actual().estado).toBe("FIRMADO_CLIENTE");
     expect(evidencias.registros).toHaveLength(registrosTrasIniciar);
   });
 
@@ -482,7 +482,7 @@ describe("P7 · confirmación de la garantía de pago", () => {
     const resultado = await confirmarPagoP7(deps, { expedienteId: "EXP-TEST-1", contexto: CONTEXTO });
 
     expect(resultado).toEqual({ ok: false, motivo: "PAGO_CANCELADO" });
-    expect(expedientes.actual().estado).toBe("FIRMADO");
+    expect(expedientes.actual().estado).toBe("FIRMADO_CLIENTE");
     expect(expedientes.actual().pago?.estado).toBe("CANCELADO");
   });
 
@@ -539,7 +539,7 @@ describe("pago · el certificado se emite con el cobro, en la misma escritura", 
 
     expect(resultado).toMatchObject({ ok: false, motivo: "CERTIFICADO_NO_EMITIDO" });
     const guardado = expedientes.actual();
-    expect(guardado.estado).toBe("FIRMADO");
+    expect(guardado.estado).toBe("FIRMADO_CLIENTE");
     expect(guardado.certificadoCobertura).toBeNull();
     // Y queda constancia de por qué no se confirmó.
     expect(
@@ -791,7 +791,7 @@ describe("pago · caducidad del expediente firmado sin pagar", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
     expect(resultado.vencio).toBe(false);
-    expect(entorno.expedientes.actual().estado).toBe("FIRMADO");
+    expect(entorno.expedientes.actual().estado).toBe("FIRMADO_CLIENTE");
   });
 
   it("vencido no se puede abrir una operación en Bancard", async () => {
@@ -1060,7 +1060,7 @@ describe("pago · G2 · Bancard rechaza el intento", () => {
     expect(entorno.resultado).toMatchObject({ ok: false, motivo: "BANCARD_RECHAZO" });
     expect(entorno.expedientes.actual().pago?.estado).toBe("RECHAZADO");
     // Lo que fracasó es un intento de cobro, no el contrato.
-    expect(entorno.expedientes.actual().estado).toBe("FIRMADO");
+    expect(entorno.expedientes.actual().estado).toBe("FIRMADO_CLIENTE");
   });
 
   it("no emite Certificado de Cobertura Provisional", async () => {

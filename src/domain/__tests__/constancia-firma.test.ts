@@ -16,7 +16,7 @@ import { proyectarConstanciaFirma } from "../constancia-firma";
 import { PASO_EVIDENCIA_ACTO_FIRMA_CLIENTE } from "../firma-cliente";
 import { PASO_EVIDENCIA_VERIFICACION_P5 } from "../verificacion-identidad";
 import type { Expediente, Firma, RegistroEvidencia } from "../tipos";
-import { constanciaFixture, expedienteFirmado } from "./fixtures";
+import { constanciaFixture, expedienteFirmado, expedienteFirmadoTrasElPago } from "./fixtures";
 
 const OTP_ID = "OTP-FIRMA-TEST-1";
 
@@ -30,6 +30,18 @@ const FIRMA_INTERNA: Firma = {
 
 function conFirmaInterna(): Expediente {
   return { ...expedienteFirmado(), firma: FIRMA_INTERNA };
+}
+
+/**
+ * Igual que `conFirmaInterna`, pero con la institucional diferida ya
+ * aplicada (D-38, D-42). En el flujo real la constancia se emite en el
+ * mismo acto que la firma del cliente —antes del pago—, así que
+ * `firmasInstitucionales` está vacío en ese momento; esto solo existe para
+ * probar que la proyección sabe listarlas si alguna vez están (expedientes
+ * legados, o el día que la diferida llegue a aplicarse antes de leerla).
+ */
+function conFirmaInternaYDiferida(): Expediente {
+  return { ...expedienteFirmadoTrasElPago(), firma: FIRMA_INTERNA };
 }
 
 function evidencia(parcial: Partial<RegistroEvidencia> & { paso: string }): RegistroEvidencia {
@@ -102,7 +114,7 @@ describe("constancia de la firma del cliente", () => {
   });
 
   it("lista las firmas institucionales aparte, con su certificado", () => {
-    const constancia = proyectarConstanciaFirma(conFirmaInterna(), HISTORIAL);
+    const constancia = proyectarConstanciaFirma(conFirmaInternaYDiferida(), HISTORIAL);
     if (!constancia) throw new Error("debería proyectar la constancia");
 
     expect(constancia.firmasInstitucionales.length).toBeGreaterThan(0);
@@ -110,6 +122,18 @@ describe("constancia de la firma del cliente", () => {
       expect(firma.nivel).toBe("CUALIFICADA");
       expect(firma.certificado).not.toBe("");
     }
+  });
+
+  /**
+   * D-38/D-42 · en el flujo real la constancia se emite en el mismo acto que
+   * la firma del cliente, **antes** del pago: la institucional diferida
+   * todavía no existe en ese instante. La proyección no la inventa.
+   */
+  it("no lista ninguna institucional cuando todavía no se aplicó la diferida", () => {
+    const constancia = proyectarConstanciaFirma(conFirmaInterna(), HISTORIAL);
+    if (!constancia) throw new Error("debería proyectar la constancia");
+
+    expect(constancia.firmasInstitucionales).toEqual([]);
   });
 
   /**

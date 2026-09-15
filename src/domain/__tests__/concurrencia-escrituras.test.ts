@@ -30,6 +30,7 @@ import {
 } from "../emision-p9";
 import {
   registrarEmisionP9,
+  registrarFirmasInstitucionales,
   registrarIntentoPagoP7,
   registrarPagoConfirmadoP7,
 } from "../expediente";
@@ -58,6 +59,7 @@ import {
   expedienteEnPaqueteGenerado,
   expedienteFirmado,
   facturacionFixture,
+  firmasInstitucionalesFixture,
   pagoConfirmadoFixture,
 } from "./fixtures";
 
@@ -293,7 +295,11 @@ describe("firma · escrituras concurrentes sobre el mismo expediente", () => {
 // P9 · el sondeo de la póliza y la carga de la pantalla escriben a la vez
 // ---------------------------------------------------------------------------
 
-/** D-08 · la entrada de la emisión es un expediente firmado **y cobrado**. */
+/**
+ * D-08 enmendada / D-38, D-42 · la entrada de la emisión es un expediente
+ * firmado por el cliente, cobrado **y** con la institucional diferida ya
+ * aplicada.
+ */
 function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
   const conIntento = registrarIntentoPagoP7(
     expedienteFirmado(id),
@@ -308,7 +314,14 @@ function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
     "2026-08-09T15:10:30.000Z",
   );
   if (!cobrado.ok) throw new Error(cobrado.error);
-  return cobrado.expediente;
+
+  const institucionales = registrarFirmasInstitucionales(
+    cobrado.expediente,
+    firmasInstitucionalesFixture,
+    "2026-08-09T15:10:45.000Z",
+  );
+  if (!institucionales.ok) throw new Error(institucionales.error);
+  return institucionales.expediente;
 }
 
 function expedienteEmitido(id = "EXP-TEST-P9"): Expediente {

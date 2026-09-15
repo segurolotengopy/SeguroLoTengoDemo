@@ -6,23 +6,36 @@
  * Dos operaciones, y ninguna más:
  *
  * 1. `iniciarFirmaP8` — el botón `ENVIAR ENLACE SEGURO DE FIRMA`. Abre **un**
- *    acto de firma en Code100 con los dos documentos adentro y manda el enlace
- *    al canal verificado elegido. **No mueve el estado del expediente.**
+ *    acto de firma en Code100 con el documento adentro y manda el enlace al
+ *    canal verificado elegido. **No mueve el estado del expediente.**
  * 2. `confirmarFirmaP8` — el sondeo que hace la pantalla mientras muestra
  *    `Esperando confirmación verificable de Code100`. Lleva el expediente de
- *    PAQUETE_GENERADO a FIRMADO_CLIENTE y, aplicadas las firmas
- *    institucionales (D-13), a FIRMADO — que es lo único que habilita el
- *    cobro del paso siguiente.
+ *    PAQUETE_GENERADO a FIRMADO_CLIENTE, que es lo único que habilita el cobro
+ *    del paso siguiente (D-08 enmendada, 04-sep-2026).
  *
- * ## D-08 · esta pantalla ahora va antes del pago
+ * Una tercera operación, `aplicarFirmasDiferidas`, vive en este mismo archivo
+ * pero **no** corre acá: la invoca `emision-p9.ts`, después del pago (ver su
+ * cabecera).
+ *
+ * ## D-08 · esta pantalla va antes del pago, y ya no aplica las institucionales
  *
  * Hasta el Lote 4 se firmaba lo que ya estaba pagado, y este módulo tenía dos
  * responsabilidades más: exigir la garantía de pago para dejar firmar y hacer
  * vencer el expediente pagado que no firmaba. Las dos desaparecieron. No hay
  * pago que exigir —todavía no ocurrió— y el vencimiento se mudó al paso de
- * pago, que es donde ahora corre el reloj de 24 horas (D-10). Lo que este
- * módulo hace en cambio es **abrirlo**: al aplicar las firmas institucionales
- * fija `plazoPagoVenceEn`.
+ * pago (D-10).
+ *
+ * **Enmienda del 04-sep-2026:** hasta entonces, `confirmarFirmaP8` aplicaba
+ * también las firmas institucionales apenas confirmaba la del cliente, en la
+ * misma operación. Con la firma cualificada de Interseguros movida a
+ * *después* del pago (D-38), eso ya no ocurre acá: `FIRMADO_CLIENTE` es un
+ * estado completo del paso de firma, no un tramo a medio hacer a la espera de
+ * un segundo acto en el mismo sondeo. Lo que este módulo abre al confirmar la
+ * firma del cliente es `plazoPagoVenceEn` (D-32: 10 minutos) — antes lo abría
+ * la aplicación de las institucionales, ahora lo abre la firma del cliente,
+ * porque es el hito que corresponde: la persona ya firmó y el reloj para
+ * pagar tiene que arrancar ahí, no cuando —y si— llegue una firma
+ * institucional que ahora ocurre en otro momento del flujo.
  *
  * ## Las tres reglas que este módulo hace imposibles de violar
  *
@@ -62,7 +75,7 @@ import {
   registrarFirmaP8,
   registrarFirmasInstitucionales,
 } from "./expediente";
-import { firmantesConjuntos } from "./firmantes-documento";
+import { firmantesDiferidos } from "./firmantes-documento";
 import { PANTALLA_POR_ESTADO } from "./rutas-flujo";
 import {
   TEXTO_DECLARACION_FIRMA_P8,
@@ -90,24 +103,12 @@ export interface DependenciasP8 {
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
   /**
-   * Duración del plazo para pagar, que se abre al quedar firmado el
-   * expediente. 24 horas por D-10; el panel de demo lo comprime a segundos
-   * para poder mostrar la caducidad sin esperar un día (CLAUDE.md → "Panel de
+   * Duración del plazo para pagar, que se abre al quedar el expediente
+   * `FIRMADO_CLIENTE`. 10 minutos por D-32; el panel de demo lo comprime más
+   * para poder mostrar la caducidad sin esperar (CLAUDE.md → "Panel de
    * demo").
    */
   readonly plazoPagoMs?: number;
-  /**
-   * `true` cuando las firmas institucionales **no** se pueden aplicar.
-   *
-   * No es una palanca de demo disfrazada: aplicar una firma cualificada es una
-   * operación contra un proveedor y puede fallar de verdad. Modelarla como algo
-   * que puede salir mal es lo que hace que exista un camino donde el expediente
-   * queda en `FIRMADO_CLIENTE` —el cliente firmó, las institucionales no— con
-   * el cobro inhabilitado, que es exactamente lo que D-13 pide poder
-   * distinguir. El panel de demo la fuerza; en producción la resolverá el
-   * adaptador oficial.
-   */
-  readonly firmasInstitucionalesCaidas?: () => boolean;
 }
 
 /** Único estado desde el que se puede pedir el enlace de firma. */
@@ -115,6 +116,12 @@ export const ESTADO_REQUERIDO_P8: EstadoExpediente = "PAQUETE_GENERADO";
 
 export const PASO_EVIDENCIA_ENVIO_ENLACE_P8 = "P8_ENVIO_ENLACE_FIRMA";
 export const PASO_EVIDENCIA_FIRMA_P8 = "P8_FIRMA";
+/**
+ * Evidencia de la firma institucional diferida (D-38, D-42). Convive en este
+ * archivo con la firma del cliente porque comparte su nombre histórico —era
+ * el paso que corría acá, antes de la enmienda del 04-sep— pero hoy la deja
+ * `aplicarFirmasDiferidas`, invocada después del pago.
+ */
 export const PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 = "P8_FIRMAS_INSTITUCIONALES";
 
 /**
@@ -127,28 +134,47 @@ export const PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 = "P8_FIRMAS_INSTITUCIONAL
 export const PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8 = "P8_CONFIRMACION_DUPLICADA";
 
 /**
- * D-08 · firmado el expediente, el paso siguiente es el pago. Derivada del
- * mapa estado→pantalla para que siga al flag del flujo: `/pago` en v2, la
- * página larga del paso 3 en v3 (donde el pago es la sección siguiente de la
- * misma pantalla).
+ * D-08 enmendada · firmado por el cliente, el paso siguiente es el pago: ya
+ * no hace falta esperar a la institucional, que ahora llega después (D-38).
+ * Derivada del mapa estado→pantalla para que siga al flag del flujo: `/pago`
+ * en v2, la página larga del paso 3 en v3 (donde el pago es la sección
+ * siguiente de la misma pantalla).
  */
-export const RUTA_PAGO = PANTALLA_POR_ESTADO.FIRMADO;
+export const RUTA_PAGO = PANTALLA_POR_ESTADO.FIRMADO_CLIENTE;
 
 /**
- * Plazo para pagar un expediente ya firmado (D-10: 24 horas).
+ * Plazo para pagar un expediente ya firmado por el cliente (D-32: 10
+ * minutos).
  *
- * Se abre acá, al aplicarse las firmas institucionales, y lo consume el paso
- * de pago. Antes de la inversión se llamaba `PLAZO_FIRMA_MS`, vivía en
- * `pago-p7.ts` y medía lo contrario: el tiempo para firmar algo ya pagado.
+ * Se abre acá, al confirmarse la firma del cliente, y lo consume el paso de
+ * pago. Antes de D-32 eran 24 horas y el reloj arrancaba con las firmas
+ * institucionales (D-10); con la enmienda del 04-sep a D-08 esas firmas se
+ * movieron a después del pago, así que esperarlas para abrir el plazo habría
+ * dejado un expediente firmado sin vencimiento posible durante ese tramo. El
+ * hito correcto es la firma del cliente, que es la que habilita el cobro.
  *
  * **La caducidad de la sesión de firma es otra cosa.** Code100 expone la suya
  * (`fecha_expiracion` / `expirado`) y no documenta una duración fija, así que
- * no se la hardcodea: este plazo es nuestro y es el del expediente (D-10).
+ * no se la hardcodea: este plazo es nuestro y es el del expediente (D-10,
+ * D-32).
  */
-export const PLAZO_PAGO_MS = 24 * 60 * 60 * 1000;
+export const PLAZO_PAGO_MS = 10 * 60 * 1000;
 
-/** Estados en los que el expediente ya está firmado por todos los intervinientes. */
-const ESTADOS_YA_FIRMADOS: readonly EstadoExpediente[] = ["FIRMADO", "PAGO_CONFIRMADO", "EMITIDO"];
+/**
+ * Estados en los que el expediente ya tiene la firma del cliente registrada.
+ *
+ * `FIRMADO_CLIENTE` entra acá porque, desde la enmienda del 04-sep a D-08, es
+ * un estado **completo** del paso de firma: no hay un segundo tramo
+ * institucional que esta operación tenga que retomar. `FIRMADO`,
+ * `PAGO_CONFIRMADO` y `EMITIDO` se conservan por los expedientes que avanzan
+ * más allá.
+ */
+const ESTADOS_YA_FIRMADOS: readonly EstadoExpediente[] = [
+  "FIRMADO_CLIENTE",
+  "FIRMADO",
+  "PAGO_CONFIRMADO",
+  "EMITIDO",
+];
 
 export const CANALES_FIRMA: readonly CanalFirma[] = ["WHATSAPP", "EMAIL"];
 
@@ -170,12 +196,6 @@ export type MotivoRechazoP8 =
   | "CODE100_RECHAZO"
   | "FIRMA_NO_INICIADA"
   | "FIRMA_NO_COMPLETADA"
-  /**
-   * El cliente firmó pero las institucionales no llegaron (D-13). El
-   * expediente queda en `FIRMADO_CLIENTE`: no se perdió la firma y el cobro
-   * sigue inhabilitado. El próximo sondeo retoma ese tramo.
-   */
-  | "FIRMAS_INSTITUCIONALES_PENDIENTES"
   /**
    * Otra petición escribió el expediente entre la lectura y el guardado y el
    * conflicto persistió tras los reintentos (`src/domain/concurrencia.ts`).
@@ -256,7 +276,18 @@ interface Reloj {
   readonly nuevoId: () => string;
 }
 
-function resolverReloj(deps: DependenciasP8): Reloj {
+/** Lo mínimo que hace falta para resolver un reloj: comparte forma con `DependenciasP8` y `DependenciasFirmasDiferidas`. */
+interface DepsConReloj {
+  readonly ahora?: () => string;
+  readonly nuevoId?: () => string;
+}
+
+/** Ídem, más el almacén de evidencia. */
+interface DepsConEvidencia extends DepsConReloj {
+  readonly evidencias: EvidenceStore;
+}
+
+function resolverReloj(deps: DepsConReloj): Reloj {
   return {
     ahora: deps.ahora ?? (() => new Date().toISOString()),
     nuevoId: deps.nuevoId ?? (() => randomUUID()),
@@ -279,9 +310,12 @@ function formatearDetalle(datos: Readonly<Record<string, string | number | boole
  * uno, nunca el código: acá no hay ninguna rama por la que pueda viajar (regla
  * inviolable #2), ni tampoco un dato de salud, PEP, cédula o tarjeta (regla
  * inviolable #7).
+ *
+ * Compartida con `aplicarFirmasDiferidas`, que deja evidencia del mismo paso
+ * (`PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8`) desde otro momento del flujo.
  */
 async function registrarEvidencia(
-  deps: DependenciasP8,
+  deps: DepsConEvidencia,
   reloj: Reloj,
   entrada: {
     readonly expedienteId: string;
@@ -514,20 +548,22 @@ async function actoVigente(
 
 /**
  * Sondeo de la pantalla mientras espera a Code100, y única puerta por la que el
- * expediente pasa a FIRMADO.
+ * expediente pasa a FIRMADO_CLIENTE.
  *
- * Son **dos** transiciones en una operación: la firma del cliente deja el
- * expediente en `FIRMADO_CLIENTE` y las institucionales lo llevan a `FIRMADO`
- * (D-13). Que sean dos estados y no uno es lo que permite distinguir un
- * sellado a medio hacer de un expediente sin firmar, y lo que mantiene el
- * cobro inhabilitado si el segundo tramo falla: un expediente detenido en
- * `FIRMADO_CLIENTE` no puede pagar. El siguiente sondeo lo reintenta.
+ * **Enmienda del 04-sep-2026 a D-08:** hasta entonces, esta operación llevaba
+ * el expediente en dos transiciones — la firma del cliente y, en el mismo
+ * llamado, las institucionales — porque `FIRMADO` era el estado que habilitaba
+ * el cobro. Con la firma cualificada de Interseguros movida a después del pago
+ * (D-38), `FIRMADO_CLIENTE` pasó a ser el destino final de este paso: es un
+ * estado completo, no un tramo a medio hacer a la espera de un segundo acto.
+ * La institucional llega más adelante, por `aplicarFirmasDiferidas`, invocada
+ * desde `emision-p9.ts`.
  *
- * Es idempotente de punta a punta: llamarlo con el expediente ya FIRMADO
- * devuelve los mismos datos sin volver a transicionar ni a escribir. Eso
- * importa porque la pantalla sondea en bucle y porque el mismo endpoint va a
- * atender el callback de Code100 cuando exista el adaptador oficial (CLAUDE.md
- * → "Idempotencia de webhooks").
+ * Es idempotente de punta a punta: llamarlo con el expediente ya
+ * `FIRMADO_CLIENTE` (o más adelante) devuelve los mismos datos sin volver a
+ * transicionar ni a escribir. Eso importa porque la pantalla sondea en bucle y
+ * porque el mismo endpoint va a atender el callback de Code100 cuando exista
+ * el adaptador oficial (CLAUDE.md → "Idempotencia de webhooks").
  */
 export async function confirmarFirmaP8(
   deps: DependenciasP8,
@@ -539,8 +575,8 @@ export async function confirmarFirmaP8(
   },
 ): Promise<ResultadoConfirmarFirmaP8> {
   // Perder la carrera de escritura contra otro sondeo se resuelve releyendo:
-  // la operación es convergente —rama idempotente para FIRMADO, retoma del
-  // tramo institucional para FIRMADO_CLIENTE— y no repite efectos en Code100.
+  // la operación es convergente —rama idempotente desde FIRMADO_CLIENTE en
+  // adelante— y no repite efectos en Code100.
   return conReintentoPorConflicto(
     () => intentarConfirmarFirmaP8(deps, entrada),
     () => ({ ok: false, motivo: "CONFLICTO_CONCURRENCIA" }),
@@ -561,10 +597,11 @@ async function intentarConfirmarFirmaP8(
   const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
   if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
 
-  // Ya firmado por todos: otra vía se adelantó. Se responde con lo persistido
-  // —sin transicionar, sin tocar a Code100— y se deja constancia de por dónde
-  // llegó la que perdió la carrera (CHG-33). Es la rama que hace inofensivo un
-  // callback duplicado, y ahora además lo documenta.
+  // Ya firmado por el cliente (o más adelante): otra vía se adelantó, o el
+  // expediente ya avanzó. Se responde con lo persistido —sin transicionar,
+  // sin tocar a Code100— y se deja constancia de por dónde llegó la que
+  // perdió la carrera (CHG-33). Es la rama que hace inofensivo un callback
+  // duplicado, y ahora además lo documenta.
   if (expediente.firma && ESTADOS_YA_FIRMADOS.includes(expediente.estado)) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: entrada.expedienteId,
@@ -592,14 +629,6 @@ async function intentarConfirmarFirmaP8(
       duplicada: true,
       siguientePantalla: RUTA_PAGO,
     };
-  }
-
-  // El cliente ya firmó pero el tramo institucional no llegó a completarse
-  // —una falla de red, un reinicio, una escritura perdida—. Se retoma desde
-  // ahí en vez de volver a pedirle la firma a Code100: la firma del cliente es
-  // un hecho registrado y no se repite.
-  if (expediente.estado === "FIRMADO_CLIENTE") {
-    return aplicarFirmasInstitucionales(deps, reloj, expediente, entrada.contexto, origen);
   }
 
   if (expediente.estado !== ESTADO_REQUERIDO_P8) {
@@ -638,7 +667,13 @@ async function intentarConfirmarFirmaP8(
     return { ok: false, motivo: "FIRMA_NO_COMPLETADA", detalle: resultado.motivo };
   }
 
-  const transicion = registrarFirmaP8(expediente, resultado.firma, fecha);
+  // D-32 · el plazo de pago se abre en la misma transición que registra la
+  // firma del cliente: es el hito correcto ahora que las institucionales ya
+  // no corren acá (D-08 enmendada).
+  const plazoPagoMs = deps.plazoPagoMs ?? PLAZO_PAGO_MS;
+  const plazoPagoVenceEn = new Date(new Date(fecha).getTime() + plazoPagoMs).toISOString();
+
+  const transicion = registrarFirmaP8(expediente, resultado.firma, plazoPagoVenceEn, fecha);
   if (!transicion.ok) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: entrada.expedienteId,
@@ -668,33 +703,107 @@ async function intentarConfirmarFirmaP8(
       // (filas 42 y 47).
       hashDocumentoFirmado: resultado.firma.hashDocumentoFirmado,
       propuesta: transicion.expediente.numeroPropuesta ?? "",
+      plazoPagoVenceEn,
+      // Por dónde llegó esta confirmación (CHG-33): ahora que este es el
+      // único tramo que transiciona en P8, es acá donde importa saber si fue
+      // el sondeo o el retorno del navegador el que se enteró primero.
+      origen,
     },
   });
 
-  return aplicarFirmasInstitucionales(deps, reloj, transicion.expediente, entrada.contexto, origen);
+  return {
+    ok: true,
+    firmado: true,
+    estado: transicion.expediente.estado,
+    numeroPropuesta: transicion.expediente.numeroPropuesta ?? "",
+    idCode100: resultado.firma.referenciaActo,
+    firmadoEn: resultado.firma.firmadoEn,
+    plazoPagoVenceEn,
+    duplicada: false,
+    siguientePantalla: RUTA_PAGO,
+  };
 }
 
+// ---------------------------------------------------------------------------
+// Operación 3 — aplicar la firma institucional diferida (D-38, D-42)
+// ---------------------------------------------------------------------------
+
+/** Lo que hace falta para aplicar la firma diferida y dejar su evidencia. */
+export interface DependenciasFirmasDiferidas {
+  readonly expedientes: RepositorioExpediente;
+  readonly evidencias: EvidenceStore;
+  readonly ahora?: () => string;
+  readonly nuevoId?: () => string;
+  /**
+   * `true` cuando la firma institucional diferida **no** se pudo aplicar.
+   *
+   * Mismo criterio que tenía `firmasInstitucionalesCaidas` antes de la
+   * enmienda del 04-sep: aplicar una firma cualificada es una operación
+   * contra un proveedor (o, con el lote de D-38, contra un proceso externo) y
+   * puede fallar de verdad. El panel de demo la fuerza; en producción, sin
+   * lote implementado todavía, el expediente simplemente no llega a esta
+   * función (`aplicaFirmasDiferidasEnLinea` decide eso, no esta palanca).
+   */
+  readonly firmasInstitucionalesCaidas?: () => boolean;
+}
+
+export type MotivoFirmasDiferidas = "FIRMAS_INSTITUCIONALES_PENDIENTES";
+
+export type ResultadoFirmasDiferidas =
+  | { readonly ok: true; readonly expediente: Expediente }
+  | { readonly ok: false; readonly motivo: MotivoFirmasDiferidas; readonly detalle?: string };
+
 /**
- * FIRMADO_CLIENTE → FIRMADO: las firmas de Interseguros y Alianza sobre el
- * mismo documento, y con ellas la apertura del plazo para pagar (D-10).
- *
- * En el demo se aplican en el acto, apenas vuelve la firma del cliente; con
- * Code100 real serán dos actos con certificado cualificado y esta función será
- * el punto donde se los espera. Que viva aparte —y no dentro de la rama de la
- * firma del cliente— es lo que permite retomarla sola cuando el primer tramo
- * ya quedó registrado y el segundo no (regla inviolable #3: el sellado a medias
- * tiene que ser distinguible, y también recuperable).
- *
- * El orden es el del contrato de Code100 y no se puede invertir: cliente
- * primero, institucionales después.
+ * La forma en la que `emision-p9.ts` consume esta operación: ya cableada con
+ * sus dependencias por el composition root, así que P9 solo aporta el
+ * expediente y el contexto de la petición. Es lo que `DependenciasP9.aplicarFirmasDiferidas`
+ * declara — `undefined` cuando el adaptador de firma activo no tiene la
+ * capacidad `aplicaFirmasDiferidasEnLinea` (`src/adapters/registro.ts`).
  */
-async function aplicarFirmasInstitucionales(
-  deps: DependenciasP8,
-  reloj: Reloj,
-  expediente: Expediente,
-  contexto: ContextoPeticion,
-  origen: OrigenConfirmacionFirma,
-): Promise<ResultadoConfirmarFirmaP8> {
+export type AplicadorFirmasDiferidas = (entrada: {
+  readonly expediente: Expediente;
+  readonly contexto: ContextoPeticion;
+}) => Promise<ResultadoFirmasDiferidas>;
+
+/**
+ * PAGO_CONFIRMADO → FIRMADO: la firma cualificada de Interseguros sobre el
+ * paquete, aplicada después del pago (D-38, D-42).
+ *
+ * Es la continuación de lo que hacía `aplicarFirmasInstitucionales` antes de
+ * la enmienda del 04-sep a D-08, movida de lugar y de momento: antes corría
+ * justo después de la firma del cliente y dejaba el expediente `FIRMADO` con
+ * el plazo de pago recién abierto; ahora corre después del cobro y ya no abre
+ * ningún plazo —lo abrió la firma del cliente, D-32—. Reutiliza el mismo paso
+ * de evidencia (`PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8`) y la misma
+ * palanca de demo (`FIRMAS_INSTITUCIONALES_FALLAN`) porque es, en sustancia,
+ * el mismo hecho de negocio en otro punto del calendario.
+ *
+ * **Quién la invoca.** Ningún Route Handler la llama directo: la invoca
+ * `emision-p9.ts`, en línea, **antes** de remitir el expediente a Alianza —y
+ * solo cuando el adaptador de firma activo declara la capacidad
+ * `aplicaFirmasDiferidasEnLinea` (`src/adapters/registro.ts`). En producción,
+ * sin esa capacidad, la firma de Interseguros llega por el lote externo de
+ * D-38 —todavía sin construir— y esta función no corre: el expediente se
+ * queda en `PAGO_CONFIRMADO` hasta que el lote la asiente.
+ *
+ * Idempotente: sobre un expediente que no está en `PAGO_CONFIRMADO` —porque ya
+ * está `FIRMADO` o más adelante— devuelve el mismo expediente sin volver a
+ * firmar ni a escribir.
+ */
+export async function aplicarFirmasDiferidas(
+  deps: DependenciasFirmasDiferidas,
+  entrada: { readonly expediente: Expediente; readonly contexto: ContextoPeticion },
+): Promise<ResultadoFirmasDiferidas> {
+  const reloj = resolverReloj(deps);
+  const { expediente, contexto } = entrada;
+
+  if (expediente.estado !== "PAGO_CONFIRMADO") {
+    // Ya se aplicó (FIRMADO) o el expediente está en otro punto: nada que
+    // hacer acá. No es un error — es la rama que hace convergente un segundo
+    // llamado sobre el mismo expediente.
+    return { ok: true, expediente };
+  }
+
   const fecha = reloj.ahora();
 
   if (deps.firmasInstitucionalesCaidas?.() === true) {
@@ -706,21 +815,19 @@ async function aplicarFirmasInstitucionales(
       resultado: "FALLIDO",
       detalle: {
         motivo: "PROVEEDOR_NO_APLICO_LAS_FIRMAS",
-        // El expediente se queda donde está: la firma del cliente no se
-        // pierde y el cobro no se habilita.
+        // El expediente se queda donde está: el cobro no se pierde y la
+        // emisión no se ordena.
         estado: expediente.estado,
       },
     });
     return { ok: false, motivo: "FIRMAS_INSTITUCIONALES_PENDIENTES" };
   }
 
-  const plazoPagoMs = deps.plazoPagoMs ?? PLAZO_PAGO_MS;
-  const plazoPagoVenceEn = new Date(new Date(fecha).getTime() + plazoPagoMs).toISOString();
-
-  // D-13 · quiénes firman y con qué modalidad sale de la configuración, no de
+  // D-42 · quiénes firman y con qué modalidad sale de la configuración, no de
   // una lista escrita acá: es la misma de la que salen el bloque de firmas del
-  // PDF y lo que la consola muestra.
-  const firmas: readonly FirmaInstitucional[] = firmantesConjuntos("PAQUETE").map((firmante) => ({
+  // PDF y lo que la consola muestra. Después del pago, el único firmante
+  // diferido es Interseguros — Alianza no firma la propuesta.
+  const firmas: readonly FirmaInstitucional[] = firmantesDiferidos("PAQUETE").map((firmante) => ({
     rol: firmante.rol,
     nivel: firmante.nivel,
     modalidad: firmante.modalidad,
@@ -730,7 +837,7 @@ async function aplicarFirmasInstitucionales(
     aplicadaEn: fecha,
   }));
 
-  const transicion = registrarFirmasInstitucionales(expediente, firmas, plazoPagoVenceEn, fecha);
+  const transicion = registrarFirmasInstitucionales(expediente, firmas, fecha);
   if (!transicion.ok) {
     await registrarEvidencia(deps, reloj, {
       expedienteId: expediente.id,
@@ -740,7 +847,7 @@ async function aplicarFirmasInstitucionales(
       resultado: "FALLIDO",
       detalle: { motivo: "TRANSICION_INVALIDA", detalle: transicion.error },
     });
-    return { ok: false, motivo: "ESTADO_INVALIDO", detalle: transicion.error };
+    return { ok: false, motivo: "FIRMAS_INSTITUCIONALES_PENDIENTES", detalle: transicion.error };
   }
 
   await deps.expedientes.guardar(transicion.expediente, expediente.actualizadoEn);
@@ -757,24 +864,10 @@ async function aplicarFirmasInstitucionales(
       modalidades: firmas.map((firma) => `${firma.rol}:${firma.modalidad}`).join(","),
       certificados: firmas.map((firma) => firma.certificado).join(","),
       propuesta: transicion.expediente.numeroPropuesta ?? "",
-      plazoPagoVenceEn,
-      // Por dónde llegó la confirmación que disparó este tramo (CHG-33).
-      origen,
     },
   });
 
-  const firma = transicion.expediente.firma;
-  return {
-    ok: true,
-    firmado: true,
-    estado: transicion.expediente.estado,
-    numeroPropuesta: transicion.expediente.numeroPropuesta ?? "",
-    idCode100: firma?.referenciaActo ?? "",
-    firmadoEn: firma?.firmadoEn ?? fecha,
-    plazoPagoVenceEn,
-    duplicada: false,
-    siguientePantalla: RUTA_PAGO,
-  };
+  return { ok: true, expediente: transicion.expediente };
 }
 
 

@@ -5,24 +5,48 @@
  *
  * Dos operaciones y una lectura:
  *
- * 1. `emitirPolizaP9` — al entrar a la pantalla: SeguroLoTengo remite el
- *    expediente a Alianza, que lo valida automáticamente por SEBAOT.
- *    PAGO_CONFIRMADO → EMITIDO, con la póliza `EN PROCESO DE EMISIÓN`.
+ * 1. `emitirPolizaP9` — al entrar a la pantalla: aplica la firma institucional
+ *    diferida si el adaptador puede hacerlo en línea (D-38, D-42) y, con eso
+ *    hecho, remite el expediente a Alianza, que lo valida automáticamente por
+ *    SEBAOT. `PAGO_CONFIRMADO → FIRMADO → EMITIDO`, con la póliza `EN PROCESO
+ *    DE EMISIÓN`.
  * 2. `consultarEmisionP9` — el sondeo posterior, mientras la pantalla muestra
  *    el badge `EN EMISIÓN`. Actualiza el estado de la póliza y de la factura
  *    **sin mover el estado del expediente**, que ya llegó a EMITIDO.
  * 3. `leerResumenP9` — la proyección que dibuja la pantalla.
  *
- * ## Las cuatro reglas que este módulo hace imposibles de violar
+ * ## D-38 / D-42 · la firma institucional entra acá, no en P8
+ *
+ * Desde la enmienda del 04-sep-2026 a D-08, la firma cualificada de
+ * Interseguros se aplica **después del pago**, no junto con la del cliente.
+ * En la primera fase (D-38), fuera del sistema: por un lote que Interseguros
+ * firma con su firma cualificada y que todavía no está construido. Este
+ * módulo es el único punto en el que se le da a esa firma la oportunidad de
+ * aplicarse **en línea**, antes de remitir a Alianza — y solo si el adaptador
+ * de firma activo declara la capacidad `aplicaFirmasDiferidasEnLinea`
+ * (`src/adapters/registro.ts`). Hoy la tiene el mock; el adaptador oficial no
+ * la va a tener hasta que exista el lote, así que en producción esta función
+ * simplemente no encuentra la capacidad, no intenta nada, y deja el
+ * expediente en `PAGO_CONFIRMADO` — a la espera de que el lote externo lo
+ * asiente por su cuenta.
+ *
+ * ## Las cinco reglas que este módulo hace imposibles de violar
  *
  * **No hay emisión sin firma completa** (regla inviolable #3).
  * `PolicyIssuer.emitirPoliza` exige `firma: Firma` con los dos hashes
  * obligatorios, y llegar al estado de origen ya exigió pasar por la firma: no
  * hay forma de pedirle a SEBAOT que emita sobre un paquete a medio firmar.
  *
- * **El orden es firma → cobro → emisión** (filas 43 y 44 de la matriz de
- * cumplimiento), que desde D-08 es también el orden de las pantallas. El único
- * estado de origen es PAGO_CONFIRMADO, que ya significa *"el dinero entró"*;
+ * **No hay emisión sin la institucional aplicada** (D-38, D-42). La guarda
+ * vive en `registrarEmisionP9` (`src/domain/expediente.ts`), no acá: es la
+ * que hace cumplir que `PAGO_CONFIRMADO → EMITIDO` —una arista que el grafo
+ * sigue admitiendo, para los expedientes legados— no se reabra para un
+ * expediente nuevo al que todavía le falta esa firma.
+ *
+ * **El orden es firma → cobro → firma institucional → emisión** (filas 43 y
+ * 44 de la matriz de cumplimiento), que desde D-08 es también el orden de las
+ * pantallas. Los dos estados de origen legales —`PAGO_CONFIRMADO` (legado, con
+ * la institucional ya puesta) y `FIRMADO`— ya significan *"el dinero entró"*;
  * la comprobación explícita del `Pago` se conserva igual porque una condición
  * de la que depende una obligación legal no se sostiene sola en el grafo —
  * fila 44: *"Si falla el cobro, no solicitar la emisión automática"* (Código
@@ -50,6 +74,7 @@ import { actualizarEstadoPolizaP9, registrarEmisionP9 } from "./expediente";
 import { codigoComprobante } from "./comprobante-pago";
 import { enmascararCorreo } from "./correo";
 import { enmascararCelular } from "./telefono";
+import type { AplicadorFirmasDiferidas } from "./firma-p8";
 import {
   TEXTO_COMUNICACIONES_COMERCIALES,
   VERSION_COMUNICACIONES_COMERCIALES,
@@ -74,16 +99,28 @@ export interface DependenciasP9 {
   readonly evidencias: EvidenceStore;
   readonly ahora?: () => string;
   readonly nuevoId?: () => string;
+  /**
+   * Aplica en línea la firma institucional diferida (D-38, D-42), si el
+   * adaptador de firma activo puede hacerlo. `undefined` cuando no: el
+   * expediente se queda en `PAGO_CONFIRMADO` hasta que la firma llegue por el
+   * lote externo (`src/adapters/registro.ts` → `aplicaFirmasDiferidasEnLinea`
+   * decide si esto se cablea).
+   */
+  readonly aplicarFirmasDiferidas?: AplicadorFirmasDiferidas;
 }
 
 /**
  * Único estado desde el que se puede remitir el expediente a Alianza.
  *
- * Era `FIRMADO` mientras se cobraba antes de firmar. Con el orden invertido
- * (D-08) firmar es el paso anterior y lo último que falta es la plata, así que
- * la emisión arranca del cobro acreditado.
+ * Era `FIRMADO` mientras se cobraba antes de firmar; con el orden invertido
+ * (D-08) pasó a ser `PAGO_CONFIRMADO`. Desde la enmienda del 04-sep a D-08,
+ * `FIRMADO` describe un momento **posterior**: cobrado y con la institucional
+ * ya aplicada. Por eso este caso de uso acepta los dos —`PAGO_CONFIRMADO`
+ * como punto de partida, del que intenta salir aplicando la diferida antes de
+ * seguir, y `FIRMADO` como el estado que ya está listo para remitir—, aunque
+ * la constante siga nombrando el que corresponde al modelo nuevo.
  */
-export const ESTADO_REQUERIDO_P9: EstadoExpediente = "PAGO_CONFIRMADO";
+export const ESTADO_REQUERIDO_P9: EstadoExpediente = "FIRMADO";
 
 export const PASO_EVIDENCIA_EMISION_P9 = "P9_EMISION_POLIZA";
 export const PASO_EVIDENCIA_ESTADO_POLIZA_P9 = "P9_ESTADO_POLIZA";
@@ -100,6 +137,14 @@ export type MotivoRechazoP9 =
   | "COBRO_NO_CONFIRMADO"
   | "EXPEDIENTE_INCOMPLETO"
   | "SEBAOT_NO_DISPONIBLE"
+  /**
+   * D-38/D-42 · el expediente ya cobró pero la firma institucional diferida
+   * de Interseguros todavía no se aplicó, y este proceso no tiene forma de
+   * aplicarla en línea (no hay capacidad `aplicaFirmasDiferidasEnLinea`, o la
+   * aplicación falló). No es un error del sistema: el expediente queda en
+   * `PAGO_CONFIRMADO`, a la espera del lote externo (D-38) o de un reintento.
+   */
+  | "FIRMA_CORREDOR_PENDIENTE"
   /**
    * Otra petición escribió el expediente entre la lectura y el guardado y el
    * conflicto persistió tras los reintentos (`src/domain/concurrencia.ts`).
@@ -230,15 +275,43 @@ async function intentarEmitirPolizaP9(
   entrada: { readonly expedienteId: string; readonly contexto: ContextoPeticion },
 ): Promise<ResultadoEmisionP9> {
   const reloj = resolverReloj(deps);
-  const expediente = await deps.expedientes.obtenerPorId(entrada.expedienteId);
-  if (!expediente) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+  const guardado = await deps.expedientes.obtenerPorId(entrada.expedienteId);
+  if (!guardado) return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
+  // `let` y no `const`: la aplicación de la firma diferida, más abajo, puede
+  // reemplazarlo por la versión ya `FIRMADO` antes de seguir.
+  let expediente: Expediente = guardado;
 
   // Ya remitido: se responde con lo persistido.
   if (expediente.estado === "EMITIDO" && expediente.poliza) {
     return { ok: true, emitida: false, estado: expediente.estado, poliza: expediente.poliza };
   }
 
-  if (expediente.estado !== ESTADO_REQUERIDO_P9) {
+  // D-38/D-42 · cobrado pero todavía sin la firma institucional diferida: se
+  // intenta aplicarla acá, en línea, antes de seguir. Un expediente legado que
+  // llegó a PAGO_CONFIRMADO con `firmasInstitucionales` ya puesta —bajo el
+  // código anterior a la enmienda del 04-sep— no entra a esta rama y sigue
+  // derecho hacia la emisión.
+  if (expediente.estado === "PAGO_CONFIRMADO" && expediente.firmasInstitucionales.length === 0) {
+    if (!deps.aplicarFirmasDiferidas) {
+      // Sin la capacidad —producción, sin el lote de D-38 todavía— no hay
+      // nada que intentar: el expediente se queda como está.
+      return { ok: false, motivo: "FIRMA_CORREDOR_PENDIENTE" };
+    }
+
+    const diferidas = await deps.aplicarFirmasDiferidas({ expediente, contexto: entrada.contexto });
+    if (!diferidas.ok) {
+      return { ok: false, motivo: "FIRMA_CORREDOR_PENDIENTE", detalle: diferidas.detalle };
+    }
+    expediente = diferidas.expediente;
+  }
+
+  // Estado de origen válido: FIRMADO (el normal, con la diferida aplicada
+  // recién arriba o ya presente) o, como legado, PAGO_CONFIRMADO con la
+  // institucional ya puesta desde antes de la enmienda del 04-sep — ese caso
+  // no pasó por la rama de arriba porque ya tenía `firmasInstitucionales`.
+  const esLegadoYaFirmado =
+    expediente.estado === "PAGO_CONFIRMADO" && expediente.firmasInstitucionales.length > 0;
+  if (expediente.estado !== ESTADO_REQUERIDO_P9 && !esLegadoYaFirmado) {
     return { ok: false, motivo: "ESTADO_INVALIDO" };
   }
 

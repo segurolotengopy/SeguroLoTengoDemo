@@ -26,7 +26,7 @@ import { esTransicionLegal, registrarEmisionP9 } from "../expediente";
 import type { EvidenceStore } from "../../ports/evidence-store";
 import type { Expediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
-import { expedienteEnPagoConfirmado, expedienteFirmado } from "./fixtures";
+import { expedienteEnPagoConfirmado, expedienteFirmado, expedienteFirmadoTrasElPago } from "./fixtures";
 
 const AHORA = "2026-08-09T16:00:00.000Z";
 
@@ -79,7 +79,8 @@ function armar(expediente: Expediente, ahora = AHORA) {
 }
 
 function expedienteEmitido(): Expediente {
-  const cobrado = expedienteEnPagoConfirmado("EXP-DEV");
+  // D-38/D-42 · la emisión exige la firma institucional diferida ya aplicada.
+  const cobrado = expedienteFirmadoTrasElPago("EXP-DEV");
   const emitido = registrarEmisionP9(
     cobrado,
     {
@@ -141,7 +142,7 @@ describe("solicitar una devolución", () => {
    * Bajo el orden nuevo un expediente firmado y no pagado no tiene dinero
    * adentro: caducar es gratis (D-08/D-10) y no hay nada que devolver.
    */
-  it("un expediente firmado y sin pagar no tiene devolución posible", async () => {
+  it("un expediente firmado por el cliente y sin pagar no tiene devolución posible", async () => {
     const { deps, repo } = armar(expedienteFirmado("EXP-DEV"));
 
     const resultado = await solicitarDevolucion(deps, {
@@ -152,7 +153,26 @@ describe("solicitar una devolución", () => {
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.motivo).toBe("ESTADO_INVALIDO");
-    expect(repo.actual().estado).toBe("FIRMADO");
+    expect(repo.actual().estado).toBe("FIRMADO_CLIENTE");
+  });
+
+  /**
+   * D-38/D-42 · FIRMADO describe ahora un momento **posterior** al pago
+   * (cobrado y con la institucional ya aplicada, esperando la emisión): el
+   * dinero ya entró, así que la devolución tiene que poder pedirse desde ahí
+   * igual que desde PAGO_CONFIRMADO.
+   */
+  it("un expediente en FIRMADO (cobrado, institucional aplicada) sí tiene devolución posible", async () => {
+    const { deps, repo } = armar(expedienteFirmadoTrasElPago("EXP-DEV"));
+
+    const resultado = await solicitarDevolucion(deps, {
+      expedienteId: "EXP-DEV",
+      ...PEDIDO,
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(true);
+    expect(repo.actual().estado).toBe("DEVOLUCION_EN_TRAMITE");
   });
 
   it("congela el importe y el medio del cobro que se devuelve", async () => {

@@ -39,7 +39,6 @@ import type { SignatureProvider } from "../../ports/signature-provider";
 import {
   PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8,
   PASO_EVIDENCIA_ENVIO_ENLACE_P8,
-  PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8,
   PASO_EVIDENCIA_FIRMA_P8,
   confirmarFirmaP8,
   iniciarFirmaP8,
@@ -342,7 +341,7 @@ describe("P8 · confirmar la firma", () => {
     expect(entorno.repositorio.actual().estado).toBe("PAQUETE_GENERADO");
   });
 
-  it("firma confirmada: PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO, con una sola huella", async () => {
+  it("firma confirmada: PAQUETE_GENERADO → FIRMADO_CLIENTE, con una sola huella y el plazo de pago abierto", async () => {
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
@@ -354,10 +353,15 @@ describe("P8 · confirmar la firma", () => {
     if (!resultado.ok || !resultado.firmado) return;
 
     const expediente = entorno.repositorio.actual();
-    expect(expediente.estado).toBe("FIRMADO");
+    // D-08 enmendada (04-sep-2026) · ya no hace falta esperar a la
+    // institucional, que ahora se aplica después del pago (D-38).
+    expect(expediente.estado).toBe("FIRMADO_CLIENTE");
     expect(expediente.firma?.hashDocumentoFirmado).toHaveLength(64);
     expect(expediente.firma?.referenciaActo).toBe(enlace.acto.idCode100);
-    // D-08 · firmado el expediente, lo que sigue es pagar.
+    // D-32 · el plazo de pago (10 minutos) se abre en la misma transición.
+    expect(expediente.plazoPagoVenceEn).toBe(resultado.plazoPagoVenceEn);
+    expect(resultado.plazoPagoVenceEn).not.toBe("");
+    // D-08 · firmado el cliente, lo que sigue es pagar.
     expect(resultado.siguientePantalla).toBe("/pago");
   });
 
@@ -474,13 +478,17 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
       },
     };
 
-    const resultado = registrarFirmaP8(conActo, {
-      canal: "WHATSAPP",
-      origen: "PROVEEDOR",
-      referenciaActo: "MOCK-FIRMA-X",
-      firmadoEn: AHORA,
-      hashDocumentoFirmado: "",
-    });
+    const resultado = registrarFirmaP8(
+      conActo,
+      {
+        canal: "WHATSAPP",
+        origen: "PROVEEDOR",
+        referenciaActo: "MOCK-FIRMA-X",
+        firmadoEn: AHORA,
+        hashDocumentoFirmado: "",
+      },
+      PLAZO_DEL_FIXTURE,
+    );
 
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
@@ -500,13 +508,17 @@ describe("firma · regla inviolable #3, ahora estructural (D-11)", () => {
       },
     };
 
-    const resultado = registrarFirmaP8(conActo, {
-      canal: "WHATSAPP",
-      origen: "PROVEEDOR",
-      referenciaActo: "MOCK-FIRMA-AJENO",
-      firmadoEn: AHORA,
-      hashDocumentoFirmado: "c".repeat(64),
-    });
+    const resultado = registrarFirmaP8(
+      conActo,
+      {
+        canal: "WHATSAPP",
+        origen: "PROVEEDOR",
+        referenciaActo: "MOCK-FIRMA-AJENO",
+        firmadoEn: AHORA,
+        hashDocumentoFirmado: "c".repeat(64),
+      },
+      PLAZO_DEL_FIXTURE,
+    );
 
     expect(resultado.ok).toBe(false);
   });
@@ -532,7 +544,7 @@ describe("firma · las dos vías de confirmación (CHG-33)", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok || !resultado.firmado) return;
     expect(resultado.duplicada).toBe(false);
-    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
+    expect(entorno.repositorio.actual().estado).toBe("FIRMADO_CLIENTE");
   });
 
   it("la segunda vía llega sobre un expediente ya firmado y se registra como duplicada", async () => {
@@ -570,7 +582,11 @@ describe("firma · las dos vías de confirmación (CHG-33)", () => {
     expect(duplicada?.resultado).toBe("EXITOSO");
   });
 
-  it("el origen queda en la evidencia de las firmas institucionales", async () => {
+  it("el origen queda en la evidencia de la firma del cliente", async () => {
+    // Desde la enmienda del 04-sep a D-08, este es el único tramo que
+    // transiciona en P8 — ya no hay un segundo acto institucional acá donde
+    // buscar el origen (eso lo tiene `aplicarFirmasDiferidas`, en otro
+    // momento del flujo).
     const entorno = armar();
     const enlace = await pedirEnlace(entorno);
     if (!enlace.ok) throw new Error("no se abrió el acto");
@@ -583,7 +599,7 @@ describe("firma · las dos vías de confirmación (CHG-33)", () => {
     });
 
     const registro = entorno.evidencias.registros.find(
-      (evidencia) => evidencia.paso === PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8,
+      (evidencia) => evidencia.paso === PASO_EVIDENCIA_FIRMA_P8 && evidencia.resultado === "EXITOSO",
     );
     // "¿Por dónde se enteró el sistema de que esto se firmó?" es una pregunta
     // de auditoría, y sin este campo no tiene respuesta.
@@ -591,103 +607,15 @@ describe("firma · las dos vías de confirmación (CHG-33)", () => {
   });
 });
 
-describe("firma · el plazo se abre acá y corre en el paso siguiente", () => {
-  it("las firmas institucionales dejan el expediente FIRMADO y abren el plazo de pago", async () => {
-    const entorno = armar();
-    const enlace = await pedirEnlace(entorno);
-    if (!enlace.ok) throw new Error("no se abrió el acto");
-    await firmarEnCode100(enlace.acto.idCode100);
-
-    const resultado = await sondear(entorno);
-
-    expect(resultado.ok).toBe(true);
-    if (!resultado.ok || !resultado.firmado) return;
-    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
-    // El reloj de D-10 arranca acá: sin esto habría un expediente firmado sin
-    // vencimiento posible.
-    expect(entorno.repositorio.actual().plazoPagoVenceEn).toBe(resultado.plazoPagoVenceEn);
-    expect(resultado.plazoPagoVenceEn).not.toBe("");
-  });
-
-  it("registra quién firmó, con qué nivel y en qué modalidad (D-13)", async () => {
-    const entorno = armar();
-    const enlace = await pedirEnlace(entorno);
-    if (!enlace.ok) throw new Error("no se abrió el acto");
-    await firmarEnCode100(enlace.acto.idCode100);
-    await sondear(entorno);
-
-    const firmas = entorno.repositorio.actual().firmasInstitucionales;
-
-    // La consola tiene que poder mostrar esto: un expediente FIRMADO que no
-    // dijera quién lo firmó no probaría nada.
-    expect(firmas.map((firma) => firma.rol)).toEqual(["INTERSEGUROS", "ALIANZA"]);
-    expect(firmas.every((firma) => firma.nivel === "CUALIFICADA")).toBe(true);
-    expect(firmas.every((firma) => firma.modalidad === "CONJUNTO")).toBe(true);
-    // El certificado es simulado y la referencia lo dice: una evidencia que
-    // afirmara un certificado cualificado real no probaría nada.
-    expect(firmas.every((firma) => firma.certificado.startsWith("DEMO-CERT-"))).toBe(true);
-  });
-
-  it("si las institucionales no llegan, el expediente queda en FIRMADO_CLIENTE", async () => {
-    // Es la falla que reemplazó a la de "sellado a la mitad" (D-11 la volvió
-    // irrepresentable). Acá sí hay algo a medias: el cliente firmó y el cobro
-    // tiene que seguir inhabilitado.
-    const entorno = armar();
-    const caido = { ...entorno.deps, firmasInstitucionalesCaidas: () => true };
-    const enlace = await iniciarFirmaP8(caido, {
-      expedienteId: entorno.repositorio.actual().id,
-      canal: "WHATSAPP",
-      contexto: CONTEXTO,
-    });
-    if (!enlace.ok) throw new Error("no se abrió el acto");
-    await firmarEnCode100(enlace.acto.idCode100);
-
-    const resultado = await confirmarFirmaP8(caido, {
-      expedienteId: entorno.repositorio.actual().id,
-      contexto: CONTEXTO,
-    });
-
-    expect(resultado.ok).toBe(false);
-    if (resultado.ok) return;
-    expect(resultado.motivo).toBe("FIRMAS_INSTITUCIONALES_PENDIENTES");
-
-    const expediente = entorno.repositorio.actual();
-    expect(expediente.estado).toBe("FIRMADO_CLIENTE");
-    // La firma del cliente no se perdió, y el cobro no se habilitó.
-    expect(expediente.firma).not.toBeNull();
-    expect(expediente.plazoPagoVenceEn).toBeNull();
-  });
-
-  it("el tramo institucional se retoma solo si quedó a medias (regla inviolable #3)", async () => {
-    // Un expediente detenido en FIRMADO_CLIENTE tiene la firma del cliente
-    // registrada y el acto sin cerrar. El sondeo siguiente lo completa sin
-    // volver a pedirle nada a Code100: la firma del cliente es un hecho.
-    const entorno = armar();
-    const enlace = await pedirEnlace(entorno);
-    if (!enlace.ok) throw new Error("no se abrió el acto");
-    await firmarEnCode100(enlace.acto.idCode100);
-    await sondear(entorno);
-
-    const aMedias: Expediente = {
-      ...entorno.repositorio.actual(),
-      estado: "FIRMADO_CLIENTE",
-      plazoPagoVenceEn: null,
-    };
-    const reintento = armar(aMedias);
-    const resultado = await sondear(reintento);
-
-    expect(resultado.ok).toBe(true);
-    if (!resultado.ok || !resultado.firmado) return;
-    expect(reintento.repositorio.actual().estado).toBe("FIRMADO");
-    expect(reintento.repositorio.actual().plazoPagoVenceEn).not.toBeNull();
-  });
-
-  it("un expediente sin firmar no puede pagar: el cobro sale de FIRMADO", () => {
+describe("firma · el plazo de pago se abre con la firma del cliente (D-32)", () => {
+  it("un expediente sin firmar no puede pagar: el cobro sale de FIRMADO_CLIENTE", () => {
     // Es la garantía de la Matriz V4 §7 y la razón de la inversión: el medio
-    // de cobro solo se habilita con firma válida.
+    // de cobro solo se habilita con firma válida. Desde la enmienda del
+    // 04-sep a D-08, FIRMADO_CLIENTE ya alcanza — no hace falta esperar a la
+    // institucional. FIRMADO se conserva como origen legado.
     expect(esTransicionLegal("DECLARACIONES_OK", "PAGO_CONFIRMADO")).toBe(false);
     expect(esTransicionLegal("PAQUETE_GENERADO", "PAGO_CONFIRMADO")).toBe(false);
-    expect(esTransicionLegal("FIRMADO_CLIENTE", "PAGO_CONFIRMADO")).toBe(false);
+    expect(esTransicionLegal("FIRMADO_CLIENTE", "PAGO_CONFIRMADO")).toBe(true);
     expect(esTransicionLegal("FIRMADO", "PAGO_CONFIRMADO")).toBe(true);
   });
 });
