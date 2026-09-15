@@ -127,11 +127,17 @@ export const PASOS_FLUJO_V2: readonly PasoDelFlujo[] = [
   // mover estos dos elementos de lugar, que era exactamente lo que la lista
   // prometía: el número de paso, el stepper y las redirecciones se derivan de
   // acá y no hubo que tocarlos.
+  //
+  // Enmienda del 04-sep-2026 a D-08: el paso se completa con FIRMADO_CLIENTE,
+  // no con FIRMADO. La firma cualificada de Interseguros ya no es condición
+  // para seguir al pago —se aplica después, sobre el expediente cobrado
+  // (D-38)— así que FIRMADO_CLIENTE es, desde entonces, un estado completo de
+  // este paso.
   {
     id: "Pv2-6",
     slug: "/firma",
     titulo: "Revisá, aceptá y firmá",
-    estadoAlCompletar: "FIRMADO",
+    estadoAlCompletar: "FIRMADO_CLIENTE",
   },
   {
     id: "Pv2-7",
@@ -320,13 +326,21 @@ export const PANTALLA_POR_ESTADO_V2: Readonly<Record<EstadoExpediente, string>> 
   IDENTIDAD_VERIFICADA: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "IDENTIDAD_VERIFICADA") ?? PASOS_FLUJO_V2[0].slug,
   DECLARACIONES_OK: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "DECLARACIONES_OK") ?? PASOS_FLUJO_V2[0].slug,
   PAGO_CONFIRMADO: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "PAGO_CONFIRMADO") ?? PASOS_FLUJO_V2[0].slug,
-  FIRMADO: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "FIRMADO") ?? PASOS_FLUJO_V2[0].slug,
+  // D-08 enmendada · el paso de firma ahora se completa con FIRMADO_CLIENTE
+  // (`estadoAlCompletar` del paso `/firma`), así que la derivación resuelve
+  // sola al paso siguiente, `/pago`.
+  FIRMADO_CLIENTE: rutaDelPasoSiguienteEn(PASOS_FLUJO_V2, "FIRMADO_CLIENTE") ?? PASOS_FLUJO_V2[0].slug,
 
-  // El paquete documental se cierra al entrar a la pantalla de firma, y la
-  // firma del cliente deja el expediente esperando las institucionales: los
-  // dos estados intermedios comparten pantalla con el paso que los produce.
+  // El paquete documental se cierra al entrar a la pantalla de firma: el
+  // estado intermedio comparte pantalla con el paso que lo produce.
   PAQUETE_GENERADO: "/firma",
-  FIRMADO_CLIENTE: "/firma",
+  // FIRMADO describe, desde la enmienda del 04-sep-2026, un momento
+  // **posterior** al pago (cobrado y con la institucional ya aplicada,
+  // esperando que se ordene la emisión): la persona que está ahí ya pasó por
+  // `/pago` y lo que sigue es la confirmación, igual que PAGO_CONFIRMADO. La
+  // arista `FIRMADO_CLIENTE → FIRMADO` que queda en el grafo es legada
+  // (expedientes de antes de la enmienda); esta ruta cubre las dos lecturas.
+  FIRMADO: "/confirmacion",
   // Última pantalla: no hay "siguiente" que derivar.
   EMITIDO: "/confirmacion",
 
@@ -368,10 +382,15 @@ export const PANTALLA_POR_ESTADO_V3: Readonly<Record<EstadoExpediente, string>> 
   // Paso 3 · Pagá y firmá: paquete → firma → pago.
   DECLARACIONES_OK: "/pago-y-firma",
   PAQUETE_GENERADO: "/pago-y-firma",
+  // D-08 enmendada · FIRMADO_CLIENTE ya habilita el pago, que es la sección
+  // siguiente de esta misma página.
   FIRMADO_CLIENTE: "/pago-y-firma",
-  FIRMADO: "/pago-y-firma",
 
-  // Fuera del contador.
+  // Fuera del contador. FIRMADO es, desde la enmienda del 04-sep-2026, un
+  // momento posterior al pago (institucional ya aplicada, esperando la
+  // emisión): mismo destino que PAGO_CONFIRMADO. La arista legada
+  // `FIRMADO_CLIENTE → FIRMADO` no cambia esta lectura.
+  FIRMADO: "/confirmacion",
   PAGO_CONFIRMADO: "/confirmacion",
   EMITIDO: "/confirmacion",
 

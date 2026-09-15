@@ -336,7 +336,7 @@ describe("Bancard · G2 · un intento rechazado deja reintentar", () => {
     expect(sondeo).toMatchObject({ ok: false, motivo: "BANCARD_RECHAZO", codigoRespuesta: "51" });
     expect(t.expedientes.actual().pago?.estado).toBe("RECHAZADO");
     // Lo que fracasó es el cobro, no el contrato.
-    expect(t.expedientes.actual().estado).toBe("FIRMADO");
+    expect(t.expedientes.actual().estado).toBe("FIRMADO_CLIENTE");
     expect(t.expedientes.actual().certificadoCobertura).toBeNull();
   });
 
@@ -513,6 +513,6 @@ describe("Bancard · G1 · toda operación que el expediente deja de mirar se ap
     });
 
     expect(sondeo).toMatchObject({ ok: false, motivo: "PAGO_CANCELADO" });
-    expect(t.expedientes.actual().estado).toBe("FIRMADO");
+    expect(t.expedientes.actual().estado).toBe("FIRMADO_CLIENTE");
   });
 });

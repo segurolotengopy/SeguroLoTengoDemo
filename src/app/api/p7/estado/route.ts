@@ -1,13 +1,13 @@
 /**
  * `GET /api/p7/estado` — sondeo de P7 mientras espera a Bancard, y única
- * puerta por la que el expediente pasa de DECLARACIONES_OK a PAGO_CONFIRMADO.
+ * puerta por la que el expediente pasa de FIRMADO_CLIENTE a PAGO_CONFIRMADO.
  *
  * Es de lectura desde el punto de vista de la pantalla, pero **puede
- * transicionar el expediente**: cuando Bancard reporta el QR o el débito
- * acreditados, o el crédito preautorizado, el dominio confirma la garantía de
- * pago y arranca el plazo de 24 horas para firmar. La transición la ejecuta
- * `confirmarGarantiaDePagoP7` en `src/domain/expediente.ts`, nunca este
- * archivo.
+ * transicionar el expediente**: cuando Bancard reporta el QR, el débito o el
+ * crédito acreditados, el dominio confirma el cobro. El plazo de 10 minutos
+ * (D-32) ya arrancó antes, al confirmarse la firma del cliente (P8) — acá solo
+ * se lo cierra. La transición la ejecuta `registrarPagoConfirmadoP7` en
+ * `src/domain/expediente.ts`, nunca este archivo.
  *
  * Idempotente por construcción: llamarlo con el expediente ya en
  * PAGO_CONFIRMADO devuelve lo persistido sin volver a transicionar ni a

@@ -21,7 +21,6 @@ import {
 } from "../expediente";
 import { PASOS_FLUJO } from "../rutas-flujo";
 import { VERSION_INICIAL_CONSTANCIA } from "../constancia-firma";
-import { firmantesConjuntos } from "../firmantes-documento";
 import { codigoFipf, codigoSolicitud, codigoConstancia } from "../documentos";
 import {
   VERSION_INICIAL_CERTIFICADO,
@@ -29,7 +28,7 @@ import {
   finCoberturaDesde,
   inicioCoberturaDesde,
 } from "../certificado-cobertura";
-import { firmantesDe } from "../firmantes-documento";
+import { firmantesDe, firmantesDiferidos } from "../firmantes-documento";
 import type { EmisorConstanciaFirma } from "../firma-cliente";
 import type { EmisorCertificadoCobertura } from "../pago-p7";
 
@@ -219,21 +218,26 @@ export const firmaFixture: Firma = {
   hashDocumentoFirmado: "e".repeat(64),
 };
 
-/** Las firmas institucionales que la configuración de D-13 declara `CONJUNTO`. */
-export const firmasInstitucionalesFixture: readonly FirmaInstitucional[] = firmantesConjuntos(
+/**
+ * Las firmas institucionales que la configuración de D-42 declara `DIFERIDO`:
+ * hoy, solo Interseguros. Se aplican **después del pago** (D-38), no en el
+ * mismo acto que la del cliente.
+ */
+export const firmasInstitucionalesFixture: readonly FirmaInstitucional[] = firmantesDiferidos(
   "PAQUETE",
 ).map((firmante) => ({
   rol: firmante.rol,
   nivel: firmante.nivel,
   modalidad: firmante.modalidad,
   certificado: `DEMO-CERT-${firmante.rol}-${NUMERO_PROPUESTA_FIJO}`,
-  aplicadaEn: "2026-08-09T15:03:00.000Z",
+  aplicadaEn: "2026-08-09T15:04:30.000Z",
 }));
 
 /**
- * Expediente firmado por todos los intervinientes y esperando el pago: la
- * entrada del paso de pago bajo el orden nuevo (D-08), con el plazo de 24
- * horas ya corriendo (D-10).
+ * Expediente firmado por el cliente y esperando el pago: la entrada del paso
+ * de pago bajo el orden nuevo (D-08 enmendada), con el plazo de 10 minutos ya
+ * corriendo (D-32). Todavía **no** tiene la firma institucional: desde la
+ * enmienda del 04-sep-2026, esa llega después del cobro (D-38).
  */
 export function expedienteFirmado(id = "EXP-TEST-P7"): Expediente {
   const conActo = {
@@ -249,16 +253,25 @@ export function expedienteFirmado(id = "EXP-TEST-P7"): Expediente {
   const firmado = transicionarExpediente(
     conActo,
     "FIRMADO_CLIENTE",
-    { firma: firmaFixture },
+    { firma: firmaFixture, plazoPagoVenceEn: PLAZO_PAGO_FIJO },
     "2026-08-09T15:03:00.000Z",
   );
   if (!firmado.ok) throw new Error(firmado.error);
+  return firmado.expediente;
+}
 
+/**
+ * Expediente cobrado **y** con la firma institucional diferida ya aplicada
+ * (D-38, D-42): PAGO_CONFIRMADO → FIRMADO, listo para que P9 lo remita a
+ * Alianza. Es la entrada que usan los tests que no necesitan ejercitar la
+ * aplicación de la diferida en sí — la mayoría de P9 y de las devoluciones.
+ */
+export function expedienteFirmadoTrasElPago(id = "EXP-TEST-P9"): Expediente {
+  const cobrado = expedienteEnPagoConfirmado(id);
   const institucionales = registrarFirmasInstitucionales(
-    firmado.expediente,
+    cobrado,
     firmasInstitucionalesFixture,
-    PLAZO_PAGO_FIJO,
-    "2026-08-09T15:03:00.000Z",
+    "2026-08-09T15:04:30.000Z",
   );
   if (!institucionales.ok) throw new Error(institucionales.error);
   return institucionales.expediente;

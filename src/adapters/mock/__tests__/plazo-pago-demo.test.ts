@@ -31,9 +31,9 @@ afterEach(() => {
 });
 
 describe("plazo de firma configurable", () => {
-  it("arranca en las 24 horas del producto", () => {
+  it("arranca en los 10 minutos del producto (D-32)", () => {
     expect(plazoPagoMs()).toBe(PLAZO_PAGO_MS);
-    expect(PLAZO_PAGO_MS).toBe(24 * 60 * 60 * 1000);
+    expect(PLAZO_PAGO_MS).toBe(10 * 60 * 1000);
   });
 
   it("se puede comprimir a segundos para la demostración", () => {
@@ -49,7 +49,7 @@ describe("plazo de firma configurable", () => {
     }
   });
 
-  it("no se puede alargar más allá de las 24 horas", () => {
+  it("no se puede alargar más allá de los 10 minutos", () => {
     const resultado = fijarPlazoPagoDemo(PLAZO_PAGO_MS + 1);
 
     expect(resultado.ok).toBe(false);
@@ -64,7 +64,7 @@ describe("plazo de firma configurable", () => {
     expect(fijarPlazoPagoDemo(Number.NaN).ok).toBe(false);
   });
 
-  it("con DEMO_MODE apagado rigen las 24 horas aunque quede otra cosa elegida", () => {
+  it("con DEMO_MODE apagado rigen los 10 minutos aunque quede otra cosa elegida", () => {
     fijarPlazoPagoDemo(30_000);
 
     process.env.DEMO_MODE = "false";

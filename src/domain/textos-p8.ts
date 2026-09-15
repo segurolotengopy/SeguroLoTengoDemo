@@ -160,7 +160,7 @@ export const ROTULO_CANAL_P8: Readonly<Record<CanalFirma, string>> = {
 export const TITULO_QUE_SIGUE_P8 = "DESPUÉS DE FIRMAR";
 
 export const NOTA_PAGO_DESPUES_DE_FIRMAR_P8 =
-  "Todavía no se cobró nada. Al firmar se habilita el pago, y tenés 24 horas para completarlo.";
+  "Todavía no se cobró nada. Al firmar se habilita el pago, y tenés 10 minutos para completarlo.";
 
 export const TITULO_UN_SOLO_ACTO_P8 = "UN SOLO ACTO DE FIRMA";
 
@@ -237,8 +237,19 @@ export const PASOS_PROGRESO_FIRMA_DEMO_P8: readonly string[] = [
 
 export const ESTADO_ESPERANDO_FIRMA_P8 = "Esperando la confirmación verificable de la firma";
 
+/**
+ * D-32 · con el plazo de pago en 10 minutos, los recordatorios manuales «a 1,
+ * 5 y 12 horas» de la fila 29 (`Enviar recordatorios de firma a 1, 5 y 12
+ * horas`, sin artículo que los exija) dejaron de caber en la ventana: no hay
+ * margen para que Interseguros los haga a mano. Se retira la mención acá; el
+ * código que los calcula (`HITOS_SEGUIMIENTO` y `calcularHitos` en
+ * `textos-pantalla-b.ts` / `devolucion-pantalla-b.ts`) **no se toca** — sigue
+ * describiendo correctamente a los expedientes legados que vencieron bajo el
+ * plazo de 24 horas, y decidir qué hacer con la Pantalla B bajo 10 minutos
+ * queda para quien la revise.
+ */
 export const NOTA_SEGUIMIENTO_Y_VENCIMIENTO_P8 =
-  "Firmada la Solicitud, el pago tiene seguimiento a 1, 5 y 12 horas y vence a las 24 horas.";
+  "Firmada la Solicitud, el pago vence a los 10 minutos.";
 
 // ---------------------------------------------------------------------------
 // Después de la firma del cliente
@@ -251,19 +262,24 @@ export interface PasoPosteriorP8 {
   readonly detalle: string;
 }
 
+/**
+ * D-08 enmendada (04-sep-2026) / D-38, D-42 · el orden cambió: la firma
+ * cualificada de Interseguros ya no ocurre junto con la del cliente, sino
+ * después del pago, y Alianza no firma la propuesta (solo Interseguros
+ * queda como institucional del paquete).
+ */
 export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
   {
     titulo: "Confirmación de la firma",
     detalle: "El cliente firmó la Solicitud y el FIPF; se verifican los hashes y la transacción.",
   },
   {
-    titulo: "Firmas institucionales",
-    detalle: "Interseguros y Alianza firman ambos PDF con certificado cualificado.",
+    titulo: "Pago del premio",
+    detalle: "Con la firma del cliente ya se habilita el cobro por Bancard; tenés 10 minutos para completarlo.",
   },
   {
-    titulo: "Pago del premio",
-    detalle:
-      "Con la firma válida se habilita el cobro por Bancard; tenés 24 horas para completarlo.",
+    titulo: "La firma de Interseguros",
+    detalle: "Interseguros firma el paquete con certificado cualificado, dentro de 24/48 horas operativas.",
   },
   {
     titulo: "Envío y validación",
@@ -273,7 +289,7 @@ export const PASOS_POSTERIORES_P8: readonly PasoPosteriorP8[] = [
   {
     titulo: "Emisión y entrega",
     detalle:
-      "Alianza emite y firma la póliza electrónica; envía la póliza y la factura a los canales verificados.",
+      "Alianza emite la póliza electrónica; envía la póliza y la factura a los canales verificados.",
   },
 ];
 

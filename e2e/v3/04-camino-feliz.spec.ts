@@ -4,8 +4,8 @@
  * Es el recorrido que la demo muestra: inscripción (identidad → WhatsApp →
  * aceptación agrupada 1) → seguro (plan → beneficiario → 5 preguntas →
  * aceptación agrupada 2) → pago y firma (aceptación agrupada 3 → **firma
- * interna del cliente** con su código propio → institucionales del mock →
- * pago QR simulado) → confirmación.
+ * interna del cliente** con su código propio → pago QR simulado, sin esperar
+ * a ninguna institucional — D-38 la mueve a después del pago) → confirmación.
  *
  * Reutiliza los helpers de la batería v2 donde son agnósticos de URL
  * (capturas, OTP tipeado, panel de demo) y hace inline lo que en v2 era una
@@ -143,11 +143,10 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await tipearOtp(page, "firma-v3", codigoFirma);
   await page.getByRole("button", { name: "Firmar el documento" }).click();
 
-  // Las institucionales las aplica el sondeo (mock de Code100, cualificadas):
-  // la sección de pago aparece sola cuando el expediente queda FIRMADO.
-  await expect(
-    page.getByText("✓ Documento firmado · cliente + Interseguros + Alianza Garantía"),
-  ).toBeVisible({ timeout: 20_000 });
+  // Enmienda del 04-sep-2026 a D-08 (D-38, D-42): ya no hace falta esperar a
+  // ninguna institucional para pasar al pago — FIRMADO_CLIENTE alcanza. La
+  // sección de pago aparece sola apenas el sondeo confirma la firma.
+  await expect(page.getByText("✓ Documento firmado")).toBeVisible({ timeout: 20_000 });
 
   // La constancia de la firma: el cliente firma con la firma no cualificada
   // del portal (D1), así que no hay certificado de prestador que abrir — lo
@@ -161,7 +160,7 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
   await constancia.getByRole("button", { name: "Cerrar" }).click();
   await expect(constancia).toBeHidden();
 
-  // ── Paso 3 · el pago (formulario v2 como sección, gated por FIRMADO) ──
+  // ── Paso 3 · el pago (formulario v2 como sección, gated por FIRMADO_CLIENTE) ──
   await capturarDiseno(page, "paso-3-completo");
   await page.locator("#p7-acepta-certificado").check();
   await page.getByRole("button", { name: "GENERAR QR BANCARD" }).click();

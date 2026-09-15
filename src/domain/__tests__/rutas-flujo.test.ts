@@ -88,16 +88,21 @@ describe("PANTALLA_POR_ESTADO", () => {
     expect(numeroEn(PASOS_FLUJO_V2, "/firma")).toBe(6);
     expect(numeroEn(PASOS_FLUJO_V2, "/pago")).toBe(7);
     expect(PANTALLA_POR_ESTADO_V2.DECLARACIONES_OK).toBe("/firma");
-    expect(PANTALLA_POR_ESTADO_V2.FIRMADO).toBe("/pago");
+    // D-08 enmendada (04-sep-2026) · el paso de firma se completa con
+    // FIRMADO_CLIENTE, no con FIRMADO: la institucional ya no es condición
+    // para seguir al pago (D-38).
+    expect(PANTALLA_POR_ESTADO_V2.FIRMADO_CLIENTE).toBe("/pago");
     expect(PANTALLA_POR_ESTADO_V2.PAGO_CONFIRMADO).toBe("/confirmacion");
+    // FIRMADO describe ahora un momento posterior al pago (D-38, D-42): mismo
+    // destino que PAGO_CONFIRMADO, no que DECLARACIONES_OK.
+    expect(PANTALLA_POR_ESTADO_V2.FIRMADO).toBe("/confirmacion");
   });
 
-  it("los dos estados intermedios de la firma comparten su pantalla, en las dos versiones", () => {
+  it("los estados intermedios de la firma del cliente comparten su pantalla, en las dos versiones", () => {
     // El paquete se cierra al entrar a firmar y la firma del cliente deja el
-    // expediente esperando las institucionales: desde el lado de la persona
-    // los tres momentos son la misma pantalla.
+    // expediente listo para pagar: desde el lado de la persona los dos
+    // momentos son la misma pantalla.
     expect(PANTALLA_POR_ESTADO_V2.PAQUETE_GENERADO).toBe("/firma");
-    expect(PANTALLA_POR_ESTADO_V2.FIRMADO_CLIENTE).toBe("/firma");
     expect(PANTALLA_POR_ESTADO_V3.PAQUETE_GENERADO).toBe("/pago-y-firma");
     expect(PANTALLA_POR_ESTADO_V3.FIRMADO_CLIENTE).toBe("/pago-y-firma");
   });
@@ -129,8 +134,11 @@ describe("PANTALLA_POR_ESTADO_V3 · el flujo de 3 pasos", () => {
     expect(PANTALLA_POR_ESTADO_V3.AUTORIZADO).toBe("/seguro");
     expect(PANTALLA_POR_ESTADO_V3.PLAN_SELECCIONADO).toBe("/seguro");
     expect(PANTALLA_POR_ESTADO_V3.DECLARACIONES_OK).toBe("/pago-y-firma");
-    expect(PANTALLA_POR_ESTADO_V3.FIRMADO).toBe("/pago-y-firma");
+    expect(PANTALLA_POR_ESTADO_V3.FIRMADO_CLIENTE).toBe("/pago-y-firma");
     expect(PANTALLA_POR_ESTADO_V3.PAGO_CONFIRMADO).toBe("/confirmacion");
+    // FIRMADO describe, desde la enmienda del 04-sep a D-08, un momento
+    // posterior al pago (D-38, D-42): mismo destino que PAGO_CONFIRMADO.
+    expect(PANTALLA_POR_ESTADO_V3.FIRMADO).toBe("/confirmacion");
     expect(PANTALLA_POR_ESTADO_V3.EMITIDO).toBe("/confirmacion");
   });
 

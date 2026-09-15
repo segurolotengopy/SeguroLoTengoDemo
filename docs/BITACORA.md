@@ -38,6 +38,195 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-15 (b) · Lote «Cierre v4 · dominio»: plazo de 10 minutos, firma institucional diferida al pago, Alianza fuera del paquete
+
+**Rama:** `feat/cierre-v4-dominio` (worktree `analisis-handoff-front-5c7ab1`) ·
+**Pedido de Andres:** implementar en el dominio las tres decisiones ya tomadas
+del Bloque G y de la enmienda del 04-sep: D-32 (plazo de 10 minutos), la
+enmienda a D-08 (firma institucional de Interseguros después del pago, D-38) y
+D-42 (Alianza fuera del paquete Solicitud + FIPF).
+
+### El caso
+
+Tres decisiones de Andres estaban tomadas pero sin código: D-32 (15-sep) fija
+el plazo de pago en 10 minutos desde la firma del cliente, en lugar de las 24
+horas de D-10; la enmienda del 04-sep a D-08 mueve la firma cualificada de
+Interseguros a **después** del pago, dentro de 24/48 h operativas, para sacar
+su latencia del camino crítico de la venta; y D-42 (15-sep, preliminar) fija
+que el paquete Solicitud + FIPF lo firman el cliente e Interseguros nada más
+— Alianza no firma la propuesta. El código de `main` seguía haciendo lo del
+19-ago: cobraba desde `FIRMADO` (cliente + Interseguros + Alianza firmados en
+el mismo acto) con un plazo de 24 horas.
+
+### Qué cambió
+
+**Máquina de estados (`src/domain/expediente.ts`).** El único estado desde el
+que se abre y confirma una operación en Bancard pasa a ser `FIRMADO_CLIENTE`.
+`FIRMADO` deja de ser precondición del cobro y pasa a describir un momento
+posterior: cobrado y con la institucional ya aplicada, esperando la emisión.
+Grafo nuevo, igual en `TRANSICIONES_V2` y `TRANSICIONES_V3`:
+`FIRMADO_CLIENTE → PAGO_CONFIRMADO | VENCIDO | FIRMADO` (legado);
+`PAGO_CONFIRMADO → FIRMADO | EMITIDO` (legado, guardado) `| DEVOLUCION_EN_TRAMITE`;
+`FIRMADO → EMITIDO | DEVOLUCION_EN_TRAMITE | PAGO_CONFIRMADO` (legado) `| VENCIDO` (legado).
+`registrarFirmaP8` y `registrarFirmaClienteInterna` reciben `plazoPagoVenceEn`
+y lo abren en la misma transición a `FIRMADO_CLIENTE` (D-32).
+`registrarFirmasInstitucionales` pasa a ser `PAGO_CONFIRMADO → FIRMADO`, ya no
+abre el plazo, y valida contra `firmantesDiferidos` (D-42).
+`registrarEmisionP9` exige `firmasInstitucionales` no vacío sin importar el
+estado exacto de origen, para que la arista legada `PAGO_CONFIRMADO → EMITIDO`
+solo sirva a expedientes que ya la tenían aplicada de antes de la enmienda.
+`vencerPlazoSiCorresponde` vence desde `FIRMADO_CLIENTE` y, como legado, desde
+`FIRMADO`.
+
+**Corregido en la revisión de la sesión principal:** así como quedó, un
+`FIRMADO` del grafo nuevo —ya cobrado, con la institucional diferida
+aplicada— conservaba el `plazoPagoVenceEn` de la firma del cliente. Pasados
+esos 10 minutos, cualquier lectura que llamara a `vencerPlazoSiCorresponde`
+(la consola, un sondeo) lo pasaba a `VENCIDO` por la arista legada: un
+expediente pagado declarado vencido. Con la firma de Interseguros en lote
+(D-38) el expediente puede quedar horas en `FIRMADO`, así que no era un borde.
+Se agregó una guarda: **un cobro acreditado apaga el reloj**, sea cual sea el
+estado. `vencimiento-con-cobro.test.ts` falla sin la guarda (1 de 2) y pasa con
+ella; suite en 1346 tests, 100 archivos.
+
+**Firmantes (`src/domain/firmantes-documento.ts`, D-42).** `ModalidadFirma`
+suma `DIFERIDO`. `PAQUETE` queda en dos firmantes: CLIENTE (simple, en el
+acto) e INTERSEGUROS (cualificada, `DIFERIDO`). Alianza sale del paquete.
+`firmantesDiferidos()` nueva, simétrica de `firmantesConjuntos()`.
+`VERSION_BLOQUE_FIRMAS` → `FIRMAS-v3`. El CPC no se tocó (Alianza,
+`PREFIRMADO`): el CPC en dos tiempos que trae D-42 preliminar es un lote
+aparte, sobre el puerto SFTP que otro agente construye en paralelo.
+
+**Firma institucional diferida (`src/domain/firma-p8.ts`, D-38/D-42).**
+`confirmarFirmaP8` deja de aplicar las institucionales: `FIRMADO_CLIENTE` es
+ahora un estado completo del paso de firma. Operación nueva,
+`aplicarFirmasDiferidas`, `PAGO_CONFIRMADO → FIRMADO`: reusa la evidencia
+(`PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8`) y la palanca de demo
+(`FIRMAS_INSTITUCIONALES_FALLAN`) del tramo que reemplaza. Solo la invoca el
+adaptador simulado, en línea, desde `emision-p9.ts`
+(`DependenciasP9.aplicarFirmasDiferidas`, opcional) — la capacidad se declara
+en el composition root (`aplicaFirmasDiferidasEnLinea()` en
+`src/adapters/registro.ts`, `true` solo para el mock: en producción la firma
+de Interseguros llega por el lote externo de D-38, todavía sin construir).
+Sin esa capacidad, o si la palanca de demo la hace fallar, el expediente
+queda en `PAGO_CONFIRMADO` y la emisión no se ordena (motivo
+`FIRMA_CORREDOR_PENDIENTE`, 202 — no es un error). Sin pantalla nueva para
+ese caso (05B no tiene arte aprobado, D-41): solo el dato en la API y un
+texto mínimo en voseo en `textos-p9.ts`, por si hace falta mostrarlo.
+`PLAZO_PAGO_MS` → 10 minutos.
+
+**Pago, emisión y devolución.** `pago-p7.ts`: `ESTADO_REQUERIDO_P7` →
+`FIRMADO_CLIENTE`. `emision-p9.ts`: `ESTADO_REQUERIDO_P9` → `FIRMADO`, con la
+excepción legada de `PAGO_CONFIRMADO` ya firmado institucionalmente.
+`devolucion.ts`: `FIRMADO` entra a `ESTADOS_CON_DEVOLUCION_POSIBLE` (ahora
+describe un cobro con la institucional aplicada, no uno sin cobrar).
+`devolucion-pantalla-b.ts` no se tocó: es exclusivo del linaje legado
+`VENCIDO` con pago hecho bajo el orden viejo, y ese camino no cambia.
+
+**Rutas (`src/domain/rutas-flujo.ts`).** El paso `/firma` (v2) se completa
+con `FIRMADO_CLIENTE`. `FIRMADO_CLIENTE` va a la pantalla de pago en v2 y en
+v3; `FIRMADO` (momento posterior al pago) va a `/confirmacion`, igual que
+`PAGO_CONFIRMADO`.
+
+**UI v3 (`pago-y-firma/`).** La sección de pago pasa a gatear en
+`FIRMADO_CLIENTE`, no en `FIRMADO`. `CONFIRMACION_FIRMADO` deja de nombrar a
+Interseguros y Alianza como firmantes simultáneos del cliente (ya no lo son).
+El override de reencaminado por `FIRMADO` en `page.tsx` se retira: el estado
+ya apunta solo a `/confirmacion`.
+
+**Textos a 10 minutos**, en vez de 24 horas: `textos-p7.ts`, `textos-p8.ts`,
+`textos-pago-firma.ts`, `textos-pantalla-b.ts` (solo la variante "sin cobro"
+del flujo vigente — el inicio de cobertura a 24 h después del pago, CHG-41,
+no se tocó, es otro plazo, conflicto C-3 abierto). Los recordatorios «a 1, 5
+y 12 horas» (fila 29) se retiraron del texto de P8 — no caben en 10 minutos —
+pero el código que los calcula (`HITOS_SEGUIMIENTO` / `calcularHitos` en
+`textos-pantalla-b.ts` / `devolucion-pantalla-b.ts`) no se tocó: sigue
+describiendo bien a los expedientes legados de 24 horas, y decidir qué hacer
+con la Pantalla B bajo 10 minutos queda para quien la revise.
+
+**Panel de demo.** `plazo-pago-demo.ts`: el máximo y el valor "real" pasan a
+10 minutos. `SelectorPlazoPago.tsx` y los comentarios de `FormularioPagoP7.tsx`,
+`FirmaP8.tsx`, `api/p7/estado`, `api/p8/resumen` actualizados.
+
+**Un bug de verdad, encontrado por el E2E.** `registrarFirmaClienteInterna`
+cambió de firma (nuevo parámetro `plazoPagoVenceEn` antes de `ahora`), pero
+su único llamador real —`registrarActoDeFirmaCliente` en `firma-cliente.ts`,
+el camino de firma interna del flujo v3— seguía invocándola con el orden
+viejo. Como los dos parámetros nuevos son `string`, TypeScript no lo marcó:
+la fecha del acto quedaba escrita en `plazoPagoVenceEn`, así que **todo
+expediente firmado por el camino interno quedaba vencido en el mismo
+instante en que se firmaba**. Ningún test unitario lo detectó —
+`firma-cliente.test.ts` no revisaba `plazoPagoVenceEn`—; lo encontró
+`playwright test --config playwright.v3.config.ts e2e/v3/04-camino-feliz.spec.ts`,
+que mostraba Pantalla B justo al intentar pagar. Arreglado: `DependenciasFirmaCliente`
+suma `plazoPagoMs`, se cablea desde la ruta, y se agregó un test que fija el
+valor esperado de `plazoPagoVenceEn`.
+
+**CLAUDE.md** actualizado: regla 6-bis, diagrama y párrafos de la máquina de
+estados, «Firmantes por documento», «Panel de demo», el checklist final, y
+los avisos del 04-sep (marcadas (1) y (3) implementadas, (2) reemplazada por
+D-42 sin implementar) y de v4 (el plazo de 10 minutos ya implementado).
+
+### Qué hizo Andres
+
+Tomó las decisiones D-32, la enmienda del 04-sep a D-08 y D-42 en sesiones
+anteriores (ver las entradas del 04-sep y del 15-sep de esta bitácora);
+lanzó este lote para implementarlas en el dominio, con la firma en lote de
+D-38 y el CPC en dos tiempos de D-42 explícitamente diferidos a otro lote
+posterior sobre el puerto SFTP que otro agente construye en paralelo.
+
+### Verificaciones
+
+- `npm run typecheck`: sin errores.
+- `npm run lint`: 0 errores, 9 warnings — las mismas 9 que ya existían antes
+  de este lote (imágenes sin `next/image`, una variable sin usar en
+  `VerificacionIdentidad.tsx`, un `eslint-disable` sin efecto en `asistente.ts`
+  y dos en `canvas-logica.js`, que no forma parte del código de producto).
+- `npm test`: **1344 tests en 99 archivos, en verde** (línea de base antes
+  del lote: 1340 tests en 99 archivos).
+- **E2E, corridos de verdad contra DynamoDB/S3/Secrets Manager reales**
+  (`aab1-demo-qa`), no simulados:
+  - `e2e/06-vencimiento-firma.spec.ts` — verde.
+  - `e2e/07-firma-atomica.spec.ts` (reescrito: el escenario de la falla se
+    movió de P8, donde ya no existe, a la firma institucional diferida de
+    P9) — verde.
+  - `e2e/v3/04-camino-feliz.spec.ts` — rojo en el primer intento (el bug de
+    `plazoPagoVenceEn` de arriba), verde después del arreglo.
+  - `e2e/01-camino-feliz.spec.ts` — verde (2.1 min).
+  - `e2e/02-pep-bloqueo.spec.ts`, `03-salud-incompatible.spec.ts`,
+    `05-otp-agotado.spec.ts`, `08-plan-tramite-en-curso.spec.ts`,
+    `09-firma-reintento-codigo.spec.ts` — verdes.
+  - `e2e/04-biometria-rechazada.spec.ts` — **rojo, pero no relacionado**: un
+    "strict mode violation" de Playwright por texto duplicado en la pantalla
+    de P5 (`getByText` resuelve a dos elementos), ajeno a la firma, el pago o
+    la máquina de estados. No se investigó más a fondo por estar fuera del
+    alcance de este lote.
+
+### Queda abierto
+
+- **El CPC en dos tiempos (D-42 preliminar).** Se genera con el cobro y se
+  entrega firmado cuando vuelve de Alianza por SFTP — qué ve la persona
+  mientras tanto (P2 abierta en D-42) no está resuelto; lo hace el lote del
+  puerto SFTP, en paralelo.
+- **D-42 sigue preliminar** ("luego veremos si hay cambios"), y el correo a
+  Rodrigo con las preguntas C-4/C-5 sigue sin enviar.
+- **`FIRMA_CORREDOR_PENDIENTE` no tiene pantalla.** 05B no tiene arte
+  aprobado (D-41); el dato ya se expone por API con un texto mínimo, falta
+  la pantalla el día que exista el arte.
+- **Pantalla B bajo 10 minutos.** Los recordatorios «a 1, 5 y 12 horas» ya no
+  tienen sentido en una ventana de 10 minutos para los expedientes nuevos; el
+  código sigue ahí, sin decisión de qué hacer con él (queda igual de
+  correcto para los expedientes legados de 24 horas).
+- **`e2e/04-biometria-rechazada.spec.ts`** falla por un "strict mode
+  violation" de Playwright ajeno a este lote — sin investigar.
+- **La sección "Contrato oficial de `SignatureProvider` (Code100)" de
+  CLAUDE.md** no se tocó: sigue describiendo un adaptador oficial que
+  cubriría "las firmas institucionales" en tiempo real, cuando D-38 ya fijó
+  que la de Interseguros llega por un lote externo. No estaba en el alcance
+  pedido para este lote.
+
+---
+
 ## 2026-09-15 · Intercambio de PDF con Alianza por SFTP: conector con IP fijas, VPN preparada y puerto nuevo
 
 **Rama:** `worktree-agent-a3b7f95d946e813b6` (desde `main`, `4b23b57`) ·

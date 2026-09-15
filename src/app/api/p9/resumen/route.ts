@@ -36,6 +36,11 @@ function estadoHttp(motivo: MotivoRechazoP9): number {
       return 404;
     case "SEBAOT_NO_DISPONIBLE":
       return 502;
+    // D-38/D-42 · no es un error: el cobro ya se acreditó y lo único que
+    // falta es la firma institucional diferida, que en producción llega por
+    // el lote externo. 202 dice "aceptado, seguí sondeando", no "algo falló".
+    case "FIRMA_CORREDOR_PENDIENTE":
+      return 202;
     default:
       return 409;
   }

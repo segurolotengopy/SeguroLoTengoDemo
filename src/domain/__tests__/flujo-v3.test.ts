@@ -30,8 +30,12 @@ describe("TRANSICIONES_V3 · invariantes que el rediseño no puede romper", () =
     }
   });
 
-  it("regla 6-bis · no hay cobro sin firma: a PAGO_CONFIRMADO solo se llega desde FIRMADO", () => {
-    expect(aristasHacia(TRANSICIONES_V3, "PAGO_CONFIRMADO")).toEqual(["FIRMADO"]);
+  it("regla 6-bis re-baseada · no hay cobro sin firma del cliente: a PAGO_CONFIRMADO solo se llega desde FIRMADO_CLIENTE (y, como legado, desde FIRMADO)", () => {
+    // Enmienda del 04-sep-2026 a D-08: el único estado *nuevo* desde el que se
+    // abre y confirma una operación en Bancard es FIRMADO_CLIENTE. FIRMADO
+    // sigue ahí, pero como legado — el camino que usaba el código anterior a
+    // la enmienda, cuando FIRMADO ya incluía la institucional.
+    expect(aristasHacia(TRANSICIONES_V3, "PAGO_CONFIRMADO")).toEqual(["FIRMADO_CLIENTE", "FIRMADO"]);
     // Y la arista que la regla prohíbe por nombre no existe.
     expect(TRANSICIONES_V3.DECLARACIONES_OK).not.toContain("PAGO_CONFIRMADO");
   });
@@ -135,6 +139,8 @@ describe("selección por flag · los módulos eligen la versión a import-time",
     expect(rutas.TOTAL_PASOS).toBe(8);
     expect(rutas.PASOS_FLUJO).toEqual(rutas.PASOS_FLUJO_V2);
     const firma = await import("../firma-p8");
+    // D-08 enmendada · firmado el cliente (FIRMADO_CLIENTE), el paso
+    // siguiente es el pago: ya no hace falta esperar a la institucional.
     expect(firma.RUTA_PAGO).toBe("/pago");
   });
 });

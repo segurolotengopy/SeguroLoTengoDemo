@@ -450,14 +450,19 @@ describe("acto de firma", () => {
     expect(resultado.ok).toBe(true);
 
     const guardado = deps.expedientes.actual();
-    // FIRMADO_CLIENTE y no FIRMADO: faltan las institucionales (D-13), así que
-    // el cobro sigue inhabilitado.
+    // D-08 enmendada (04-sep-2026) · FIRMADO_CLIENTE ya habilita el cobro:
+    // no hace falta esperar a la institucional, que ahora se aplica después
+    // del pago (D-38).
     expect(guardado.estado).toBe("FIRMADO_CLIENTE");
     expect(guardado.firma?.origen).toBe("INTERNA");
     // La referencia del acto es el OTP consumido: no hay sesión de proveedor
     // que registrar, y el campo no finge que la haya.
     expect(guardado.firma?.referenciaActo).toBe(envio.otpId);
     expect(guardado.firma?.hashDocumentoFirmado).toBe(expediente.paqueteDocumental?.hashSha256);
+
+    // D-32 · el plazo de pago (10 minutos) se abre en la misma transición.
+    // `armar()` fija el reloj en "2026-08-27T12:00:00.000Z".
+    expect(guardado.plazoPagoVenceEn).toBe("2026-08-27T12:10:00.000Z");
   });
 
   it("un expediente ya firmado no vuelve a firmarse, ni con un código nuevo", async () => {

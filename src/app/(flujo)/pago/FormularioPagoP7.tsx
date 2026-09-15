@@ -147,8 +147,9 @@ const INTERVALO_SONDEO_MS = 2_000;
  * demostración.
  *
  * Cinco segundos: lo que tarda alguien en sacar el celular y escanear. No es un
- * plazo del negocio —el del negocio son las 24 horas de D-10— sino el tiempo
- * que hace creíble el recorrido sin hacer esperar a nadie en una reunión.
+ * plazo del negocio —el del negocio son los 10 minutos de D-10/D-32— sino el
+ * tiempo que hace creíble el recorrido sin hacer esperar a nadie en una
+ * reunión.
  */
 const ESPERA_ANTES_DE_PAGADO_MS = 5_000;
 
@@ -799,7 +800,7 @@ export function FormularioPagoP7({
             <MensajeDeError texto={origenError === "GENERAR" ? error : null} />
             {/* Agotados los intentos, se deja de invitar a reintentar: cada
                 toque abre otra llamada aguas arriba y, para la persona, la
-                pantalla no hace nada. El plazo de 24 h (D-10) da margen. */}
+                pantalla no hace nada. El plazo de 10 min (D-10, D-32) da margen. */}
             {intentosSinRespuesta >= INTENTOS_MAXIMOS_SIN_RESPUESTA ? (
               <p
                 role="alert"
@@ -807,8 +808,8 @@ export function FormularioPagoP7({
               >
                 Bancard no está respondiendo y ya lo intentamos{" "}
                 {INTENTOS_MAXIMOS_SIN_RESPUESTA} veces. No es algo que hayas hecho mal y no se
-                cobró nada. Volvé a esta pantalla en unos minutos: tenés 24 horas para completar el
-                pago.
+                cobró nada. Volvé a esta pantalla en unos minutos: tenés 10 minutos para completar
+                el pago.
               </p>
             ) : null}
           </div>

@@ -15,14 +15,10 @@ import {
   limpiarSesionesFirmaMock,
   obtenerCodigoFirmaDemo,
 } from "../../adapters/mock/signature-provider";
-import { registrarFirmasInstitucionales, transicionarExpediente } from "../../domain/expediente";
+import { transicionarExpediente } from "../../domain/expediente";
 import type { Expediente } from "../../domain/tipos";
 import type { SignatureProvider } from "../../ports/signature-provider";
-import {
-  PLAZO_PAGO_FIJO,
-  expedienteEnPaqueteGenerado,
-  firmasInstitucionalesFixture,
-} from "../../domain/__tests__/fixtures";
+import { PLAZO_PAGO_FIJO, expedienteEnPaqueteGenerado } from "../../domain/__tests__/fixtures";
 import { archivarDocumentosFirmados, claveDocumento, claveDocumentoFirmado } from "../servicio";
 
 /** Repositorio de archivos en memoria que cuenta las escrituras. */
@@ -70,19 +66,16 @@ async function expedienteFirmado(): Promise<{ expediente: Expediente; firmas: Si
       venceEn: iniciada.venceEn,
     },
   };
-  // D-08 · dos transiciones: el cliente firma y después entran las
-  // institucionales, que abren el plazo de pago.
-  const delCliente = transicionarExpediente(conActo, "FIRMADO_CLIENTE", { firma: firmado.firma });
+  // D-08 enmendada · con la firma del cliente alcanza: `archivarDocumentosFirmados`
+  // solo exige `paqueteDocumental` y `firma`, sin importar el estado exacto.
+  // La institucional llega después del pago (D-38) y no hace falta acá.
+  const delCliente = transicionarExpediente(conActo, "FIRMADO_CLIENTE", {
+    firma: firmado.firma,
+    plazoPagoVenceEn: PLAZO_PAGO_FIJO,
+  });
   if (!delCliente.ok) throw new Error(delCliente.error);
 
-  const transicion = registrarFirmasInstitucionales(
-    delCliente.expediente,
-    firmasInstitucionalesFixture,
-    PLAZO_PAGO_FIJO,
-  );
-  if (!transicion.ok) throw new Error(transicion.error);
-
-  return { expediente: transicion.expediente, firmas };
+  return { expediente: delCliente.expediente, firmas };
 }
 
 beforeEach(() => {
