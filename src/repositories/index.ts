@@ -31,6 +31,8 @@ import {
 } from "./estado-demo-repository";
 import type { AlmacenEstadoDemo } from "./estado-demo-repository";
 import type { EvidenceStore } from "../ports/evidence-store";
+import { crearBandejaIntercambioS3 } from "./bandeja-intercambio-repository";
+import type { BandejaIntercambio } from "./bandeja-intercambio-repository";
 
 export function crearOtpRepository(): OtpRepository {
   return crearOtpRepositoryDynamoDb({
@@ -74,6 +76,19 @@ export function crearArchivoRepository(): ArchivoRepository {
   });
 }
 
+/**
+ * Bandeja de S3 del intercambio con Alianza (`infra/alianza-sftp.tf`). Bucket
+ * propio, no el de evidencias: su nombre llega por `ALIANZA_SFTP_BUCKET`.
+ */
+export function crearBandejaIntercambioRepository(): BandejaIntercambio {
+  const nombreBucket = process.env.ALIANZA_SFTP_BUCKET?.trim();
+  if (!nombreBucket) {
+    throw new Error("Falta ALIANZA_SFTP_BUCKET (output alianza_sftp_bandeja_bucket de Terraform).");
+  }
+  return crearBandejaIntercambioS3({ s3Client: obtenerClienteS3(), nombreBucket });
+}
+
+export type { BandejaIntercambio } from "./bandeja-intercambio-repository";
 export type { OtpRepository, CrearOtpInput, OtpCreado, RegistroOtp, ResultadoReenvioOtpRepo } from "./otp-repository";
 export type { ConsultaExpedientes, ExpedienteRepository } from "./expediente-repository";
 export type { ArchivoRepository, ArchivoGuardado } from "./archivo-repository";
