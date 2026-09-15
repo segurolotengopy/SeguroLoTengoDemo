@@ -138,6 +138,17 @@ Esa salida —ningún servicio fuera de `optOut`— **es la evidencia de cumplim
 
 **Un efecto que conviene conocer antes de aplicarla:** al optar por no participar, los servicios **borran el contenido histórico** que hubieran almacenado con ese fin. Es lo que se busca, pero es irreversible.
 
+## Intercambio SFTP con Alianza — `alianza-sftp.tf` y `alianza-vpn.tf`
+
+Envío de PDF a Alianza para que los firme y recepción de lo firmado (ítem 36 de
+la tabla de integraciones). Guía completa: [`docs/CONFIGURACION_SFTP_ALIANZA.md`](../docs/CONFIGURACION_SFTP_ALIANZA.md).
+
+- **Apagado por defecto.** `alianza_sftp_habilitado = false` y `alianza_vpn_habilitada = false`: con los defaults, `terraform plan` sobre el state actual da `0 to add` (verificado el 15-sep-2026; los únicos cambios eran los presupuestos, por la variable de correo de la prueba).
+- **Por qué un conector y no la app:** Amplify no tiene IP de salida fija. El conector SFTP de Transfer Family sale por **3 IP estáticas** (`terraform output alianza_sftp_ips_salida`, que las lee del data source `aws_transfer_connector`: el recurso no las expone).
+- **Recursos:** bucket de tránsito `slt-demo-intercambio-alianza-<sufijo>` (sin Object Lock, a propósito: ver el comentario del archivo), rol `aab1-demo-alianza-sftp-conector` (acceso y logs del conector), secreto **sin valor** `slt-demo-alianza-sftp-credencial`, el conector, y un permiso del rol de Amplify acotado al conector y a la bandeja. Las variables `ALIANZA_SFTP_CONNECTOR_ID` y `ALIANZA_SFTP_BUCKET` entran a la app por un `merge` en `amplify.tf`, vacío mientras esté apagado.
+- **Permisos del deployer:** no los tiene. Van en políticas aparte (la principal está en 5 versiones): `iam-policy-alianza-sftp-reference.json` y, solo si se enciende la VPN, `iam-policy-alianza-vpn-reference.json`. Se adjuntan con administración.
+- **VPN:** si Alianza la pide, el conector pasa de egreso por Internet a **VPC Lattice** y sale por un túnel Site-to-Site hacia la IP privada del servidor. Sin Lambda ni ECS. El origen que ve Alianza pasa a ser `alianza_vpn_vpc_cidr`.
+
 ## Otros pasos manuales que Terraform no puede hacer
 - **Aplicar el JSON de `iam-policy-deployer-reference.json` sobre `SLTDemoDeployerPolicy` en AWS.** El archivo es la referencia versionada, no la fuente. **Hecho el 13/08/2026** (versión `v5`, con el bloque `BudgetsSltDemo`): hay que repetirlo cada vez que el archivo cambie, y el deployer **no puede hacerlo solo** —sus permisos de IAM llegan hasta `role/aab1-demo-*`— así que requiere credenciales de administración. **Cuidado: la política ya está en 5 versiones, que es el máximo de IAM.** El próximo cambio falla con `LimitExceeded` hasta que se borre una vieja (`aws iam delete-policy-version --version-id v1`).
 

@@ -37,6 +37,8 @@ const STATUS_POR_MOTIVO: Readonly<Record<string, number>> = {
   PAQUETE_NO_CERRADO: 409,
   CANAL_NO_VERIFICADO: 400,
   OTP_AJENO_AL_ACTO: 400,
+  // Hay otro código vigente para este acto: el conflicto es con el estado.
+  OTP_REEMPLAZADO: 409,
   OTP_NO_ENCONTRADO: 404,
   CONFLICTO_CONCURRENCIA: 409,
   // La constancia no se pudo guardar: es del almacenamiento, no de la persona.

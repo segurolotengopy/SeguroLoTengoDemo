@@ -35,7 +35,7 @@
  */
 import { conReintentoPorConflicto } from "./concurrencia";
 import { enmascararCorreo } from "./correo";
-import { registrarFirmaClienteInterna } from "./expediente";
+import { otpVigenteQueLoReemplaza, registrarFirmaClienteInterna } from "./expediente";
 import { PLAZO_PAGO_MS } from "./firma-p8";
 import { enmascararCelular } from "./telefono";
 import type { EvidenceStore } from "../ports/evidence-store";
@@ -48,6 +48,7 @@ import type {
   Firma,
   RegistroEvidencia,
 } from "./tipos";
+import { asentarOtpVigente } from "./verificacion-canal";
 import type {
   ContextoPeticion,
   LectorMetadataOtp,
@@ -165,6 +166,12 @@ export type MotivoRechazoFirmaCliente =
   | "REENVIO_BLOQUEADO"
   /** El `otpId` existe pero no es de este expediente o no es de firma. */
   | "OTP_AJENO_AL_ACTO"
+  /**
+   * Es de este acto, pero después se pidió otro código de firma y ese es el
+   * vigente (manual funcional v4, 03A). No se llega a verificar, así que no
+   * gasta nada del código vigente.
+   */
+  | "OTP_REEMPLAZADO"
   | "CODIGO_INCORRECTO"
   | "INTENTOS_AGOTADOS"
   | "CODIGO_EXPIRADO"
@@ -334,6 +341,32 @@ export async function solicitarOtpDeFirmaCliente(
       : { ok: false, motivo: "OTP_NO_ENVIADO" };
   }
 
+  // Manual funcional v4, 03A: "Un nuevo OTP invalida el anterior" — también
+  // si el anterior se pidió por el otro canal. Si no queda asentado, el código
+  // que acaba de salir sería rechazado al firmar: se informa como no enviado.
+  const asentado = await asentarOtpVigente(deps.expedientes, {
+    expedienteId: expediente.id,
+    proposito: "FIRMA",
+    otpId: envio.otpId,
+    fecha,
+  });
+  if (!asentado.ok) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_OTP_FIRMA_ENVIO,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: {
+        canal: entrada.canal,
+        destino: destino.enmascarado,
+        otpId: envio.otpId,
+        motivo: "OTP_VIGENTE_NO_ASENTADO",
+      },
+    });
+    return { ok: false, motivo: "OTP_NO_ENVIADO" };
+  }
+
   await registrarEvidencia(deps, reloj, {
     expedienteId: expediente.id,
     paso: PASO_EVIDENCIA_OTP_FIRMA_ENVIO,
@@ -346,6 +379,7 @@ export async function solicitarOtpDeFirmaCliente(
       otpId: envio.otpId,
       referenciaEnvio: envio.referenciaEnvio,
       expiraEn: envio.expiraEn,
+      ...(asentado.reemplazado === null ? {} : { otpReemplazado: asentado.reemplazado }),
     },
   });
 
@@ -420,6 +454,22 @@ export async function registrarActoDeFirmaCliente(
       },
     });
     return { ok: false, motivo: "OTP_AJENO_AL_ACTO" };
+  }
+
+  // Manual funcional v4, 03A: "Un nuevo OTP invalida el anterior". Se corta
+  // antes de verificar, así un código reemplazado no llega al proveedor ni
+  // gasta nada del vigente.
+  const vigente = otpVigenteQueLoReemplaza(expediente, "FIRMA", entrada.otpId);
+  if (vigente) {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: expediente.id,
+      paso: PASO_EVIDENCIA_ACTO_FIRMA_CLIENTE,
+      fecha: reloj.ahora(),
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: { otpId: entrada.otpId, motivo: "OTP_REEMPLAZADO", otpVigente: vigente },
+    });
+    return { ok: false, motivo: "OTP_REEMPLAZADO" };
   }
 
   const verificacion = await deps.otpProvider.verificarOtp({

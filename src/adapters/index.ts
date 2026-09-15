@@ -30,7 +30,10 @@ export type NombrePuerto =
   | "MESSAGING"
   // Décimo: el asistente conversacional (Terra, ítem 35). Informativo y
   // desacoplado del flujo: no comparte puerto con ningún proveedor transaccional.
-  | "ASISTENTE";
+  | "ASISTENTE"
+  // Undécimo: el intercambio de PDF con la aseguradora por SFTP (ítem 36). No
+  // es SEBAOT (`POLICY`): mueve documentos para que Alianza los firme, no emite.
+  | "INTERCAMBIO_ASEGURADORA";
 
 export type ModoIntegracion = "mock" | "live";
 

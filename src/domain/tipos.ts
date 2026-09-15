@@ -5,6 +5,7 @@
  * y las "Reglas de negocio inviolables" de CLAUDE.md. No se modela ningún
  * campo, paso o valor que no esté en esos documentos.
  */
+import type { PropositoOtp } from "../ports/otp-provider";
 import type { ModalidadFirma, NivelFirma, RolFirmante } from "./firmantes-documento";
 
 
@@ -779,11 +780,38 @@ export interface RegistroEvidencia {
 // Expediente
 // ---------------------------------------------------------------------------
 
+/**
+ * El último OTP emitido para cada propósito, por su `otpId`.
+ *
+ * Manual funcional v4 de Interseguros (14-sep-2026), sección 03A: *"Un nuevo
+ * OTP invalida el anterior"*, y el reenvío tiene que *"invalidar OTP anterior,
+ * emitir uno nuevo y reiniciar vigencia e intentos"*. Ningún proveedor lo
+ * garantiza por su cuenta: WhatsApp-Modular no tiene reenvío y cada pedido
+ * acuña un `otpId` nuevo sin apagar el anterior, y el mock rota el código
+ * dentro del mismo `otpId` al reenviar pero no cuando se pide uno desde cero.
+ * Por eso la regla vive en el dominio: cada emisión asienta acá el `otpId`
+ * nuevo, y la verificación rechaza cualquier otro con `OTP_REEMPLAZADO` antes
+ * de tocar al proveedor — así el intento tampoco gasta nada del vigente.
+ *
+ * Es por **propósito**, no por canal: pasar de WhatsApp a la contingencia SMS,
+ * o pedir el código de firma por el otro canal, emite otro OTP del mismo
+ * propósito y el anterior queda reemplazado igual.
+ *
+ * No es evidencia: es el puntero al código en curso y se pisa a propósito. La
+ * traza de cada emisión y de cada reemplazo vive en `EvidenceStore` (regla
+ * inviolable #10). Un propósito sin entrada no tiene OTP asentado —un
+ * expediente anterior a esta regla— y la verificación no le exige nada.
+ */
+export type OtpVigentePorProposito = Readonly<Partial<Record<PropositoOtp, string>>>;
+
 export interface Expediente {
   readonly id: string;
   readonly estado: EstadoExpediente;
   /** Append-only: cada transición agrega una entrada, ninguna se borra ni se sobrescribe. */
   readonly historial: readonly EntradaHistorialEstado[];
+
+  /** El único OTP verificable de cada propósito; ver `OtpVigentePorProposito`. */
+  readonly otpVigente: OtpVigentePorProposito;
 
   readonly canalWhatsapp: CanalVerificado | null;
   readonly plan: PlanSeleccionado | null;
@@ -897,6 +925,7 @@ export function crearExpedienteInicial(input: {
     id: input.id,
     estado: "INICIADO",
     historial: [{ estado: "INICIADO", en: input.ahora }],
+    otpVigente: {},
     canalWhatsapp: null,
     plan: null,
     autorizacionInicial: null,

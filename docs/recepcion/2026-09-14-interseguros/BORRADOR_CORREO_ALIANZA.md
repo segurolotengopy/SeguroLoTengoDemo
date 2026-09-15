@@ -6,13 +6,15 @@ está listo y adjuntó un TXT de ejemplo de migración de vida colectivo.
 
 **Antes de enviarlo:**
 
-1. **Cerrar P1 con Rodrigo** (¿Alianza firma también la Solicitud + FIPF, o solo
-   el CPC?) y dejar en el punto 1 la variante que corresponda.
-2. **Completar la fecha de las IP.** La plataforma sale por Amplify, que no
-   tiene IP de salida fija. Recomendado: conector SFTP de AWS Transfer Family
-   (IP estáticas, lee y escribe S3 directo). Hay que registrarlo en
-   `docs/Tabla de Integraciones externas - Tabla.csv` antes de escribir código.
-3. Si el PDF de legal o el modelo de CPC cambian algo, ajustar el punto 1.
+1. ~~Cerrar P1 con Rodrigo.~~ **Resuelto de forma preliminar (D-42, 15-sep-2026):**
+   Alianza firma solo el CPC. El punto 1 quedó en esa variante.
+2. **Completar la fecha de las IP.** El conector SFTP de AWS Transfer Family
+   existe (ítem 36 de la tabla de integraciones, PR #118), pero apagado. Las
+   **tres** IP salen de `terraform output alianza_sftp_ips_salida` después del
+   primer `apply`: ver `docs/CONFIGURACION_SFTP_ALIANZA.md`.
+3. **Adjuntar nuestra clave pública SSH** (punto 2.4), generada según esa guía.
+4. Si el modelo de CPC aprobado o la respuesta de Rodrigo
+   (`BORRADOR_CORREO_RODRIGO_V4.md`) cambian algo, ajustar el punto 1.
 
 Análisis completo del TXT y de la captura del SFTP: entrada del 14-sep de
 `docs/BITACORA.md`. Del TXT, lo esencial: tabulado, CRLF, sin encabezado, un
@@ -38,41 +40,38 @@ las pruebas sin retrabajo.
   Solicitud + FIPF y el pago esté acreditado, y se lo enviaremos por SFTP para
   que lo firmen con su firma cualificada y nos lo devuelvan. Es el documento
   más urgente, porque el cliente lo espera en la pantalla de confirmación.
-- **Solicitud de Seguro + FIPF (un único PDF):**
-  - *[Variante A — si Alianza firma]* lo firma primero el cliente, con firma
-    electrónica no cualificada antes del pago; después del pago firman
-    Interseguros y Alianza, con firma cualificada, una después de otra sobre el
-    mismo archivo. Se lo enviaremos firmado por el cliente y por Interseguros
-    para que agreguen la suya.
-  - *[Variante B — si Alianza no firma]* lo firman el cliente, antes del pago, e
-    Interseguros, con firma cualificada, después del pago. Se lo enviaremos ya
-    firmado, para su archivo, la verificación del FIPF y la emisión de la póliza.
+- **Solicitud de Seguro + FIPF (un único PDF):** lleva dos firmas: la del
+  cliente, con firma electrónica no cualificada, antes del pago, y la de
+  Interseguros, con firma cualificada, después del pago. Ustedes no la firman:
+  se la enviaremos ya firmada, para su archivo, la verificación del FIPF y la
+  emisión de la póliza.
 
 1.1. ¿Coinciden con este esquema?
 
 **2. Conexión y ambiente de pruebas**
 
-Nuestra plataforma opera en AWS y estamos habilitando una salida con IP fija
-dedicada a este intercambio. Les enviaremos la o las direcciones a más tardar el
-**[fecha]**.
+Nuestra plataforma opera en AWS y el intercambio sale por un conector SFTP
+dedicado, con direcciones IP fijas. Les enviaremos las direcciones a más tardar
+el **[fecha]**.
 
-2.1. ¿Pueden habilitar dos direcciones IP (principal y respaldo)?
+2.1. El conector sale por **tres direcciones IP fijas**, y usa las tres: no son una principal y dos de respaldo. ¿Pueden habilitar las tres?
 2.2. ¿Cuál es el host o la IP pública y el puerto del servidor? En la captura figura 10.0.7.101, que es una dirección interna.
-2.3. ¿Nos pasan la huella (fingerprint) de la clave del servidor, para validarla en la primera conexión?
-2.4. ¿Podemos autenticarnos con clave SSH en lugar de contraseña? Les enviamos nuestra clave pública.
-2.5. ¿Pueden asignarnos carpetas dedicadas, separadas por tipo y dirección? Por ejemplo `entrada/emision`, `entrada/documentos`, `salida/cpc`, `salida/respuestas`, y que no sean el escritorio de un usuario.
+2.3. ¿Nos pasan la **clave pública completa** del servidor y su huella (fingerprint)? La huella la confirmaríamos también por teléfono antes de la primera conexión.
+2.4. ¿Podemos autenticarnos con clave SSH en lugar de contraseña? Les adjuntamos nuestra clave pública. ¿Qué algoritmos de clave y de cifrado admite el servidor (por ejemplo, ed25519 o RSA)?
+2.5. ¿Pueden asignarnos carpetas dedicadas, separadas por tipo y dirección, que no sean el escritorio de un usuario? Por ejemplo, `entrada/emision` y `entrada/documentos` para lo que les enviamos, y `salida/documentos` (los firmados) y `salida/respuestas` para lo que nos devuelven. ¿Pueden crear además una subcarpeta `procesados/` en cada carpeta de salida? Ahí movemos lo que ya recibimos, en lugar de borrarlo.
 2.6. ¿Tienen un ambiente de pruebas separado del de producción? Y para las pruebas del certificado, ¿pueden firmar con un certificado de prueba? Así ningún documento de prueba queda firmado con la firma cualificada real. De nuestro lado, en pruebas solo enviaremos datos ficticios.
 2.7. ¿Cuánto tiempo conservan los archivos en el servidor una vez procesados, y quién los retira? Los documentos llevan datos personales y declaraciones de salud.
+2.8. Si prefieren conectarse por una **VPN IPsec** en lugar de exponer el servidor a Internet, también podemos. En ese caso necesitamos la IP pública de su equipo de VPN, la red interna donde está el servidor y los parámetros del túnel: versión de IKE, cifrado y si usan rutas estáticas o BGP.
 
 **3. Firma de los documentos**
 
-3.1. ¿Qué tiempo máximo de respuesta pueden garantizar, además del estimado de 5 minutos? ¿Funciona las 24 horas, incluidos fines de semana y feriados? La cobertura comienza 24 horas después del pago, y el certificado tiene que estar en manos del cliente antes.
+3.1. ¿Qué tiempo máximo de respuesta pueden garantizar, además del estimado de 5 minutos? ¿Funciona las 24 horas, incluidos fines de semana y feriados? El cliente espera el certificado apenas se acredita su pago.
 3.2. ¿Cuál es el procedimiento si el firmador está fuera de servicio? ¿Cómo nos enteramos?
-3.3. ¿Cómo evitamos que se procese un archivo que todavía se está subiendo? Proponemos subir con extensión `.tmp` y renombrar al terminar, y que ustedes hagan lo mismo al depositar los documentos firmados.
+3.3. ¿Cómo evitamos que se procese un archivo que todavía se está subiendo? Proponemos subir con extensión `.tmp` y renombrar al terminar, y que ustedes hagan lo mismo al depositar los documentos firmados. Junto a cada PDF enviaremos un archivo `.json` con el código del documento, su versión, su huella SHA-256 y su tamaño, sin ningún dato de la persona.
 3.4. Formato de la firma: ¿PAdES? ¿Incluye sello de tiempo? ¿La firma es visible?
-3.5. ¿Cómo se llama el archivo que nos devuelven, y cómo informan un error (archivo de respuesta, código de error)?
-3.6. Su firmador, ¿agrega la firma como **actualización incremental** del PDF? Es imprescindible para no invalidar las firmas anteriores del cliente y de Interseguros.
-3.7. ¿Pueden priorizar los certificados sobre las solicitudes, o se procesan en orden de llegada?
+3.5. Les pedimos que el documento firmado **conserve el nombre** del que les enviamos. ¿Cómo nos informan un error (archivo de respuesta, código de error)?
+3.6. Su firmador, ¿agrega la firma como **actualización incremental** del PDF? Es imprescindible: así podemos verificar que el documento que nos devuelven es exactamente el que les enviamos, con su firma agregada y sin ningún otro cambio.
+3.7. ¿Pueden priorizar los certificados sobre otros archivos (por ejemplo, los de emisión), o se procesa todo en orden de llegada?
 
 **4. Registro para la emisión**
 

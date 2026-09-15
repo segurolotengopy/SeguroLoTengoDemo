@@ -58,6 +58,7 @@ const MENSAJES: Readonly<Record<string, string>> = {
   INTENTOS_AGOTADOS: "Se agotaron los tres intentos. Pedí un código nuevo con «Reenviar código».",
   YA_UTILIZADO: "Ese código ya se usó. Pedí uno nuevo.",
   NO_ENCONTRADO: "No encontramos un código vigente. Pedí uno nuevo.",
+  OTP_REEMPLAZADO: "Ese código fue reemplazado por uno más nuevo. Ingresá el último que te enviamos.",
 };
 
 async function postear(ruta: string, cuerpo?: unknown): Promise<RespuestaApi> {

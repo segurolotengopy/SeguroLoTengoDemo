@@ -36,7 +36,9 @@ resource "aws_amplify_app" "slt_demo" {
     : null
   )
 
-  environment_variables = {
+  # merge con local.alianza_sftp_env (alianza-sftp.tf): vacío mientras el
+  # intercambio con Alianza esté apagado, así que no cambia nada hasta encenderlo.
+  environment_variables = merge({
     DEMO_MODE = "true"
     # Consola administrativa (docs/CONSOLA_ADMINISTRATIVA.md). Flag propio, no
     # compartido con DEMO_MODE: la consola es una herramienta de staff que
@@ -94,7 +96,7 @@ resource "aws_amplify_app" "slt_demo" {
     # falla con MessageRejected en vez de mandar. Ver docs/CONFIGURACION_SES.md.
     INTEGRATION_OTP_EMAIL = "live"
     OTP_EMAIL_FROM        = var.otp_email_remitente
-  }
+  }, local.alianza_sftp_env)
 
   lifecycle {
     # La conexión con GitHub se hace UNA vez desde la consola de Amplify, con
