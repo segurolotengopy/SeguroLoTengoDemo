@@ -535,9 +535,10 @@ export async function firmarNormalmente(page: Page, idCode100: string): Promise<
   // campos y el botón.
   await tipearOtp(page, "p8", sesion.codigo as string);
 
-  // Tipear el código no lleva al pago por sí solo: firma del cliente, después
-  // las institucionales, y recién cuando el sondeo ve `FIRMADO` la pantalla
-  // navega. Son varios ciclos de dos segundos contra DynamoDB real, así que el
-  // plazo cubre esa cadena y no solo el envío del código.
+  // Tipear el código no lleva al pago en el acto: el sondeo tiene que ver
+  // `FIRMADO_CLIENTE` para navegar. Desde la enmienda del 04-sep-2026 a D-08
+  // ya no hay que esperar además a las institucionales —se aplican después
+  // del pago, D-38— pero sigue siendo al menos un ciclo de sondeo contra
+  // DynamoDB real, así que el plazo cubre esa espera.
   await expect(page).toHaveURL(/\/pago$/, { timeout: 60_000 });
 }

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
-import { accionarFirmaPanel, leerSesionFirmaDelPanel, prepararEscenario } from "./support/demo-panel";
+import { leerSesionFirmaDelPanel, prepararEscenario } from "./support/demo-panel";
 import {
   completarWhatsapp,
   completarPlan,
@@ -8,29 +8,34 @@ import {
   declararCorreo,
   completarP5Aprobado,
   completarP6,
+  completarP7Qr,
   enviarEnlaceYAbrir,
   enviarP6,
+  firmarNormalmente,
 } from "./support/flujo";
 
 /**
- * Escenario 7 — El sellado a medias, después de D-11.
+ * Escenario 7 — El sellado a medias, después de D-11 y de la enmienda del
+ * 04-sep-2026 a D-08 (D-38, D-42).
  *
- * **Este escenario cambió de objeto.** Probaba la regla inviolable #3 cortando
- * el sellado entre la Solicitud y el FIPF: la aserción era que ninguno de los
- * dos quedara firmado. Con el PDF unificado esa falla dejó de existir —hay un
- * archivo y una huella— así que la regla ya no necesita un escenario que la
- * vigile: no hay dos cosas que puedan separarse.
+ * **Este escenario cambió de objeto dos veces.** Primero probaba la regla
+ * inviolable #3 cortando el sellado entre la Solicitud y el FIPF: con el PDF
+ * unificado esa falla dejó de existir. Después probaba que, sin las
+ * institucionales, el expediente quedara en `FIRMADO_CLIENTE` **antes** del
+ * pago — eso también dejó de ser cierto: desde la enmienda del 04-sep,
+ * `FIRMADO_CLIENTE` ya habilita el cobro sin esperar a Interseguros.
  *
  * Lo que sí puede quedar a medias, y es donde ahora vive el riesgo, es el
- * tramo entre la firma del cliente y las institucionales (D-13). Eso es lo que
- * se prueba acá: el cliente firma, las cualificadas de Interseguros y Alianza
- * no llegan, y el expediente queda en `FIRMADO_CLIENTE` **con el cobro
- * inhabilitado**. Es la diferencia entre un sellado incompleto y un expediente
- * sin firmar, que es exactamente lo que D-13 pide poder distinguir.
+ * tramo **después del pago**: el expediente cobró, pero la firma institucional
+ * diferida de Interseguros no se aplicó (D-38). El expediente queda en
+ * `PAGO_CONFIRMADO`, sin `firmasInstitucionales`, y la emisión no se ordena
+ * — `emitirPolizaP9` devuelve `FIRMA_CORREDOR_PENDIENTE` (202, no es un
+ * error). Es la diferencia entre un cobro sin institucional y un expediente
+ * sin firmar, que es exactamente lo que D-38/D-42 piden poder distinguir.
  *
  * Con Mónica Mariana Gorena Tapia.
  */
-test("si las firmas institucionales no llegan, el cobro sigue inhabilitado", async ({ page }) => {
+test("si la firma institucional diferida falla, la emisión no se ordena", async ({ page }) => {
   const persona = obtenerPersonaDemo("camino-feliz");
   if (!persona) throw new Error("Fixture 'camino-feliz' no encontrado en personas.ts.");
 
@@ -49,49 +54,33 @@ test("si las firmas institucionales no llegan, el cobro sigue inhabilitado", asy
   await enviarP6(page, /\/firma$/);
 
   const idCode100 = await enviarEnlaceYAbrir(page);
+  // Con la institucional diferida (D-38), el cliente firma solo y ya alcanza
+  // para pasar al pago: la palanca armada más arriba todavía no tuvo ninguna
+  // oportunidad de actuar.
+  await firmarNormalmente(page, idCode100);
+  await completarP7Qr(page);
 
-  const antes = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(antes.hashDocumentoFirmado).toBeNull();
-  expect(antes.codigo, "Code100 tiene que haber emitido el OTP al abrir el enlace.").not.toBeNull();
+  // La palanca actúa recién acá, dentro de `emitirPolizaP9` (`emision-p9.ts`),
+  // cuando P9 intenta aplicar la diferida antes de remitir a Alianza. Se
+  // comprueba por API y **sin pasar por `/confirmacion`**: esa pantalla monta
+  // un único `fetch` a `/api/p9/resumen` al cargar, y si se llegara a esa ruta
+  // primero, ese montaje consumiría la palanca (se consume en un solo intento)
+  // antes de que el test pudiera observar la falla.
+  const resumenFallido = await page.request.get("/api/p9/resumen");
+  expect(resumenFallido.status(), "P9 no puede emitir sin la institucional diferida").toBe(202);
+  const datosFallidos = (await resumenFallido.json()) as { ok?: boolean; motivo?: string };
+  expect(datosFallidos.ok).toBe(false);
+  expect(datosFallidos.motivo).toBe("FIRMA_CORREDOR_PENDIENTE");
 
-  // El cliente firma de verdad: Code100 sella el documento.
-  const firmado = await accionarFirmaPanel(page, idCode100, {
-    accion: "FIRMAR",
-    codigo: antes.codigo as string,
+  // La firma del cliente no se tocó: sigue siendo la misma de siempre.
+  const sesionTrasLaFalla = await leerSesionFirmaDelPanel(page, idCode100);
+  expect(sesionTrasLaFalla.hashDocumentoFirmado).not.toBeNull();
+
+  // La falla se consume en un solo intento (regla de las palancas del panel):
+  // el llamado anterior ya la gastó, así que esta vez la diferida se aplica y
+  // la emisión sigue su curso. Se entra por la pantalla, como haría la persona.
+  await page.goto("/confirmacion");
+  await expect(page.getByText("¡Tu solicitud de seguro fue aceptada!")).toBeVisible({
+    timeout: 30_000,
   });
-  expect(firmado.ok, `firmar: ${JSON.stringify(firmado.datos)}`).toBeTruthy();
-
-  // La firma del cliente existe del lado del proveedor: no se perdió.
-  const despues = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(despues.hashDocumentoFirmado).not.toBeNull();
-
-  // Pero la pantalla no avanza al pago: las institucionales no llegaron, así
-  // que el expediente se queda en FIRMADO_CLIENTE.
-  await expect(page).toHaveURL(/\/firma$/);
-
-  // El sondeo de la pantalla corre cada dos segundos y **reintenta el tramo
-  // institucional**, así que la ventana que este test quiere observar la cierra
-  // el propio producto. Comprobar el 409 con la pantalla abierta era una
-  // carrera: el escenario fallaba de a ratos en la corrida completa y pasaba
-  // siempre aislado, que es la firma de una condición de tiempo y no de un
-  // error.
-  //
-  // La salida no es dar más plazo —eso vuelve la carrera más lenta, no la
-  // elimina— sino **apagar el sondeo antes de mirar**. En `about:blank` no hay
-  // temporizadores corriendo, y `page.request` usa las cookies del contexto, no
-  // las de la pantalla, así que la consulta sigue siendo la del expediente.
-  await page.goto("about:blank");
-  const resumenPago = await page.request.get("/api/p7/resumen");
-  expect(resumenPago.status(), "el paso de pago no puede estar disponible").toBe(409);
-
-  // La falla se consume en un solo intento (regla de las palancas del panel).
-  // No se vuelve a firmar —el OTP es de uso único y ya se gastó, que es
-  // justamente la razón de que el tramo institucional se retome solo—: alcanza
-  // con que el sondeo corra de nuevo. Ahí sí avanza al pago.
-  await page.goto("/firma");
-  await expect(page).toHaveURL(/\/pago$/, { timeout: 30_000 });
-
-  // Y la firma del cliente siguió siendo la misma de siempre: no se repitió.
-  const sesionFinal = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(sesionFinal.hashDocumentoFirmado).toBe(despues.hashDocumentoFirmado);
 });

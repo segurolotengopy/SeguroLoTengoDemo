@@ -32,7 +32,10 @@ import {
   emitirPolizaP9,
   leerResumenP9,
 } from "../emision-p9";
+import type { DependenciasP9 } from "../emision-p9";
 import { registrarEmisionP9, transicionarExpediente } from "../expediente";
+import { aplicarFirmasDiferidas, PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 } from "../firma-p8";
+import type { AplicadorFirmasDiferidas } from "../firma-p8";
 import type { Expediente, PolizaDelExpediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal";
 import {
@@ -42,6 +45,7 @@ import {
   expedienteFirmado,
   facturacionFixture,
   firmaFixture,
+  firmasInstitucionalesFixture,
   pagoConfirmadoFixture,
 } from "./fixtures";
 import { codigoComprobante } from "../comprobante-pago";
@@ -87,10 +91,13 @@ function evidenciasFalsas(): EvidenceStore & { registros: RegistroEvidencia[] } 
 }
 
 /**
- * Expediente firmado y cobrado, listo para que P9 lo remita a Alianza.
+ * Expediente firmado por el cliente y cobrado, listo para que P9 aplique la
+ * institucional diferida y remita a Alianza.
  *
- * D-08 · con el orden invertido la entrada de la emisión es PAGO_CONFIRMADO,
- * no FIRMADO: primero se firma y después entra la plata.
+ * D-08 enmendada · la entrada de la emisión es PAGO_CONFIRMADO, **sin**
+ * `firmasInstitucionales` todavía: desde el 04-sep-2026 esa firma llega
+ * después del cobro (D-38, D-42), así que este fixture ya no la aplica —eso
+ * es lo que ejercitan los tests de `armar()`, vía `aplicarFirmasDiferidas`.
  */
 function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
   const firmado = expedienteFirmado(id);
@@ -110,20 +117,51 @@ function expedienteListoParaEmitir(id = "EXP-TEST-P9"): Expediente {
   return cobrado.expediente;
 }
 
-function armar(expediente: Expediente = expedienteListoParaEmitir(), sebaot?: PolicyIssuer) {
+/**
+ * `armar` cablea, por defecto, la capacidad `aplicarFirmasDiferidas` con la
+ * operación real de dominio — así la mayoría de los tests de este archivo
+ * (que no versan sobre la diferida en sí) siguen viendo una emisión que
+ * completa de punta a punta, como haría el mock en producción. Pasar
+ * `sinCapacidadDiferida: true` simula un adaptador sin la capacidad
+ * (`aplicaFirmasDiferidasEnLinea` en `false`), y `firmasInstitucionalesCaidas`
+ * simula la palanca del panel de demo.
+ */
+function armar(
+  expediente: Expediente = expedienteListoParaEmitir(),
+  opciones: {
+    readonly sebaot?: PolicyIssuer;
+    readonly sinCapacidadDiferida?: boolean;
+    readonly firmasInstitucionalesCaidas?: () => boolean;
+  } = {},
+) {
   const repositorio = repositorioFalso(expediente);
   const evidencias = evidenciasFalsas();
   let reloj = AHORA;
   let contador = 0;
 
+  const aplicador: AplicadorFirmasDiferidas = (entrada) =>
+    aplicarFirmasDiferidas(
+      {
+        expedientes: repositorio,
+        evidencias,
+        ahora: () => reloj,
+        nuevoId: () => `ev-diferida-${(contador += 1)}`,
+        firmasInstitucionalesCaidas: opciones.firmasInstitucionalesCaidas,
+      },
+      entrada,
+    );
+
+  const deps: DependenciasP9 = {
+    polizas: opciones.sebaot ?? crearPolicyIssuerMock({ ahora: () => new Date(reloj) }),
+    expedientes: repositorio,
+    evidencias,
+    ahora: () => reloj,
+    nuevoId: () => `ev-${(contador += 1)}`,
+    aplicarFirmasDiferidas: opciones.sinCapacidadDiferida ? undefined : aplicador,
+  };
+
   return {
-    deps: {
-      polizas: sebaot ?? crearPolicyIssuerMock({ ahora: () => new Date(reloj) }),
-      expedientes: repositorio,
-      evidencias,
-      ahora: () => reloj,
-      nuevoId: () => `ev-${(contador += 1)}`,
-    },
+    deps,
     repositorio,
     evidencias,
     avanzarReloj: (ms: number) => {
@@ -173,7 +211,13 @@ describe("P9 · remitir el expediente a Alianza", () => {
   });
 
   it("la máquina de estados rechaza una póliza con numeración propia", () => {
-    const expediente = expedienteListoParaEmitir();
+    // Con la institucional ya aplicada, para aislar la regla que se prueba:
+    // sin esto, la guarda de D-38/D-42 rechazaría antes por otro motivo.
+    const expediente: Expediente = {
+      ...expedienteListoParaEmitir(),
+      estado: "FIRMADO",
+      firmasInstitucionales: firmasInstitucionalesFixture,
+    };
     const ajena: PolizaDelExpediente = {
       numeroPoliza: "99999999",
       estado: "EN_PROCESO_DE_EMISION",
@@ -267,7 +311,7 @@ describe("P9 · remitir el expediente a Alianza", () => {
         throw new Error("no usado");
       },
     };
-    const entorno = armar(expedienteListoParaEmitir(), roto);
+    const entorno = armar(expedienteListoParaEmitir(), { sebaot: roto });
 
     const resultado = await emitirPolizaP9(entorno.deps, {
       expedienteId: "EXP-TEST-P9",
@@ -277,7 +321,9 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(resultado.ok).toBe(false);
     if (resultado.ok) return;
     expect(resultado.motivo).toBe("SEBAOT_NO_DISPONIBLE");
-    expect(entorno.repositorio.actual().estado).toBe("PAGO_CONFIRMADO");
+    // D-38/D-42 · la diferida ya se aplicó antes de intentar con SEBAOT (el
+    // adaptador la tiene, en este test); lo que falla es la remisión.
+    expect(entorno.repositorio.actual().estado).toBe("FIRMADO");
     expect(
       entorno.evidencias.registros.some(
         (evidencia) => evidencia.paso === PASO_EVIDENCIA_EMISION_P9 && evidencia.resultado === "FALLIDO",
@@ -298,6 +344,97 @@ describe("P9 · remitir el expediente a Alianza", () => {
     expect(registro?.detalle).toContain("emisorPoliza=ALIANZA_GARANTIA_SEBAOT");
     // Constancia explícita de que no existe.
     expect(registro?.detalle).toContain("notaDeCobertura=NO_SE_GENERA");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D-38 / D-42 · la firma institucional diferida, aplicada en línea o no
+// ---------------------------------------------------------------------------
+
+describe("P9 · firma institucional diferida (D-38, D-42)", () => {
+  it("con la capacidad del adaptador, la aplica antes de emitir", async () => {
+    const entorno = armar();
+
+    const resultado = await emitirPolizaP9(entorno.deps, {
+      expedienteId: "EXP-TEST-P9",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(true);
+    const expediente = entorno.repositorio.actual();
+    expect(expediente.estado).toBe("EMITIDO");
+    expect(expediente.firmasInstitucionales.map((f) => f.rol)).toEqual(["INTERSEGUROS"]);
+    expect(expediente.firmasInstitucionales.every((f) => f.modalidad === "DIFERIDO")).toBe(true);
+    expect(
+      entorno.evidencias.registros.some(
+        (evidencia) =>
+          evidencia.paso === PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 &&
+          evidencia.resultado === "EXITOSO",
+      ),
+    ).toBe(true);
+  });
+
+  it("sin la capacidad del adaptador, el expediente queda en PAGO_CONFIRMADO y no se ordena la emisión", async () => {
+    const entorno = armar(expedienteListoParaEmitir(), { sinCapacidadDiferida: true });
+
+    const resultado = await emitirPolizaP9(entorno.deps, {
+      expedienteId: "EXP-TEST-P9",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado).toEqual({ ok: false, motivo: "FIRMA_CORREDOR_PENDIENTE" });
+    const expediente = entorno.repositorio.actual();
+    expect(expediente.estado).toBe("PAGO_CONFIRMADO");
+    expect(expediente.firmasInstitucionales).toEqual([]);
+    expect(expediente.poliza).toBeNull();
+  });
+
+  it("si la diferida falla (palanca de demo), tampoco se ordena la emisión", async () => {
+    const entorno = armar(expedienteListoParaEmitir(), { firmasInstitucionalesCaidas: () => true });
+
+    const resultado = await emitirPolizaP9(entorno.deps, {
+      expedienteId: "EXP-TEST-P9",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado).toEqual({ ok: false, motivo: "FIRMA_CORREDOR_PENDIENTE" });
+    const expediente = entorno.repositorio.actual();
+    expect(expediente.estado).toBe("PAGO_CONFIRMADO");
+    expect(
+      entorno.evidencias.registros.some(
+        (evidencia) =>
+          evidencia.paso === PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8 &&
+          evidencia.resultado === "FALLIDO",
+      ),
+    ).toBe(true);
+  });
+
+  it("un expediente legado con la institucional ya aplicada no pasa por la diferida", async () => {
+    // PAGO_CONFIRMADO con `firmasInstitucionales` ya puesta: el código de antes
+    // de la enmienda del 04-sep la aplicaba junto con la del cliente. Sin
+    // capacidad diferida igual emite: nunca necesitó esa capacidad.
+    const base = expedienteListoParaEmitir();
+    const legado: Expediente = {
+      ...base,
+      firmasInstitucionales: [
+        {
+          rol: "INTERSEGUROS",
+          nivel: "CUALIFICADA",
+          modalidad: "CONJUNTO",
+          certificado: "DEMO-CERT-LEGADO",
+          aplicadaEn: "2026-08-09T15:03:30.000Z",
+        },
+      ],
+    };
+    const entorno = armar(legado, { sinCapacidadDiferida: true });
+
+    const resultado = await emitirPolizaP9(entorno.deps, {
+      expedienteId: "EXP-TEST-P9",
+      contexto: CONTEXTO,
+    });
+
+    expect(resultado.ok).toBe(true);
+    expect(entorno.repositorio.actual().estado).toBe("EMITIDO");
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * Lleva un trámite v3 desde los T&C hasta `/pago-y-firma` con el expediente ya
- * **FIRMADO**, que es la puerta del paso de pago (regla 6-bis: no hay cobro sin
- * firma).
+ * **FIRMADO_CLIENTE**, que es la puerta del paso de pago (regla 6-bis: no hay
+ * cobro sin la firma del cliente; la de Interseguros llega después del pago).
  *
  * Existe para que los specs que prueban **la parte de Bancard** no tengan que
  * repetir el recorrido de los dos pasos anteriores. Es el mismo camino que
@@ -105,8 +105,9 @@ export async function llegarAPagoYFirmaFirmado(
   await tipearOtp(page, "firma-v3", codigoFirma);
   await page.getByRole("button", { name: "Firmar el documento" }).click();
 
-  // Las institucionales las aplica el sondeo: la sección de pago aparece sola.
-  await expect(
-    page.getByText("✓ Documento firmado · cliente + Interseguros + Alianza Garantía"),
-  ).toBeVisible({ timeout: 20_000 });
+  // Enmienda del 04-sep-2026 a D-08 (D-38, D-42): la firma del cliente alcanza
+  // para pagar —FIRMADO_CLIENTE— y la de Interseguros llega después del pago;
+  // Alianza ya no firma el paquete. La sección de pago aparece sola apenas el
+  // sondeo confirma la firma, igual que en `04-camino-feliz.spec.ts`.
+  await expect(page.getByText("✓ Documento firmado")).toBeVisible({ timeout: 20_000 });
 }

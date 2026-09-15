@@ -36,6 +36,7 @@
 import { conReintentoPorConflicto } from "./concurrencia";
 import { enmascararCorreo } from "./correo";
 import { otpVigenteQueLoReemplaza, registrarFirmaClienteInterna } from "./expediente";
+import { PLAZO_PAGO_MS } from "./firma-p8";
 import { enmascararCelular } from "./telefono";
 import type { EvidenceStore } from "../ports/evidence-store";
 import type { OtpProvider } from "../ports/otp-provider";
@@ -101,6 +102,13 @@ export interface DependenciasOtpFirmaCliente {
 /** Lo que hace falta para firmar: además de lo anterior, quien emite la constancia. */
 export interface DependenciasFirmaCliente extends DependenciasOtpFirmaCliente {
   readonly emitirConstancia: EmisorConstanciaFirma;
+  /**
+   * Duración del plazo para pagar, que se abre en la misma transición que
+   * registra esta firma (D-32: 10 minutos). Mismo criterio que
+   * `DependenciasP8.plazoPagoMs` en `firma-p8.ts` — el panel de demo lo
+   * comprime para poder mostrar la caducidad sin esperar.
+   */
+  readonly plazoPagoMs?: number;
 }
 
 /** Distingue "el expediente no podía firmar" de "perdí la carrera de escritura". */
@@ -553,6 +561,12 @@ export async function registrarActoDeFirmaCliente(
   }
   const constancia = emision.constancia;
 
+  // D-32 · el plazo de pago se abre en la misma transición que registra esta
+  // firma: 10 minutos desde el instante de la firma, salvo que el panel de
+  // demo lo haya comprimido.
+  const plazoPagoMs = deps.plazoPagoMs ?? PLAZO_PAGO_MS;
+  const plazoPagoVenceEn = new Date(new Date(fecha).getTime() + plazoPagoMs).toISOString();
+
   let persistido = false;
   try {
     persistido = await conReintentoPorConflicto(
@@ -562,7 +576,12 @@ export async function registrarActoDeFirmaCliente(
           throw new ErrorTransicionFirma("El expediente desapareció entre la lectura y la escritura.");
         }
 
-        const transicion = registrarFirmaClienteInterna(actual, { firma, constancia }, fecha);
+        const transicion = registrarFirmaClienteInterna(
+          actual,
+          { firma, constancia },
+          plazoPagoVenceEn,
+          fecha,
+        );
         if (!transicion.ok) throw new ErrorTransicionFirma(transicion.error);
 
         await deps.expedientes.guardar(transicion.expediente, actual.actualizadoEn);
@@ -614,6 +633,7 @@ export async function registrarActoDeFirmaCliente(
       hashDocumento: acto.hashDocumento,
       constancia: `${constancia.codigo} v${constancia.version}`,
       hashConstancia: constancia.hashSha256,
+      plazoPagoVenceEn,
     },
     aceptacion: {
       versionTexto: entrada.versionTextoAceptado,

@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   FIRMANTES_POR_DOCUMENTO,
   firmantesConjuntos,
+  firmantesDiferidos,
   firmantesDe, VERSION_BLOQUE_FIRMAS } from "../firmantes-documento";
 
 describe("firmantes por documento (D-13)", () => {
@@ -40,50 +41,66 @@ describe("firmantes por documento (D-13)", () => {
     }
   });
 
-  it("ninguna institucional en modalidad CONJUNTO precede al cliente", () => {
+  it("ninguna institucional en modalidad CONJUNTO o DIFERIDO precede al cliente", () => {
     // `PREFIRMADO` sí puede ir antes: la firma ya está sobre el documento
     // cuando el cliente lo recibe, como una póliza modelo. `CONJUNTO` no,
-    // porque se aplica en el mismo acto y después de la del cliente.
+    // porque se aplica en el mismo acto y después de la del cliente, y
+    // `DIFERIDO` tampoco —se aplica después del pago, que ya exige la firma
+    // del cliente— aunque acá se lo verifica igual, por si algún día deja de
+    // ser cierto por construcción.
     for (const firmantes of Object.values(FIRMANTES_POR_DOCUMENTO)) {
       const indiceCliente = firmantes.findIndex((firmante) => firmante.rol === "CLIENTE");
       if (indiceCliente === -1) continue;
 
-      const conjuntasAntes = firmantes
+      const antesDelCliente = firmantes
         .slice(0, indiceCliente)
-        .filter((firmante) => firmante.modalidad === "CONJUNTO");
-      expect(conjuntasAntes).toEqual([]);
+        .filter((firmante) => firmante.modalidad === "CONJUNTO" || firmante.modalidad === "DIFERIDO");
+      expect(antesDelCliente).toEqual([]);
     }
   });
 
-  it("el paquete lo firman el cliente, Interseguros y Alianza, en ese orden", () => {
-    // D-13 establece que Alianza firma la propuesta. La Matriz V4 §2 todavía
-    // dice lo contrario ("Alianza no firma la propuesta salvo exigencia del
-    // modelo"); manda D-13 y ALR-07 registra que Legal actualice la matriz.
+  it("el paquete lo firman el cliente e Interseguros; Alianza no firma la propuesta", () => {
+    // D-08 enmendada (04-sep-2026) / D-42: la Res. 215/17 num. 11.15 prevé la
+    // firma del corredor o del proponente, y nada exige la de la aseguradora
+    // — la Matriz V4 §7 tenía razón. ALR-07 quedó cerrada sin cambiar la
+    // matriz.
     expect(firmantesDe("PAQUETE").map((firmante) => firmante.rol)).toEqual([
       "CLIENTE",
       "INTERSEGUROS",
-      "ALIANZA",
     ]);
+  });
+
+  it("Interseguros firma el paquete en modalidad DIFERIDO, después del pago (D-38, D-42)", () => {
+    const interseguros = firmantesDe("PAQUETE").find((firmante) => firmante.rol === "INTERSEGUROS");
+    expect(interseguros?.modalidad).toBe("DIFERIDO");
+    expect(interseguros?.nivel).toBe("CUALIFICADA");
+    expect(interseguros?.leyenda).toContain("después del pago");
   });
 
   it("el CPC lo firma solo Alianza, y prefirmado", () => {
     // Matriz V4 §2, pantalla 6: "Cliente e Interseguros no firman el CPC por
-    // defecto". El documento todavía no existe —es L5— pero su configuración
-    // vive acá para no tener que decidir esto otra vez en otro lado.
+    // defecto". Sigue como está: D-42 mueve quién lo genera y por dónde
+    // llega la firma de Alianza, no esta configuración.
     expect(firmantesDe("CPC").map((firmante) => firmante.rol)).toEqual(["ALIANZA"]);
     expect(firmantesDe("CPC")[0].modalidad).toBe("PREFIRMADO");
   });
 
-  it("`firmantesConjuntos` trae las que hay que aplicar después de la del cliente", () => {
-    const conjuntos = firmantesConjuntos("PAQUETE");
+  it("`firmantesConjuntos` ya no trae ninguna institucional del paquete", () => {
+    // Quedó de la versión anterior a D-08 enmendada, cuando Interseguros y
+    // Alianza firmaban junto con el cliente. Hoy ningún firmante institucional
+    // está en modalidad CONJUNTO.
+    expect(firmantesConjuntos("PAQUETE")).toEqual([]);
+    expect(firmantesConjuntos("CPC")).toEqual([]);
+  });
 
-    // Ni el cliente —su firma no es "institucional"— ni las prefirmadas, que
-    // ya están sobre el documento.
-    expect(conjuntos.map((firmante) => firmante.rol)).toEqual(["INTERSEGUROS", "ALIANZA"]);
-    expect(conjuntos.every((firmante) => firmante.modalidad === "CONJUNTO")).toBe(true);
+  it("`firmantesDiferidos` trae la firma que se aplica después del pago", () => {
+    const diferidos = firmantesDiferidos("PAQUETE");
+
+    expect(diferidos.map((firmante) => firmante.rol)).toEqual(["INTERSEGUROS"]);
+    expect(diferidos.every((firmante) => firmante.modalidad === "DIFERIDO")).toBe(true);
 
     // El CPC no tiene ninguna: la de Alianza es prefirmada.
-    expect(firmantesConjuntos("CPC")).toEqual([]);
+    expect(firmantesDiferidos("CPC")).toEqual([]);
   });
 
   it("cada firmante trae la leyenda que se imprime en el PDF", () => {

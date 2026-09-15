@@ -8,27 +8,36 @@
  * 1. `iniciarPagoP7` — los botones de QR, débito y crédito. Valida la factura
  *    y abre la operación en Bancard. **No mueve el estado del expediente.**
  * 2. `confirmarPagoP7` — el sondeo que hace la pantalla mientras espera. Es lo
- *    único que puede llevar el expediente de FIRMADO a PAGO_CONFIRMADO.
- * 3. `vencerPlazoPagoP7` — el plazo de 24 horas cumplido sin cobro: FIRMADO →
- *    VENCIDO (D-10), **y la operación abierta en Bancard se apaga**.
+ *    único que puede llevar el expediente de FIRMADO_CLIENTE a PAGO_CONFIRMADO.
+ * 3. `vencerPlazoPagoP7` — el plazo de 10 minutos cumplido sin cobro:
+ *    FIRMADO_CLIENTE → VENCIDO (D-10, D-32), **y la operación abierta en
+ *    Bancard se apaga**.
  *
- * ## D-08 · este paso ahora va después de la firma
+ * ## D-08 · este paso ahora va después de la firma del cliente
  *
  * Hasta el Lote 4 se cobraba primero y se firmaba después, y este módulo
  * acuñaba el correlativo de la propuesta. Invertido el orden (Matriz Legal V4
  * §7), el correlativo nace con los documentos —que se cierran antes de
  * firmar— y acá solo se lo cita. Lo que este módulo gana es el vencimiento: el
- * reloj de 24 horas corre sobre un expediente **firmado y no pagado**, así que
- * caducar dejó de costar plata y la fila 30 de la matriz (*"Devolver el premio
- * si el cliente no firma dentro del plazo comunicado"*) queda satisfecha de la
- * única manera que no puede fallar: no cobrando antes.
+ * reloj de 10 minutos (D-32) corre sobre un expediente **firmado por el
+ * cliente y no pagado**, así que caducar dejó de costar plata y la fila 30 de
+ * la matriz (*"Devolver el premio si el cliente no firma dentro del plazo
+ * comunicado"*) queda satisfecha de la única manera que no puede fallar: no
+ * cobrando antes.
+ *
+ * **Enmienda del 04-sep-2026 a D-08:** el estado de origen bajó un peldaño,
+ * de `FIRMADO` a `FIRMADO_CLIENTE`. La firma cualificada de Interseguros ya no
+ * es condición para cobrar: se aplica después, sobre el expediente cobrado
+ * (D-38), así que esperarla acá volvería a acoplar el cobro a una latencia que
+ * la enmienda sacó del camino crítico.
  *
  * ## Las tres reglas que este módulo hace imposibles de violar
  *
  * **No se cobra sin firma.** El único estado desde el que se puede operar es
- * FIRMADO, al que solo se llega con el paquete cerrado y hasheado, la firma
- * del cliente registrada y las institucionales aplicadas. Es la garantía que
- * pide la Matriz V4 §7: el medio de cobro solo se habilita con firma válida.
+ * FIRMADO_CLIENTE, al que solo se llega con el paquete cerrado y hasheado y la
+ * firma del cliente registrada — la institucional ya no es condición (D-38).
+ * Es la garantía que pide la Matriz V4 §7: el medio de cobro solo se habilita
+ * con firma válida.
  *
  * **El importe no lo elige el cliente.** Sale de `expediente.plan.premioAnualGs`
  * —el premio que la persona vio y que quedó hasheado en P2— y no del cuerpo
@@ -147,10 +156,12 @@ export type EmisorCertificadoCobertura = (entrada: {
  * Único estado desde el que este paso puede operar.
  *
  * Era `DECLARACIONES_OK` mientras se cobraba antes de firmar. Con el orden
- * invertido (D-08) el cobro solo se habilita con el expediente firmado por
- * todos los intervinientes.
+ * invertido (D-08) el cobro se habilita con la firma del cliente — y, desde
+ * la enmienda del 04-sep-2026, ya no hace falta esperar a la institucional de
+ * Interseguros: se aplica después, sobre el expediente cobrado (D-38). El
+ * estado de origen pasó de `FIRMADO` a `FIRMADO_CLIENTE`.
  */
-export const ESTADO_REQUERIDO_P7: EstadoExpediente = "FIRMADO";
+export const ESTADO_REQUERIDO_P7: EstadoExpediente = "FIRMADO_CLIENTE";
 
 export const PASO_EVIDENCIA_INICIO_P7 = "P7_INICIO_PAGO";
 export const PASO_EVIDENCIA_CONFIRMACION_P7 = "P7_CONFIRMACION_PAGO";
@@ -306,8 +317,8 @@ export type MotivoRechazoP7 =
    * Provisional no se pudo cerrar, así que el pago **no se confirmó**: la
    * secuencia pago → CPC es atómica (CMP-07) y confirmar sin certificado
    * dejaría a la persona cobrada y sin constancia de desde cuándo está
-   * cubierta. El expediente se queda en `FIRMADO` y el próximo sondeo lo
-   * reintenta entero — el dinero ya entró en Bancard, la operación no se
+   * cubierta. El expediente se queda en `FIRMADO_CLIENTE` y el próximo sondeo
+   * lo reintenta entero — el dinero ya entró en Bancard, la operación no se
    * repite (la clave de idempotencia es la misma).
    */
   | "CERTIFICADO_NO_EMITIDO"
@@ -605,7 +616,7 @@ async function reversarOperacionAbierta(
   // Solo hay algo que apagar si quedó una operación viva. Un pago ya
   // `CANCELADO`, `RECHAZADO` o `DEVUELTO` es un final del lado del proveedor, y
   // uno `CONFIRMADO` no puede coexistir con un vencimiento (la máquina de
-  // estados solo vence desde FIRMADO).
+  // estados solo vence desde FIRMADO_CLIENTE, y como legado desde FIRMADO).
   if (!pago || pago.estado !== "PENDIENTE" || !pago.referenciaBancard) return expediente;
 
   const estado = await apagarOperacionEnBancard(
@@ -1046,7 +1057,7 @@ async function intentarConfirmarPagoP7(
   // G2 · Bancard procesó el intento y lo rechazó. **No es un error del
   // sistema ni un final del expediente**: es un intento de cobro que salió mal
   // y la persona tiene que poder hacer otro, con otra tarjeta o con otro
-  // medio. El expediente se queda en FIRMADO y solo cambia el `Pago`.
+  // medio. El expediente se queda en FIRMADO_CLIENTE y solo cambia el `Pago`.
   //
   // Que este camino exista lo habilitó B10-bis: el rechazo llega por las dos
   // vías —el callback lo notifica y `get_confirmation` lo devuelve con su

@@ -312,3 +312,14 @@ export const ROTULO_BOTON_FINALIZAR_P9 = "FINALIZAR / Volver al inicio";
  */
 export const LEYENDA_CIERRE_P9 =
   "Interseguros continuará brindándote asesoramiento y asistencia durante todo el proceso.";
+
+/**
+ * D-38/D-42 · texto mínimo para el caso en que el expediente ya cobró pero la
+ * firma institucional diferida de Interseguros todavía no llegó —motivo
+ * `FIRMA_CORREDOR_PENDIENTE` de `emitirPolizaP9`—. No hay pantalla propia
+ * (05B sin arte aprobado, D-41): esto solo cubre el texto, para el día que
+ * haga falta mostrarlo en algún estado intermedio de la confirmación.
+ */
+export const TEXTO_FIRMA_CORREDOR_PENDIENTE_P9 =
+  "Ya acreditamos tu pago. Estamos terminando de firmar tu solicitud con el corredor; " +
+  "te avisamos apenas quede lista.";

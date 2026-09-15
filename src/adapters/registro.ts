@@ -462,8 +462,8 @@ export function obtenerPolicyIssuer(): PolicyIssuer {
 }
 
 /**
- * Plazo para pagar que rige en este proceso: 24 horas, o lo que haya fijado
- * el panel de demo con `DEMO_MODE=true` (`mock/plazo-pago-demo.ts`).
+ * Plazo para pagar que rige en este proceso: 10 minutos (D-32), o lo que haya
+ * fijado el panel de demo con `DEMO_MODE=true` (`mock/plazo-pago-demo.ts`).
  *
  * Se expone desde el composition root —y no importando el módulo mock desde
  * `src/app/`— por la misma razón que los proveedores: los Route Handlers del
@@ -474,14 +474,33 @@ export function obtenerPlazoPagoMs(): number {
 }
 
 /**
- * `true` una sola vez si el panel armó la falla de firmas institucionales.
+ * `true` una sola vez si el panel armó la falla de firmas institucionales
+ * diferidas.
  *
  * Se expone desde el composition root por la misma razón que los proveedores:
- * la pantalla de firma no tiene por qué saber que existe un modo demo, y en un
- * despliegue normal `consumirFallaDemo` devuelve siempre `false`.
+ * P9 no tiene por qué saber que existe un modo demo, y en un despliegue
+ * normal `consumirFallaDemo` devuelve siempre `false`. Antes de la enmienda
+ * del 04-sep a D-08 esto alimentaba a P8; ahora alimenta a
+ * `aplicarFirmasDiferidas`, que corre después del pago (`emision-p9.ts`).
  */
 export function firmasInstitucionalesCaidas(): boolean {
   return consumirFallaDemo("FIRMAS_INSTITUCIONALES_FALLAN");
+}
+
+/**
+ * `true` si el adaptador de firma activo puede aplicar en línea las firmas
+ * institucionales diferidas (D-38, D-42) apenas se confirma el pago.
+ *
+ * Es una capacidad **del adaptador**, no del modo demo: solo la tiene el
+ * mock. En producción, la firma cualificada de Interseguros llega por el
+ * lote externo que D-38 describe —todavía sin construir—, nunca por este
+ * puerto, así que el adaptador oficial de Code100 (cuando exista) tampoco la
+ * va a declarar: esta función seguirá devolviendo `false` hasta que exista el
+ * lote, con o sin adaptador oficial de por medio. `emision-p9.ts` la usa para
+ * decidir si cablea `DependenciasP9.aplicarFirmasDiferidas`.
+ */
+export function aplicaFirmasDiferidasEnLinea(): boolean {
+  return resolverModoIntegracion("SIGNATURE") === "mock";
 }
 
 /**

@@ -37,7 +37,7 @@ import type {
 } from "../../ports/messaging-provider";
 import type { Expediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion } from "../verificacion-canal";
-import { certificadoFixture, expedienteEnPagoConfirmado, expedienteFirmado } from "./fixtures";
+import { certificadoFixture, expedienteFirmado, expedienteFirmadoTrasElPago } from "./fixtures";
 import { registrarEmisionP9 } from "../expediente";
 
 const AHORA = "2026-08-09T15:20:00.000Z";
@@ -53,7 +53,8 @@ const CONTEXTO: ContextoPeticion = {
 // ---------------------------------------------------------------------------
 
 function expedienteEmitido(): Expediente {
-  const cobrado = expedienteEnPagoConfirmado("EXP-ENTREGA");
+  // D-38/D-42 · la emisión exige la firma institucional diferida ya aplicada.
+  const cobrado = expedienteFirmadoTrasElPago("EXP-ENTREGA");
   const emitido = registrarEmisionP9(
     cobrado,
     {

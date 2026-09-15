@@ -13,11 +13,7 @@
  * Archivo con guion bajo: App Router solo enruta `route.ts`, así que esto no
  * queda expuesto como endpoint.
  */
-import {
-  firmasInstitucionalesCaidas,
-  obtenerPlazoPagoMs,
-  obtenerSignatureProvider,
-} from "@/adapters/registro";
+import { obtenerPlazoPagoMs, obtenerSignatureProvider } from "@/adapters/registro";
 import type { DependenciasP8 } from "@/domain/firma-p8";
 import type { EmisorConstanciaFirma } from "@/domain/firma-cliente";
 import type { DependenciasDocumentos } from "@/documentos";
@@ -30,11 +26,10 @@ export function dependenciasP8(): DependenciasP8 {
     firmas: obtenerSignatureProvider(),
     expedientes: crearExpedienteRepository(),
     evidencias: crearEvidenceStore(),
-    // 24 horas, salvo que el panel de demo lo haya comprimido. Se congela en
-    // el expediente al aplicarse las firmas institucionales: cambiarlo después
-    // no mueve un vencimiento ya calculado.
+    // 10 minutos (D-32), salvo que el panel de demo lo haya comprimido. Se
+    // congela en el expediente al confirmarse la firma del cliente: cambiarlo
+    // después no mueve un vencimiento ya calculado.
     plazoPagoMs: obtenerPlazoPagoMs(),
-    firmasInstitucionalesCaidas,
   };
 }
 

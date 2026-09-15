@@ -51,9 +51,10 @@ import { ModalVisorPdf } from "./ModalVisorPdf";
  * campo de código: el tercer OTP del flujo no pasa por SeguroLoTengo (regla
  * inviolable #2), y mientras tanto la pantalla solo sondea.
  *
- * **Ya no muestra ninguna cuenta regresiva** (D-08): el plazo de 24 horas
- * arranca cuando el expediente queda firmado y corre en el paso de pago, que
- * ahora viene después. Acá no hay nada que caduque.
+ * **Ya no muestra ninguna cuenta regresiva** (D-08): el plazo de 10 minutos
+ * (D-32) arranca cuando el cliente firma —no cuando la institucional se
+ * aplica, que ahora ocurre después del pago (D-38)— y corre en el paso de
+ * pago, que viene después. Acá no hay nada que caduque.
  */
 
 interface DocumentoVisible {
