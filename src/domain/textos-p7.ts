@@ -195,13 +195,14 @@ export const TEXTOS_MEDIOS_DE_PAGO_P7: readonly TextoMedioDePago[] = [
 /** Opción por defecto de la especificación. */
 export const MEDIO_POR_DEFECTO_P7: MedioDePago = "QR_BANCARD";
 
-export const TITULO_PLAZO_PAGO_P7 = "Plazo para pagar: 24 horas";
+export const TITULO_PLAZO_PAGO_P7 = "Plazo para pagar: 10 minutos";
 
 /**
- * Aviso del plazo (D-10). **No promete ninguna devolución**, y esa es la
- * diferencia con el aviso que había mientras se cobraba primero: bajo este
- * orden el expediente caduca antes de que exista un cobro, así que no hay
- * premio que devolver ni trámite presencial que hacer.
+ * Aviso del plazo (D-10, D-32: 10 minutos desde la firma del cliente). **No
+ * promete ninguna devolución**, y esa es la diferencia con el aviso que había
+ * mientras se cobraba primero: bajo este orden el expediente caduca antes de
+ * que exista un cobro, así que no hay premio que devolver ni trámite
+ * presencial que hacer.
  *
  * ## El aviso de vencimiento existe, y no lo manda este sistema
  *
@@ -218,13 +219,13 @@ export const TITULO_PLAZO_PAGO_P7 = "Plazo para pagar: 24 horas";
  * deliberada.
  */
 export const AVISO_PLAZO_PAGO_P7 =
-  "Si el pago no se completa dentro de 24 horas, la solicitud vence y se avisa por WhatsApp y " +
+  "Si el pago no se completa dentro de 10 minutos, la solicitud vence y se avisa por WhatsApp y " +
   "correo. No hubo cobro, así que no hay nada que devolver: podés iniciar una solicitud nueva.";
 
 export const AVISO_PLAZO_RESTANTE_P7 = "Tiempo restante para pagar";
 
 export const AVISO_PLAZO_VENCIDO_P7 =
-  "Se cumplió el plazo de 24 horas para pagar. Tu solicitud venció; no se cobró nada.";
+  "Se cumplió el plazo de 10 minutos para pagar. Tu solicitud venció; no se cobró nada.";
 
 export const TITULO_DEPENDENCIA_BANCARD_P7 = "Dependencia de Bancard";
 

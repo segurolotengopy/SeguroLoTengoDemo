@@ -21,10 +21,11 @@ import {
  * paga, y el expediente caduca sin que se haya movido un guaraní. Es
  * exactamente lo que buscaba la inversión: vencer dejó de costar plata.
  *
- * El plazo se fija **antes** de firmar, con la palanca más corta que ofrece el
- * panel y que sigue dejando margen para completar la firma sin flakiness (30
- * segundos, no el piso de 5): el reloj arranca al aplicarse las firmas
- * institucionales.
+ * El plazo se fija **antes** de firmar, con una palanca corta que sigue
+ * dejando margen para completar la firma sin flakiness (30 segundos, no el
+ * piso de 5): desde la enmienda del 04-sep-2026 a D-08 y D-32, el reloj
+ * arranca con la firma del cliente, no con la institucional —que ahora se
+ * aplica después del pago (D-38) y no bloquea este escenario.
  *
  * Con Lucía Fernanda Ortiz Meza (C.I. 6.155.740) — la persona de prueba
  * pensada para este desenlace.
@@ -49,7 +50,7 @@ test("expediente firmado sin pagar dentro del plazo dispara Pantalla B", async (
   await completarP6(page, persona);
   await enviarP6(page, /\/firma$/);
 
-  // Se firma, y ahí arranca el reloj de las 24 horas comprimidas.
+  // Se firma, y ahí arranca el reloj de los 10 minutos comprimidos (D-32).
   const idCode100 = await enviarEnlaceYAbrir(page);
   await firmarNormalmente(page, idCode100);
 
@@ -59,7 +60,7 @@ test("expediente firmado sin pagar dentro del plazo dispara Pantalla B", async (
 
   // La propia pantalla de pago lleva sola a Pantalla B en cuanto el plazo se
   // cumple: ni bien el contador llega a cero, `POST /api/p7/vencimiento` hace
-  // la transición FIRMADO → VENCIDO.
+  // la transición FIRMADO_CLIENTE → VENCIDO.
   await expect(page).toHaveURL(/\/solicitud-vencida$/, { timeout: 60_000 });
 
   await expect(page.getByText("Tu solicitud venció porque no completaste el pago")).toBeVisible();

@@ -14,8 +14,8 @@
  * pasar cuando alguien recarga la pantalla (regenerar exigiría versión y
  * huellas nuevas).
  *
- * **Ya no evalúa ningún plazo** (D-08): el reloj de 24 horas arranca al quedar
- * firmado el expediente y corre en el paso de pago, no acá.
+ * **Ya no evalúa ningún plazo** (D-08): el reloj de 10 minutos (D-32) arranca
+ * al confirmarse la firma del cliente y corre en el paso de pago, no acá.
  */
 import { COOKIE_SESION, resolverContextoHttp, respuestaJson } from "@/app/api/_http/contexto-peticion";
 import { dependenciasDocumentosP8 } from "@/app/api/p8/_dependencias";

@@ -4,11 +4,17 @@
  * Orquestador del paso 3 (lote F4b), patrón de `Inscripcion.tsx`/`Seguro.tsx`.
  *
  * Dos secciones gateadas por el estado del expediente: la firma (activa en
- * `DECLARACIONES_OK`/`PAQUETE_GENERADO`/`FIRMADO_CLIENTE`, colapsa a ✓ con
- * `FIRMADO`) y el pago (bloqueada hasta `FIRMADO` — regla 6-bis: no hay cobro
- * sin firma). Completada la firma, `router.refresh()` re-dibuja con el gating
- * nuevo; el pago no navega al confirmar (muestra el enlace a la confirmación,
- * como en v2).
+ * `DECLARACIONES_OK`/`PAQUETE_GENERADO`, colapsa a ✓ con `FIRMADO_CLIENTE`) y
+ * el pago (bloqueada hasta `FIRMADO_CLIENTE` — regla 6-bis re-baseada el
+ * 04-sep-2026: el cobro se habilita con la firma del cliente, no con la
+ * institucional, que ahora se aplica después del pago, D-38). Completada la
+ * firma, `router.refresh()` re-dibuja con el gating nuevo; el pago no navega
+ * al confirmar (muestra el enlace a la confirmación, como en v2).
+ *
+ * `FIRMADO` se trata igual que `FIRMADO_CLIENTE` acá: bajo el orden nuevo esta
+ * página nunca lo observa en los hechos —el expediente sale hacia
+ * `/confirmacion` apenas se cobra—, pero queda cubierto por si algún día un
+ * expediente legado llega a mostrarse acá.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -33,7 +39,7 @@ export interface PagoYFirmaProps {
 export function PagoYFirma(props: PagoYFirmaProps) {
   const router = useRouter();
   const [verEvidencia, setVerEvidencia] = useState(false);
-  const firmado = props.estado === "FIRMADO";
+  const firmado = props.estado === "FIRMADO_CLIENTE" || props.estado === "FIRMADO";
   const con = (frase: string) =>
     props.nombrePila ? `${props.nombrePila}, ${frase}` : frase.charAt(0).toUpperCase() + frase.slice(1);
 

@@ -67,8 +67,8 @@ export const BAJADA_PANTALLA_B =
 
 /** Variante del flujo vigente: se firmó, no se pagó, y por eso no hay nada que devolver. */
 export const BAJADA_PANTALLA_B_SIN_COBRO =
-  "No se realizó ningún cobro: firmaste la Solicitud pero el pago no llegó dentro de las 24 horas, " +
-  "así que no hay nada que devolverte. Te informamos por WhatsApp y correo verificados.";
+  "No se realizó ningún cobro: firmaste la Solicitud pero el pago no llegó dentro de los 10 " +
+  "minutos, así que no hay nada que devolverte. Te informamos por WhatsApp y correo verificados.";
 
 /** Rótulo del bloque derecho del encabezado. */
 export const ROTULO_PRODUCTO_PANTALLA_B = "Seguro de Vida Oncológico";
