@@ -1,3 +1,4 @@
+import { BOTON_CONTINUAR_PLAN } from "@/domain/textos-plan";
 /**
  * Helpers de un paso por pantalla del flujo P0–P9, para no repetir selectores
  * en cada escenario. Cada función usa los textos reales de
@@ -164,7 +165,7 @@ export async function completarPlan(page: Page, persona: PersonaDemo): Promise<v
   await tarjeta.getByRole("radio").click();
   await expect(tarjeta.getByRole("radio")).toHaveAttribute("aria-checked", "true");
 
-  await page.getByRole("button", { name: "CONTINUAR", exact: true }).click();
+  await page.getByRole("button", { name: BOTON_CONTINUAR_PLAN, exact: true }).click();
   await expect(page).toHaveURL(/\/whatsapp$/);
 }
 
