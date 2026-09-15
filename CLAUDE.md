@@ -72,6 +72,29 @@ esto está implementado: la regla 6-bis, la máquina de estados, la sección del
 CPC y los «tres descargables» de más abajo siguen describiendo el código de hoy,
 y se reescriben con el lote que los cambie.
 
+### ⚠️ Pantallas v4 y manual funcional (14/15-sep-2026), pendientes de implementar
+
+Interseguros mandó el handoff de pantallas v4 y el manual funcional
+(`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/`). Andres decidió
+D-28 a D-41 (Bloque G de `docs/plan/DECISIONES.md`). Lo que cambia:
+
+- **Fuente visual:** v4 reemplaza al prototipo v3 de Lovable. Manda el
+  **manual**, después el arte `APROBADA_FINAL`, después el JSON.
+- **Flujo:** 5 etapas con portada. El plazo de pago pasa a **10 minutos**
+  desde la firma del cliente.
+- **Datos:** en 03D los datos extraídos son editables y se registran, pero la
+  **elegibilidad y el bloqueo se calculan con el OCR**.
+- **Canales y firmas:** SMS de contingencia sobre AWS. Interseguros firma en
+  lote por fuera del sistema.
+- **Presentación:** voseo en todo, sin modo oscuro en la primera fase, Arimo
+  en lugar de DM Sans, y analítica sin datos sensibles.
+
+**Antes de tocar una pantalla o una regla del flujo, leé el `ANALISIS.md` de
+esa carpeta**: lista qué se adopta, qué choca con las reglas de abajo
+(conflictos C-1 a C-14, sin decidir) y en qué orden se implementa. Nada de esto
+está implementado todavía: las reglas y la máquina de estados de este archivo
+siguen describiendo el código de hoy, y se corrigen con el lote que las cambie.
+
 ### Documentos fuente adicionales
 
 Además de `ESPECIFICACION_PANTALLAS.md`, estos documentos en `docs/` son fuente de verdad de aspectos específicos. Cargalos antes de tocar el área indicada — no asumas su contenido de memoria si pasó tiempo desde la última lectura.

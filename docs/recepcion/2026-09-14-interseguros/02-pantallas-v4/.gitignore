@@ -1,0 +1,15 @@
+# Referencia visual local (decisión de Andres, 15-sep-2026): no se versiona.
+#
+# - Los 103 PNG del handoff (73 MB). Su integridad se comprueba con el SHA-256
+#   de cada uno, que sí está versionado en data/screen_manifest.csv.
+# - El PDF del manual funcional (30 MB): embebe esos mismos PNG. Se versiona su
+#   transcripción de texto (MANUAL_FUNCIONAL_TRANSCRIPCION.txt) con la huella
+#   del original.
+# - El zip original del handoff.
+SEGUROLOTENGO_HANDOFF_PROGRAMACION_2026-09-14/assets/
+*.pdf
+*.zip
+
+# La carpeta padre ignora todo *.txt (el TXT de Alianza trae datos reales).
+# La transcripción del manual no tiene datos personales y sí se versiona.
+!MANUAL_FUNCIONAL_TRANSCRIPCION.txt

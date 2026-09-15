@@ -38,6 +38,138 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-15 · Pantallas v4 y manual funcional: recepción, análisis y decisiones D-28 a D-41
+
+**Rama:** `docs/recepcion-rodrigo-14-sep` · **Pedido de Andres:** analizar el
+handoff de pantallas v4 y el manual funcional que mandó Rodrigo el 14-sep, y
+asentar la recepción (paso 1), usando varios agentes.
+
+### El caso
+
+Rodrigo mandó el 14-sep dos piezas para la capa de presentación:
+
+- **Un handoff técnico:** 103 artes PNG (81 aprobados, 22 candidatos),
+  `screens.json`, la especificación de 03D y un manifiesto con el SHA-256 de
+  cada arte.
+- **Un manual funcional** de 147 páginas.
+
+El análisis encontró que v4 redefine el flujo entero: 5 etapas con portada,
+producto VIVE, premios nuevos, identidad visual navy y rojo con Nimbus Sans, SMS
+de contingencia y un pago en 10 minutos. Varias cosas chocan con reglas
+inviolables y con decisiones ya tomadas. Sobre ese análisis Andres decidió
+quince puntos.
+
+### Qué cambió
+
+Solo documentación. No hay cambios de código.
+
+- **`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/`:**
+  - el handoff **sin los PNG** (`.gitignore`, D-28);
+  - la transcripción literal del manual, con la huella del PDF original, que
+    tampoco se versiona porque embebe los mismos PNG;
+  - `README.md`, con las huellas y cómo tener la referencia local;
+  - `ANALISIS.md`: el contraste con el repo, las etapas efectivas, los
+    conflictos C-1 a C-14 y el plan de implementación;
+  - `textos/`: la transcripción de los 79 artes aprobados con su adaptación a
+    voseo, hecha por tres agentes leyendo los PNG, sin ninguna marca de
+    `[ilegible]`.
+- **`docs/plan/DECISIONES.md`:**
+  - Bloque G con **D-28 a D-41**;
+  - nota en D-10: pasa a 10 minutos por D-32;
+  - datos de contacto recibidos en D-19.
+- **`docs/plan/DISENO_FIRMA_EN_LOTE.md`:** diseño en estado de **propuesta**
+  para la entrega y recepción de la firma institucional en lote (D-38). El
+  emparejamiento es por el prefijo de la revisión PAdES incremental, no por el
+  nombre del archivo.
+- **`docs/Tabla de Integraciones externas - Tabla.csv`:** la fila 2 registra
+  AWS End User Messaging SMS como contingencia (D-37), antes de escribir código.
+- **`CLAUDE.md`:** un aviso de las decisiones v4 pendientes de implementar,
+  igual que el del 04-sep.
+- **`docs/recepcion/2026-09-14-interseguros/README.md`:** el estado de P0–P7.
+
+### Qué se estableció
+
+- **P0:** resuelta. v4 tiene 5 etapas con el plan primero; el v3 de Lovable
+  queda superado.
+- **P1: contradicha.** El manual (p. 9) pone a Alianza como firmante de la
+  Solicitud + FIPF y como **emisora** del CPC. El WhatsApp de Rodrigo del 14-sep
+  decía lo contrario en los dos puntos. Se le vuelve a preguntar (C-4 y C-5).
+- **El manual choca con decisiones anteriores:**
+  - **D-01:** mete la publicidad en la casilla obligatoria del OTP (C-1);
+  - **D-25:** vuelve el sexo un selector (C-9);
+  - **CHG-41:** hace empezar la cobertura al acreditarse el pago, no 24 h
+    después (C-3);
+  - **fila 64:** elimina el retracto (C-7);
+  - **fila 85:** pone Google Analytics sin opción de rechazo (C-2).
+  Nada de esto se implementa hasta decidirse.
+- **El consentimiento biométrico que el manual exige en 03C no está dibujado**
+  en ninguno de los 26 estados. La casilla de 03B ya cubre su contenido (C-13).
+- **Paraguay no admite remitente propio para SMS en AWS:** ni sender ID, ni
+  número largo, ni código corto. La entrega es *best effort*, a USD 0,11457 por
+  mensaje.
+- **Tipografía:** Arimo (OFL, Google Fonts, pesos de 400 a 700). La Nimbus Sans
+  de URW no sirve como webfont comercial: su excepción AGPL cubre solo
+  PostScript y PDF.
+- **Hoy no hay ninguna analítica en el código.** El riesgo más alto al agregar
+  Google Analytics es `/verificar/<código>`, que lleva el correlativo en la URL
+  y en el título.
+- **Defecto encontrado de paso:** `verificarOtpDeCanal` no exige que el OTP sea
+  el último emitido, así que tras un reenvío el anterior sigue sirviendo hasta
+  vencer. Andres lo lanzó como tarea aparte.
+
+### Qué hizo Andres
+
+- Decidió los quince puntos del 15-sep, asentados como D-28 a D-41.
+- Pidió que el paso 1 se hiciera con varios agentes, y lanzó en una sesión
+  aparte la corrección del OTP anterior.
+- **Definió, de forma preliminar, los firmantes (D-42):**
+  - la Solicitud + FIPF lleva **dos firmas**: el cliente (no cualificada, con
+    OTP web) e Interseguros (cualificada, Code100);
+  - el **CPC lo genera Interseguros y lo firma Alianza**.
+
+  Con eso C-4 y C-5 quedan resueltos de forma preliminar. **Cerró C-13:** la
+  casilla de 03B cubre el consentimiento biométrico, que es obligatorio.
+- Pidió un correo a Rodrigo para que responda las preguntas. Quedó redactado en
+  `BORRADOR_CORREO_RODRIGO_V4.md`, **sin enviar**.
+- Pidió un agente para el **envío y recepción de PDFs con Alianza por SFTP**:
+  IP fija con Terraform, y VPN IPsec preparada para cuando Alianza responda.
+  Corre en su propio worktree, sin `apply` ni push.
+
+### Verificaciones
+
+- Los 103 PNG coinciden con el SHA-256 del manifiesto (`sha256sum -c`, sin
+  diferencias).
+- Huellas de lo que no se versiona:
+  - manual `55249b71…0ef0` (30 530 356 bytes);
+  - zip `7b2cf4e3…36ef7` (74 518 642 bytes).
+- **`higiene-de-citas`:** 17 tests en verde. Revisa los documentos nuevos en
+  busca de normas derogadas y datos de contacto inventados.
+- **Suite completa:** 1340 tests en 99 archivos, en verde. Sin cambios de
+  código, así que los mismos números que dejó `main`.
+
+### Queda abierto
+
+- **Rodrigo:**
+  - C-4 y C-5: quién emite el CPC, y si Alianza firma la Solicitud + FIPF;
+  - C-6: qué se descarga en la confirmación;
+  - C-13: el consentimiento biométrico;
+  - C-14: «canales verificados»;
+  - el logo en SVG, los textos editables y la disposición de escritorio;
+  - las inconsistencias del §4 del análisis.
+- **Legal:** C-1 (publicidad), C-2 (Google Analytics) y C-7 (retracto).
+- **Andres:**
+  - C-3 (inicio de la cobertura), C-8 (salir y descartar), C-9 (sexo), C-10
+    (veracidad) y C-12 (alteración por MRZ);
+  - qué se imprime en la Solicitud cuando el dato declarado difiere del leído
+    (D-31);
+  - si una discrepancia de cédula o de fecha manda el caso a revisión.
+- **Implementación:** el plan del `ANALISIS.md` §9, empezando por el PR de lo
+  compartido (necesita el SVG del logo).
+- **En curso, en otras sesiones:** el agente del SFTP de Alianza y la
+  corrección del OTP anterior.
+
+---
+
 ## 2026-09-14 · Interconexión con Alianza, la definición del 07-sep, y la carpeta de recepción
 
 **Rama:** `claude/alianza-garantia-integration-9febfc` · **Pedido de Andres:**
