@@ -103,6 +103,37 @@ se editan y el cambio **se asienta en la evidencia**, pero la `Identidad`
 conserva lo que leyó el OCR — que es de donde cuelgan el corte de edad (regla
 #8) y el bloqueo por cédula (regla #11).
 
+**Segundo tramo de la sesión (16-sep, por pedido de Andres: «elaborá las
+pantallas faltantes… usá varios agentes en paralelo»).** Cuatro agentes en
+paralelo, cada uno sobre sus propios archivos:
+
+- **04E · `/firma`** (`Pantalla04E.tsx`, `textos-firma.ts`): resumen del
+  paquete con código y huella, enlace al PDF, aviso de que las declaraciones
+  de licitud y veracidad van integradas al PDF, elección de canal para el
+  código de firma, seis casillas con vencimiento a 5 min y reenvío a 60 s, y
+  el aviso de los 10 minutos para pagar. Descubrió que las rutas
+  `/api/p8/firma-interna/{enviar,verificar}` estaban gateadas **solo por
+  `FLUJO_V3`** y respondían 404 en v4: se abrió la guarda a v3 **o** v4 (la
+  firma interna es el camino del cliente en los dos flujos).
+- **05A · `/pago`** (`Pantalla05A.tsx`, `textos-pago.ts`): contador de 10
+  minutos contra `plazoPagoVenceEn` del servidor, resumen del cobro con el
+  desglose provisional, tres medios como tarjetas seleccionables (QR, débito,
+  crédito) con los textos de Bancard ya versionados, y la ventana simulada del
+  proveedor reutilizada tal cual. `ModalBancard` no se reusó porque depende de
+  variables CSS scopeadas a `[data-flujo="v3"]`.
+- **05B · `/confirmacion`** (`Pantalla05B.tsx`, `textos-confirmacion.ts`,
+  `ilustracion-05b.tsx`): hitos estilo 03E2, ventana de cobertura, los cuatro
+  descargables y ninguno más, comunicaciones comerciales y el botón de
+  WhatsApp de contacto.
+- **Piel v4 de la cámara de 03C**: `CapturaConCamara` toma `piel="v4"` (azul
+  marino, marco punteado, obturador con anillo rojo, textos de
+  `TEXTOS_03C.camara`) sin tocar la lógica de captura ni la piel v2, que
+  sigue siendo la que recorre la batería E2E. El óvalo de la selfie queda
+  circular: estirarlo tocaría la geometría del recorte.
+
+Las tres pantallas **no tienen arte** y lo dicen en su cabecera: extrapolan el
+sistema de las aprobadas y se rehacen cuando llegue el arte.
+
 ### Qué hizo Andres
 
 Contestó las cuatro preguntas abiertas y fijó el alcance. Autorizó implementar
@@ -112,6 +143,13 @@ que la regla se levantó por pedido expreso y para este caso.
 
 ### Verificaciones
 
+- **Recorrido completo contra el servidor real, ahora hasta el final**: 24
+  pasos en verde, de la selección de plan a `EMITIDO` — firma interna con el
+  código leído del panel de demo, cobro por QR simulado, y los cuatro
+  documentos (`PROP-`, `CPC-`, comprobante y `CONST-`) descargables.
+- Capturas de 04E, 05A y 05B a 375 px con Chromium (Playwright) en cada
+  estado: firma con el código enviado, pago con el QR abierto y cobro
+  confirmado, confirmación con los documentos listos.
 - `npm run typecheck` y `npm run lint` limpios; **`npm test`: 1423 en verde**
   (eran 1413 antes de la sesión).
 - El test de arquitectura `derivado-manual-sin-salida` **detectó los cinco
@@ -131,6 +169,33 @@ que la regla se levantó por pedido expreso y para este caso.
 
 ### Queda abierto
 
+- **La rama nació de un `main` local 28 commits atrás de `origin/main`.** El
+  15-sep otras sesiones fusionaron el renombre a VIVE (con `PlanId` `CONFIO`
+  conservado), el plazo de 10 minutos, el cobro desde `FIRMADO_CLIENTE` con
+  la firma de Interseguros diferida al pago y Alianza fuera del paquete
+  (#120), y una **base visual v4 aplicada al flujo mismo, sin flag**, con la
+  pantalla 02 reescrita en su lugar (#126) y la batería E2E «v4» en verde
+  (#129). Esta rama duplica parte de eso con otra arquitectura (flag,
+  `MarcoV4`, `PlanId` renombrado) y **asume el grafo viejo**: 05A cobra desde
+  `FIRMADO` y 05B dice que Alianza firmó el paquete. Nueve archivos en
+  conflicto textual. **Decisión de Andres pendiente**: mandar `main`
+  (recomendado — retirar el flag, deshacer el renombre del `PlanId` y el
+  plazo, usar el header/stepper de `main`, portar las 11 pantallas y el
+  dominio nuevo encima, re-apuntar 04E/05A/05B al grafo real) o mantener el
+  flujo con flag. Es el error que la memoria ya advertía: comparar contra
+  `main` antes de analizar.
+- **El CI del PR #131 no arrancó**: cero runs del workflow para el commit,
+  solo las suites de Amplify y Claude en cola. Causa sin identificar; se
+  revisa después de fusionar `main` (el push volverá a disparar `pull_request`).
+- **«Podés iniciar una solicitud nueva»** (05A, heredado de v2 en
+  `AVISO_PLAZO_PAGO_P7`) choca con la regla #11, que bloquea la cédula tras
+  un `VENCIDO` hasta que la consola lo levante. Con un plazo de **10 minutos**
+  deja de ser un borde: quien tarda once queda bloqueado. Decisión de
+  producto para Andres — aflojar la regla #11 para `VENCIDO` o corregir el
+  texto.
+- **«Prima neta anual»** en el desglose de 05A: es el concepto fiscal (base
+  antes del IVA), distinto del «premio total» de D-47; se dejó como está y se
+  consulta.
 - **`04E`, `05A` y `05B` no tienen arte** —ni aprobado ni candidato— y siguen
   mostrando las pantallas de v2. Hay que pedírselo a Interseguros.
 - **La cámara de 03C conserva la piel de v2.** Funciona (disparo automático,

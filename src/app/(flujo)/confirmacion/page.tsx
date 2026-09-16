@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
 import { crearExpedienteRepository } from "@/repositories";
 import { sufijoTitulo } from "@/domain/entidades";
-import { flujoV3Activo } from "@/domain/flujo-vigente";
+import { flujoV3Activo, flujoV4Activo } from "@/domain/flujo-vigente";
+import { Pantalla05B } from "@/components/v4/pantallas/Pantalla05B";
 import type { Metadata } from "next";
 import {
   HeaderInstitucional,
@@ -73,6 +74,14 @@ async function firmaInternaDelExpediente(): Promise<boolean> {
 }
 
 export default async function PantallaP9Confirmacion() {
+  // v4 · 05B, sin arte aprobado (ver la cabecera de `Pantalla05B.tsx`): se
+  // implementa igual, por el mismo encargo del 16-sep-2026 que ya destrabó
+  // 03E. Mismo patrón que el resto de las páginas del flujo v4: la pantalla
+  // resuelve todo del lado del cliente contra los mismos endpoints de P9.
+  if (flujoV4Activo()) {
+    return <Pantalla05B />;
+  }
+
   // Esta pantalla es dueña de dos estados, no de uno: `PAGO_CONFIRMADO` —el
   // cobro entró y el certificado existe— y `EMITIDO`, que es a donde llega
   // después. Con cualquier otro, el componente se quedaba en un párrafo suelto

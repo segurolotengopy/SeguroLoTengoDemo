@@ -551,6 +551,7 @@ export function Pantalla03C({
       {camaraAbierta ? (
         <CapturaConCamara
           tipo={camaraAbierta}
+          piel="v4"
           alCancelar={() => setCamaraAbierta(null)}
           alCapturar={async (imagen) => {
             const resultado = await enviarCaptura(camaraAbierta, imagen, "CAMARA");

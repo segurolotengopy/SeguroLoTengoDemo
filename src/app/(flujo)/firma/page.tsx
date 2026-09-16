@@ -8,6 +8,8 @@ import {
   StepperPasos,
   TramiteEnOtroPaso,
 } from "@/components/shared";
+import { Pantalla04E } from "@/components/v4/pantallas/Pantalla04E";
+import { flujoV4Activo } from "@/domain/flujo-vigente";
 import { DETALLE_FIRMA_YA_HECHA } from "@/domain/textos-reencaminado";
 import { expedienteEnOtroPaso } from "../_reencaminado";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
@@ -53,6 +55,12 @@ export const metadata: Metadata = {
 };
 
 export default async function PantallaP8Firma() {
+  // v4 · arte `04E` (sin arte aprobado ni candidato todavía; ver el
+  // comentario de cabecera de `Pantalla04E.tsx`).
+  if (flujoV4Activo()) {
+    return <Pantalla04E />;
+  }
+
   // `FIRMADO` sigue siendo de esta pantalla, por la misma razón que
   // `PAGO_CONFIRMADO` es de la de pago: cuando las firmas institucionales
   // entran, es la propia pantalla la que lleva a la persona al paso siguiente

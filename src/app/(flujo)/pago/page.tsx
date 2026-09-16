@@ -1,3 +1,5 @@
+import { flujoV4Activo } from "@/domain/flujo-vigente";
+import { Pantalla05A } from "@/components/v4/pantallas/Pantalla05A";
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -43,6 +45,13 @@ export const metadata: Metadata = {
 };
 
 export default async function PantallaP7Pago() {
+  // v4 · arte `05A`: sin arte propio todavía (`ANALISIS_VISUAL_PNG.md` §12),
+  // extrapolado del sistema visual del resto del flujo. Mismo patrón que
+  // `/declaraciones`: la rama v4 se resuelve antes que cualquier otra cosa.
+  if (flujoV4Activo()) {
+    return <Pantalla05A pagoSimuladoDisponible={esModoDemo()} />;
+  }
+
   // `PAGO_CONFIRMADO` sigue siendo de esta pantalla: al acreditarse se queda
   // acá mostrando el comprobante y el enlace a la confirmación, en vez de
   // navegar sola. Ver `expedienteEnOtroPaso`.
