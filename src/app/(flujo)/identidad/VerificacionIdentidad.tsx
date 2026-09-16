@@ -553,12 +553,10 @@ export function VerificacionIdentidad({
         setError(MENSAJES.EDAD_FUERA_DE_RANGO);
         return;
       }
-      if (!datosRespuesta.requisitos?.coincidenciaFacial) {
-        setError(
-          "La selfie no coincide con la fotografía de la cédula. Los datos no se editan a mano: repetí la captura.",
-        );
-        return;
-      }
+      // Sin aviso general: el rechazo lo dice la tarjeta de la selfie, junto al
+      // botón para repetirla (F5d). Repetirlo acá abajo mostraba el mismo
+      // mensaje dos veces.
+      if (!datosRespuesta.requisitos?.coincidenciaFacial) return;
       setAviso("Datos extraídos de la cédula y confirmados con la selfie en vivo.");
     } catch {
       setError("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.");
@@ -878,8 +876,11 @@ export function VerificacionIdentidad({
                   ) : null}
 
                   <p className="text-xs text-cuerpo">{detalle}</p>
+                  {/* El único lugar donde se dice: es el aviso que antes vivía
+                      también junto al botón de continuar, así que hereda su
+                      `role="alert"` para que el lector de pantalla lo anuncie. */}
                   {noCoincide ? (
-                    <p className="text-xs font-semibold text-rojo-700 dark:text-rojo-300">
+                    <p role="alert" className="text-xs font-semibold text-rojo-700 dark:text-rojo-300">
                       La selfie no coincide con la fotografía de la cédula. Repetila.
                     </p>
                   ) : null}

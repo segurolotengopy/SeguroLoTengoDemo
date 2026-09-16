@@ -321,8 +321,8 @@ export async function completarCapturasP5(page: Page): Promise<void> {
   await tomarCapturaP5(page, "DORSO");
   await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(2);
   await tomarCapturaP5(page, "SELFIE");
-  // La comparación facial rechaza: el aviso rojo de P5 avisa que hay que
-  // repetir la captura, nunca editar los campos a mano.
+  // La comparación facial rechaza: lo dice la tarjeta de la selfie, y solo
+  // ella —el texto aparece una sola vez en la pantalla (15-sep-2026)—.
   await expect(
     page.getByText("La selfie no coincide con la fotografía de la cédula.", { exact: false }),
   ).toBeVisible();
