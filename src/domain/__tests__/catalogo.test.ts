@@ -20,35 +20,35 @@ describe("tabla de planes", () => {
   it("reproduce los valores exactos de la especificación de P2", () => {
     expect(PLANES.CONFIO).toEqual({
       id: "CONFIO",
-      nombre: "CONFÍO",
+      nombre: "VIVE",
       muerteCualquierCausaGs: 3_500_000,
       indemnizacionCancerGs: 50_000_000,
       rentaHospitalariaTotalGs: 7_500_000,
       rentaHospitalariaPorDiaGs: 500_000,
       gastosMedicosAccidenteGs: 7_000_000,
-      premioAnualGs: 319_000,
+      premioAnualGs: 390_000,
     });
 
     expect(PLANES.CONFIO_PLUS).toEqual({
       id: "CONFIO_PLUS",
-      nombre: "CONFÍO+",
+      nombre: "VIVE+",
       muerteCualquierCausaGs: 5_000_000,
       indemnizacionCancerGs: 75_000_000,
       rentaHospitalariaTotalGs: 11_250_000,
       rentaHospitalariaPorDiaGs: 750_000,
       gastosMedicosAccidenteGs: 10_000_000,
-      premioAnualGs: 522_500,
+      premioAnualGs: 575_000,
     });
 
     expect(PLANES.CONFIO_TOTAL).toEqual({
       id: "CONFIO_TOTAL",
-      nombre: "CONFÍO TOTAL",
+      nombre: "VIVE TOTAL",
       muerteCualquierCausaGs: 7_000_000,
       indemnizacionCancerGs: 100_000_000,
       rentaHospitalariaTotalGs: 15_000_000,
       rentaHospitalariaPorDiaGs: 1_000_000,
       gastosMedicosAccidenteGs: 14_000_000,
-      premioAnualGs: 726_000,
+      premioAnualGs: 760_000,
     });
   });
 
@@ -56,7 +56,7 @@ describe("tabla de planes", () => {
     expect(ORDEN_PLANES).toEqual(["CONFIO", "CONFIO_PLUS", "CONFIO_TOTAL"]);
     expect(OFERTA_VIGENTE.planes).toHaveLength(3);
     expect(OFERTA_VIGENTE.planes.map((plan) => plan.premioAnualGs)).toEqual([
-      319_000, 522_500, 726_000,
+      390_000, 575_000, 760_000,
     ]);
   });
 
@@ -86,7 +86,7 @@ describe("serialización canónica de la oferta", () => {
 
     expect(canonico).toContain(`oferta=${ID_VERSION_OFERTA}`);
     expect(canonico).toContain("plan=CONFIO_PLUS");
-    expect(canonico).toContain("premioAnual=522500");
+    expect(canonico).toContain("premioAnual=575000");
     // Una línea de cabecera por dato de la oferta y una por plan.
     expect(canonico.split("\n")).toHaveLength(4 + 3);
   });
@@ -95,7 +95,7 @@ describe("serialización canónica de la oferta", () => {
     const alterada = {
       ...OFERTA_VIGENTE,
       planes: OFERTA_VIGENTE.planes.map((plan) =>
-        plan.id === "CONFIO" ? { ...plan, premioAnualGs: 290_001 } : plan,
+        plan.id === "CONFIO" ? { ...plan, premioAnualGs: 390_001 } : plan,
       ),
     };
 

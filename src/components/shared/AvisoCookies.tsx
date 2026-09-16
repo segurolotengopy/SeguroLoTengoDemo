@@ -86,16 +86,19 @@ export function AvisoCookies() {
           {AVISO_COOKIES_BREVE}{" "}
           <Link
             href="/privacidad#cookies"
-            className="font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-300 dark:decoration-azul-600"
+            className="font-semibold text-v4-azul underline decoration-v4-azul/40 underline-offset-2 hover:opacity-80"
           >
             Ver el detalle
           </Link>
         </p>
 
+        {/* Paleta v4 (D-39): CTA roja, misma que el resto del flujo. El texto
+            del aviso no cambia — solo el estilo (C-2 sigue abierto: no se
+            toca el contenido, ver ANALISIS.md §6). */}
         <button
           type="button"
           onClick={cerrar}
-          className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-naranja-500 px-5 text-xs font-bold tracking-wide text-azul-950 uppercase transition-colors hover:bg-naranja-400 sm:self-auto"
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-v4-rojo px-5 text-xs font-bold tracking-wide text-white uppercase transition-colors hover:opacity-90 sm:self-auto"
         >
           {BOTON_ENTENDIDO_COOKIES}
         </button>

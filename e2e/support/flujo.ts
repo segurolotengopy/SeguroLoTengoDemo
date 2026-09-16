@@ -1,3 +1,4 @@
+import { BOTON_CONTINUAR_PLAN } from "@/domain/textos-plan";
 /**
  * Helpers de un paso por pantalla del flujo P0–P9, para no repetir selectores
  * en cada escenario. Cada función usa los textos reales de
@@ -136,16 +137,17 @@ export async function completarWhatsapp(page: Page, persona: PersonaDemo): Promi
  * P2 · Paso 2 de 9 — Selección de plan.
  *
  * Las tres tarjetas de plan se ubican en el mismo orden en el que están
- * declaradas en `src/domain/catalogo.ts` (CONFÍO, CONFÍO+, CONFÍO TOTAL), sin
+ * declaradas en `src/domain/catalogo.ts` (VIVE, VIVE+, VIVE TOTAL — nombre
+ * comercial desde el manual funcional v4, 15-sep-2026; antes CONFÍO), sin
  * reordenarse en pantalla — se identifica la tarjeta por posición y no por su
- * rótulo, porque "CONFÍO" es substring de los otros dos nombres y filtrar por
+ * rótulo, porque "VIVE" es substring de los otros dos nombres y filtrar por
  * texto es frágil acá.
  */
 const ORDEN_PLANES: readonly PersonaDemo["planElegido"][] = ["CONFIO", "CONFIO_PLUS", "CONFIO_TOTAL"];
 const ROTULO_PLAN: Readonly<Record<PersonaDemo["planElegido"], string>> = {
-  CONFIO: "CONFÍO",
-  CONFIO_PLUS: "CONFÍO+",
-  CONFIO_TOTAL: "CONFÍO TOTAL",
+  CONFIO: "VIVE",
+  CONFIO_PLUS: "VIVE+",
+  CONFIO_TOTAL: "VIVE TOTAL",
 };
 
 export async function completarPlan(page: Page, persona: PersonaDemo): Promise<void> {
@@ -156,14 +158,14 @@ export async function completarPlan(page: Page, persona: PersonaDemo): Promise<v
   expect(indice, `Plan desconocido: ${persona.planElegido}`).toBeGreaterThanOrEqual(0);
   const rotulo = ROTULO_PLAN[persona.planElegido];
 
-  // Formato maqueta: cada tarjeta lleva un radio `Elegir esta opción` y el
-  // botón de continuar es único y fijo, deshabilitado hasta elegir.
+  // Formato v4: cada tarjeta lleva un radio en la cabecera y el botón de
+  // continuar es único y fijo, deshabilitado hasta elegir.
   const tarjeta = page.getByRole("article").nth(indice);
   await expect(tarjeta.getByRole("heading", { name: rotulo, exact: true })).toBeVisible();
   await tarjeta.getByRole("radio").click();
   await expect(tarjeta.getByRole("radio")).toHaveAttribute("aria-checked", "true");
 
-  await page.getByRole("button", { name: "CONTINUAR CON EL PLAN SELECCIONADO →" }).click();
+  await page.getByRole("button", { name: BOTON_CONTINUAR_PLAN, exact: true }).click();
   await expect(page).toHaveURL(/\/whatsapp$/);
 }
 

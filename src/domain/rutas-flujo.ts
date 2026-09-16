@@ -90,7 +90,35 @@ export interface PasoDelFlujo {
    * De acá se deriva a qué pantalla mandar a alguien según dónde quedó.
    */
   readonly estadoAlCompletar: EstadoExpediente;
+  /**
+   * Etapa del stepper de 5 macroetapas del handoff v4 (D-36): 1 · Plan,
+   * 2 · Verificación, 3 · Actividad e ingresos, 4 · Declaraciones y firma,
+   * 5 · Pago y confirmación (`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS.md`
+   * §4).
+   *
+   * **Mapeo transitorio.** Los ocho slugs de `PASOS_FLUJO_V2` no coinciden
+   * pantalla a pantalla con las cinco etapas del handoff — 03D (datos) y 03E
+   * (actividad e ingresos) todavía no existen como pantallas propias (D-41:
+   * sin arte aprobado) — así que varios slugs comparten etapa. La tabla:
+   *
+   *   /plan                        → 1 (Plan)
+   *   /whatsapp, /preparacion      → 2 (Verificación)
+   *   /identidad                   → 3 (trae hoy los datos laborales y
+   *                                     económicos que en v4 viven en 03E)
+   *   /declaraciones, /firma       → 4 (Declaraciones y firma)
+   *   /pago, /confirmacion         → 5 (Pago y confirmación)
+   *
+   * Se corrige cuando 03D y 03E se implementen como pantallas propias: ese
+   * día `/identidad` se parte y esta tabla dejará de tener slugs
+   * compartiendo etapa por falta de pantalla, no por diseño.
+   */
+  readonly etapa: 1 | 2 | 3 | 4 | 5;
 }
+
+/** Total de macroetapas del stepper v4 (D-36). No se deriva de `PASOS_FLUJO`
+ * porque varios pasos comparten etapa (ver `PasoDelFlujo.etapa`): el largo
+ * del stepper es 5, no `PASOS_FLUJO.length`. */
+export const TOTAL_ETAPAS = 5;
 
 export const PASOS_FLUJO_V2: readonly PasoDelFlujo[] = [
   {
@@ -98,30 +126,35 @@ export const PASOS_FLUJO_V2: readonly PasoDelFlujo[] = [
     slug: "/plan",
     titulo: "Elegí tu plan",
     estadoAlCompletar: "PLAN_SELECCIONADO",
+    etapa: 1,
   },
   {
     id: "Pv2-2",
     slug: "/whatsapp",
     titulo: "Verificá tu WhatsApp",
     estadoAlCompletar: "CANAL_WA_VERIFICADO",
+    etapa: 2,
   },
   {
     id: "Pv2-3",
     slug: "/preparacion",
     titulo: "Prepará lo necesario",
     estadoAlCompletar: "AUTORIZADO",
+    etapa: 2,
   },
   {
     id: "Pv2-4",
     slug: "/identidad",
     titulo: "Datos e identificación",
     estadoAlCompletar: "IDENTIDAD_VERIFICADA",
+    etapa: 3,
   },
   {
     id: "Pv2-5",
     slug: "/declaraciones",
     titulo: "Datos y declaraciones",
     estadoAlCompletar: "DECLARACIONES_OK",
+    etapa: 4,
   },
   // D-08 · se firma antes de pagar (Matriz Legal V4 §7). Invertir el orden fue
   // mover estos dos elementos de lugar, que era exactamente lo que la lista
@@ -138,18 +171,21 @@ export const PASOS_FLUJO_V2: readonly PasoDelFlujo[] = [
     slug: "/firma",
     titulo: "Revisá, aceptá y firmá",
     estadoAlCompletar: "FIRMADO_CLIENTE",
+    etapa: 4,
   },
   {
     id: "Pv2-7",
     slug: "/pago",
     titulo: "Realizá el pago",
     estadoAlCompletar: "PAGO_CONFIRMADO",
+    etapa: 5,
   },
   {
     id: "Pv2-8",
     slug: "/confirmacion",
     titulo: "Contratación confirmada",
     estadoAlCompletar: "EMITIDO",
+    etapa: 5,
   },
 ];
 
@@ -173,18 +209,25 @@ export const PASOS_FLUJO_V3: readonly PasoDelFlujo[] = [
     slug: "/inscripcion",
     titulo: "Inscribite",
     estadoAlCompletar: "AUTORIZADO",
+    // `etapa` es un campo del stepper v4, y v3 nunca lo lee: dibuja su propio
+    // indicador (`BandaPasosV3`, derivado de `numeroDePaso`). El valor es un
+    // marcador sin efecto visual, puesto solo para que la interfaz sea
+    // exhaustiva; no se corresponde con ninguna macroetapa real de v3.
+    etapa: 2,
   },
   {
     id: "Pv3-2",
     slug: "/seguro",
     titulo: "Elegí tu seguro",
     estadoAlCompletar: "DECLARACIONES_OK",
+    etapa: 1,
   },
   {
     id: "Pv3-3",
     slug: "/pago-y-firma",
     titulo: "Pagá y firmá",
     estadoAlCompletar: "PAGO_CONFIRMADO",
+    etapa: 5,
   },
 ];
 
@@ -205,6 +248,16 @@ export const TOTAL_PASOS = PASOS_FLUJO.length;
 export function numeroDePaso(slug: string): number | null {
   const indice = PASOS_FLUJO.findIndex((paso) => paso.slug === slug);
   return indice === -1 ? null : indice + 1;
+}
+
+/**
+ * Macroetapa (1 a 5) de una pantalla del flujo, por su slug, o `null` si no
+ * es un paso del flujo. Es lo que dibuja `StepperPasos` (D-36): la maqueta
+ * v4 muestra "N de 5", no "Paso N de {TOTAL_PASOS}".
+ */
+export function etapaDePaso(slug: string): number | null {
+  const paso = PASOS_FLUJO.find((p) => p.slug === slug);
+  return paso ? paso.etapa : null;
 }
 
 /**

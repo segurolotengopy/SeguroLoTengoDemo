@@ -15,7 +15,10 @@ export function BandaDemo() {
   return (
     <div
       role="note"
-      className="bg-naranja-500 px-4 py-1 text-center text-[11px] font-bold tracking-widest text-azul-950 uppercase"
+      // Paleta v4 (D-39): navy sobre blanco, sin naranja — el manual v4
+      // prohíbe expresamente "sombreado naranja, diagonal roja ni líneas
+      // decorativas no aprobadas" (p. 6, "Línea gráfica congelada").
+      className="bg-v4-navy px-4 py-1 text-center text-[11px] font-bold tracking-widest text-white uppercase"
     >
       Entorno de demostración — integraciones simuladas
     </div>

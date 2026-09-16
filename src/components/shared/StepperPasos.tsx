@@ -1,19 +1,26 @@
 import { nombrePortal } from "@/domain/entidades";
-import { PASOS_FLUJO, TOTAL_PASOS, numeroDePaso } from "@/domain/rutas-flujo";
+import { TOTAL_ETAPAS, etapaDePaso } from "@/domain/rutas-flujo";
 
 /**
- * Indicador de paso que va en el slot derecho de `HeaderInstitucional`.
+ * Indicador de macroetapa que va en el slot `indicador` de `HeaderInstitucional`,
+ * debajo de la línea roja, a todo el ancho (D-36; `PANTALLA_02_…` y
+ * `PANTALLA_03A_…APROBADA_FINAL.png`).
  *
- * Indicador de paso, en cuatro variantes: los pasos del flujo, la pantalla de
- * información previa y las dos terminales.
+ * **v4 cambió qué cuenta el stepper.** Antes era "Paso N de {TOTAL_PASOS}"
+ * (8 pantallas). El handoff de pantallas v4 dibuja cinco puntos con "N de 5":
+ * las cinco macroetapas del manual funcional — Plan · Verificación ·
+ * Actividad e ingresos · Declaraciones y firma · Pago y confirmación — no las
+ * ocho pantallas del flujo vigente. Varias pantallas comparten etapa (ver
+ * `PasoDelFlujo.etapa` en `rutas-flujo.ts`), así que el número que se ve acá
+ * puede repetirse entre dos pantallas consecutivas — es correcto, no un bug:
+ * `/whatsapp` y `/preparacion` son las dos "2 de 5".
  *
- * **El número no se pasa a mano: se pasa el slug.** Cada pantalla dice cuál es
- * —`/pago`, `/firma`— y el número sale de `PASOS_FLUJO` (`rutas-flujo.ts`),
- * que es donde vive el orden. Antes cada pantalla llevaba su número escrito, y
- * por eso la de firma llegó a anunciar "Paso 7 de 7" cuando le correspondía el
- * 6 (CHG-02): dos fuentes para el mismo dato terminan contradiciéndose. Con el
- * slug no hay forma de que una pantalla se equivoque de número, ni de que el
- * total quede desactualizado cuando el flujo cambie de largo.
+ * **El número no se pasa a mano: se pasa el slug.** Cada pantalla dice cuál
+ * es —`/pago`, `/firma`— y la etapa sale de `PASOS_FLUJO` (`rutas-flujo.ts`),
+ * que es donde vive el orden. Antes cada pantalla llevaba su número escrito,
+ * y por eso la de firma llegó a anunciar "Paso 7 de 7" cuando le
+ * correspondía el 6 (CHG-02): dos fuentes para el mismo dato terminan
+ * contradiciéndose.
  *
  * Puramente presentacional: no sabe en qué expediente ni estado está el
  * usuario, solo dibuja lo que se le indica por props.
@@ -31,12 +38,9 @@ export function StepperPasos(props: StepperPasosProps) {
   if (props.variante === "p0") {
     return (
       <div className={`text-right leading-tight ${className}`}>
-        <p className="text-sm font-bold text-titulo">P0 · INFORMACIÓN</p>
-        {/* El largo del flujo sale de `TOTAL_PASOS`, no de un número escrito
-            acá: decía "1-9" desde antes de que el wizard pasara a ocho pasos
-            (CHG-01), y era el único lugar del stepper que no leía la lista. */}
+        <p className="text-sm font-bold text-titulo">INFORMACIÓN</p>
         <p className="text-[11px] font-semibold tracking-wide text-etiqueta uppercase">
-          Fuera del contador 1-{TOTAL_PASOS}
+          Fuera del contador de {TOTAL_ETAPAS} etapas
         </p>
       </div>
     );
@@ -45,12 +49,9 @@ export function StepperPasos(props: StepperPasosProps) {
   if (props.variante === "pantalla-a") {
     return (
       <div className={`text-right leading-tight ${className}`}>
-        <p className="text-sm font-bold text-rojo-700 dark:text-rojo-300">PANTALLA A</p>
-        <p className="text-[11px] font-semibold tracking-wide text-rojo-600 uppercase dark:text-rojo-300">
-          {nombrePortal()}
-        </p>
-        <p className="text-[11px] font-semibold tracking-wide text-rojo-600 uppercase dark:text-rojo-300">
-          Emisión no automática
+        <p className="text-sm font-bold text-v4-rojo">DERIVACIÓN A REVISIÓN MANUAL</p>
+        <p className="text-[11px] font-semibold tracking-wide text-v4-rojo uppercase">
+          {nombrePortal()} · Emisión no automática
         </p>
       </div>
     );
@@ -59,9 +60,10 @@ export function StepperPasos(props: StepperPasosProps) {
   if (props.variante === "pantalla-b") {
     return (
       <div className={`text-right leading-tight ${className}`}>
-        <p className="text-sm font-bold text-rojo-700 dark:text-rojo-300">PANTALLA B</p>
-        {/* D-08 · lo que caduca ahora es un expediente firmado que no pagó. */}
-        <p className="text-[11px] font-semibold tracking-wide text-rojo-600 uppercase dark:text-rojo-300">
+        <p className="text-sm font-bold text-v4-rojo">SOLICITUD VENCIDA</p>
+        {/* D-32 · lo que caduca ahora es un expediente firmado que no pagó
+            dentro de los 10 minutos. */}
+        <p className="text-[11px] font-semibold tracking-wide text-v4-rojo uppercase">
           Firmada · Pago no completado
         </p>
       </div>
@@ -70,31 +72,32 @@ export function StepperPasos(props: StepperPasosProps) {
 
   // Si el slug no está en la lista, no se dibuja nada: es preferible una
   // cabecera sin indicador que una que invente un número.
-  const pasoActual = numeroDePaso(props.slug);
-  if (pasoActual === null) return null;
+  const etapaActual = etapaDePaso(props.slug);
+  if (etapaActual === null) return null;
+
+  const etapas = Array.from({ length: TOTAL_ETAPAS }, (_, indice) => indice + 1);
 
   return (
-    <div className={`flex flex-col items-end gap-1.5 ${className}`}>
-      <p className="text-[11px] font-semibold tracking-wide text-etiqueta uppercase">
-        Paso {pasoActual} de {TOTAL_PASOS}
-      </p>
-      <div className="flex items-center gap-1.5" role="presentation">
-        {PASOS_FLUJO.map((_, indice) => {
-          const paso = indice + 1;
-          const completado = paso <= pasoActual;
-          return (
+    <div className={`flex w-full items-center gap-4 ${className}`}>
+      <ol className="flex flex-1 items-center" aria-hidden="true">
+        {etapas.map((etapa, indice) => (
+          <li key={etapa} className="flex flex-1 items-center last:flex-none">
             <span
-              key={paso}
-              aria-hidden="true"
-              className={`h-2 w-2 rounded-full ${
-                completado
-                  ? "bg-naranja-500"
-                  : "border border-borde-sutil bg-transparent"
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                etapa <= etapaActual ? "bg-v4-rojo" : "bg-hueso-300"
               }`}
             />
-          );
-        })}
-      </div>
+            {indice < etapas.length - 1 ? (
+              <span
+                className={`h-0.5 flex-1 ${etapa < etapaActual ? "bg-v4-rojo" : "bg-hueso-200"}`}
+              />
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <p className="shrink-0 text-sm font-semibold text-cuerpo">
+        {etapaActual} de {TOTAL_ETAPAS}
+      </p>
     </div>
   );
 }

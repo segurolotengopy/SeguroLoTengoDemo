@@ -1,17 +1,33 @@
 import type { ReactNode } from "react";
-import { ALIANZA, INTERSEGUROS, type Entidad } from "@/domain/entidades";
-import { IsologoAlianza, IsologoInterseguros } from "./marcas";
-import { ToggleTema } from "./ToggleTema";
+import Link from "next/link";
+import { ALIANZA, INTERSEGUROS } from "@/domain/entidades";
 
 /**
- * Cabecera fija de las tres pantallas del flujo (ver
- * docs/ESPECIFICACION_PANTALLAS.md → "Elementos comunes a todas las
- * pantallas"): bloque aseguradora a la izquierda, bloque intermediario al
- * centro y un slot a la derecha para el indicador de paso de cada pantalla
- * (ver `StepperPasos`).
+ * Cabecera v4, en el formato del handoff de pantallas del 14-sep-2026
+ * (D-28): tres marcas —SeguroLoTengo, Interseguros, Alianza— separadas por
+ * filetes verticales, sobre una franja clara, con una línea roja al pie
+ * (manual funcional p. 6, "Línea gráfica congelada"; `PANTALLA_02_…` y
+ * `PANTALLA_03A_…APROBADA_FINAL.png`). Debajo de la línea va el slot
+ * `indicador` —el stepper de 5 etapas (`StepperPasos`, D-36)— como una banda
+ * propia a todo el ancho, tal como lo dibuja el arte.
  *
- * A la derecha del indicador va el botón de día/noche (`ToggleTema`): al vivir
- * acá aparece igual en todas las pantallas, sin que ninguna lo repita.
+ * ## Lo que cambió respecto de la cabecera anterior
+ *
+ * - **Sin botón de día/noche** (D-29): la primera fase de v4 sale solo en
+ *   tema claro. `ToggleTema` se conserva como componente para cuando se
+ *   retome el oscuro, pero ya no se monta acá.
+ * - **Sin la línea de razón social + matrícula por entidad** que llevaba la
+ *   cabecera anterior (CMP-01): el arte v4 dibuja solo el isologo y un
+ *   rótulo corto ("intermediario", "aseguradora"). La identificación
+ *   regulatoria completa (razón social, actividad, Matrícula SIS N° 118) no
+ *   desaparece: sigue viviendo en `PieLegal`, que está en **todas** las
+ *   pantallas — la norma pide que esté visible y permanente, no que esté en
+ *   la cabecera.
+ * - **Sin ícono de menú hamburguesa.** El arte lo dibuja a la izquierda del
+ *   logo de SeguroLoTengo y abre la pantalla 01B (menú lateral: Inicio,
+ *   Responsabilidades, Contacto), que está fuera de este alcance. Un ícono
+ *   sin comportamiento detrás es peor que ningún ícono: se omite hasta que
+ *   01B se implemente.
  *
  * Puramente presentacional: no decide qué mostrar en el slot ni conoce el
  * estado del expediente.
@@ -22,53 +38,69 @@ export interface HeaderInstitucionalProps {
   className?: string;
 }
 
-/**
- * Bloque de una entidad: isologo y nombre, ambos enlazados a su sitio oficial
- * (TRV-04). El enlace es lo que le permite a la persona comprobar que la
- * empresa existe y es quien dice ser, así que abre en pestaña nueva: sacarla
- * del trámite a mitad de camino le costaría el progreso del expediente.
- */
-/**
- * Línea de registro de una entidad, debajo de su nombre — donde la maqueta la
- * dibuja ("Matrícula y Resolución" bajo cada entidad; la reunión, 00:03: la
- * resolución "tiene que ser lo mismo… la aseguradora, el intermediario").
- *
- * Es la identificación de la Circular SS.SG. N° 011/2025 (CMP-01), repartida
- * por entidad en vez de una franja única. Lo que D-19 todavía no trajo —la
- * matrícula de Alianza— se omite, no se inventa.
- */
-function lineaRegistro(entidad: Entidad): string {
-  return entidad.matriculaSis
-    ? `${entidad.actividad} · Matrícula SIS N° ${entidad.matriculaSis}`
-    : entidad.actividad;
+/** Filete vertical entre marcas, como en el arte. Puramente decorativo. */
+function Filete({ className = "" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`h-8 w-px shrink-0 bg-borde-sutil sm:h-9 ${className}`}
+    />
+  );
 }
 
+/**
+ * El logo de SeguroLoTengo es un recorte del arte aprobado, **provisional**:
+ * reemplazar por `public/marca/seguro-lo-tengo-provisional.png` → el SVG
+ * oficial en cuanto Interseguros lo mande (pendiente #4 de
+ * `ANALISIS.md` §7, "A Rodrigo"). El archivo ya trae "canal digital" impreso
+ * debajo del nombre, así que no lleva rótulo aparte.
+ */
+function MarcaSeguroLoTengo() {
+  return (
+    <Link href="/" className="flex shrink-0 items-center" aria-label="SeguroLoTengo — inicio">
+      {/* eslint-disable-next-line @next/next/no-img-element -- logo provisional en public/, sin dominio remoto que configurar */}
+      <img
+        src="/marca/seguro-lo-tengo-provisional.png"
+        alt="seguroLOtengo · canal digital"
+        width={440}
+        height={114}
+        className="h-8 w-auto sm:h-9"
+      />
+    </Link>
+  );
+}
+
+/**
+ * Interseguros o Alianza: isologo/logo de `public/marca/` (SVG) más el
+ * rótulo corto del arte ("intermediario", "aseguradora") debajo. Enlaza al
+ * sitio oficial de la entidad (TRV-04): es lo que le permite a la persona
+ * comprobar que la empresa existe y es quien dice ser.
+ */
 function MarcaEntidad({
-  entidad,
+  href,
+  src,
+  alt,
   rotulo,
-  isologo,
+  className = "",
 }: {
-  entidad: Entidad;
+  href: string;
+  src: string;
+  alt: string;
   rotulo: string;
-  isologo: ReactNode;
+  className?: string;
 }) {
   return (
     <a
-      href={entidad.sitioWeb}
+      href={href}
       target="_blank"
       rel="noreferrer noopener"
-      className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-azul-600"
+      className={`flex shrink-0 flex-col items-start gap-0.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v4-azul ${className}`}
     >
-      {isologo}
-      <div className="min-w-0 leading-tight">
-        <p className="text-[10px] font-semibold tracking-wide text-azul-700 uppercase dark:text-azul-300">
-          {rotulo}
-        </p>
-        <p className="truncate text-sm font-semibold text-titulo underline decoration-borde-sutil underline-offset-2">
-          {entidad.razonSocial}
-        </p>
-        <p className="truncate text-[10px] text-etiqueta">{lineaRegistro(entidad)}</p>
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element -- logos locales en public/, sin dominio remoto que configurar */}
+      <img src={src} alt={alt} className="h-6 w-auto sm:h-7" />
+      <span className="text-[9px] font-bold tracking-wide text-v4-atenuado uppercase sm:text-[10px]">
+        {rotulo}
+      </span>
     </a>
   );
 }
@@ -78,39 +110,33 @@ export function HeaderInstitucional({
   className = "",
 }: HeaderInstitucionalProps) {
   return (
-    <header
-      className={`w-full border-b border-borde-tenue bg-fondo ${className}`}
-    >
-      <div className="mx-auto flex w-full max-w-pantalla flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
-        {/* `min-w-0` para que el truncado de los nombres largos pueda actuar
-            y el bloque no empuje al indicador fuera de la pantalla. */}
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-          <MarcaEntidad
-            entidad={ALIANZA}
-            rotulo="Aseguradora"
-            isologo={<IsologoAlianza tamano={36} className="shrink-0" />}
-          />
-          <span
-            aria-hidden="true"
-            className="hidden h-8 w-px bg-borde-sutil sm:block"
-          />
-          <MarcaEntidad
-            entidad={INTERSEGUROS}
-            rotulo="Intermediario"
-            isologo={<IsologoInterseguros tamano={36} className="shrink-0" />}
-          />
-        </div>
-
-        <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-          {indicador}
-          <ToggleTema />
-        </div>
+    <header className={`w-full bg-v4-header-bg ${className}`}>
+      <div className="mx-auto flex w-full max-w-pantalla items-center gap-2.5 overflow-x-auto px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
+        <MarcaSeguroLoTengo />
+        <Filete />
+        <MarcaEntidad
+          href={INTERSEGUROS.sitioWeb}
+          src="/marca/interseguros-logo.svg"
+          alt={INTERSEGUROS.razonSocial}
+          rotulo="Intermediario"
+        />
+        <Filete />
+        <MarcaEntidad
+          href={ALIANZA.sitioWeb}
+          src="/marca/alianza-logo.svg"
+          alt={ALIANZA.razonSocial}
+          rotulo="Aseguradora"
+        />
       </div>
 
-      {/* La identificación regulatoria permanente (CMP-01 · Res. SS.SG.
-          N° 190/2025, formato Circular 011/2025) vive ahora en la línea de
-          registro de cada entidad, que es donde la maqueta la dibuja. Sigue
-          visible, legible y permanente en todas las pantallas. */}
+      {/* Línea roja al pie de la cabecera (manual v4 p. 6). */}
+      <div aria-hidden="true" className="h-[3px] w-full bg-v4-rojo" />
+
+      {indicador ? (
+        <div className="w-full bg-fondo">
+          <div className="mx-auto w-full max-w-pantalla px-4 py-3 sm:px-6">{indicador}</div>
+        </div>
+      ) : null}
     </header>
   );
 }
