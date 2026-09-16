@@ -1,3 +1,5 @@
+import { flujoV4Activo } from "@/domain/flujo-vigente";
+import { Pantalla02 } from "@/components/v4/pantallas/Pantalla02";
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import {
@@ -47,7 +49,7 @@ import { SelectorDePlanes } from "./SelectorDePlanes";
 export const metadata: Metadata = {
   title: `Elegí tu plan · ${sufijoTitulo()}`,
   description:
-    "Paso 1: selección del plan del Seguro de Vida Oncológico CONFÍO. Todavía no se contrata ni se firma.",
+    "Paso 1: selección del plan del Seguro de Vida Oncológico VIVE. Todavía no se contrata ni se firma.",
 };
 
 /** Íconos de línea de la maqueta. Decorativos: la información va en el texto. */
@@ -154,6 +156,12 @@ async function tramiteQueYaPasoEstePaso(): Promise<DestinoDelExpediente | null> 
 }
 
 export default async function PantallaSeleccionDePlan() {
+  // v4 · arte `02`. La pantalla se dibuja entera desde el handoff, así que no
+  // comparte nada con la de v2 más que la ruta y el endpoint que la respalda.
+  if (flujoV4Activo()) {
+    return <Pantalla02 />;
+  }
+
   const enOtroPaso = await tramiteQueYaPasoEstePaso();
 
   return (

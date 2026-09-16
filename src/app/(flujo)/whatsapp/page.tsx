@@ -1,3 +1,5 @@
+import { flujoV4Activo } from "@/domain/flujo-vigente";
+import { Pantalla03A } from "@/components/v4/pantallas/Pantalla03A";
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { resolverModoIntegracion } from "@/adapters/index";
@@ -36,6 +38,11 @@ export const metadata: Metadata = {
 };
 
 export default async function PantallaVerificacionWhatsapp() {
+  // v4 · arte `03A`. Sin SMS (D-44): la cadena es WhatsApp → reenvío → bloqueo.
+  if (flujoV4Activo()) {
+    return <Pantalla03A />;
+  }
+
   const enOtroPaso = await expedienteEnOtroPaso("/whatsapp");
   return (
     <div className="flex flex-1 flex-col bg-fondo">

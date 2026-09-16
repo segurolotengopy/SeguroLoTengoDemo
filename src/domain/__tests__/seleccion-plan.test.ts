@@ -96,7 +96,7 @@ describe("seleccionarPlan", () => {
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
-      planId: "CONFIO_PLUS",
+      planId: "VIVE_PLUS",
       contexto: CONTEXTO,
     });
 
@@ -104,8 +104,8 @@ describe("seleccionarPlan", () => {
     if (!resultado.ok) return;
 
     expect(resultado.plan).toEqual({
-      planId: "CONFIO_PLUS",
-      premioAnualGs: PLANES.CONFIO_PLUS.premioAnualGs,
+      planId: "VIVE_PLUS",
+      premioAnualGs: PLANES.VIVE_PLUS.premioAnualGs,
       idVersionOferta: ID_VERSION_OFERTA,
       hashOfertaSha256: hashOfertaSha256(),
       seleccionadoEn: AHORA,
@@ -121,11 +121,11 @@ describe("seleccionarPlan", () => {
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
-      planId: "CONFIO",
+      planId: "VIVE",
       contexto: CONTEXTO,
     });
 
-    expect(resultado.ok && resultado.plan.premioAnualGs).toBe(319_000);
+    expect(resultado.ok && resultado.plan.premioAnualGs).toBe(390_000);
   });
 
   it("registra evidencia con la versión de la oferta y su hash", async () => {
@@ -133,7 +133,7 @@ describe("seleccionarPlan", () => {
 
     await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
-      planId: "CONFIO_TOTAL",
+      planId: "VIVE_TOTAL",
       contexto: CONTEXTO,
     });
 
@@ -146,7 +146,7 @@ describe("seleccionarPlan", () => {
     expect(registro.sesionId).toBe(CONTEXTO.sesionId);
     expect(registro.fecha).toBe(AHORA);
     expect(registro.versionTextoAceptado).toBe(ID_VERSION_OFERTA);
-    expect(registro.detalle).toContain("planId=CONFIO_TOTAL");
+    expect(registro.detalle).toContain("planId=VIVE_TOTAL");
     expect(registro.detalle).toContain(`hashOfertaSha256=${hashOfertaSha256()}`);
   });
 
@@ -155,7 +155,7 @@ describe("seleccionarPlan", () => {
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
-      planId: "CONFIO_PREMIUM",
+      planId: "VIVE_PREMIUM",
       contexto: CONTEXTO,
     });
 
@@ -166,7 +166,7 @@ describe("seleccionarPlan", () => {
   it("rechaza un expediente inexistente", async () => {
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-FANTASMA",
-      planId: "CONFIO",
+      planId: "VIVE",
       contexto: CONTEXTO,
     });
 
@@ -182,7 +182,7 @@ describe("seleccionarPlan", () => {
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-NUEVO",
-      planId: "CONFIO",
+      planId: "VIVE",
       contexto: CONTEXTO,
     });
 
@@ -194,17 +194,17 @@ describe("seleccionarPlan", () => {
   it("permite cambiar de plan antes de la autorización, sin borrar el historial", async () => {
     conPlanElegido();
 
-    await seleccionarPlan(deps, { expedienteId: "EXP-P2", planId: "CONFIO", contexto: CONTEXTO });
+    await seleccionarPlan(deps, { expedienteId: "EXP-P2", planId: "VIVE", contexto: CONTEXTO });
     const segunda = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
-      planId: "CONFIO_TOTAL",
+      planId: "VIVE_TOTAL",
       contexto: CONTEXTO,
     });
 
     expect(segunda.ok).toBe(true);
 
     const persistido = expedientes.todos.get("EXP-P2");
-    expect(persistido?.plan?.planId).toBe("CONFIO_TOTAL");
+    expect(persistido?.plan?.planId).toBe("VIVE_TOTAL");
     expect(persistido?.historial.map((entrada) => entrada.estado)).toEqual([
       "INICIADO",
       "PLAN_SELECCIONADO",
@@ -225,7 +225,7 @@ describe("seleccionarPlan", () => {
 
     const resultado = await seleccionarPlan(deps, {
       expedienteId: "EXP-P2",
-      planId: "CONFIO",
+      planId: "VIVE",
       contexto: CONTEXTO,
     });
 

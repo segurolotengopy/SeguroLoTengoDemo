@@ -136,16 +136,16 @@ export async function completarWhatsapp(page: Page, persona: PersonaDemo): Promi
  * P2 · Paso 2 de 9 — Selección de plan.
  *
  * Las tres tarjetas de plan se ubican en el mismo orden en el que están
- * declaradas en `src/domain/catalogo.ts` (CONFÍO, CONFÍO+, CONFÍO TOTAL), sin
+ * declaradas en `src/domain/catalogo.ts` (VIVE, VIVE+, VIVE TOTAL), sin
  * reordenarse en pantalla — se identifica la tarjeta por posición y no por su
- * rótulo, porque "CONFÍO" es substring de los otros dos nombres y filtrar por
+ * rótulo, porque "VIVE" es substring de los otros dos nombres y filtrar por
  * texto es frágil acá.
  */
-const ORDEN_PLANES: readonly PersonaDemo["planElegido"][] = ["CONFIO", "CONFIO_PLUS", "CONFIO_TOTAL"];
+const ORDEN_PLANES: readonly PersonaDemo["planElegido"][] = ["VIVE", "VIVE_PLUS", "VIVE_TOTAL"];
 const ROTULO_PLAN: Readonly<Record<PersonaDemo["planElegido"], string>> = {
-  CONFIO: "CONFÍO",
-  CONFIO_PLUS: "CONFÍO+",
-  CONFIO_TOTAL: "CONFÍO TOTAL",
+  VIVE: "VIVE",
+  VIVE_PLUS: "VIVE+",
+  VIVE_TOTAL: "VIVE TOTAL",
 };
 
 export async function completarPlan(page: Page, persona: PersonaDemo): Promise<void> {

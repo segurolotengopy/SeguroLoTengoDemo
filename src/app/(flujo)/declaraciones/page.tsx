@@ -1,3 +1,5 @@
+import { flujoV4Activo } from "@/domain/flujo-vigente";
+import { Pantalla04A } from "@/components/v4/pantallas/Pantalla04A";
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -36,6 +38,11 @@ export const metadata: Metadata = {
 };
 
 export default async function PantallaP6Declaraciones() {
+  // v4 · arte `04A`: tres preguntas de salud y el beneficiario.
+  if (flujoV4Activo()) {
+    return <Pantalla04A />;
+  }
+
   const enOtroPaso = await expedienteEnOtroPaso("/declaraciones");
   return (
     <div className="flex flex-1 flex-col bg-fondo">

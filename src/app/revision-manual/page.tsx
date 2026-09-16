@@ -1,3 +1,5 @@
+import { flujoV4Activo } from "@/domain/flujo-vigente";
+import { PantallaRevisionManual } from "@/components/v4/pantallas/PantallaRevisionManual";
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { HeaderInstitucional, StepperPasos } from "@/components/shared";
@@ -53,6 +55,12 @@ const ICONO_HITO: Readonly<Record<string, string>> = {
 };
 
 export default function PantallaARevisionManual() {
+  // v4 · artes `03E2` (PEP) y `04A1` (salud), que comparten pantalla y se
+  // distinguen por el motivo del caso.
+  if (flujoV4Activo()) {
+    return <PantallaRevisionManual />;
+  }
+
   return (
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos variante="pantalla-a" />} />

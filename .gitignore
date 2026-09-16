@@ -74,3 +74,11 @@ __pycache__/
 # Copias locales de los documentos de la ICPP: se catalogan en
 # docs/firma-cualificada/referencias/INDICE.md (con URL y SHA-256), no se versionan.
 docs/firma-cualificada/referencias/*.pdf
+
+# Handoff v4 de Interseguros: 145 MB entre los 103 PNG y el zip original.
+# **No se versiona** (D-28, decisión de Andres del 15-sep-2026): queda como
+# referencia local. Lo que sí está en el repo es su descripción arte por arte
+# —docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md—
+# y el SHA-256 de cada archivo, en el manifiesto del propio handoff, con el que
+# se comprueba que la copia local no fue sustituida.
+/docs/v4/

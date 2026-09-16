@@ -56,6 +56,7 @@ import type { EvidenceStore } from "../ports/evidence-store";
 import type { SignatureProvider } from "../ports/signature-provider";
 import { ErrorCode100 } from "../ports/signature-provider";
 import { enmascararCorreo } from "./correo";
+import { flujoV4Activo } from "./flujo-vigente";
 import { enmascararCelular } from "./telefono";
 import {
   registrarEnvioEnlaceFirmaP8,
@@ -135,7 +136,8 @@ export const PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8 = "P8_CONFIRMACION_DUPLICA
 export const RUTA_PAGO = PANTALLA_POR_ESTADO.FIRMADO;
 
 /**
- * Plazo para pagar un expediente ya firmado (D-10: 24 horas).
+ * Plazo para pagar un expediente ya firmado: **24 horas en v2** (D-10) y
+ * **10 minutos en v4** (D-32).
  *
  * Se abre acá, al aplicarse las firmas institucionales, y lo consume el paso
  * de pago. Antes de la inversión se llamaba `PLAZO_FIRMA_MS`, vivía en
@@ -145,7 +147,20 @@ export const RUTA_PAGO = PANTALLA_POR_ESTADO.FIRMADO;
  * (`fecha_expiracion` / `expirado`) y no documenta una duración fija, así que
  * no se la hardcodea: este plazo es nuestro y es el del expediente (D-10).
  */
-export const PLAZO_PAGO_MS = 24 * 60 * 60 * 1000;
+export const PLAZO_PAGO_V2_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * v4 · **10 minutos** (D-32).
+ *
+ * El manual funcional lo fija así y Andres lo confirmó el 15-sep-2026. No es
+ * un ajuste cosmético: con 24 horas el expediente firmado y sin pagar vivía un
+ * día entero, y con 10 minutos el vencimiento pasa a ser parte del recorrido
+ * —alguien puede verlo caducar mientras mira la pantalla—. Lo que no cambia es
+ * la consecuencia: vencer sigue siendo gratis, porque no hubo cobro (D-08).
+ */
+export const PLAZO_PAGO_V4_MS = 10 * 60 * 1000;
+
+export const PLAZO_PAGO_MS = flujoV4Activo() ? PLAZO_PAGO_V4_MS : PLAZO_PAGO_V2_MS;
 
 /** Estados en los que el expediente ya está firmado por todos los intervinientes. */
 const ESTADOS_YA_FIRMADOS: readonly EstadoExpediente[] = ["FIRMADO", "PAGO_CONFIRMADO", "EMITIDO"];

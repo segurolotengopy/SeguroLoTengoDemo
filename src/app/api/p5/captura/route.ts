@@ -17,6 +17,7 @@ import {
 import { decodificarImagen, decodificarSelfie } from "@/app/api/p5/_imagenes";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
 import { origenCapturaAdmitido } from "@/domain/identidad-parametros";
+import { flujoV4Activo } from "@/domain/flujo-vigente";
 import type { OrigenCaptura } from "@/domain/identidad-parametros";
 import { dependenciasP5 } from "@/app/api/p5/_dependencias";
 import { registrarCapturaP5 } from "@/domain/verificacion-identidad";
@@ -49,7 +50,7 @@ export async function POST(request: Request): Promise<Response> {
   // que un despliegue sin `DEMO_MODE` no tiene forma de aceptar un archivo por
   // ninguna vía.
   const origen: OrigenCaptura = cuerpo.origen === "ARCHIVO" ? "ARCHIVO" : "CAMARA";
-  if (!origenCapturaAdmitido(cuerpo.tipo, origen, esModoDemo())) {
+  if (!origenCapturaAdmitido(cuerpo.tipo, origen, esModoDemo(), flujoV4Activo())) {
     return respuestaJson({ ok: false, motivo: "ORIGEN_NO_ADMITIDO" }, { status: 400 });
   }
 

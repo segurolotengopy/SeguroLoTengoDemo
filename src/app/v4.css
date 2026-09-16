@@ -1,0 +1,278 @@
+/*
+ * Sistema de diseño v4 — handoff de programación del 14-sep-2026.
+ *
+ * **Es una transcripción de los artes aprobados, no una interpretación.** Los
+ * cinco colores y la regla tipográfica salen de `data/screens.json`
+ * (`brand.colors`, `brand.typography`, `layout_contract`) y de la nota de
+ * programación («Reglas de interfaz congeladas»); el resto de los tonos son
+ * derivados medidos sobre los PNG y documentados uno por uno en
+ * `docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md`.
+ *
+ * Todo cuelga de `[data-flujo="v4"]`, con el mismo mecanismo que usó v3: así
+ * las pantallas que todavía no se portaron siguen viéndose como estaban
+ * mientras v4 se construye. Cuando `FLUJO_V4` se encienda para siempre (D-43),
+ * este archivo deja de necesitar el prefijo y los otros dos se borran.
+ *
+ * **Sin modo oscuro** (D-29): la primera fase sale solo en claro, así que acá
+ * no hay un solo bloque `dark:`. El botón de día/noche no se monta en v4.
+ */
+
+[data-flujo="v4"] {
+  /* Los cinco de la marca. No se agregan colores nuevos a esta lista. */
+  --v4-navy: #071f78;
+  --v4-rojo: #ff1721;
+  --v4-azul: #0876f9;
+  --v4-azul-apagado: #55709d;
+  --v4-blanco: #ffffff;
+
+  /* Derivados: superficies y bordes. */
+  --v4-azul-fondo: #f2f7fe;
+  --v4-azul-borde: #cfe1fb;
+  --v4-gris-fondo: #f5f7fa;
+  --v4-gris-borde: #e2e8f2;
+  --v4-gris-texto: #8a9bb8;
+  --v4-gris-deshabilitado: #c3ccdd;
+
+  --v4-rojo-fondo: #fff1f1;
+  --v4-rojo-borde: #ffc9cb;
+  --v4-rojo-palido: #ff8a90;
+
+  --v4-verde: #16a34a;
+  --v4-verde-fondo: #ecfdf3;
+
+  /* Tipografía: Arimo, la libre métricamente compatible con Helvetica/Nimbus
+     Sans (D-39). Cuerpo mínimo 16 px por `layout_contract.body_min_font_px`. */
+  --v4-fuente: var(--font-arimo), "Liberation Sans", Arial, system-ui, sans-serif;
+  --v4-radio: 10px;
+  --v4-radio-chico: 8px;
+
+  font-family: var(--v4-fuente);
+  color: var(--v4-azul-apagado);
+  background: var(--v4-blanco);
+}
+
+/* --------------------------------------------------------------------------
+   Tipografía de pantalla
+   -------------------------------------------------------------------------- */
+
+[data-flujo="v4"] .v4-titular {
+  font-size: clamp(1.5rem, 6.4vw, 2.125rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--v4-navy);
+  letter-spacing: -0.01em;
+}
+[data-flujo="v4"] .v4-titular em {
+  font-style: normal;
+  color: var(--v4-rojo);
+}
+[data-flujo="v4"] .v4-bajada {
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--v4-azul-apagado);
+}
+/* Rótulo de sección suelto: navy, bold, versalitas, sin tarjeta. */
+[data-flujo="v4"] .v4-rotulo {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--v4-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   Tarjetas y avisos
+   -------------------------------------------------------------------------- */
+
+[data-flujo="v4"] .v4-tarjeta {
+  background: var(--v4-blanco);
+  border: 1px solid var(--v4-gris-borde);
+  border-radius: var(--v4-radio);
+}
+[data-flujo="v4"] .v4-tarjeta-azul {
+  background: var(--v4-azul-fondo);
+  border: 1px solid var(--v4-azul-borde);
+  border-radius: var(--v4-radio);
+}
+[data-flujo="v4"] .v4-aviso-azul {
+  background: var(--v4-azul-fondo);
+  border: 1px solid var(--v4-azul-borde);
+  border-radius: var(--v4-radio);
+  color: var(--v4-azul-apagado);
+}
+[data-flujo="v4"] .v4-aviso-rojo {
+  background: var(--v4-rojo-fondo);
+  border: 1px solid var(--v4-rojo-borde);
+  border-radius: var(--v4-radio);
+  color: #b3121a;
+}
+[data-flujo="v4"] .v4-aviso-verde {
+  background: var(--v4-verde-fondo);
+  border-radius: var(--v4-radio);
+  color: var(--v4-verde);
+}
+
+/* --------------------------------------------------------------------------
+   Botones
+   -------------------------------------------------------------------------- */
+
+[data-flujo="v4"] .v4-boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--v4-radio-chico);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+[data-flujo="v4"] .v4-boton-principal {
+  background: var(--v4-rojo);
+  color: var(--v4-blanco);
+  border: 1px solid var(--v4-rojo);
+}
+[data-flujo="v4"] .v4-boton-principal:hover:not(:disabled) {
+  background: #e5131c;
+}
+/* Un solo estado deshabilitado para todo el flujo: el arte lo dibuja gris en
+   02/03A y rojo pálido en 03B, y eso era una inconsistencia del arte. */
+[data-flujo="v4"] .v4-boton:disabled {
+  background: var(--v4-gris-deshabilitado);
+  border-color: var(--v4-gris-deshabilitado);
+  color: var(--v4-blanco);
+  cursor: not-allowed;
+}
+/* Variante compacta: los dos botones del banner de cookies, que el arte
+   escribe en un cuerpo menor para que entren en una línea cada uno. */
+[data-flujo="v4"] .v4-boton-compacto {
+  min-height: 2.75rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+[data-flujo="v4"] .v4-boton-secundario {
+  background: var(--v4-blanco);
+  color: var(--v4-navy);
+  border: 1px solid var(--v4-navy);
+}
+[data-flujo="v4"] .v4-boton-secundario:hover:not(:disabled) {
+  background: var(--v4-gris-fondo);
+}
+[data-flujo="v4"] .v4-boton-secundario:disabled {
+  background: var(--v4-gris-fondo);
+  border-color: var(--v4-gris-borde);
+  color: var(--v4-gris-texto);
+}
+
+/* --------------------------------------------------------------------------
+   Campos
+   -------------------------------------------------------------------------- */
+
+[data-flujo="v4"] .v4-etiqueta {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--v4-azul-apagado);
+  margin-bottom: 0.25rem;
+}
+[data-flujo="v4"] .v4-campo {
+  width: 100%;
+  min-height: 2.875rem;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+  background: var(--v4-blanco);
+  border: 1px solid var(--v4-gris-borde);
+  border-radius: var(--v4-radio-chico);
+  color: var(--v4-navy);
+  font-size: 1rem;
+  text-align: left;
+}
+[data-flujo="v4"] .v4-campo::placeholder { color: var(--v4-gris-texto); }
+[data-flujo="v4"] .v4-campo:focus {
+  outline: none;
+  border-color: var(--v4-navy);
+  box-shadow: 0 0 0 1px var(--v4-navy);
+}
+[data-flujo="v4"] .v4-campo-error {
+  border-color: var(--v4-rojo);
+  box-shadow: 0 0 0 1px var(--v4-rojo);
+}
+[data-flujo="v4"] .v4-campo-bloqueado {
+  background: var(--v4-gris-fondo);
+  color: var(--v4-azul-apagado);
+}
+[data-flujo="v4"] .v4-campo:disabled {
+  background: var(--v4-gris-fondo);
+  color: var(--v4-gris-texto);
+}
+[data-flujo="v4"] .v4-error-campo {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--v4-rojo);
+}
+
+/* --------------------------------------------------------------------------
+   Casillas de OTP
+   -------------------------------------------------------------------------- */
+
+[data-flujo="v4"] .v4-otp {
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 4.5rem;
+  border: 1px solid var(--v4-gris-borde);
+  border-radius: var(--v4-radio);
+  background: var(--v4-blanco);
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--v4-navy);
+}
+[data-flujo="v4"] .v4-otp-activo { border-color: var(--v4-azul); }
+[data-flujo="v4"] .v4-otp:focus {
+  outline: none;
+  border-color: var(--v4-azul);
+  box-shadow: 0 0 0 3px rgba(8, 118, 249, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Enlaces y pie
+   -------------------------------------------------------------------------- */
+
+[data-flujo="v4"] .v4-enlace {
+  color: var(--v4-azul);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Filete rojo bajo la cabecera del flujo, y sobre la hoja de cada modal. */
+[data-flujo="v4"] .v4-filete-rojo { background: var(--v4-rojo); height: 3px; }
+
+/* Barra de desplazamiento azul de los modales largos (02B, 02C, 03B). */
+[data-flujo="v4"] .v4-scroll-azul { scrollbar-width: thin; scrollbar-color: var(--v4-azul) transparent; }
+[data-flujo="v4"] .v4-scroll-azul::-webkit-scrollbar { width: 6px; }
+[data-flujo="v4"] .v4-scroll-azul::-webkit-scrollbar-thumb {
+  background: var(--v4-azul);
+  border-radius: 3px;
+}
+
+/* Anillo de carga de los botones en proceso. */
+[data-flujo="v4"] .v4-anillo {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 9999px;
+  animation: v4-girar 700ms linear infinite;
+}
+@keyframes v4-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-flujo="v4"] .v4-anillo { animation-duration: 2.4s; }
+}

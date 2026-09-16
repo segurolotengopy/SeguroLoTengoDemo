@@ -33,7 +33,7 @@ function IconoEscudo() {
   );
 }
 export interface BarraPlanSeleccionadoProps {
-  /** Ej.: "Seguro de Vida Oncológico · CONFÍO+" */
+  /** Ej.: "Seguro de Vida Oncológico · VIVE+" */
   planNombre: string;
   /** Ej.: "Gs. 475.000 al año · IVA incluido" (P7/P8: "Gs. 475.000 · premio anual · IVA incluido") */
   premioTexto: string;

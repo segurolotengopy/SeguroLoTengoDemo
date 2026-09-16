@@ -38,6 +38,177 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-16 · v4 pasa a ser el producto: renombre a VIVE y doce pantallas implementadas
+
+**Rama:** `v4/pantallas` (desde `main`, `bdbea0b`) · **Decisiones de Andres
+(16-sep):** *«definamos que esta es la v4, el resto no va»*, más cuatro
+respuestas a lo que el análisis visual había dejado abierto.
+
+### El caso
+
+El análisis de los 103 artes cerró con cuatro preguntas. Andres las contestó
+todas y además cambió el alcance: v4 deja de ser una fuente visual a portar y
+pasa a ser **la versión del producto**. Con eso, lo que era «analizar» se
+volvió «implementar».
+
+### Qué cambió
+
+**Decisiones asentadas** como D-43 a D-48 (Bloque H de `docs/plan/DECISIONES.md`).
+
+- **D-45 · renombre a VIVE.** `PlanId`, nombres, premios (390.000 / 575.000 /
+  760.000, tabla de la p. 5 del manual) y `ID_VERSION_OFERTA` →
+  `OFERTA-VIVE-v3`. 31 archivos de `src/` y `e2e/`, más los documentos vivos.
+  Los expedientes viejos **no se reescriben**: sus `PlanId` se traducen al leer
+  (`PLAN_ID_LEGADO` + `conPlanRenombrado` en el repositorio), y su premio y su
+  hash quedan como estaban (regla inviolable #10).
+- **D-44 · no hay SMS.** Deja sin efecto a D-37. Los artes `03A_10` y `03A_11`
+  no se implementan y la cadena queda WhatsApp → reenvío (60 s) → bloqueo.
+- **D-46 · carga de archivo en producción.** `origenCapturaAdmitido` toma un
+  parámetro nuevo: el frente y el dorso se pueden cargar fuera de `DEMO_MODE`;
+  **la selfie no**. `03C_19 · posible alteración` no se implementa.
+- **D-47 · «premio», no «prima»**, salvo cita literal.
+- **D-48 · catálogos de 03E**: cinco listas de 15 a 20 opciones, ancladas en
+  las opciones visibles del arte y completadas con CIIU Rev. 4, CIUO-08 y los
+  conceptos de origen de fondos del FIPF.
+
+**Fundaciones v4** (`FLUJO_V4=true`, con el mismo mecanismo que usó v3 y por
+una razón operativa: encenderlo antes de tener las pantallas dejaba la suite en
+rojo):
+
+- `src/app/v4.css` — los cinco colores de marca, Arimo (D-39) y **sin un solo
+  bloque `dark:`** (D-29).
+- `src/domain/v4/` — `etapas.ts` (12 pantallas, 5 etapas), los catálogos de 03D
+  transcritos del JSON aprobado y los de 03E armados por D-48, y seis archivos
+  de textos con los literales del arte pasados a voseo.
+- `src/components/v4/` — 19 componentes compartidos, las tres marcas y las once
+  ilustraciones como SVG inline.
+
+**Doce pantallas implementadas**: 01 (+01A a 01E), 02 (+02A a 02C), 03A, 03B,
+03C, 03D, 03E (+03E1), 03E2/04A1, 04A y 04D.
+
+**Backend nuevo**, porque v4 parte en tres lo que v2 pedía junto:
+
+- `verificarIdentidadV4` — 03C verifica identidad con **capturas y correo**, sin
+  los datos que ahora se piden después. Sigue siendo una de las dos únicas
+  puertas a `IDENTIDAD_VERIFICADA`.
+- `registrarDatosPersonales` (03D), `registrarActividad` (03E),
+  `registrarDeclaracionesSalud` (04A) y `registrarConsentimientos` (04D), este
+  último la **única** puerta a `DECLARACIONES_OK` en v4.
+- Cinco endpoints bajo `/api/v4/`, y tres campos nuevos en el expediente
+  (`datosPersonales`, `actividadEconomica`, `declaracionesMedicas`), `null` en
+  todo expediente anterior.
+
+**D-31 implementado tal como se decidió:** la cédula y la fecha de nacimiento
+se editan y el cambio **se asienta en la evidencia**, pero la `Identidad`
+conserva lo que leyó el OCR — que es de donde cuelgan el corte de edad (regla
+#8) y el bloqueo por cédula (regla #11).
+
+### Qué hizo Andres
+
+Contestó las cuatro preguntas abiertas y fijó el alcance. Autorizó implementar
+todas las pantallas en una sola sesión, que es lo contrario de lo que dice
+`CLAUDE.md` («no implementes más de una pantalla por sesión»); queda anotado
+que la regla se levantó por pedido expreso y para este caso.
+
+### Verificaciones
+
+- `npm run typecheck` y `npm run lint` limpios; **`npm test`: 1423 en verde**
+  (eran 1413 antes de la sesión).
+- El test de arquitectura `derivado-manual-sin-salida` **detectó los cinco
+  endpoints nuevos** y los rechazó hasta que se demostró que los cinco rebotan
+  contra un expediente `DERIVADO_MANUAL`. Es exactamente para lo que existe.
+- **Camino completo de punta a punta contra el servidor real** (script de humo,
+  cookies y OTP leído del panel de demo): plan → OTP → autorización → tres
+  capturas → identidad → datos personales → actividad → declaraciones →
+  consentimientos, **13 pasos en verde**, estado final `DECLARACIONES_OK`.
+- Revisión visual de las nueve pantallas nuevas a 375 px contra su arte.
+- Dos errores que el camino de humo destapó y se corrigieron: la nacionalidad
+  que lee el OCR es un **gentilicio** («PARAGUAYA») y el catálogo aprobado usa
+  el **nombre del país**, así que se dejó de cotejar contra el OCR y se agregó
+  `paisDeNacionalidadLeida`; y `INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA` vivía
+  en un módulo que importa `node:crypto`, lo que rompía el build del cliente en
+  03C — se mudó a `catalogo-identidad.ts`, que es para lo que ese archivo existe.
+
+### Queda abierto
+
+- **`04E`, `05A` y `05B` no tienen arte** —ni aprobado ni candidato— y siguen
+  mostrando las pantallas de v2. Hay que pedírselo a Interseguros.
+- **La cámara de 03C conserva la piel de v2.** Funciona (disparo automático,
+  control de calidad, recorte) pero el arte la quiere en azul marino con marco
+  punteado.
+- **Encender `FLUJO_V4` por defecto y borrar v2 y v3**: falta reescribir la
+  batería E2E, que hoy recorre el flujo de ocho pasos.
+- **El enmascarado del número** es `+595 ••• ••• 000` y el arte muestra
+  `+595 981 ••• 000`. Cambiarlo toca también a v2.
+- **Los catálogos de 03E son nuestros** (D-48). Cuando llegue el de
+  Interseguros, manda el suyo.
+- **Los 21 artes de 03E siguen siendo candidatos**: la pantalla se implementó
+  igual por el encargo, y se rehace si aprueban otro dibujo.
+
+---
+## 2026-09-16 · Análisis visual de los 103 artes del handoff v4
+
+**Rama:** `main` · **Pedido de Andres (16-sep):** analizar uno por uno los 103
+PNG del handoff v4 para que la implementación tenga *exactamente* la misma
+apariencia —posiciones, tamaños, emojis, mensajes, desplegables—.
+
+### El caso
+
+`ANALISIS.md` (15-sep) contrasta el handoff contra el código y registra las
+decisiones D-28 a D-41, pero **no describe los artes**: dice qué se adopta, no
+qué se ve. Sin esa descripción, cada sesión que implemente una pantalla vuelve a
+abrir el ZIP de 73 MB —que no se versiona— y a leer el PNG por su cuenta, con el
+riesgo de que dos sesiones lean cosas distintas.
+
+### Qué cambió
+
+- **`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md`**
+  (nuevo, ~1.360 líneas): los 103 artes descritos uno por uno, agrupados por
+  `screen_code`, con la terna de trazabilidad que pide la nota de programación
+  (`screen_code + state_code + original_filename`). Incluye:
+  - §0, lo común a todos: marco de maqueta, las dos variantes de cabecera
+    (2 y 3 marcas), paleta, y el patrón de modal con su filete rojo.
+  - §1 a §9, grupo por grupo: 01 (8 artes), 02 (4), 03A (18), 03B (4),
+    03C (27), 03D (15), 03E2 (3), 04 (3) y 03E (21, **todos candidatos**).
+    Textos transcritos literales, contenido de los 9 desplegables con su
+    contador (`195 opciones disponibles`, `44`, `28`, `23`, `15`, `10`, `7`),
+    y los estados de cada control.
+  - §10, el inventario de **19 componentes** que hay que construir una sola vez.
+  - §11, las **14 correcciones** al arte y las **3 divergencias de fondo**.
+  - §12, la cobertura de los 103 y las 4 pantallas que faltan.
+- **No se tocó código.** Es un documento de referencia.
+
+### Qué hizo Andres
+
+Pidió el análisis. No hubo acciones suyas en consolas ni proveedores.
+
+### Verificaciones
+
+- **103/103 PNG coinciden con el manifiesto**: SHA-256 de cada archivo contra
+  `data/screen_manifest.csv` (script en §13 del documento nuevo).
+- Recuento contra `screens.json`: **81 `APROBADA_FINAL`** (79 vistas + 2 láminas
+  resumen) y **22 `CANDIDATA`**, repartidos en 22 grupos.
+- Dos hallazgos verificados ampliando el arte, que `ANALISIS.md` tenía a medias:
+  en 02 la errata es **`1 dia` sin tilde en dos líneas** (renta y gastos);
+  `90 días` **sí** la lleva. Y el contador de reenvío de 03A dice `00:30`.
+
+### Queda abierto
+
+- **`VIVE` vs. `CONFÍO`**: v4 renombra el producto y los tres planes. Toca
+  catálogo, PDF, textos legales y `entidades.ts`. **Decisión de Andres.**
+- **«Premio» vs. «prima»** en 02: se pregunta a Rodrigo cuál vale (ya estaba
+  abierto en `ANALISIS.md` §4).
+- **Carga de archivo en 03C**: el arte la ofrece sin condicionarla a
+  `DEMO_MODE`. Con D-40 (sin proveedor de detección de alteración), abrirla en
+  producción necesita decisión expresa.
+- **Los cinco catálogos completos de 03E** (situación laboral, actividad,
+  ocupación, profesión, origen de ingresos): los artes muestran 7-8 filas y
+  declaran el total. Hay que pedírselos a Interseguros junto con el arte
+  aprobado, como existe el JSON de 03D.
+- **04E, 05A y 05B siguen sin arte**, ni aprobado ni candidato.
+
+---
+
 ## 2026-09-15 · Intercambio de PDF con Alianza por SFTP: conector con IP fijas, VPN preparada y puerto nuevo
 
 **Rama:** `worktree-agent-a3b7f95d946e813b6` (desde `main`, `4b23b57`) ·

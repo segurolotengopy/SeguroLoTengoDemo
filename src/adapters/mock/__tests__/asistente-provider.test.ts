@@ -10,9 +10,9 @@ describe("mock del asistente", () => {
     mock.responder({ conversacionId: "web_mock00001", perfilId, texto });
 
   it("responde planes y premios desde el catálogo versionado", async () => {
-    const r = await preguntar("¿Cuánto cuesta el plan CONFÍO+?");
-    expect(r.ok && r.texto).toContain("Gs. 522.500");
-    expect(r.ok && r.respaldo[0]?.version).toBe("OFERTA-CONFIO-v2");
+    const r = await preguntar("¿Cuánto cuesta el plan VIVE+?");
+    expect(r.ok && r.texto).toContain("Gs. 575.000");
+    expect(r.ok && r.respaldo[0]?.version).toBe("OFERTA-VIVE-v3");
   });
 
   it("responde carencias, exclusiones y edades desde el documento de coberturas v1.0", async () => {

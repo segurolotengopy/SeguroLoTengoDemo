@@ -64,7 +64,8 @@ import { cotejarCorreccion } from "./cotejo-ocr";
 // `P6`: cambió qué pantalla los envía, no el modelo (NC-04).
 import { interpretarDatosComplementariosP6 } from "./catalogo-p6";
 import type { CorreccionesOcr } from "./cotejo-ocr";
-import { esEstadoCivil, esPaisNacimiento, requisitosPendientes } from "./catalogo-identidad";
+import {
+  INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA, esEstadoCivil, esPaisNacimiento, requisitosPendientes } from "./catalogo-identidad";
 import type { IdRequisitoP5, RequisitosP5, TipoCapturaP5 } from "./catalogo-identidad";
 import { transicionarExpediente } from "./expediente";
 import { calcularEdadDesde, edadEnRangoPermitido } from "./tipos";
@@ -140,18 +141,14 @@ export const PASO_EVIDENCIA_REGISTRO_CIVIL_P5 = "P5_CONSULTA_REGISTRO_CIVIL";
 export const PASO_EVIDENCIA_ASISTENCIA_IDENTIDAD = "P5_DERIVACION_ASISTENCIA_IDENTIDAD";
 
 /**
- * Análisis fallidos de P5 tras los cuales el caso pasa a asistencia humana.
+ * Reexportado desde `catalogo-identidad.ts`, que no importa `node:*`.
  *
- * **Decisión de producto, sin fila en la matriz de cumplimiento.** La fila 19
- * respalda derivar una respuesta PEP a análisis reforzado, que es otra cosa:
- * no hay norma que exija esta salida. Lo que la justifica es que sin ella una
- * persona con un documento que el sistema no sabe leer queda repitiendo
- * capturas para siempre, y eso no es un rechazo: es un callejón sin salida.
- *
- * Tres, igual que los intentos de OTP de la regla inviolable #1 — un número
- * que el producto ya usa y que la gente ya conoce.
+ * Vive allá y no acá porque **la pantalla lo necesita**: v4 lo usa para
+ * escribir «Intento 1 de 3» en su tarjeta de error, y este módulo arrastra
+ * `node:crypto` al bundle del navegador. Es la misma razón por la que existe
+ * `catalogo-identidad.ts`.
  */
-export const INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA = 3;
+export { INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA };
 
 /** Prefijo del número de caso de asistencia; distinto del de Pantalla A. */
 const PREFIJO_CASO_ASISTENCIA = "ASIS";
@@ -1148,6 +1145,190 @@ export async function confirmarIdentidadP5(
       // Qué campos entraron por confirmación explícita, nunca sus valores:
       // los valores viven en el expediente, la evidencia registra el hecho.
       ...(sinCotejo.length > 0 ? { correccionConfirmadaSinCotejo: sinCotejo.join(",") } : {}),
+    },
+  });
+
+  return {
+    ok: true,
+    expedienteId: entrada.expedienteId,
+    estado: transicion.expediente.estado,
+    requisitos: verificacion.requisitos,
+    datos: verificacion.datos,
+    registroSeguridad: armarRegistroSeguridad(verificacion, fecha, entrada.contexto, "EXITOSO"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 4. v4 · la identidad se verifica sola, sin los datos que ya no se piden acá
+// ---------------------------------------------------------------------------
+
+export interface EntradaIdentidadV4 {
+  readonly expedienteId: string;
+  readonly imagenes: ImagenesP5;
+  /** Correo declarado con doble tipeo, igual que en v2 (D-06). */
+  readonly correo: string;
+  /** Aceptada en 03B, no en esta pantalla (D-42, conflicto C-13 cerrado). */
+  readonly autorizacionBiometrica: boolean;
+  readonly contexto: ContextoPeticion;
+}
+
+/**
+ * Botón `VALIDAR Y CONTINUAR` de **03C** (flujo v4).
+ *
+ * ## Qué cambia respecto de `confirmarIdentidadP5`
+ *
+ * v4 parte en tres lo que v2 pedía en una pantalla: acá van **las tres
+ * capturas y el correo**; el país, la nacionalidad, el sexo y el estado civil
+ * se declaran en 03D, y la actividad económica en 03E. Por eso esta función
+ * no valida ni guarda nada de eso: la `Identidad` nace con esos campos vacíos
+ * y los completa `registrarDatosPersonalesV4`.
+ *
+ * Lo que **no** cambia es lo que tiene consecuencia: la prueba de vida, la
+ * coincidencia facial, la lectura de la cédula, el corte de edad (regla #8),
+ * el bloqueo por cédula (regla #11) y la evidencia. Esta sigue siendo una de
+ * las dos únicas puertas a `IDENTIDAD_VERIFICADA`.
+ *
+ * Las correcciones de nombres y apellidos tampoco se reciben acá: en v4 se
+ * editan en 03D, contra los datos ya extraídos, y se cotejan en esa pantalla.
+ * Lo que se guarda en este paso es exactamente lo que leyó el proveedor.
+ */
+export async function verificarIdentidadV4(
+  deps: DependenciasP5,
+  entrada: EntradaIdentidadV4,
+): Promise<ResultadoConfirmacionP5> {
+  const reloj = resolverReloj(deps);
+  const fecha = reloj.ahora();
+
+  if (!entrada.autorizacionBiometrica) {
+    return { ok: false, motivo: "AUTORIZACION_BIOMETRICA_REQUERIDA" };
+  }
+  if (
+    entrada.imagenes.frente.length === 0 ||
+    entrada.imagenes.dorso.length === 0 ||
+    capturaVacia(entrada.imagenes.selfie)
+  ) {
+    return { ok: false, motivo: "CAPTURAS_INCOMPLETAS" };
+  }
+
+  const correo = normalizarCorreo(entrada.correo);
+  if (!correo.ok) return { ok: false, motivo: "CORREO_INVALIDO" };
+
+  const estado = await exigirExpedienteEnP5(deps, entrada.expedienteId);
+  if (!estado.ok) return { ok: false, motivo: estado.motivo };
+
+  // El quinto requisito de `REQUISITOS_P5` —país y estado civil completos— se
+  // cumple en 03D, no acá: se pasa `true` para que no bloquee esta pantalla, y
+  // la pantalla siguiente no deja avanzar sin esos campos. Es la misma
+  // exigencia, comprobada donde v4 la pide.
+  const verificacion = await verificar(
+    deps,
+    entrada.expedienteId,
+    entrada.imagenes,
+    new Date(fecha),
+    true,
+  );
+
+  await registrarConsultaRegistroCivil(deps, reloj, {
+    expedienteId: entrada.expedienteId,
+    fecha,
+    contexto: entrada.contexto,
+    consulta: verificacion.registroCivil,
+  });
+
+  const pendientes = requisitosPendientes(verificacion.requisitos);
+  const edadEnRango = verificacion.datos?.edadEnRango ?? false;
+
+  async function rechazar(motivo: MotivoRechazoIdentidad): Promise<ResultadoConfirmacionP5> {
+    await registrarEvidencia(deps, reloj, {
+      expedienteId: entrada.expedienteId,
+      paso: PASO_EVIDENCIA_VERIFICACION_P5,
+      fecha,
+      contexto: entrada.contexto,
+      resultado: "FALLIDO",
+      detalle: {
+        motivo,
+        flujo: "v4",
+        hashFrente: verificacion.frente.hashSha256,
+        hashDorso: verificacion.dorso.hashSha256,
+        hashSelfie: verificacion.selfie.hashSha256,
+        pruebaDeVida: verificacion.pruebaDeVidaAprobada,
+        coincidenciaFacial: verificacion.coincidenciaFacialAprobada,
+        edadEnRango,
+        ...(pendientes.length > 0 ? { pendientes: pendientes.join(",") } : {}),
+      },
+    });
+
+    return {
+      ok: false,
+      motivo,
+      requisitos: verificacion.requisitos,
+      pendientes,
+      datos: verificacion.datos,
+    };
+  }
+
+  if (pendientes.length > 0) return rechazar("REQUISITOS_INCOMPLETOS");
+
+  if (verificacion.datos) {
+    const bloqueo = await evaluarBloqueoPorCedula(deps.bloqueos, verificacion.datos.numeroCedula);
+    if (bloqueo.bloqueada) return rechazar("CEDULA_BLOQUEADA");
+  }
+  if (!verificacion.datos || !edadEnRango) return rechazar("EDAD_FUERA_DE_RANGO");
+
+  const captura: CapturaBiometrica = {
+    hashFrenteCedula: verificacion.frente.hashSha256,
+    hashDorsoCedula: verificacion.dorso.hashSha256,
+    hashSelfie: verificacion.selfie.hashSha256,
+    pruebaDeVidaAprobada: verificacion.pruebaDeVidaAprobada,
+    coincidenciaFacialAprobada: verificacion.coincidenciaFacialAprobada,
+  };
+
+  const identidad: Identidad = {
+    numeroCedula: verificacion.datos.numeroCedula,
+    nombres: verificacion.datos.nombres,
+    apellidos: verificacion.datos.apellidos,
+    fechaNacimiento: verificacion.datos.fechaNacimiento,
+    sexo: verificacion.datos.sexo,
+    nacionalidad: verificacion.datos.nacionalidad,
+    // Los tres que completa 03D. Vacíos no significan «sin dato»: significan
+    // «todavía no declarados», y la pantalla siguiente no deja avanzar sin
+    // ellos. Ningún documento se cierra antes de 04D, así que no hay forma de
+    // imprimir un FIPF con estos campos en blanco.
+    paisNacimiento: "",
+    paisResidencia: "",
+    estadoCivil: "",
+    captura,
+  };
+
+  const transicion = transicionarExpediente(
+    estado.expediente,
+    "IDENTIDAD_VERIFICADA",
+    {
+      identidad,
+      canalEmail: { valor: correo.correo, verificadoEn: fecha, origen: "DOBLE_TIPEO" },
+    },
+    fecha,
+  );
+
+  if (!transicion.ok) return rechazar("ESTADO_INVALIDO");
+
+  await deps.expedientes.guardar(transicion.expediente, estado.expediente.actualizadoEn);
+
+  await registrarEvidencia(deps, reloj, {
+    expedienteId: entrada.expedienteId,
+    paso: PASO_EVIDENCIA_VERIFICACION_P5,
+    fecha,
+    contexto: entrada.contexto,
+    resultado: "EXITOSO",
+    detalle: {
+      estado: transicion.expediente.estado,
+      flujo: "v4",
+      hashFrente: captura.hashFrenteCedula,
+      hashDorso: captura.hashDorsoCedula,
+      hashSelfie: captura.hashSelfie,
+      pruebaDeVida: captura.pruebaDeVidaAprobada,
+      coincidenciaFacial: captura.coincidenciaFacialAprobada,
+      edadEnRango: true,
     },
   });
 

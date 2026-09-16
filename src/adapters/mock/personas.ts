@@ -132,7 +132,7 @@ const CAMINO_FELIZ: PersonaDemo = {
     estadoCivil: "Soltera",
     captura: capturaAprobada("camino-feliz"),
   },
-  planElegido: "CONFIO_PLUS",
+  planElegido: "VIVE_PLUS",
   datosComplementarios: {
     domicilio: "Av. Mariscal López 3450, Barrio Villa Morra",
     ciudad: "Asunción",
@@ -182,7 +182,7 @@ const PEP_POSITIVO: PersonaDemo = {
     estadoCivil: "Casado",
     captura: capturaAprobada("pep-positivo"),
   },
-  planElegido: "CONFIO_TOTAL",
+  planElegido: "VIVE_TOTAL",
   datosComplementarios: {
     domicilio: "Calle Palma 812, Centro",
     ciudad: "Asunción",
@@ -235,7 +235,7 @@ const SALUD_INCOMPATIBLE: PersonaDemo = {
     estadoCivil: "Divorciada",
     captura: capturaAprobada("salud-incompatible"),
   },
-  planElegido: "CONFIO",
+  planElegido: "VIVE",
   datosComplementarios: {
     domicilio: "Ruta Mcal. Estigarribia km 12, Barrio San Miguel",
     ciudad: "San Lorenzo",
@@ -299,7 +299,7 @@ const BIOMETRIA_RECHAZADA: PersonaDemo = {
       coincidenciaFacialAprobada: false,
     },
   },
-  planElegido: "CONFIO_PLUS",
+  planElegido: "VIVE_PLUS",
   datosComplementarios: {
     domicilio: "Av. San Martín 1290",
     ciudad: "Fernando de la Mora",
@@ -354,7 +354,7 @@ const NO_FIRMA: PersonaDemo = {
     estadoCivil: "Casada",
     captura: capturaAprobada("no-firma"),
   },
-  planElegido: "CONFIO_PLUS",
+  planElegido: "VIVE_PLUS",
   datosComplementarios: {
     domicilio: "Barrio Santa Ana, Manzana 14 Casa 7",
     ciudad: "Luque",

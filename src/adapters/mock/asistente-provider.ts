@@ -97,7 +97,7 @@ export function crearAsistenteProviderMock(): AsistenteProvider {
       }
       if (!producto.disponible) return responderProductoNoDisponible(producto.nombre);
 
-      if (/\b(precio|premio|cuesta|cuestan|vale|valor|cuanto|planes?|confio)\b/.test(n)) {
+      if (/\b(precio|premio|cuesta|cuestan|vale|valor|cuanto|planes?|vive)\b/.test(n)) {
         return { ok: true, texto: textoPlanes(), respaldo: [RESPALDO_CATALOGO], avisos: [], derivacion: false };
       }
       if (/\bcarencia/.test(n)) {

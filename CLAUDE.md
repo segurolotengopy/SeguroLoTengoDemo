@@ -1,6 +1,6 @@
 # SeguroLoTengo — Demo del sistema integrado (AAB1)
 
-Portal B2C de venta electrónica del **Seguro de Vida Oncológico CONFÍO**. Marca y canal digital de **Interseguros S.A.** (corredor) · Aseguradora: **Alianza Garantía Seguros y Reaseguros S.A.** · Operador tecnológico: **AAB1**. Mercado: Paraguay.
+Portal B2C de venta electrónica del **Seguro de Vida Oncológico VIVE**. Marca y canal digital de **Interseguros S.A.** (corredor) · Aseguradora: **Alianza Garantía Seguros y Reaseguros S.A.** · Operador tecnológico: **AAB1**. Mercado: Paraguay.
 
 Este es un **entorno de demostración**: todas las integraciones externas están simuladas. La funcionalidad y las reglas de negocio son reales y completas.
 
@@ -72,28 +72,54 @@ esto está implementado: la regla 6-bis, la máquina de estados, la sección del
 CPC y los «tres descargables» de más abajo siguen describiendo el código de hoy,
 y se reescriben con el lote que los cambie.
 
-### ⚠️ Pantallas v4 y manual funcional (14/15-sep-2026), pendientes de implementar
+### ⚠️ v4 es la versión del producto (16-sep-2026)
 
 Interseguros mandó el handoff de pantallas v4 y el manual funcional
 (`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/`). Andres decidió
-D-28 a D-41 (Bloque G de `docs/plan/DECISIONES.md`). Lo que cambia:
+D-28 a D-41 (Bloque G de `docs/plan/DECISIONES.md`) y, el 16-sep, **D-43 a
+D-48** (Bloque H): *«esta es la v4, el resto no va»*.
 
-- **Fuente visual:** v4 reemplaza al prototipo v3 de Lovable. Manda el
-  **manual**, después el arte `APROBADA_FINAL`, después el JSON.
-- **Flujo:** 5 etapas con portada. El plazo de pago pasa a **10 minutos**
-  desde la firma del cliente.
-- **Datos:** en 03D los datos extraídos son editables y se registran, pero la
-  **elegibilidad y el bloqueo se calculan con el OCR**.
-- **Canales y firmas:** SMS de contingencia sobre AWS. Interseguros firma en
-  lote por fuera del sistema.
-- **Presentación:** voseo en todo, sin modo oscuro en la primera fase, Arimo
-  en lugar de DM Sans, y analítica sin datos sensibles.
+**v2 y v3 dejaron de ser objetivos.** Siguen en el árbol solo hasta que
+`FLUJO_V4` se encienda para siempre; ahí se borran. No se les agregan
+pantallas ni se los mantiene.
 
-**Antes de tocar una pantalla o una regla del flujo, leé el `ANALISIS.md` de
-esa carpeta**: lista qué se adopta, qué choca con las reglas de abajo
-(conflictos C-1 a C-14, sin decidir) y en qué orden se implementa. Nada de esto
-está implementado todavía: las reglas y la máquina de estados de este archivo
-siguen describiendo el código de hoy, y se corrigen con el lote que las cambie.
+Antes de tocar una pantalla:
+
+1. **`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md`**
+   — los 103 artes descritos uno por uno: textos literales, posiciones,
+   desplegables, estados, y las 14 correcciones que **no** se copian del arte.
+2. **`MANUAL_FUNCIONAL_TRANSCRIPCION.txt`** — manda sobre el arte (D-28).
+3. **`ANALISIS.md`** — qué se adopta y qué choca.
+
+Lo que v4 cambia y **ya está implementado**:
+
+- **Producto `VIVE`** (D-45), planes `VIVE` / `VIVE+` / `VIVE TOTAL`, premios
+  390.000 / 575.000 / 760.000. `ID_VERSION_OFERTA` = `OFERTA-VIVE-v3`. Los
+  `PlanId` viejos se traducen al leer (`PLAN_ID_LEGADO`).
+- **No hay SMS** (D-44, deja sin efecto a D-37): el único canal de OTP es
+  WhatsApp. Los artes `03A_10` y `03A_11` no se implementan.
+- **Se dice «premio», no «prima»** (D-47), salvo en citas literales de normas.
+- **Carga de archivo del frente y el dorso en producción** (D-46): ya no
+  depende de `DEMO_MODE`. La **selfie sigue siendo solo cámara**. El estado
+  `03C_19 · posible alteración` no se implementa: no hay proveedor que lo
+  detecte.
+- **Cinco etapas**, no ocho pasos: el stepper lee `PANTALLAS_V4` de
+  `src/domain/v4/etapas.ts` y recibe el **código de pantalla**, nunca un número.
+- **Plazo de pago de 10 minutos** (D-32): `PLAZO_PAGO_V4_MS`.
+- **Doce pantallas** y sus rutas: `/` (01) · `/plan` (02) · `/whatsapp` (03A) ·
+  `/preparacion` (03B) · `/identidad` (03C) · `/datos` (03D) · `/actividad`
+  (03E) · `/declaraciones` (04A) · `/consentimientos` (04D) · `/firma` (04E) ·
+  `/pago` (05A) · `/confirmacion` (05B), más `/revision-manual` (03E2 y 04A1).
+- **Cinco endpoints nuevos**, todos bajo `/api/v4/`: `identidad`,
+  `datos-personales`, `actividad`, `declaraciones` y `consentimientos`.
+- **La máquina de estados no cambió.** 03D, 03E y 04A llenan el expediente sin
+  moverlo de `IDENTIDAD_VERIFICADA`; `04D` es la única puerta a
+  `DECLARACIONES_OK`. Campos nuevos: `datosPersonales`, `actividadEconomica` y
+  `declaracionesMedicas`, los tres `null` en los expedientes anteriores.
+
+Lo que **falta**: `04E` (revisión y firma), `05A` (pago) y `05B` (confirmación)
+**no tienen arte** —ni aprobado ni candidato— y siguen mostrando las pantallas
+de v2. La cámara de 03C funciona pero conserva la piel de v2.
 
 ### Documentos fuente adicionales
 
@@ -320,7 +346,7 @@ Reglas no negociables de esa integración: el documento único viaja en **un** `
 **Code100 no puede recibir la firma del cliente, y eso ya está respondido por escrito.**
 `docs/Integraciones/Code100 - Respuestas C1 a C12.md` (C1): Api Flow firma **exclusivamente con
 certificado cualificado que el firmante ya tenga emitido a su nombre**, y no existe flujo alternativo.
-El cliente de CONFÍO no lo tiene. Así que el adaptador oficial de `SignatureProvider`, cuando se
+El cliente de VIVE no lo tiene. Así que el adaptador oficial de `SignatureProvider`, cuando se
 escriba, cubre **las firmas institucionales**. **La del cliente quedó decidida (D1, ratificada por
 Andres el 30-ago-2026): la ejecuta SeguroLoTengo con su firma electrónica no cualificada interna**
 (Res. SS.SG. 210/2025 art. 4) — `src/domain/firma-cliente.ts`, sobre lo que la plataforma ya hace:

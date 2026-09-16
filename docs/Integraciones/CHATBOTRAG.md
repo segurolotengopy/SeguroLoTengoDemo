@@ -51,7 +51,7 @@ El `perfilId` es el `id` del producto en `PRODUCTOS` (`src/domain/catalogo.ts`):
 
 ## Corpus aprobado
 
-El corpus del perfil `VIDA_ONCOLOGICO` se derivó de los textos versionados de este repositorio: `catalogo.ts` (OFERTA-CONFIO-v2), `ACLARACION_COBERTURAS` v1.0, `ACLARACION_TERMINOS_CONDICIONES` v1.1, `ACLARACION_DOCUMENTACION_PRECONTRACTUAL` v1.1, `aclaracionConsultasReclamos` v1.1, `entidades.ts` y `textos-legales.ts`. **Cuando uno de esos textos cambie de versión, hay que actualizar el archivo correspondiente en `configuraciones/corpus/segurolotengo/` del servicio**: el asistente cita la versión que tiene cargada.
+El corpus del perfil `VIDA_ONCOLOGICO` se derivó de los textos versionados de este repositorio: `catalogo.ts` (OFERTA-VIVE-v2), `ACLARACION_COBERTURAS` v1.0, `ACLARACION_TERMINOS_CONDICIONES` v1.1, `ACLARACION_DOCUMENTACION_PRECONTRACTUAL` v1.1, `aclaracionConsultasReclamos` v1.1, `entidades.ts` y `textos-legales.ts`. **Cuando uno de esos textos cambie de versión, hay que actualizar el archivo correspondiente en `configuraciones/corpus/segurolotengo/` del servicio**: el asistente cita la versión que tiene cargada.
 
 ## Lo que el widget no hace
 

@@ -468,9 +468,15 @@ export type OrigenCaptura = "CAMARA" | "ARCHIVO";
  * generada, y mientras no haya proveedor documental especializado exigir la
  * cámara es el control de autenticidad más efectivo que tenemos.
  *
- * `modoDemo` levanta esa exigencia para **las tres** capturas, y solo ahí.
- * Fuera de la demostración no hay excepción: `DEMO_MODE=true` lo resuelve
- * quien llama, porque el dominio no lee variables de entorno.
+ * `modoDemo` levanta esa exigencia para **las tres** capturas.
+ *
+ * **Desde v4 hay una segunda excepción, y es de producción** (D-46): con
+ * `archivoDocumentalHabilitado` se admite cargar el **frente y el dorso** como
+ * archivo, porque Andres decidió que no habrá proveedor de detección de
+ * alteración documental y que igual se permita la carga. La **selfie no entra
+ * en esa excepción**: fuera del modo demo sigue exigiendo cámara.
+ *
+ * Las dos las resuelve quien llama: el dominio no lee variables de entorno.
  *
  * **La selfie también, y conviene entender qué se está aceptando.** Es el
  * ancla biométrica del expediente: un archivo ahí permite verificar la
@@ -496,9 +502,23 @@ export function origenCapturaAdmitido(
   tipo: "FRENTE" | "DORSO" | "SELFIE",
   origen: OrigenCaptura,
   modoDemo: boolean,
+  /**
+   * v4 · D-46: la carga de archivo del **frente y el dorso** deja de ser una
+   * comodidad de demostración y pasa a ser un camino de producción.
+   *
+   * *"No vamos a usar un proveedor de alteración documental. Permitiremos que
+   * carguen archivos."* (Andres, 16-sep-2026.) Lo decide quien llama, porque
+   * el dominio no lee variables de entorno.
+   *
+   * **La selfie queda afuera**: sigue exigiendo cámara salvo en modo demo. Es
+   * el ancla biométrica y el único control que queda contra la suplantación
+   * una vez que se admite un archivo como documento.
+   */
+  archivoDocumentalHabilitado = false,
 ): boolean {
   if (origen === "CAMARA") return true;
-  return modoDemo;
+  if (modoDemo) return true;
+  return archivoDocumentalHabilitado && tipo !== "SELFIE";
 }
 
 // ---------------------------------------------------------------------------

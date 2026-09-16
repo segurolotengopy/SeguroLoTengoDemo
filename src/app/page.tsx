@@ -6,10 +6,11 @@ import { redirect } from "next/navigation";
 import { COOKIE_EXPEDIENTE } from "@/app/api/_http/contexto-peticion";
 import { HeaderInstitucional, PieLegal } from "@/components/shared";
 import { sufijoTitulo } from "@/domain/entidades";
-import { flujoV3Activo } from "@/domain/flujo-vigente";
+import { flujoV3Activo, flujoV4Activo } from "@/domain/flujo-vigente";
 import { destinoDelExpediente } from "@/domain/rutas-flujo";
 import { crearExpedienteRepository } from "@/repositories";
 import { AceptacionInicioV3 } from "./InicioV3";
+import { Pantalla01 } from "@/components/v4/pantallas/Pantalla01";
 
 /**
  * La raíz del portal.
@@ -27,7 +28,7 @@ import { AceptacionInicioV3 } from "./InicioV3";
 export const metadata: Metadata = {
   title: `SeguroLoTengo · ${sufijoTitulo()}`,
   description:
-    "Seguro de Vida Oncológico CONFÍO: protegé a tu familia en 3 pasos, desde tu celular.",
+    "Seguro de Vida Oncológico VIVE: protegé a tu familia en 3 pasos, desde tu celular.",
 };
 
 /**
@@ -73,6 +74,12 @@ async function tramiteEmpezado(): Promise<{ ruta: string; rotulo: string } | nul
 }
 
 export default async function Raiz() {
+  // v4 · la raíz **es** la portada con el catálogo de productos (arte `01`),
+  // la única pantalla del flujo sin stepper y con dos marcas.
+  if (flujoV4Activo()) {
+    return <Pantalla01 />;
+  }
+
   if (!flujoV3Activo()) {
     redirect("/plan");
   }

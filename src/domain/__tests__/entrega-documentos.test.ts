@@ -449,12 +449,12 @@ describe("mensaje que acompaña los documentos (D-18)", () => {
   it("es la redacción adoptada, con la fecha de inicio de cobertura", () => {
     const mensaje = mensajeDeEntrega({
       nombre: "Mónica",
-      plan: "CONFÍO+",
+      plan: "VIVE+",
       inicioCobertura: "2026-08-10T15:01:00.000Z",
     });
 
     expect(mensaje).toContain("¡Hola, Mónica!");
-    expect(mensaje).toContain("Tu seguro CONFÍO+ ya está en marcha.");
+    expect(mensaje).toContain("Tu seguro VIVE+ ya está en marcha.");
     expect(mensaje).toContain("Certificado de Cobertura Provisional");
     expect(mensaje).toContain("comienza el 10/08/2026 a las 15:01");
     expect(mensaje).toContain("24 horas después de tu pago");

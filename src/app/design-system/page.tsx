@@ -42,13 +42,13 @@ export default function DesignSystemPreview() {
           </h2>
           <div className="flex flex-col gap-3">
             <BarraPlanSeleccionado
-              planNombre="Seguro de Vida Oncológico · CONFÍO+"
+              planNombre="Seguro de Vida Oncológico · VIVE+"
               premioTexto="Gs. 475.000 al año · IVA incluido"
               enlaceTexto="Cambiar plan"
               enlaceHref="#"
             />
             <BarraPlanSeleccionado
-              planNombre="Seguro de Vida Oncológico · CONFÍO+"
+              planNombre="Seguro de Vida Oncológico · VIVE+"
               premioTexto="Gs. 475.000 · premio anual · IVA incluido"
               enlaceTexto="Volver al pago"
               onEnlaceClick={() => {}}

@@ -24,7 +24,7 @@
  * exhaustivo y TypeScript no deja olvidarse de ninguno.
  */
 import type { EstadoExpediente } from "./tipos";
-import { flujoV3Activo } from "./flujo-vigente";
+import { flujoV3Activo, flujoV4Activo } from "./flujo-vigente";
 
 /**
  * A dónde vuelve quien cierra el trámite (botón *Finalizar*).
@@ -35,7 +35,9 @@ import { flujoV3Activo } from "./flujo-vigente";
  * terminar caía en un paso 2 sin inscripción, que no es una pantalla del
  * diseño para ese momento.
  */
-export const RUTA_CIERRE_DE_TRAMITE = flujoV3Activo() ? "/" : "/plan";
+// En v4 la raíz es la portada con el catálogo: quien cierra el trámite
+// vuelve ahí, igual que en v3.
+export const RUTA_CIERRE_DE_TRAMITE = flujoV3Activo() || flujoV4Activo() ? "/" : "/plan";
 
 export const RUTA_ASISTENCIA_IDENTIDAD = "/asistencia-identidad";
 export const RUTA_REVISION_MANUAL = "/revision-manual";
@@ -182,10 +184,67 @@ export const PASOS_FLUJO_V3: readonly PasoDelFlujo[] = [
   },
 ];
 
+/**
+ * El flujo v4 (D-43), en **doce pantallas y cinco etapas**.
+ *
+ * Esta lista existe para la maquinaria de enrutado —a dónde mandar a quien
+ * vuelve, cuál es la pantalla siguiente—; **el stepper no se deriva de acá**,
+ * porque v4 cuenta etapas y no pantallas. Eso vive en `v4/etapas.ts`, que es
+ * la fuente de la numeración `N de 5`.
+ *
+ * El `estadoAlCompletar` de varias pantallas se repite: 03D, 03E y 04A llenan
+ * el expediente sin moverlo de `IDENTIDAD_VERIFICADA`, y recién 04D lo lleva a
+ * `DECLARACIONES_OK`. Es correcto y es lo que v4 hace: son pantallas de un
+ * mismo tramo.
+ */
+export const PASOS_FLUJO_V4: readonly PasoDelFlujo[] = [
+  { id: "Pv4-1", slug: "/plan", titulo: "Elegí tu plan", estadoAlCompletar: "PLAN_SELECCIONADO" },
+  { id: "Pv4-2", slug: "/whatsapp", titulo: "Verificá tu WhatsApp", estadoAlCompletar: "CANAL_WA_VERIFICADO" },
+  { id: "Pv4-3", slug: "/preparacion", titulo: "Prepará lo necesario", estadoAlCompletar: "AUTORIZADO" },
+  { id: "Pv4-4", slug: "/identidad", titulo: "Verificá tu identidad", estadoAlCompletar: "IDENTIDAD_VERIFICADA" },
+  { id: "Pv4-5", slug: "/datos", titulo: "Completá tus datos", estadoAlCompletar: "IDENTIDAD_VERIFICADA" },
+  { id: "Pv4-6", slug: "/actividad", titulo: "Actividad e ingresos", estadoAlCompletar: "IDENTIDAD_VERIFICADA" },
+  { id: "Pv4-7", slug: "/declaraciones", titulo: "Datos y declaraciones", estadoAlCompletar: "IDENTIDAD_VERIFICADA" },
+  { id: "Pv4-8", slug: "/consentimientos", titulo: "Consentimientos", estadoAlCompletar: "DECLARACIONES_OK" },
+  { id: "Pv4-9", slug: "/firma", titulo: "Revisá, aceptá y firmá", estadoAlCompletar: "FIRMADO" },
+  { id: "Pv4-10", slug: "/pago", titulo: "Realizá el pago", estadoAlCompletar: "PAGO_CONFIRMADO" },
+  { id: "Pv4-11", slug: "/confirmacion", titulo: "Contratación confirmada", estadoAlCompletar: "EMITIDO" },
+];
+
+/**
+ * El mapa de v4. Igual al de v2 en todo menos en una línea: quien tiene la
+ * identidad verificada va a **`/datos`**, que es donde v4 pide los datos
+ * personales — en v2 esa pantalla no existía y el siguiente paso eran las
+ * declaraciones. Las cuatro pantallas de ese tramo comparten estado y cada una
+ * reenvía a la siguiente cuando lo suyo ya está completo.
+ */
+export const PANTALLA_POR_ESTADO_V4: Readonly<Record<EstadoExpediente, string>> = {
+  INICIADO: "/plan",
+  PLAN_SELECCIONADO: "/whatsapp",
+  CANAL_WA_VERIFICADO: "/preparacion",
+  AUTORIZADO: "/identidad",
+  CANAL_EMAIL_VERIFICADO: "/identidad",
+  IDENTIDAD_VERIFICADA: "/datos",
+  DECLARACIONES_OK: "/firma",
+  PAQUETE_GENERADO: "/firma",
+  FIRMADO_CLIENTE: "/firma",
+  FIRMADO: "/pago",
+  PAGO_CONFIRMADO: "/confirmacion",
+  EMITIDO: "/confirmacion",
+
+  ASISTENCIA_IDENTIDAD: RUTA_ASISTENCIA_IDENTIDAD,
+  DERIVADO_MANUAL: RUTA_REVISION_MANUAL,
+  VENCIDO: RUTA_SOLICITUD_VENCIDA,
+  DEVOLUCION_EN_TRAMITE: RUTA_SOLICITUD_VENCIDA,
+  DEVUELTO: RUTA_SOLICITUD_VENCIDA,
+};
+
 /** La lista vigente en este despliegue. Todo lo demás se deriva de ella. */
-export const PASOS_FLUJO: readonly PasoDelFlujo[] = flujoV3Activo()
-  ? PASOS_FLUJO_V3
-  : PASOS_FLUJO_V2;
+export const PASOS_FLUJO: readonly PasoDelFlujo[] = flujoV4Activo()
+  ? PASOS_FLUJO_V4
+  : flujoV3Activo()
+    ? PASOS_FLUJO_V3
+    : PASOS_FLUJO_V2;
 
 export const TOTAL_PASOS = PASOS_FLUJO.length;
 
@@ -383,9 +442,11 @@ export const PANTALLA_POR_ESTADO_V3: Readonly<Record<EstadoExpediente, string>> 
   DEVUELTO: RUTA_SOLICITUD_VENCIDA,
 };
 
-export const PANTALLA_POR_ESTADO: Readonly<Record<EstadoExpediente, string>> = flujoV3Activo()
-  ? PANTALLA_POR_ESTADO_V3
-  : PANTALLA_POR_ESTADO_V2;
+export const PANTALLA_POR_ESTADO: Readonly<Record<EstadoExpediente, string>> = flujoV4Activo()
+  ? PANTALLA_POR_ESTADO_V4
+  : flujoV3Activo()
+    ? PANTALLA_POR_ESTADO_V3
+    : PANTALLA_POR_ESTADO_V2;
 
 /**
  * Estados desde los que **no se puede volver al flujo digital**.

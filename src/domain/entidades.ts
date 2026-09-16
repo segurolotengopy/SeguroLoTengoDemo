@@ -86,10 +86,18 @@ export const INTERSEGUROS: Entidad = {
 export const CORREO_RETRACTO_Y_DATOS = "segurolotengo@interseguros360.com";
 
 /**
- * Número de WhatsApp del botón de contacto directo con Interseguros (CHG-45).
- * Pendiente de D-19; hasta tenerlo, el botón no se muestra.
+ * Número de WhatsApp de atención de Interseguros (CHG-45).
+ *
+ * Estuvo en `null` mientras fue un pendiente de D-19 —«Andres/Rodrigo pasan
+ * los datos cuando los tengan»— y **dejó de serlo el 14-sep-2026**: el arte
+ * `PANTALLA_01D_CONTACTO_APROBADA_FINAL.png` del handoff de Interseguros lo
+ * imprime como canal oficial. No es un dato que hayamos inventado ni deducido:
+ * es el que la propia Interseguros aprobó publicar.
+ *
+ * Se escribe con el formato del arte. Si alguna vez cambia, cambia acá y en
+ * ningún otro lugar: la pantalla 01D lo lee de esta constante.
  */
-export const WHATSAPP_ATENCION: string | null = null;
+export const WHATSAPP_ATENCION: string | null = "+595 991 478 468";
 
 // ---------------------------------------------------------------------------
 // Datos pendientes de D-19 · parametrizados, nunca inventados

@@ -141,7 +141,7 @@ export const facturacionFixture: DatosFacturacionP7 = {
 export const pagoConfirmadoFixture: Pago = {
   medio: "QR_BANCARD",
   estado: "CONFIRMADO",
-  montoGs: PLANES.CONFIO_PLUS.premioAnualGs,
+  montoGs: PLANES.VIVE_PLUS.premioAnualGs,
   referenciaBancard: REFERENCIA_BANCARD_FIJA,
   idempotencyKey: "idem-test-1",
   iniciadoEn: "2026-08-09T15:00:00.000Z",
@@ -164,9 +164,9 @@ export function expedienteEnDeclaracionesOk(id = "EXP-TEST-P7"): Expediente {
     canalWhatsapp: { valor: "+595981000456", verificadoEn: "2026-08-09T14:00:00.000Z" },
     canalEmail: { valor: "monica.gorena@example.com", verificadoEn: "2026-08-09T14:30:00.000Z" },
     plan: {
-      planId: "CONFIO_PLUS",
-      premioAnualGs: PLANES.CONFIO_PLUS.premioAnualGs,
-      idVersionOferta: "OFERTA-CONFIO-v1",
+      planId: "VIVE_PLUS",
+      premioAnualGs: PLANES.VIVE_PLUS.premioAnualGs,
+      idVersionOferta: "OFERTA-VIVE-v1",
       hashOfertaSha256: "d".repeat(64),
       seleccionadoEn: "2026-08-09T13:00:00.000Z",
     },

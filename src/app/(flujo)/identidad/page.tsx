@@ -1,3 +1,5 @@
+import { flujoV4Activo } from "@/domain/flujo-vigente";
+import { Pantalla03C } from "@/components/v4/pantallas/Pantalla03C";
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -66,8 +68,15 @@ function pruebaDeVidaEnVivoDisponible(): boolean {
 }
 
 export default async function PantallaP5Identidad() {
-  const enOtroPaso = await expedienteEnOtroPaso("/identidad");
   const enVivo = pruebaDeVidaEnVivoDisponible();
+
+  // v4 · arte `03C`. La carga de archivo del documento ya no depende de
+  // `DEMO_MODE` (D-46); la selfie sigue siendo solo cámara.
+  if (flujoV4Activo()) {
+    return <Pantalla03C pruebaDeVidaEnVivoDisponible={enVivo} />;
+  }
+
+  const enOtroPaso = await expedienteEnOtroPaso("/identidad");
 
   return (
     <div className="flex flex-1 flex-col bg-fondo">

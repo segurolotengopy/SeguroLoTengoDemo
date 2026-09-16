@@ -18,45 +18,45 @@ import {
 
 describe("tabla de planes", () => {
   it("reproduce los valores exactos de la especificación de P2", () => {
-    expect(PLANES.CONFIO).toEqual({
-      id: "CONFIO",
-      nombre: "CONFÍO",
+    expect(PLANES.VIVE).toEqual({
+      id: "VIVE",
+      nombre: "VIVE",
       muerteCualquierCausaGs: 3_500_000,
       indemnizacionCancerGs: 50_000_000,
       rentaHospitalariaTotalGs: 7_500_000,
       rentaHospitalariaPorDiaGs: 500_000,
       gastosMedicosAccidenteGs: 7_000_000,
-      premioAnualGs: 319_000,
+      premioAnualGs: 390_000,
     });
 
-    expect(PLANES.CONFIO_PLUS).toEqual({
-      id: "CONFIO_PLUS",
-      nombre: "CONFÍO+",
+    expect(PLANES.VIVE_PLUS).toEqual({
+      id: "VIVE_PLUS",
+      nombre: "VIVE+",
       muerteCualquierCausaGs: 5_000_000,
       indemnizacionCancerGs: 75_000_000,
       rentaHospitalariaTotalGs: 11_250_000,
       rentaHospitalariaPorDiaGs: 750_000,
       gastosMedicosAccidenteGs: 10_000_000,
-      premioAnualGs: 522_500,
+      premioAnualGs: 575_000,
     });
 
-    expect(PLANES.CONFIO_TOTAL).toEqual({
-      id: "CONFIO_TOTAL",
-      nombre: "CONFÍO TOTAL",
+    expect(PLANES.VIVE_TOTAL).toEqual({
+      id: "VIVE_TOTAL",
+      nombre: "VIVE TOTAL",
       muerteCualquierCausaGs: 7_000_000,
       indemnizacionCancerGs: 100_000_000,
       rentaHospitalariaTotalGs: 15_000_000,
       rentaHospitalariaPorDiaGs: 1_000_000,
       gastosMedicosAccidenteGs: 14_000_000,
-      premioAnualGs: 726_000,
+      premioAnualGs: 760_000,
     });
   });
 
   it("ofrece exactamente tres planes, de menor a mayor cobertura", () => {
-    expect(ORDEN_PLANES).toEqual(["CONFIO", "CONFIO_PLUS", "CONFIO_TOTAL"]);
+    expect(ORDEN_PLANES).toEqual(["VIVE", "VIVE_PLUS", "VIVE_TOTAL"]);
     expect(OFERTA_VIGENTE.planes).toHaveLength(3);
     expect(OFERTA_VIGENTE.planes.map((plan) => plan.premioAnualGs)).toEqual([
-      319_000, 522_500, 726_000,
+      390_000, 575_000, 760_000,
     ]);
   });
 
@@ -85,8 +85,8 @@ describe("serialización canónica de la oferta", () => {
     const canonico = serializarOfertaCanonica();
 
     expect(canonico).toContain(`oferta=${ID_VERSION_OFERTA}`);
-    expect(canonico).toContain("plan=CONFIO_PLUS");
-    expect(canonico).toContain("premioAnual=522500");
+    expect(canonico).toContain("plan=VIVE_PLUS");
+    expect(canonico).toContain("premioAnual=575000");
     // Una línea de cabecera por dato de la oferta y una por plan.
     expect(canonico.split("\n")).toHaveLength(4 + 3);
   });
@@ -95,7 +95,7 @@ describe("serialización canónica de la oferta", () => {
     const alterada = {
       ...OFERTA_VIGENTE,
       planes: OFERTA_VIGENTE.planes.map((plan) =>
-        plan.id === "CONFIO" ? { ...plan, premioAnualGs: 290_001 } : plan,
+        plan.id === "VIVE" ? { ...plan, premioAnualGs: 290_001 } : plan,
       ),
     };
 
@@ -105,13 +105,13 @@ describe("serialización canónica de la oferta", () => {
 
 describe("utilidades", () => {
   it("formatea guaraníes con punto como separador de miles", () => {
-    expect(formatearGuaranies(522_500)).toBe("Gs. 522.500");
+    expect(formatearGuaranies(575_000)).toBe("Gs. 575.000");
     expect(formatearGuaranies(100_000_000)).toBe("Gs. 100.000.000");
   });
 
   it("reconoce solo los tres identificadores de plan del catálogo", () => {
-    expect(esPlanId("CONFIO_PLUS")).toBe(true);
-    expect(esPlanId("CONFIO_PREMIUM")).toBe(false);
+    expect(esPlanId("VIVE_PLUS")).toBe(true);
+    expect(esPlanId("VIVE_PREMIUM")).toBe(false);
     expect(esPlanId(null)).toBe(false);
   });
 });

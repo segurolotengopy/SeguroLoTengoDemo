@@ -1,5 +1,5 @@
 /**
- * Catálogo versionado de la oferta del Seguro de Vida Oncológico CONFÍO.
+ * Catálogo versionado de la oferta del Seguro de Vida Oncológico VIVE.
  *
  * Valores transcritos textualmente de docs/ESPECIFICACION_PANTALLAS.md → P2,
  * tabla "Tres planes (valores exactos)". NO son datos de prueba: son el
@@ -27,7 +27,7 @@ import type { PlanId } from "./tipos";
 
 export interface Plan {
   readonly id: PlanId;
-  /** Nombre comercial tal como se muestra: "CONFÍO", "CONFÍO+", "CONFÍO TOTAL". */
+  /** Nombre comercial tal como se muestra: "VIVE", "VIVE+", "VIVE TOTAL". */
   readonly nombre: string;
   readonly muerteCualquierCausaGs: number;
   readonly indemnizacionCancerGs: number;
@@ -48,9 +48,9 @@ export interface Plan {
  * variable de entorno y se cambian desde la consola de Amplify (más un
  * redeploy, porque Next.js los congela al compilar).
  *
- *   NEXT_PUBLIC_PLAN_CONFIO_NOMBRE / _PREMIO_GS
- *   NEXT_PUBLIC_PLAN_CONFIO_PLUS_NOMBRE / _PREMIO_GS
- *   NEXT_PUBLIC_PLAN_CONFIO_TOTAL_NOMBRE / _PREMIO_GS
+ *   NEXT_PUBLIC_PLAN_VIVE_NOMBRE / _PREMIO_GS
+ *   NEXT_PUBLIC_PLAN_VIVE_PLUS_NOMBRE / _PREMIO_GS
+ *   NEXT_PUBLIC_PLAN_VIVE_TOTAL_NOMBRE / _PREMIO_GS
  *
  * `NEXT_PUBLIC_` y lectura escrita a mano, variable por variable: el selector
  * corre en el navegador y Next solo inyecta las expresiones estáticas (misma
@@ -71,46 +71,59 @@ function premioDeEntorno(valor: string | undefined, porDefecto: number): number 
 }
 
 export const PLANES: Readonly<Record<PlanId, Plan>> = {
-  CONFIO: {
-    id: "CONFIO",
-    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_NOMBRE, "CONFÍO"),
+  VIVE: {
+    id: "VIVE",
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_VIVE_NOMBRE, "VIVE"),
     muerteCualquierCausaGs: 3_500_000,
     indemnizacionCancerGs: 50_000_000,
     rentaHospitalariaTotalGs: 7_500_000,
     rentaHospitalariaPorDiaGs: 500_000,
     gastosMedicosAccidenteGs: 7_000_000,
-    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PREMIO_GS, 319_000),
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_VIVE_PREMIO_GS, 390_000),
   },
-  CONFIO_PLUS: {
-    id: "CONFIO_PLUS",
-    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_NOMBRE, "CONFÍO+"),
+  VIVE_PLUS: {
+    id: "VIVE_PLUS",
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_VIVE_PLUS_NOMBRE, "VIVE+"),
     muerteCualquierCausaGs: 5_000_000,
     indemnizacionCancerGs: 75_000_000,
     rentaHospitalariaTotalGs: 11_250_000,
     rentaHospitalariaPorDiaGs: 750_000,
     gastosMedicosAccidenteGs: 10_000_000,
-    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_PLUS_PREMIO_GS, 522_500),
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_VIVE_PLUS_PREMIO_GS, 575_000),
   },
-  CONFIO_TOTAL: {
-    id: "CONFIO_TOTAL",
-    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_NOMBRE, "CONFÍO TOTAL"),
+  VIVE_TOTAL: {
+    id: "VIVE_TOTAL",
+    nombre: nombreDeEntorno(process.env.NEXT_PUBLIC_PLAN_VIVE_TOTAL_NOMBRE, "VIVE TOTAL"),
     muerteCualquierCausaGs: 7_000_000,
     indemnizacionCancerGs: 100_000_000,
     rentaHospitalariaTotalGs: 15_000_000,
     rentaHospitalariaPorDiaGs: 1_000_000,
     gastosMedicosAccidenteGs: 14_000_000,
-    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_CONFIO_TOTAL_PREMIO_GS, 726_000),
+    premioAnualGs: premioDeEntorno(process.env.NEXT_PUBLIC_PLAN_VIVE_TOTAL_PREMIO_GS, 760_000),
   },
 };
 
 /** Orden de presentación en P2, de menor a mayor cobertura. */
-export const ORDEN_PLANES: readonly PlanId[] = ["CONFIO", "CONFIO_PLUS", "CONFIO_TOTAL"];
+export const ORDEN_PLANES: readonly PlanId[] = ["VIVE", "VIVE_PLUS", "VIVE_TOTAL"];
+
+/**
+ * El plan que la pantalla marca con la píldora `PLAN RECOMENDADO`.
+ *
+ * Fuera de `OfertaVersionada` —y por lo tanto fuera del hash— a propósito:
+ * cambiar cuál se recomienda es una decisión comercial y no altera ni un
+ * importe ni una cobertura de lo que el proponente vio. Si entrara en la
+ * serialización canónica, recomendar otro plan invalidaría los hashes de las
+ * ofertas ya firmadas.
+ *
+ * Lo fija el arte `02` del handoff v4 y `screens.json` (`recommended: true`).
+ */
+export const PLAN_RECOMENDADO: PlanId = "VIVE_TOTAL";
 
 // ---------------------------------------------------------------------------
 // Oferta versionada
 // ---------------------------------------------------------------------------
 
-export const NOMBRE_PRODUCTO = "Seguro de Vida Oncológico CONFÍO";
+export const NOMBRE_PRODUCTO = "Seguro de Vida Oncológico VIVE";
 
 /**
  * Identificación del producto ante la Superintendencia de Seguros (CHG-03).
@@ -235,9 +248,9 @@ export function urlVideoInformativo(): string | null {
  * mande uno por plan, se cambian estas tres líneas.
  */
 export const DOCUMENTO_COBERTURAS_POR_PLAN: Readonly<Record<PlanId, "coberturas">> = {
-  CONFIO: "coberturas",
-  CONFIO_PLUS: "coberturas",
-  CONFIO_TOTAL: "coberturas",
+  VIVE: "coberturas",
+  VIVE_PLUS: "coberturas",
+  VIVE_TOTAL: "coberturas",
 };
 
 /**
@@ -250,11 +263,17 @@ export const DOCUMENTO_COBERTURAS_POR_PLAN: Readonly<Record<PlanId, "coberturas"
  */
 /**
  * v2 (20-ago-2026): los premios pasaron a ser los de `PantallasDemo2.pdf`
- * —319.000 / 522.500 / 726.000— por aprobación de gerencia. Los expedientes
- * que eligieron plan bajo la v1 conservan su premio y su hash, que no se
- * recalculan (regla inviolable #10).
+ * —319.000 / 522.500 / 726.000— por aprobación de gerencia.
+ *
+ * v3 (16-sep-2026, handoff v4): el producto pasa a llamarse **VIVE** y los
+ * premios a los de la tabla de la página 5 del manual funcional —390.000 /
+ * 575.000 / 760.000—, que el manual pide expresamente no mezclar con los de
+ * versiones históricas. Cambian el nombre comercial, los tres `PlanId` y los
+ * tres importes, así que la versión sube: los expedientes que eligieron plan
+ * bajo v1 o v2 conservan su premio y su hash, que no se recalculan nunca
+ * (regla inviolable #10).
  */
-export const ID_VERSION_OFERTA = "OFERTA-CONFIO-v2";
+export const ID_VERSION_OFERTA = "OFERTA-VIVE-v3";
 
 export interface OfertaVersionada {
   readonly idVersion: string;
@@ -269,7 +288,7 @@ export interface OfertaVersionada {
 export const OFERTA_VIGENTE: OfertaVersionada = {
   idVersion: ID_VERSION_OFERTA,
   producto: NOMBRE_PRODUCTO,
-  vigenteDesde: "2026-08-20",
+  vigenteDesde: "2026-09-16",
   moneda: "PYG",
   planes: ORDEN_PLANES.map((id) => PLANES[id]),
 };
@@ -317,12 +336,12 @@ export function serializarOfertaCanonica(oferta: OfertaVersionada = OFERTA_VIGEN
 
 /**
  * Las cuatro opciones del selector `¿Qué seguro estás buscando?` de P2. Solo
- * CONFÍO está disponible; las otras tres se muestran con etiqueta
+ * VIVE está disponible; las otras tres se muestran con etiqueta
  * `PRÓXIMAMENTE` y deshabilitadas.
  *
  * Queda fuera de `OfertaVersionada` —y por lo tanto fuera del hash— a
  * propósito: habilitar un producto nuevo en el futuro no debe invalidar los
- * hashes de las ofertas de CONFÍO ya firmadas.
+ * hashes de las ofertas de VIVE ya firmadas.
  */
 export interface OpcionProducto {
   readonly id: string;
@@ -349,4 +368,34 @@ export function formatearGuaranies(monto: number): string {
 /** `true` si el valor es uno de los tres `PlanId` del catálogo. */
 export function esPlanId(valor: unknown): valor is PlanId {
   return typeof valor === "string" && valor in PLANES;
+}
+
+// ---------------------------------------------------------------------------
+// Compatibilidad con los expedientes anteriores al renombre (16-sep-2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * Los tres `PlanId` con los que quedaron guardados los expedientes de antes
+ * del renombre a VIVE.
+ *
+ * El nombre comercial es dato del negocio y cambió; el identificador con el
+ * que ya quedó guardado un expediente es un hecho del pasado y no se reescribe
+ * (regla inviolable #10). Por eso los viejos se traducen **al leer**
+ * (`expediente-repository.ts`) y nunca al revés: de acá en más solo se
+ * persiste el identificador nuevo.
+ *
+ * El premio y el hash de la oferta que ese expediente guardó **no se tocan**.
+ * Traducir el identificador no cambia lo que la persona vio: su
+ * `idVersionOferta` sigue apuntando a `OFERTA-VIVE-v2` —o v1—, cuya tabla
+ * tenía los importes de entonces.
+ */
+export const PLAN_ID_LEGADO: Readonly<Record<string, PlanId>> = {
+  CONFIO: "VIVE",
+  CONFIO_PLUS: "VIVE_PLUS",
+  CONFIO_TOTAL: "VIVE_TOTAL",
+};
+
+/** Traduce un `PlanId` guardado con el nombre viejo; deja pasar cualquier otro. */
+export function normalizarPlanIdLegado(valor: string): string {
+  return PLAN_ID_LEGADO[valor] ?? valor;
 }

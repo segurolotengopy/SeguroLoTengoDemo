@@ -144,7 +144,7 @@ export interface CanalVerificado {
   readonly origen?: "OTP" | "DOBLE_TIPEO";
 }
 
-export type PlanId = "CONFIO" | "CONFIO_PLUS" | "CONFIO_TOTAL";
+export type PlanId = "VIVE" | "VIVE_PLUS" | "VIVE_TOTAL";
 
 export interface PlanSeleccionado {
   readonly planId: PlanId;
@@ -254,6 +254,24 @@ export interface Declaraciones {
   readonly condicionPep: RespuestaDeclaracion; // #8 — habilita NO
 }
 
+/**
+ * Las **tres** declaraciones de salud de 04A (flujo v4).
+ *
+ * v4 le pregunta a la persona tres cosas y no ocho (D-33): las otras cinco del
+ * modelo de v2 siguen existiendo y se completan donde corresponde —la condición
+ * PEP en 03E, los consentimientos en 04D y la veracidad al firmar—. Este campo
+ * guarda las tres médicas entre 04A y 04D, que es el tramo en el que el
+ * expediente todavía no tiene un `Declaraciones` completo.
+ *
+ * Son las declaraciones 1, 2 y 3 del motor de elegibilidad: las mismas que ya
+ * bloqueaban la emisión automática, con las mismas respuestas habilitantes.
+ */
+export interface DeclaracionesMedicasV4 {
+  readonly estadoDeSalud: RespuestaDeclaracion; // #1 — habilita SI
+  readonly antecedentesDeContratacion: RespuestaDeclaracion; // #2 — habilita NO
+  readonly enfermedadesDiagnosticadas: RespuestaDeclaracion; // #3 — habilita NO
+}
+
 export type BeneficiarioTipo = "HEREDEROS_LEGALES" | "PERSONA_DESIGNADA";
 
 export interface Beneficiario {
@@ -304,6 +322,49 @@ export interface DatosComplementariosP6 {
    * como propuesta** hasta que cumplimiento de Alianza la cierre.
    */
   readonly origenFondos: string;
+}
+
+/**
+ * Domicilio declarado en **03D** (flujo v4).
+ *
+ * Existe aparte de `DatosComplementariosP6` porque v4 parte en dos lo que v2
+ * pedía junto: el domicilio se declara en la pantalla de datos personales y la
+ * actividad económica en la siguiente. Guardarlo en el bloque del FIPF
+ * obligaría a escribirlo a medias —con la situación laboral vacía— y un
+ * expediente con un FIPF incompleto no es distinguible de uno con un FIPF mal
+ * cargado.
+ *
+ * `barrio` es campo nuevo de v4: el arte lo pide y el modelo de v2 no lo
+ * tenía.
+ */
+export interface DatosPersonalesV4 {
+  readonly domicilio: string;
+  readonly ciudad: string;
+  readonly barrio: string;
+}
+
+/**
+ * Actividad, ingresos y condición PEP, declarados en **03E** (flujo v4).
+ *
+ * `ocupacion` es campo nuevo de v4, distinto de `profesion`: el arte pide los
+ * dos y son cosas distintas —un médico jubilado tiene profesión «Médico» y
+ * ocupación «Jubilado»—.
+ *
+ * `esPep` sale de la pregunta de 03E y **no** de las declaraciones de salud:
+ * con v4 la condición PEP dejó de ser la declaración 8 de P6 (D-33). Un `true`
+ * deriva el expediente a revisión manual sin rechazarlo (regla inviolable #5
+ * leída por su espíritu: se detiene la emisión automática, no se rechaza).
+ */
+export interface ActividadEconomicaV4 {
+  readonly situacionLaboral: string;
+  readonly actividadEconomica: string;
+  readonly ocupacion: string;
+  readonly profesion: string;
+  /** `null` cuando la situación laboral no exige empleador. */
+  readonly empresa: string | null;
+  readonly ingresoMensualDeclaradoGs: number;
+  readonly origenIngresos: string;
+  readonly esPep: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -826,6 +887,21 @@ export interface Expediente {
   readonly identidad: Identidad | null;
   readonly datosComplementarios: DatosComplementariosP6 | null;
   /**
+   * v4 · domicilio de 03D y actividad de 03E, por separado.
+   *
+   * `datosComplementarios` **se sigue escribiendo**: se compone con los dos al
+   * completarse 03E, porque es lo que leen el FIPF, la consola y los
+   * documentos. Estos dos campos guardan el detalle que ese bloque no tiene
+   * —barrio y ocupación— y el momento en que cada mitad se declaró.
+   *
+   * `null` en todo expediente anterior a v4, que no se reescribe (regla
+   * inviolable #10).
+   */
+  readonly datosPersonales: DatosPersonalesV4 | null;
+  readonly actividadEconomica: ActividadEconomicaV4 | null;
+  /** v4 · las tres de 04A, entre esa pantalla y 04D. `null` fuera de v4. */
+  readonly declaracionesMedicas: DeclaracionesMedicasV4 | null;
+  /**
    * Beneficiario por fallecimiento. Se declara en el paso 5 y por eso vive
    * aparte de `datosComplementarios`, que se capturan en el 4.
    */
@@ -933,6 +1009,9 @@ export function crearExpedienteInicial(input: {
     canalEmail: null,
     identidad: null,
     datosComplementarios: null,
+    datosPersonales: null,
+    actividadEconomica: null,
+    declaracionesMedicas: null,
     beneficiario: null,
     declaraciones: null,
     motivoDerivacionManual: null,

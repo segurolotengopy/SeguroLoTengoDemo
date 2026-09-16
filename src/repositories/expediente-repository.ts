@@ -21,7 +21,8 @@ import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import { GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { ErrorEscrituraConcurrente } from "../domain/concurrencia";
-import type { EstadoExpediente, Expediente } from "../domain/tipos";
+import type { EstadoExpediente, Expediente, PlanId } from "../domain/tipos";
+import { normalizarPlanIdLegado } from "../domain/catalogo";
 import {
   claveExpediente,
   claveIndicePorEstado,
@@ -190,6 +191,48 @@ export function crearExpedienteRepositoryDynamoDb(
     return guardado === undefined ? { ...expediente, otpVigente: {} } : expediente;
   }
 
+  /**
+   * Los expedientes anteriores a v4 no traen `datosPersonales` ni
+   * `actividadEconomica`. Se leen en `null` —que es lo que significa «esa
+   * pantalla no existía cuando este trámite pasó por acá»— y no se reescriben
+   * (regla inviolable #10).
+   */
+  function conDatosV4(expediente: Expediente): Expediente {
+    const conPersonales =
+      expediente.datosPersonales === undefined
+        ? { ...expediente, datosPersonales: null }
+        : expediente;
+    const conActividad =
+      conPersonales.actividadEconomica === undefined
+        ? { ...conPersonales, actividadEconomica: null }
+        : conPersonales;
+    return conActividad.declaracionesMedicas === undefined
+      ? { ...conActividad, declaracionesMedicas: null }
+      : conActividad;
+  }
+
+  /**
+   * Compatibilidad de lectura con los expedientes anteriores al renombre del
+   * producto a VIVE (16-sep-2026).
+   *
+   * Sus `PlanSeleccionado.planId` dicen `CONFIO`, `CONFIO_PLUS` o
+   * `CONFIO_TOTAL`, que ya no son valores del tipo. Se traducen al leer y no
+   * se reescribe el registro (regla inviolable #10): sin esto, la consola y la
+   * Pantalla B no encontrarían el plan en el catálogo y mostrarían un
+   * expediente sin plan.
+   *
+   * Lo único que se traduce es el identificador. El premio y el hash de la
+   * oferta que ese expediente guardó son el hecho probatorio de lo que la
+   * persona vio, y quedan como están.
+   */
+  function conPlanRenombrado(expediente: Expediente): Expediente {
+    const plan = expediente.plan;
+    if (!plan) return expediente;
+    const normalizado = normalizarPlanIdLegado(plan.planId);
+    if (normalizado === plan.planId) return expediente;
+    return { ...expediente, plan: { ...plan, planId: normalizado as PlanId } };
+  }
+
   /** Resuelve ids a expedientes, salteando los que ya no existan. */
   async function hidratar(ids: readonly string[]): Promise<readonly Expediente[]> {
     const expedientes: Expediente[] = [];
@@ -278,7 +321,7 @@ export function crearExpedienteRepositoryDynamoDb(
       );
       if (!respuesta.Item) return null;
       const item = respuesta.Item as { pk: string; sk: string; entityType: string } & Expediente;
-      return conOtpVigente(conPlazoDePago(quitarClavesInternas(item)));
+      return conDatosV4(conPlanRenombrado(conOtpVigente(conPlazoDePago(quitarClavesInternas(item)))));
     },
 
     async guardar(expediente: Expediente, actualizadoEnEsperado?: string): Promise<void> {

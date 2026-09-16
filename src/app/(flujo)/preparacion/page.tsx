@@ -1,3 +1,5 @@
+import { flujoV4Activo } from "@/domain/flujo-vigente";
+import { Pantalla03B } from "@/components/v4/pantallas/Pantalla03B";
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import {
@@ -109,6 +111,11 @@ const AVISO_IMPORTANTE =
   "pertenecer necesariamente al asegurado.";
 
 export default async function PantallaPreparacion() {
+  // v4 · arte `03B`.
+  if (flujoV4Activo()) {
+    return <Pantalla03B />;
+  }
+
   const enOtroPaso = await expedienteEnOtroPaso("/preparacion");
   return (
     <div className="flex flex-1 flex-col bg-fondo">

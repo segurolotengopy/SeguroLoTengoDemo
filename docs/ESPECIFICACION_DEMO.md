@@ -41,11 +41,11 @@ Definidas en `src/adapters/mock/personas.ts` y verificadas contra el motor de re
 
 | Persona | Celular (se tipea en P1) | Plan | Termina en | Qué demuestra |
 | :---- | :---- | :---- | :---- | :---- |
-| **Camino feliz** — Mónica Mariana Gorena Tapia | `981 000 123` | CONFÍO+ | **P9** | El recorrido completo hasta la contratación aceptada |
-| **PEP positivo** — Ramón Elías Duarte Villalba | `982 000 456` | CONFÍO TOTAL | **Pantalla A** | Bloqueo por condición PEP + beneficiario designado |
-| **Salud incompatible** — Carolina Beatriz Ayala Benítez | `983 000 789` | CONFÍO | **Pantalla A** | Bloqueo por declaraciones 1, 2 y 3 |
-| **Biometría rechazada** — Julio César Ramírez Cabral | `984 000 234` | CONFÍO+ | **P5** | Campos OCR bloqueados; solo se puede repetir la captura |
-| **Firma y no paga** — Lucía Fernanda Ortiz Meza | `985 000 567` | CONFÍO+ | **Pantalla B** | Caducidad del plazo de 24 h para pagar, sin cobro que devolver (D-08/D-10) |
+| **Camino feliz** — Mónica Mariana Gorena Tapia | `981 000 123` | VIVE+ | **P9** | El recorrido completo hasta la contratación aceptada |
+| **PEP positivo** — Ramón Elías Duarte Villalba | `982 000 456` | VIVE TOTAL | **Pantalla A** | Bloqueo por condición PEP + beneficiario designado |
+| **Salud incompatible** — Carolina Beatriz Ayala Benítez | `983 000 789` | VIVE | **Pantalla A** | Bloqueo por declaraciones 1, 2 y 3 |
+| **Biometría rechazada** — Julio César Ramírez Cabral | `984 000 234` | VIVE+ | **P5** | Campos OCR bloqueados; solo se puede repetir la captura |
+| **Firma y no paga** — Lucía Fernanda Ortiz Meza | `985 000 567` | VIVE+ | **Pantalla B** | Caducidad del plazo de 24 h para pagar, sin cobro que devolver (D-08/D-10) |
 
 ### 2.2 Detalle
 
@@ -65,7 +65,7 @@ Definidas en `src/adapters/mock/personas.ts` y verificadas contra el motor de re
 
 Valores exactos de la especificación (P2), en `src/domain/planes.ts`. No son datos de prueba: son el producto.
 
-| Cobertura | CONFÍO | CONFÍO+ | CONFÍO TOTAL |
+| Cobertura | VIVE | VIVE+ | VIVE TOTAL |
 | :---- | :---- | :---- | :---- |
 | Muerte por cualquier causa | Gs. 3.500.000 | Gs. 5.000.000 | Gs. 7.000.000 |
 | Indemnización por cáncer (pago único) | Gs. 50.000.000 | Gs. 75.000.000 | Gs. 100.000.000 |
@@ -85,7 +85,7 @@ Abrí `/demo-panel` en una segunda pestaña antes de empezar: ahí aparecen los 
 | :---- | :---- | :---- |
 | P0 | Entrar a `/` y presionar `VERIFICAR WHATSAPP Y COTIZAR` | Página informativa: no pide datos médicos ni PEP, no cotiza, no cobra |
 | P1 | Número `981 000 123`, marcar la autorización, `ENVIAR CÓDIGO`. Leer el código en el panel y verificar | Tres OTP independientes; en base solo queda el hash; el registro de seguridad muestra IP, número enmascarado y referencia de envío |
-| P2 | Elegir CONFÍO+ | Se guarda el ID de versión de la oferta y su hash SHA-256 |
+| P2 | Elegir VIVE+ | Se guarda el ID de versión de la oferta y su hash SHA-256 |
 | P3 | `TENGO TODO LISTO` | Autorización inicial versionada: no contrata ni autoriza pago |
 | P4 | Correo `monica.gorena@example.com`, código nuevo desde el panel | **Es un código distinto al de P1**, con evidencia separada |
 | P5 | Capturas simuladas, completar país y estado civil | Los campos de la cédula están bloqueados; la edad se calcula del documento, no de un campo declarado |

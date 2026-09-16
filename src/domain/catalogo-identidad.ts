@@ -95,3 +95,17 @@ export function requisitosPendientes(requisitos: RequisitosP5): readonly IdRequi
 export function todosLosRequisitosCumplidos(requisitos: RequisitosP5): boolean {
   return requisitosPendientes(requisitos).length === 0;
 }
+
+/**
+ * Análisis fallidos de P5 tras los cuales el caso pasa a asistencia humana.
+ *
+ * **Decisión de producto, sin fila en la matriz de cumplimiento.** La fila 19
+ * respalda derivar una respuesta PEP a análisis reforzado, que es otra cosa:
+ * no hay norma que exija esta salida. Lo que la justifica es que sin ella una
+ * persona con un documento que el sistema no sabe leer queda repitiendo
+ * capturas para siempre, y eso no es un rechazo: es un callejón sin salida.
+ *
+ * Tres, igual que los intentos de OTP de la regla inviolable #1 — un número
+ * que el producto ya usa y que la gente ya conoce.
+ */
+export const INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA = 3;
