@@ -116,13 +116,16 @@ traído al árbol y devuelto después.
 | **Batería v4 completa** | **10 passed · 3 skipped · 0 failed** (15,9 min) |
 
 Los 3 *skipped* son las capturas de gerencia, detrás de `CAPTURAS_GERENCIA=1`.
-La batería verde incluye el archivo de UI del #125; sin él, el 04 vuelve a
-fallar.
+La batería verde se corrió con el archivo de UI del #125 traído al árbol y
+devuelto después; con el #125 ya fusionado, ese verde es el de `main`.
 
 ### Queda abierto
 
-- **Fusionar el [#125]**, que es lo que deja el 04 en verde de verdad. Está
-  listo y sólo espera la autorización de Andres.
+- ~~Fusionar el [#125]~~ · **hecho**: Andres lo autorizó y se fusionó el
+  16-sep. Venía en conflicto con `main` —su base era `b117298`, y desde
+  entonces habían entrado #126, #127 y #128—; el conflicto era sólo de
+  bitácora (dos entradas insertadas arriba) y su entrada pasó a `(e)`, porque
+  main ya tenía tomadas la `(c)` y la `(d)` del 15-sep.
 - **`e2e/v3/05-pago-bancard.spec.ts` quedó duplicado** con el 10: la copia de
   v3 no puede pasar nunca, porque esa batería está roja a propósito. Falta
   decidir si se borra sólo esa copia o se retira la batería v3 entera, ahora
@@ -135,6 +138,71 @@ fallar.
 
 [#114]: https://github.com/segurolotengopy/SeguroLoTengoDemo/pull/114
 [#125]: https://github.com/segurolotengopy/SeguroLoTengoDemo/pull/125
+## 2026-09-15 (e) · P5: el rechazo de la selfie se decía dos veces — e2e 04 en verde
+
+**Rama:** `claude/brave-perlman-bd67c0` (desde `main`, `bdbea0b`; fusionada
+con `main` en `b117298` antes del PR) ·
+**Pedido de Andres (15-sep):** el spec `e2e/04-biometria-rechazada.spec.ts`
+fallaba en `main` con un «strict mode violation»; decidir si el texto
+duplicado es un defecto de UI o hay que precisar el selector.
+
+### El caso
+
+Con la selfie rechazada, P5 mostraba «La selfie no coincide con la fotografía
+de la cédula.» en **dos** lugares: en la tarjeta de la selfie (desde F5d,
+31-ago) y en el aviso rojo general junto a «Validar identidad y continuar».
+El selector `getByText` de `e2e/support/flujo.ts` encontraba los dos.
+
+Es un defecto, no algo buscado: F5d llevó el veredicto a la tarjeta
+justamente para que «viva donde está la foto, no tres bloques más abajo», pero
+el `setError` del análisis quedó vivo. Además, el aviso de abajo agregaba «Los
+datos no se editan a mano», que es falso desde CHG-15: nombres, apellidos,
+sexo y nacionalidad se corrigen con el candado. Se descartó precisar el
+selector: habría escondido el problema en vez de arreglarlo.
+
+### Qué cambió
+
+- **`VerificacionIdentidad.tsx`**: `analizar()` ya no llama a `setError`
+  cuando falla la coincidencia facial. El mensaje queda solo en la tarjeta,
+  junto al botón «Repetir», y es accionable («Repetila»). Para no perder
+  accesibilidad, el párrafo de la tarjeta hereda el `role="alert"` que tenía
+  el aviso quitado, así el lector de pantalla lo sigue anunciando. El
+  «Te falta: completar y aprobar las tres capturas» de abajo sigue
+  explicando por qué el botón no avanza.
+- **`e2e/support/flujo.ts`**: se actualizó el comentario. El selector no
+  cambió porque ahora encuentra un solo elemento.
+
+### Qué hizo Andres
+
+- Detectó la falla (15-sep, sobre `bdbea0b` y la rama del PR #120) y pidió
+  que se priorizara corregir la UI.
+- Autorizó descargar Chromium 1243 y pidió quitar el MCP de Lovable, que no va
+  a usar (`claude mcp remove lovable -s user`). CLAUDE.md todavía nombra el
+  «MCP de Lovable» como vía para leer el prototipo v3; la otra vía, el clon
+  hermano `../slt-diseno-lovable`, sigue disponible.
+
+### Verificaciones
+
+- `npm run typecheck`: limpio. `npm run lint`: 0 errores y 9 warnings
+  previos; el único warning de `VerificacionIdentidad.tsx` (`numero` sin usar,
+  línea 834) ya estaba. `npm test`: **1413 tests** en verde.
+- Spec 04 con el cambio: **1 passed** (48 s). **Contraprueba**: con el diff
+  apartado y el mismo navegador, falla con «strict mode violation … resolved
+  to 2 elements». La corrección es la causa del verde.
+- Navegador: `@playwright/test` 1.63 pide Chromium 1243 y no está instalado.
+  No se descargó nada: se usó el Chromium **1234** en caché
+  (`~/.cache/ms-playwright/chromium-1234`) con un config local temporal
+  (`executablePath`), que se borró al terminar.
+- Después, con el OK de Andres, se instaló Chromium **1243**
+  (`npx playwright install chromium`, 114 MiB). El spec 04 repasó con la
+  configuración normal: **1 passed** (44 s).
+
+### Queda abierto
+
+- No se corrió la batería e2e completa, solo el spec 04. El cambio toca
+  únicamente la rama «coincidencia facial rechazada», que los demás specs no
+  recorren.
+- El PR espera la revisión y el OK de Andres para fusionarse.
 
 ---
 
