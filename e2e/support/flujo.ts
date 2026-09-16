@@ -417,12 +417,24 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
 
 }
 
-/** Envía el formulario de P6 y espera terminar en el destino esperado. */
+/**
+ * Envía el formulario de P6 y espera terminar en el destino esperado.
+ *
+ * **El margen es largo porque este es el paso más pesado del recorrido.** Al
+ * enviar las declaraciones el servidor acuña el correlativo, arma el PDF del
+ * paquete, lo hashea y lo guarda antes de transicionar a `PAQUETE_GENERADO`
+ * (`src/documentos/servicio.ts`); recién ahí cambia la URL. Con 20 s —por
+ * debajo incluso del `expect.timeout` de 30 s del proyecto— el escenario 06
+ * falló en la batería completa con el botón todavía en «Guardando…», y el
+ * mismo spec aislado pasó: no era un defecto, era el margen. Un timeout que
+ * corta un paso que estaba funcionando no reporta nada útil, que es el
+ * criterio con el que `playwright.config.ts` eligió sus propios márgenes.
+ */
 export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<void> {
   const continuar = page.getByRole("button", { name: "Declarar y continuar" });
   await expect(continuar).toBeEnabled();
   await continuar.click();
-  await expect(page).toHaveURL(destinoEsperado, { timeout: 20_000 });
+  await expect(page).toHaveURL(destinoEsperado, { timeout: 90_000 });
 }
 
 /**

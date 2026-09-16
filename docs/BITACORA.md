@@ -38,6 +38,106 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-16 · La batería v4 entera en verde: el rechazo de Bancard vuelve del flujo muerto, y tres márgenes que mentían
+
+**Rama:** `fix/e2e-margenes-y-bancard-v4` (worktree `practical-brahmagupta-e30c22`) ·
+**Pedido de Andres:** «verifica el estado, corrige los defectos», y después
+«ahora la versión actual es la v4, las otras ya no van».
+
+### De dónde se partía
+
+El worktree venía del trabajo de Bancard (G1 y G2) y estaba **doblemente
+atrasado**: su rama ya se había fusionado por el [#114], y el `main` local
+estaba 18 commits detrás de `origin/main`. Verificar así habría medido un
+árbol que no existe. Se mergeó hasta `f191854`, se reinstalaron dependencias
+—la lock se había movido dos veces— y recién entonces se midió.
+
+**El trabajo de Bancard sobrevivió intacto** a que D-08/D-42 y D-32
+reescribieran `pago-p7.ts`: G1 sigue reversando **después** de ganar la
+escritura del vencimiento —que es lo único que prueba que ningún sondeo
+confirmó el pago— y la rama idempotente de `RECHAZADO` sigue en pie. 94 tests
+de la batería de Bancard en verde.
+
+### Lo que la indicación de Andres corrigió
+
+La cobertura en navegador de **G2** —que un rechazo de tarjeta no encierre a
+la persona— vivía **sólo** en `e2e/v3/05-pago-bancard.spec.ts`, es decir en el
+flujo que dejó de ir. La batería vigente es la raíz `e2e/`, que **es** la de v4
+(el flujo de 8 pasos al que `a9d9853` le puso la paleta); `e2e/v3/` es el
+rediseño de 3 pasos detrás de `FLUJO_V3`. Y v4 no tenía ninguna prueba del
+rechazo: su único paso por Bancard era el QR del camino feliz.
+
+Se portó a `e2e/10-pago-bancard-rechazo.spec.ts`, con los helpers de v4 y
+tomando el rótulo del botón del dominio (`TEXTOS_MEDIOS_DE_PAGO_P7`), como ya
+habían hecho `bf8723f` y `bec1ac6`. La pantalla de pago es la misma
+—`FormularioPagoP7`—, así que lo único que cambió fue el camino para llegar.
+
+### Tres márgenes que hacían fallar tests que funcionaban
+
+La batería completa daba rojo en escenarios que **aislados pasaban**. No era
+código: eran plazos fijos por debajo del `expect.timeout` de 30 s del propio
+proyecto, puestos sobre los pasos más pesados del recorrido.
+
+- `enviarP6` esperaba **20 s** la navegación que ocurre después de que el
+  servidor acuña el correlativo, arma el PDF del paquete, lo hashea y lo
+  guarda. El 06 falló con el botón todavía en «Guardando…»; aislado dio verde
+  en 3,6 min. Pasó a 90 s.
+- El 09 duplicaba **en línea** el paso que `firmarNormalmente` ya espera con
+  60 s —y por escrito: tipear el código no lleva al pago en el acto, el sondeo
+  tiene que ver `FIRMADO_CLIENTE`—, pero con 20 s. Se alineó a 60 s.
+
+El criterio es el que `playwright.config.ts` ya se había dado: un timeout que
+corta un paso que estaba funcionando no reporta nada útil.
+
+### El defecto que no se tocó, a propósito
+
+`04-biometria-rechazada` fallaba por *strict mode violation*: P5 mostraba
+«La selfie no coincide con la fotografía de la cédula.» **dos veces**. Nació el
+**31-ago** (`b54ae52`), dos semanas antes de la rama de Bancard — preexistente
+y ajeno.
+
+Se había arreglado acá **precisando el locator**, y se **descartó** ese arreglo
+al encontrar el [#125], abierto y con CI en verde, que diagnostica mejor: es un
+defecto de **UI** —el `setError` quedó vivo tras el lote F5d— y encima ese
+aviso dice «Los datos no se editan a mano», que es **falso** desde CHG-15.
+Precisar el locator habría escondido el defecto y dejado un test afirmando un
+texto equivocado. La verificación de acá se corrió con el archivo del #125
+traído al árbol y devuelto después.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npm run typecheck` · `npm run lint` | Limpios · 0 errores (9 warnings previos) |
+| `npm test` | **1419 tests**, 105 archivos, en verde |
+| Batería Bancard (G1/G2, integración, mock, palancas) | **94** en verde |
+| `e2e/10-pago-bancard-rechazo` aislado | 1 passed (3,0 min) |
+| `e2e/06-vencimiento-firma` aislado | 1 passed (3,6 min) |
+| **Batería v4 completa** | **10 passed · 3 skipped · 0 failed** (15,9 min) |
+
+Los 3 *skipped* son las capturas de gerencia, detrás de `CAPTURAS_GERENCIA=1`.
+La batería verde incluye el archivo de UI del #125; sin él, el 04 vuelve a
+fallar.
+
+### Queda abierto
+
+- **Fusionar el [#125]**, que es lo que deja el 04 en verde de verdad. Está
+  listo y sólo espera la autorización de Andres.
+- **`e2e/v3/05-pago-bancard.spec.ts` quedó duplicado** con el 10: la copia de
+  v3 no puede pasar nunca, porque esa batería está roja a propósito. Falta
+  decidir si se borra sólo esa copia o se retira la batería v3 entera, ahora
+  que v3 no va.
+- **Del trabajo de Bancard siguen abiertos**: el «tiempo X» antes de reversar
+  por callback ausente (Bancard recomienda 5 min, B8-bis), el límite de
+  intentos de tarjeta, `payment_card_type`, y **B7 y B13-bis**, que bloquean el
+  adaptador `live/`. `Correo 6` sigue redactado y sin mandar.
+- **PRs abiertos**: #125, #124, #123, #122 y #121.
+
+[#114]: https://github.com/segurolotengopy/SeguroLoTengoDemo/pull/114
+[#125]: https://github.com/segurolotengopy/SeguroLoTengoDemo/pull/125
+
+---
+
 ## 2026-09-15 (d) · Corrida real en producción, el reloj que no se apagaba, y la limpieza
 
 **Rama:** `fix/e2e-v3-boton-continuar` (worktree `analisis-handoff-front-5c7ab1`) ·
