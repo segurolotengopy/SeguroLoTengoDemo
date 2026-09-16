@@ -38,6 +38,77 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-16 (c) · La cola de dependencias, y el nudo que la tenía trabada
+
+**Ramas:** `chore/react-19.3.0`, `chore/dependabot-agrupa-react` ·
+**Pedido de Andres:** «sigue con las tareas de segundo plano», «arregla la
+secuencia con tus sugerencias», y después «agrupá react y react-dom en
+dependabot.yml, es importante hacerlo antes de que salga de esta sesión».
+
+### El nudo
+
+Cuatro PRs de Dependabot llevaban días abiertos y uno de ellos, el **#122**
+(`react-dom` → 19.3.0), estaba en rojo. No era un CI caprichoso: `react-dom@X`
+declara un peer `react@^X`, el bump de `react` vivía en el **#123** —otro PR—,
+y con el lock todavía en 19.2.8 el `npm ci` cortaba con **ERESOLVE antes de
+correr un solo test**. Reintentarlo no podía arreglarlo.
+
+**Y fusionarlos en secuencia tampoco servía**, que era la salida obvia y la
+que se había propuesto primero. Mirando el `package.json` apareció el detalle
+que la invalidaba: los dos están clavados en **exacto** (`"react": "19.2.8"`,
+no `"^19.2.8"`), así que fusionar el de react primero dejaba `main` con **react
+19.3.0 y react-dom 19.2.8** — un par desparejo, y `main` se despliega solo
+porque Amplify tiene `autoBuild` ahí. React y react-dom se publican en lockstep
+y comparten internos: no hay razón para pasar por ese estado cuando juntarlos
+no cuesta nada.
+
+### Qué se hizo
+
+Un PR único (**#132**) con los dos en 19.3.0 y el lock regenerado de una vez.
+El mismo job que en el #122 moría con ERESOLVE, acá pasó — que es la prueba de
+que el problema era la partición del par, no las versiones. El #122 y el #123
+se cerraron como superados, cada uno con el motivo escrito. El **#124**
+(`codeql-action`) y el **#121** (`hashicorp/random`) entraron sin novedad.
+
+### Y el arreglo de raíz, que es lo que importa
+
+Fusionar el #132 no impedía que el **próximo** bump de React se partiera
+igual. Por eso se agrupó el par en `.github/dependabot.yml`, con sus `@types`.
+
+Dos cuidados que el archivo deja escritos:
+
+- **El grupo va primero.** `@types/react` y `@types/react-dom` son
+  `devDependencies`, y el grupo `dev-dependencies` se los llevaría: gana el
+  primer grupo que coincide. Además se los **excluye explícitamente** de
+  aquel, para que el emparejamiento no dependa sólo del orden.
+- **Nombres exactos, no `react*`.** Un comodín se habría llevado también a
+  `@aws-amplify/ui-react-liveness`, que no tiene nada que ver.
+
+Es el mismo criterio —y la misma clase de falla— que ya había motivado el
+grupo `codeql-action`: dos paquetes que deben moverse juntos, subidos por
+separado, producen PRs que fallan solos.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npm run verify` (con React 19.3.0) | typecheck y lint limpios · **1419** tests en verde |
+| `npm run build` | producción, limpio |
+| **Batería v4 completa** (con React 19.3.0) | **10 passed · 3 skipped · 0 failed** (22,7 min) |
+| Batería v4 sobre `main` ya fusionado (#125+#129+#130) | **10 passed · 3 skipped · 0 failed** (20,8 min) |
+| Agrupación de `dependabot.yml` | resuelta contra el `package.json` real: empareja **exactamente** los cuatro paquetes, y `@aws-amplify/ui-react-liveness` queda afuera |
+
+### Queda abierto
+
+- **Del trabajo de Bancard**: el «tiempo X» antes de reversar por callback
+  ausente (Bancard recomienda 5 min, B8-bis), el límite de intentos de tarjeta,
+  `payment_card_type`, y **B7 y B13-bis**, que bloquean el adaptador `live/`.
+  `Correo 6` sigue redactado y sin mandar.
+- **PR abierto ajeno a esta sesión**: el **#131** (v4 pasa a ser el producto:
+  renombre a VIVE y doce pantallas del handoff, D-43..D-48).
+
+---
+
 ## 2026-09-16 (b) · Se retira la batería v3
 
 **Rama:** `chore/retirar-bateria-v3` ·
