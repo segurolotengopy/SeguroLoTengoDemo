@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:v3": "playwright test --config playwright.v3.config.ts",
     "verify": "npm run typecheck && npm run lint && npm test",
     "piloto:cedulas": "tsx scripts/piloto-cedulas.ts",
     "otp:requerimiento": "tsx scripts/otp-requerimiento.ts",
