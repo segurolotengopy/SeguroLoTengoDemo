@@ -38,6 +38,50 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-16 (b) · Se retira la batería v3
+
+**Rama:** `chore/retirar-bateria-v3` ·
+**Decisión de Andres:** «ahora la versión actual es la v4, las otras ya no van»
+y, al preguntarle por la copia duplicada, «borrá la batería v3 entera».
+
+### Por qué
+
+La batería v3 estaba **roja a propósito** desde el cierre del 15-sep: esperaba
+«Plan elegido: CONFÍO+» y el plan pasó a llamarse VIVE+. Se la dejaba así
+porque v3 había quedado superado por v4 (D-28). Una suite que nadie puede
+poner en verde no informa nada y confunde a quien la encuentre; y desde que el
+escenario de rechazo de Bancard se portó a v4 —entrada anterior— lo único que
+quedaba ahí que todavía importaba estaba duplicado.
+
+### Qué se fue
+
+Los 5 specs de `e2e/v3/` con su helper `soporte/llegar-a-firmado.ts`, y
+`playwright.v3.config.ts`. Detrás cayeron cuatro cabos que existían sólo para
+sostenerlos: el script `test:e2e:v3`, el ignore de `playwright-report-v3/**`
+en ESLint, la misma ruta en `.gitignore`, y el `testIgnore: ["**/v3/**"]` de
+`playwright.config.ts`, que estaba puesto justamente para no levantar esos
+specs contra un servidor sin el flag.
+
+**No se tocó el código del flujo v3.** Las pantallas de 3 pasos y el flag
+`FLUJO_V3` siguen donde estaban: lo que Andres mandó retirar es la batería, y
+retirar el flujo es otra decisión, con otro alcance.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npm run verify` | typecheck y lint limpios (0 errores, 9 warnings previos) · **1419** tests en verde |
+| `npx playwright test --list` | **13 tests en 11 archivos** — los mismos que antes de sacar el `testIgnore`, sin arrastrar nada de v3 |
+
+### Queda abierto
+
+- Las guías de `docs/rediseno-lovable/` siguen describiendo el método de porteo
+  a v3 y la bitácora conserva sus entradas: son registro histórico y no se
+  reescriben (regla de la bitácora), pero conviene que quien las lea sepa que
+  el flujo que describen quedó superado por v4.
+
+---
+
 ## 2026-09-16 · La batería v4 entera en verde: el rechazo de Bancard vuelve del flujo muerto, y tres márgenes que mentían
 
 **Rama:** `fix/e2e-margenes-y-bancard-v4` (worktree `practical-brahmagupta-e30c22`) ·
