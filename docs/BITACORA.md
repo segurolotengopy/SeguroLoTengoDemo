@@ -38,6 +38,106 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-15 (d) · Corrida real en producción, el reloj que no se apagaba, y la limpieza
+
+**Rama:** `fix/e2e-v3-boton-continuar` (worktree `analisis-handoff-front-5c7ab1`) ·
+**PR:** [#127](https://github.com/segurolotengopy/segurolotengo-demo/pull/127) ·
+**Pedido de Andres:** probar el camino feliz **en producción**, con expedientes
+reales, y borrar todos los datos al terminar.
+
+### El caso
+
+La base visual v4 (#126) y el lote de dominio (#120) ya estaban desplegados,
+pero nadie había recorrido el flujo nuevo de punta a punta contra el sistema
+real: el plazo de 10 minutos, el cobro desde `FIRMADO_CLIENTE`, el CPC y la
+firma diferida de Interseguros solo se habían visto en tests. Andres autorizó
+crear expedientes reales *a condición de borrarlos después*, y pidió que la
+corrida E2E fuera sobre **v4** —el flujo que cambia a rojo y azul—, no sobre
+v3, que quedó superado por D-28.
+
+### Qué cambió
+
+**Dominio, un arreglo de verdad: `4130ec9`.** `vencerPlazoSiCorresponde`
+marcaba `VENCIDO` a cualquier expediente en `FIRMADO` cuya fecha de plazo
+hubiera pasado — incluidos los que **ya habían pagado**. Como `FIRMADO` es,
+desde D-38, un estado *posterior* al cobro, cualquier lectura del expediente
+diez minutos después del pago lo caducaba: dinero adentro y expediente
+terminal. El arreglo es un guardia explícito —si el pago está acreditado, el
+reloj está apagado, sea cual sea el estado— con su test
+(`src/domain/__tests__/vencimiento-con-cobro.test.ts`), que falla sin el
+guardia. Lo encontró la revisión del lote, no la corrida.
+
+**Antes, otro del mismo lote: `28dbb91`.** `registrarFirmaClienteInterna`
+sumó el parámetro `plazoPagoVenceEn`, pero su llamador seguía pasando los
+argumentos en el orden viejo —los dos `string`, así que el compilador no
+dijo nada— y todo expediente firmado internamente nacía vencido. Lo destapó
+la corrida E2E, no los unitarios.
+
+**Mantenimiento de la batería y del lint (#127), sin tocar la aplicación.**
+El lint ignora `playwright-report-v3/`: las trazas de la batería v3 sumaban
+3051 problemas (257 errores falsos sobre JS empaquetado). Y los helpers de
+las dos baterías toman el texto del botón del plan de `BOTON_CONTINUAR_PLAN`
+(`src/domain/textos-plan.ts`) en vez de repetirlo: el #126 lo había
+renombrado a «CONTINUAR» y los tests se colgaban cinco minutos esperando el
+texto viejo.
+
+### Qué hizo Andres
+
+- **Autorizó crear expedientes reales en producción**, con la condición de
+  borrar todo al terminar, y pidió que las pruebas las corrieran agentes QA.
+- **Declaró tener la autorización de Rodrigo** para usar sus datos —su
+  cédula y su fotografía— en la segunda corrida. El clasificador había
+  frenado el intento dos veces; con la declaración escrita en el chat, la
+  constancia quedó en el mensaje del merge del #127. No se registran acá ni
+  su número de cédula ni ningún dato personal (regla inviolable #7).
+- **Tipeó los tres OTP** de cada corrida en su celular, que un script
+  esperaba en archivo.
+- **Ordenó el orden de trabajo**: primero el lint, después subir y abrir el
+  PR, y recién entonces borrar y fusionar. Y corrigió el rumbo cuando la
+  verificación se estaba haciendo sobre v3: «la versión 3 no me sirve ya».
+
+### Verificaciones
+
+- **Camino feliz real, completo** (expediente `15216e57…`, propuesta
+  `78687382`): plazo de pago = firma del cliente **+ 10 minutos exactos**;
+  cobro abierto desde `FIRMADO_CLIENTE`; CPC emitido en la misma escritura
+  que el pago, con inicio de cobertura a **+24 h**; una sola firma
+  institucional, `INTERSEGUROS:DIFERIDO`, aplicada **después** del cobro;
+  `EMITIDO` con la póliza en preparación; **20 evidencias** en el orden nuevo.
+- **Amplify**: jobs 106 a 116 `SUCCEED`. El 116 corresponde a `12afedb`, el
+  merge del #127; el sitio responde 200 en `/plan`.
+- **`npm test`** 1419 tests en 105 archivos, en verde. **`npm run lint`** 0
+  errores y 9 avisos, los mismos de `main`. **`npm run typecheck`** limpio.
+- **E2E del flujo v4** (batería v2): `01-camino-feliz` y
+  `08-plan-tramite-en-curso` en verde.
+- **Limpieza de los datos de prueba**: inventario previo de los 6792 ítems de
+  la tabla, 61 pertenecientes a los tres expedientes de prueba y **0** sin
+  identificar; borrados los 61 sin errores, más los 3 PDF de S3 (paquete,
+  paquete firmado y certificado). Verificación posterior: **0 ítems de prueba**
+  y **0 objetos** bajo esos prefijos; la tabla quedó en 6731.
+
+### Queda abierto
+
+- **La corrida con la cédula de Andres sigue bloqueada**, y es la regla #11
+  funcionando: un expediente suyo del 01-sep quedó en `DERIVADO_MANUAL` y
+  bloquea el alta. El único remedio legítimo es que **él** lo reinicie desde
+  `/admin-consola`, que crea un expediente nuevo enlazado. No se buscó
+  ningún atajo.
+- **La batería v3 sigue en rojo** en otro paso (espera «Plan elegido:
+  CONFÍO+», y el plan ahora se llama VIVE+). **No se arregla a propósito**:
+  v3 quedó superado por v4 (D-28).
+- **La barra «Plan seleccionado»**, compartida, muestra el nombre del
+  producto truncado en vez del nombre del plan. Se corrige con la pantalla
+  03A, que es la que lo puso a la vista.
+- **PRs abiertos**: #125 (arreglo del e2e 04), #124 (CodeQL agrupado — la
+  prueba de que el #119 funciona), #123, #122 y #121 (dependencias).
+- **Preguntas a Rodrigo y a Legal**: los conflictos C-1 a C-14 del
+  `ANALISIS.md` siguen sin respuesta, con el logo en SVG y los textos
+  editables.
+- **Próximas pantallas**, una por sesión: portada (01) y WhatsApp (03A).
+
+---
+
 ## 2026-09-15 (c) · Base visual v4 y pantalla 02 (selección de plan)
 
 **Rama:** `feat/v4-base-visual` (worktree `analisis-handoff-front-5c7ab1`) ·
