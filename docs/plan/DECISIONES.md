@@ -358,9 +358,16 @@ producto**.
   Nota SS.SG. N.º 397/2026): es lo que la SIS inscribió, y no es un nombre
   comercial que podamos cambiar por decisión propia. Los documentos imprimen
   las dos cosas, como ya hacían.
-- **Sube `ID_VERSION_OFERTA` a `OFERTA-VIVE-v3`.** Los expedientes anteriores
-  conservan su premio y su hash (regla inviolable #10); sus `PlanId` viejos se
-  traducen **al leer** (`PLAN_ID_LEGADO`) y no se reescriben.
+- **El `PlanId` interno no se renombra** (`CONFIO`, `CONFIO_PLUS`,
+  `CONFIO_TOTAL`), ni las variables `NEXT_PUBLIC_PLAN_CONFIO_*` que lo
+  sobrescriben: identifican al plan, no lo nombran, y es lo que ya está
+  persistido en los expedientes (regla inviolable #10). Lo que cambia es el
+  **nombre comercial** que sale de `catalogo.ts` y el `ID_VERSION_OFERTA`
+  (`OFERTA-VIVE-v1`, subido el 15-sep-2026 con los premios). Enmienda del
+  16-sep-2026: la primera implementación de esta rama había renombrado el
+  `PlanId` y traducía los viejos al leer (`PLAN_ID_LEGADO`); se deshizo al
+  fusionar con `main`, que ya había hecho el renombre comercial sin tocar el
+  identificador. Manda `main`.
 
 ### D-46 · Sin proveedor de alteración documental; se permite cargar archivos — **DECIDIDA**
 - *"No vamos a usar un proveedor de alteración documental. Permitiremos que

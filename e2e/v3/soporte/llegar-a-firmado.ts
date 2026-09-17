@@ -77,9 +77,9 @@ export async function llegarAPagoYFirmaFirmado(
 
   // ── Paso 2 · plan, declaraciones y aceptación agrupada 2 ────────────────
   await esperarHidratacion(page);
-  await page.getByRole("article").nth(1).getByRole("radio").click(); // VIVE+
+  await page.getByRole("article").nth(1).getByRole("radio").click(); // CONFÍO+
   await page.getByRole("button", { name: "CONTINUAR CON EL PLAN SELECCIONADO →" }).click();
-  await expect(page.getByText("✓ Plan elegido: VIVE+", { exact: false })).toBeVisible();
+  await expect(page.getByText("✓ Plan elegido: CONFÍO+", { exact: false })).toBeVisible();
   for (const [titulo, respuesta] of [
     ["Estado de salud", "Sí"],
     ["Antecedentes de contratación", "No"],

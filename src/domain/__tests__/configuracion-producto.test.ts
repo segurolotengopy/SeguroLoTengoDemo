@@ -23,10 +23,10 @@ describe("configuración por producto", () => {
   });
 
   it("el parentesco del beneficiario se exige y su cédula no", () => {
-    expect(esRequerido("VIVE", "beneficiarioParentesco")).toBe(true);
-    expect(esRequerido("VIVE", "beneficiarioCedula")).toBe(false);
+    expect(esRequerido("CONFIO", "beneficiarioParentesco")).toBe(true);
+    expect(esRequerido("CONFIO", "beneficiarioCedula")).toBe(false);
     // Opcional no es lo mismo que oculto: se muestra igual.
-    expect(esVisible("VIVE", "beneficiarioCedula")).toBe(true);
+    expect(esVisible("CONFIO", "beneficiarioCedula")).toBe(true);
   });
 
   it("no gobierna ningún campo impuesto por norma", () => {
@@ -49,7 +49,7 @@ describe("configuración por producto", () => {
       "paisResidencia",
     ];
 
-    const configurables = Object.keys(configuracionDe("VIVE")) as CampoConfigurable[];
+    const configurables = Object.keys(configuracionDe("CONFIO")) as CampoConfigurable[];
     for (const campo of impuestosPorNorma) {
       expect(
         configurables as string[],

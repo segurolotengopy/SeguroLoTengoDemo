@@ -60,7 +60,7 @@ import { codigoCertificado } from "../certificado-cobertura";
 
 const AHORA = "2026-08-09T15:00:00.000Z";
 const NUMERO_PROPUESTA = "00018425";
-const PREMIO = PLANES.VIVE_PLUS.premioAnualGs;
+const PREMIO = PLANES.CONFIO_PLUS.premioAnualGs;
 
 const CONTEXTO: ContextoPeticion = {
   ip: "200.10.20.30",

@@ -144,7 +144,7 @@ export interface CanalVerificado {
   readonly origen?: "OTP" | "DOBLE_TIPEO";
 }
 
-export type PlanId = "VIVE" | "VIVE_PLUS" | "VIVE_TOTAL";
+export type PlanId = "CONFIO" | "CONFIO_PLUS" | "CONFIO_TOTAL";
 
 export interface PlanSeleccionado {
   readonly planId: PlanId;

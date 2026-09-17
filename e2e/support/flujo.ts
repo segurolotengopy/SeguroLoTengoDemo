@@ -1,3 +1,4 @@
+import { BOTON_CONTINUAR_PLAN } from "@/domain/textos-plan";
 /**
  * Helpers de un paso por pantalla del flujo P0–P9, para no repetir selectores
  * en cada escenario. Cada función usa los textos reales de
@@ -136,16 +137,17 @@ export async function completarWhatsapp(page: Page, persona: PersonaDemo): Promi
  * P2 · Paso 2 de 9 — Selección de plan.
  *
  * Las tres tarjetas de plan se ubican en el mismo orden en el que están
- * declaradas en `src/domain/catalogo.ts` (VIVE, VIVE+, VIVE TOTAL), sin
+ * declaradas en `src/domain/catalogo.ts` (VIVE, VIVE+, VIVE TOTAL — nombre
+ * comercial desde el manual funcional v4, 15-sep-2026; antes CONFÍO), sin
  * reordenarse en pantalla — se identifica la tarjeta por posición y no por su
  * rótulo, porque "VIVE" es substring de los otros dos nombres y filtrar por
  * texto es frágil acá.
  */
-const ORDEN_PLANES: readonly PersonaDemo["planElegido"][] = ["VIVE", "VIVE_PLUS", "VIVE_TOTAL"];
+const ORDEN_PLANES: readonly PersonaDemo["planElegido"][] = ["CONFIO", "CONFIO_PLUS", "CONFIO_TOTAL"];
 const ROTULO_PLAN: Readonly<Record<PersonaDemo["planElegido"], string>> = {
-  VIVE: "VIVE",
-  VIVE_PLUS: "VIVE+",
-  VIVE_TOTAL: "VIVE TOTAL",
+  CONFIO: "VIVE",
+  CONFIO_PLUS: "VIVE+",
+  CONFIO_TOTAL: "VIVE TOTAL",
 };
 
 export async function completarPlan(page: Page, persona: PersonaDemo): Promise<void> {
@@ -156,14 +158,14 @@ export async function completarPlan(page: Page, persona: PersonaDemo): Promise<v
   expect(indice, `Plan desconocido: ${persona.planElegido}`).toBeGreaterThanOrEqual(0);
   const rotulo = ROTULO_PLAN[persona.planElegido];
 
-  // Formato maqueta: cada tarjeta lleva un radio `Elegir esta opción` y el
-  // botón de continuar es único y fijo, deshabilitado hasta elegir.
+  // Formato v4: cada tarjeta lleva un radio en la cabecera y el botón de
+  // continuar es único y fijo, deshabilitado hasta elegir.
   const tarjeta = page.getByRole("article").nth(indice);
   await expect(tarjeta.getByRole("heading", { name: rotulo, exact: true })).toBeVisible();
   await tarjeta.getByRole("radio").click();
   await expect(tarjeta.getByRole("radio")).toHaveAttribute("aria-checked", "true");
 
-  await page.getByRole("button", { name: "CONTINUAR CON EL PLAN SELECCIONADO →" }).click();
+  await page.getByRole("button", { name: BOTON_CONTINUAR_PLAN, exact: true }).click();
   await expect(page).toHaveURL(/\/whatsapp$/);
 }
 
@@ -319,8 +321,8 @@ export async function completarCapturasP5(page: Page): Promise<void> {
   await tomarCapturaP5(page, "DORSO");
   await expect(page.getByText("✓ Aprobada", { exact: true })).toHaveCount(2);
   await tomarCapturaP5(page, "SELFIE");
-  // La comparación facial rechaza: el aviso rojo de P5 avisa que hay que
-  // repetir la captura, nunca editar los campos a mano.
+  // La comparación facial rechaza: lo dice la tarjeta de la selfie, y solo
+  // ella —el texto aparece una sola vez en la pantalla (15-sep-2026)—.
   await expect(
     page.getByText("La selfie no coincide con la fotografía de la cédula.", { exact: false }),
   ).toBeVisible();
@@ -415,12 +417,24 @@ export async function completarP6(page: Page, persona: PersonaDemo): Promise<voi
 
 }
 
-/** Envía el formulario de P6 y espera terminar en el destino esperado. */
+/**
+ * Envía el formulario de P6 y espera terminar en el destino esperado.
+ *
+ * **El margen es largo porque este es el paso más pesado del recorrido.** Al
+ * enviar las declaraciones el servidor acuña el correlativo, arma el PDF del
+ * paquete, lo hashea y lo guarda antes de transicionar a `PAQUETE_GENERADO`
+ * (`src/documentos/servicio.ts`); recién ahí cambia la URL. Con 20 s —por
+ * debajo incluso del `expect.timeout` de 30 s del proyecto— el escenario 06
+ * falló en la batería completa con el botón todavía en «Guardando…», y el
+ * mismo spec aislado pasó: no era un defecto, era el margen. Un timeout que
+ * corta un paso que estaba funcionando no reporta nada útil, que es el
+ * criterio con el que `playwright.config.ts` eligió sus propios márgenes.
+ */
 export async function enviarP6(page: Page, destinoEsperado: RegExp): Promise<void> {
   const continuar = page.getByRole("button", { name: "Declarar y continuar" });
   await expect(continuar).toBeEnabled();
   await continuar.click();
-  await expect(page).toHaveURL(destinoEsperado, { timeout: 20_000 });
+  await expect(page).toHaveURL(destinoEsperado, { timeout: 90_000 });
 }
 
 /**
@@ -535,9 +549,10 @@ export async function firmarNormalmente(page: Page, idCode100: string): Promise<
   // campos y el botón.
   await tipearOtp(page, "p8", sesion.codigo as string);
 
-  // Tipear el código no lleva al pago por sí solo: firma del cliente, después
-  // las institucionales, y recién cuando el sondeo ve `FIRMADO` la pantalla
-  // navega. Son varios ciclos de dos segundos contra DynamoDB real, así que el
-  // plazo cubre esa cadena y no solo el envío del código.
+  // Tipear el código no lleva al pago en el acto: el sondeo tiene que ver
+  // `FIRMADO_CLIENTE` para navegar. Desde la enmienda del 04-sep-2026 a D-08
+  // ya no hay que esperar además a las institucionales —se aplican después
+  // del pago, D-38— pero sigue siendo al menos un ciclo de sondeo contra
+  // DynamoDB real, así que el plazo cubre esa espera.
   await expect(page).toHaveURL(/\/pago$/, { timeout: 60_000 });
 }

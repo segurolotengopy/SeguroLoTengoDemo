@@ -68,7 +68,10 @@ export const TEXTOS_05B = {
     /** D-11 · un solo documento firmado: Solicitud + FIPF. */
     paquete: {
       nombre: "Solicitud de Seguro y FIPF (firmado)",
-      detalle: "Firmado por vos, Interseguros y Alianza Garantía.",
+      // D-42 · Alianza no firma la propuesta; Interseguros la firma con
+      // certificado cualificado después del pago (D-38), y la emisión no se
+      // ordena hasta que esa firma esté aplicada (`emision-p9.ts`).
+      detalle: "Firmado por vos e Interseguros.",
       pendiente: "Preparando el archivo firmado…",
     },
     /** D-12 · el Certificado de Cobertura Provisional. */
@@ -102,6 +105,7 @@ export const TEXTOS_05B = {
   botonFinalizar: "Finalizar",
   leyendaCierre:
     "Interseguros va a seguir brindándote asesoramiento y asistencia durante todo el proceso.",
+  botonReintentar: "REINTENTAR",
 } as const;
 
 /**
@@ -116,6 +120,10 @@ export const MENSAJES_05B: Readonly<Record<string, string>> = {
   SIN_FIRMA: "Todavía falta firmar la Solicitud y el FIPF.",
   COBRO_NO_CONFIRMADO:
     "Todavía estamos confirmando el cobro con Bancard. La emisión se pide recién cuando el pago está confirmado.",
+  // D-38/D-42 · cobrado, pero la firma cualificada de Interseguros todavía no
+  // se aplicó: la emisión no se ordena hasta que esté (`emision-p9.ts`).
+  FIRMA_CORREDOR_PENDIENTE:
+    "Tu pago está acreditado. Falta la firma de Interseguros sobre tu documentación; en cuanto se aplique, ordenamos la emisión. Volvé a intentar en unos segundos.",
   EXPEDIENTE_INCOMPLETO: "Faltan datos del expediente para remitirlo a Alianza.",
   SEBAOT_NO_DISPONIBLE: "Alianza Garantía no respondió. Volvé a intentar en unos segundos.",
   ERROR_GENERICO: "No pudimos recuperar tu contratación. Volvé a intentar en unos instantes.",

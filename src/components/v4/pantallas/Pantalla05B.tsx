@@ -192,29 +192,38 @@ export function Pantalla05B() {
     };
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const respuesta = await fetch("/api/p9/resumen");
-        const datos = (await respuesta.json().catch(() => ({}))) as {
-          ok?: boolean;
-          motivo?: string;
-          resumen?: Resumen;
-          documentosDisponibles?: boolean;
-        };
-        if (!vigente.current) return;
-        if (!datos.ok || !datos.resumen) {
-          setError(MENSAJES_05B[datos.motivo ?? ""] ?? MENSAJES_05B.ERROR_GENERICO);
-          return;
-        }
-        setResumen(datos.resumen);
-        setDocumentosDisponibles(datos.documentosDisponibles === true);
-        setEstadoPoliza(datos.resumen.estadoPoliza);
-      } catch {
-        if (vigente.current) setError(MENSAJES_05B.SEBAOT_NO_DISPONIBLE);
+  // Reintentable a propósito: varios motivos de `GET /api/p9/resumen` son
+  // transitorios —`COBRO_NO_CONFIRMADO`, `FIRMA_CORREDOR_PENDIENTE` (D-38/D-42:
+  // cobrado, esperando la firma cualificada de Interseguros),
+  // `SEBAOT_NO_DISPONIBLE`— y un error sin botón dejaría a la persona
+  // recargando a ciegas. El endpoint es idempotente, así que reintentar es
+  // gratis.
+  const cargarResumen = useCallback(async () => {
+    setError(null);
+    try {
+      const respuesta = await fetch("/api/p9/resumen");
+      const datos = (await respuesta.json().catch(() => ({}))) as {
+        ok?: boolean;
+        motivo?: string;
+        resumen?: Resumen;
+        documentosDisponibles?: boolean;
+      };
+      if (!vigente.current) return;
+      if (!datos.ok || !datos.resumen) {
+        setError(MENSAJES_05B[datos.motivo ?? ""] ?? MENSAJES_05B.ERROR_GENERICO);
+        return;
       }
-    })();
+      setResumen(datos.resumen);
+      setDocumentosDisponibles(datos.documentosDisponibles === true);
+      setEstadoPoliza(datos.resumen.estadoPoliza);
+    } catch {
+      if (vigente.current) setError(MENSAJES_05B.SEBAOT_NO_DISPONIBLE);
+    }
   }, []);
+
+  useEffect(() => {
+    void cargarResumen();
+  }, [cargarResumen]);
 
   const sondear = useCallback(async (): Promise<boolean> => {
     const respuesta = await fetch("/api/p9/estado");
@@ -283,6 +292,11 @@ export function Pantalla05B() {
           <p className="v4-error-campo" role="alert">
             {error}
           </p>
+        </div>
+        <div className="mt-4">
+          <BotonSecundarioV4 onClick={() => void cargarResumen()}>
+            {TEXTOS_05B.botonReintentar}
+          </BotonSecundarioV4>
         </div>
       </MarcoV4>
     );

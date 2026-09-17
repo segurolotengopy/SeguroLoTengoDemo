@@ -12,20 +12,13 @@
  * Reproduce, sobre las piezas de v4, la misma lógica que ya construyó el
  * flujo v3 en `FirmaInternaV3.tsx`: el paquete se cierra al pedir el resumen
  * (`GET /api/p8/resumen`, que transiciona `DECLARACIONES_OK → PAQUETE_GENERADO`
- * si hace falta), el cliente firma con un código de un solo uso enviado a un
- * canal ya verificado (`src/domain/firma-cliente.ts`, D1) y, con eso hecho, el
- * sondeo de siempre (`GET /api/p8/estado`) aplica las firmas institucionales
- * de Interseguros y Alianza y deja el expediente en `FIRMADO` — que es lo
- * único que habilita el pago (regla inviolable 6-bis).
- *
- * ⚠️ Blocker conocido, fuera del alcance de este archivo: `POST
- * /api/p8/firma-interna/enviar` y `POST /api/p8/firma-interna/verificar`
- * responden 404 (`FLUJO_NO_DISPONIBLE`) cuando `FLUJO_V3` no está encendido,
- * porque están gateados por `flujoV3Activo()` y no por `flujoV4Activo()`. En
- * un despliegue que solo tenga `FLUJO_V4=true` esta pantalla no puede firmar.
- * Corregir esa guarda no es tarea de esta pantalla — está fuera de los
- * archivos que esta sesión puede tocar — y queda reportado para quien pueda
- * editar esas dos rutas.
+ * si hace falta) y el cliente firma con un código de un solo uso enviado a un
+ * canal ya verificado (`src/domain/firma-cliente.ts`, D1). Con eso el
+ * expediente queda en `FIRMADO_CLIENTE`, que **ya habilita el pago** (D-08
+ * enmendada el 04-sep-2026, D-38): la firma cualificada de Interseguros se
+ * aplica después del cobro, dentro de 24/48 h operativas, y Alianza no firma
+ * la propuesta (D-42). Por eso esta pantalla no sondea ninguna firma
+ * institucional: firmado el cliente, sigue el pago.
  *
  * El código **nunca** se muestra ni se registra en un log del cliente (regla
  * inviolable #2): vive únicamente en el estado de `CamposOtpV4` hasta que se
@@ -171,8 +164,6 @@ export function Pantalla04E() {
   const [error, setError] = useState<ErrorFirma | null>(null);
 
   const [firmadoCliente, setFirmadoCliente] = useState(false);
-  const [institucionalFallo, setInstitucionalFallo] = useState(false);
-  const [reintentando, setReintentando] = useState(false);
   const completadoRef = useRef(false);
 
   const segundosVencimiento = useCuentaAtras(expiraEn);
@@ -188,7 +179,6 @@ export function Pantalla04E() {
       const datos = (await respuesta.json()) as { ok?: boolean; resumen?: ResumenFirma };
       if (datos.ok && datos.resumen) {
         setResumen(datos.resumen);
-        if (datos.resumen.estado === "FIRMADO_CLIENTE") setFirmadoCliente(true);
       } else {
         setErrorCarga(TEXTOS_04E.errorEstadoInvalido);
       }
@@ -203,53 +193,20 @@ export function Pantalla04E() {
     void cargarResumen();
   }, [cargarResumen]);
 
-  // El expediente ya avanzó más allá de esta pantalla (ya firmado del todo):
-  // no hay nada que mostrar acá, se sigue camino.
+  // El expediente ya avanzó más allá de esta pantalla: con la firma del
+  // cliente registrada (`FIRMADO_CLIENTE`) el paso siguiente es el pago
+  // (D-08 enmendada); `FIRMADO`, `PAGO_CONFIRMADO` y `EMITIDO` son momentos
+  // posteriores al cobro. En ninguno hay nada que firmar acá.
   useEffect(() => {
-    if (resumen && ["FIRMADO", "PAGO_CONFIRMADO", "EMITIDO"].includes(resumen.estado)) {
+    if (
+      resumen &&
+      ["FIRMADO_CLIENTE", "FIRMADO", "PAGO_CONFIRMADO", "EMITIDO"].includes(resumen.estado)
+    ) {
+      if (completadoRef.current) return;
+      completadoRef.current = true;
       router.push("/pago");
     }
   }, [resumen, router]);
-
-  // Con la firma del cliente hecha, el sondeo de siempre aplica las
-  // institucionales (mock de Code100) y avisa cuando el expediente queda
-  // `FIRMADO`.
-  const sondear = useCallback(async () => {
-    try {
-      const respuesta = await fetch("/api/p8/estado");
-      const datos = (await respuesta.json()) as {
-        ok?: boolean;
-        firmado?: boolean;
-        motivo?: string;
-        siguientePantalla?: string;
-      };
-      if (datos.ok && datos.firmado) {
-        if (completadoRef.current) return;
-        completadoRef.current = true;
-        router.push(datos.siguientePantalla ?? "/pago");
-        return;
-      }
-      setInstitucionalFallo(!datos.ok && datos.motivo === "FIRMAS_INSTITUCIONALES_PENDIENTES");
-    } catch {
-      // El próximo tick reintenta.
-    }
-  }, [router]);
-
-  useEffect(() => {
-    if (!firmadoCliente) return;
-    void sondear();
-    const intervalo = setInterval(() => void sondear(), 2000);
-    return () => clearInterval(intervalo);
-  }, [firmadoCliente, sondear]);
-
-  async function reintentarSondeo() {
-    setReintentando(true);
-    try {
-      await sondear();
-    } finally {
-      setReintentando(false);
-    }
-  }
 
   function volverAElegirCanal() {
     setCanal(null);
@@ -363,14 +320,20 @@ export function Pantalla04E() {
               return;
           }
         }
+        // D-08 enmendada / D-38 (main #120): `FIRMADO_CLIENTE` ya habilita el
+        // cobro. La firma cualificada de Interseguros se aplica **después**
+        // del pago, así que no hay nada que esperar acá: se sigue al pago.
+        if (completadoRef.current) return;
+        completadoRef.current = true;
         setFirmadoCliente(true);
+        router.push("/pago");
       } catch {
         setError({ tipo: "CODIGO", texto: TEXTOS_04E.errorConexion });
       } finally {
         setFirmando(false);
       }
     },
-    [otpId, canal, firmando],
+    [otpId, canal, firmando, router],
   );
 
   return (
@@ -439,25 +402,11 @@ export function Pantalla04E() {
 
           {firmadoCliente ? (
             <section className="mt-4">
-              {institucionalFallo ? (
-                <AvisoRojoV4 titulo={TEXTOS_04E.institucionalesFallidasTitulo}>
-                  <p>{TEXTOS_04E.institucionalesFallidas}</p>
-                  <div className="mt-3">
-                    <BotonPrincipalV4
-                      onClick={() => void reintentarSondeo()}
-                      cargando={reintentando}
-                    >
-                      {reintentando ? TEXTOS_04E.reintentando : TEXTOS_04E.botonReintentar}
-                    </BotonPrincipalV4>
-                  </div>
-                </AvisoRojoV4>
-              ) : (
-                <div className="v4-aviso-verde flex flex-col items-center gap-2 px-4 py-8" role="status">
-                  <IconoTildeDisco tamano={44} />
-                  <p className="text-[1.125rem] font-bold">{TEXTOS_04E.firmadoTitulo}</p>
-                  <p className="text-[0.9375rem]">{TEXTOS_04E.firmadoEsperando}</p>
-                </div>
-              )}
+              <div className="v4-aviso-verde flex flex-col items-center gap-2 px-4 py-8" role="status">
+                <IconoTildeDisco tamano={44} />
+                <p className="text-[1.125rem] font-bold">{TEXTOS_04E.firmadoTitulo}</p>
+                <p className="text-[0.9375rem]">{TEXTOS_04E.firmadoSiguiente}</p>
+              </div>
             </section>
           ) : (
             <>

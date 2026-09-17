@@ -69,7 +69,10 @@ export const TEXTOS_04E = {
   botonFirmando: "FIRMANDO...",
 
   firmadoTitulo: "Tu firma quedó registrada",
-  firmadoEsperando: "Estamos aplicando las firmas de Interseguros y Alianza Garantía…",
+  // D-08 enmendada (04-sep-2026) y D-38: la firma cualificada de Interseguros
+  // se aplica después del pago, dentro de 24/48 h operativas, y Alianza no
+  // firma la propuesta (D-42). No hay nada que esperar acá: sigue el pago.
+  firmadoSiguiente: "Te llevamos al pago…",
 
   // -------------------------------------------------------------------------
   // Errores
@@ -87,12 +90,6 @@ export const TEXTOS_04E = {
   errorGenerico: "No pudimos procesar tu pedido. Intentá nuevamente.",
   errorConexion: "No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.",
 
-  // -------------------------------------------------------------------------
-  // Firmas institucionales
-  // -------------------------------------------------------------------------
-  institucionalesFallidasTitulo: "NO PUDIMOS COMPLETAR TU FIRMA",
-  institucionalesFallidas:
-    "Tu firma quedó registrada, pero todavía no pudimos aplicar las de Interseguros y Alianza Garantía. Volvé a intentar en unos segundos.",
   botonReintentar: "REINTENTAR",
   reintentando: "REINTENTANDO...",
 

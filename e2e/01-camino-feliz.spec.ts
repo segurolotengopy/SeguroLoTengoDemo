@@ -19,7 +19,7 @@ import {
 /**
  * Escenario 1 — Camino feliz completo.
  *
- * P0 → P1 (OTP celular) → P2 (VIVE+) → P3 (checklist + consentimiento) →
+ * P0 → P1 (OTP celular) → P2 (CONFÍO+) → P3 (checklist + consentimiento) →
  * P4 (OTP correo) → P5 (identidad aprobada) → P6 (las ocho declaraciones
  * compatibles) → P7 (pago QR) → P8 (firma Code100) → P9 (contratación
  * aceptada), con Mónica Mariana Gorena Tapia (C.I. 9.323.336).

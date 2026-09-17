@@ -55,7 +55,7 @@ export type ConfiguracionCampos = Readonly<Record<CampoConfigurable, ExigenciaCa
  * sumas aseguradas: lo que cambia entre VIVE y VIVE TOTAL es cuánto paga,
  * no qué datos pide.
  */
-const VIVE: ConfiguracionCampos = {
+const CONFIO: ConfiguracionCampos = {
   // Depende de la situación laboral, no del producto: quien declara ser
   // independiente no tiene empleador que informar.
   empresa: "OPCIONAL",
@@ -66,9 +66,9 @@ const VIVE: ConfiguracionCampos = {
 };
 
 const POR_PLAN: Readonly<Record<PlanId, ConfiguracionCampos>> = {
-  VIVE,
-  VIVE_PLUS: VIVE,
-  VIVE_TOTAL: VIVE,
+  CONFIO,
+  CONFIO_PLUS: CONFIO,
+  CONFIO_TOTAL: CONFIO,
 };
 
 export function configuracionDe(planId: PlanId): ConfiguracionCampos {

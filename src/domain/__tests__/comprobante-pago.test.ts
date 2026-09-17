@@ -69,7 +69,7 @@ describe("comprobante de pago", () => {
 
   it("el desglose sale del catálogo y está rotulado como provisional (D-04)", () => {
     const contenido = contenidoDe();
-    const esperado = desglosePremio("VIVE_PLUS");
+    const esperado = desglosePremio("CONFIO_PLUS");
     const valores = contenido.desglose.map((campo) => campo.valor);
     expect(valores[0]).toBe(formatearGuaranies(esperado.primaNetaGs));
     expect(contenido.leyendaDesgloseProvisional).toMatch(/provisional/i);

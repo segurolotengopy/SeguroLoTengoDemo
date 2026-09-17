@@ -12,7 +12,7 @@ describe("mock del asistente", () => {
   it("responde planes y premios desde el catálogo versionado", async () => {
     const r = await preguntar("¿Cuánto cuesta el plan VIVE+?");
     expect(r.ok && r.texto).toContain("Gs. 575.000");
-    expect(r.ok && r.respaldo[0]?.version).toBe("OFERTA-VIVE-v3");
+    expect(r.ok && r.respaldo[0]?.version).toBe("OFERTA-VIVE-v1");
   });
 
   it("responde carencias, exclusiones y edades desde el documento de coberturas v1.0", async () => {

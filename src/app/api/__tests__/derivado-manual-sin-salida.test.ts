@@ -379,7 +379,7 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
       ejecutar: async (repo) =>
         seleccionarPlan(
           { expedientes: repo, evidencias: evidenciasFalsas() },
-          { expedienteId: EXPEDIENTE_ID, planId: "VIVE_PLUS", contexto: CONTEXTO },
+          { expedienteId: EXPEDIENTE_ID, planId: "CONFIO_PLUS", contexto: CONTEXTO },
         ),
     },
     {

@@ -103,12 +103,12 @@ test("camino feliz v3: T&C → inscripción → seguro → firma interna → pag
 
   // ── Paso 2 · plan (selector v2 como sección) ──────────────────────────
   await esperarHidratacion(page);
-  const tarjeta = page.getByRole("article").nth(1); // VIVE+
+  const tarjeta = page.getByRole("article").nth(1); // CONFÍO+
   await tarjeta.getByRole("radio").click();
   await page.getByRole("button", { name: "CONTINUAR CON EL PLAN SELECCIONADO →" }).click();
 
   // ── Paso 2 · beneficiario + 5 preguntas + aceptación agrupada 2 ───────
-  await expect(page.getByText("✓ Plan elegido: VIVE+", { exact: false })).toBeVisible();
+  await expect(page.getByText("✓ Plan elegido: CONFÍO+", { exact: false })).toBeVisible();
   for (const [titulo, respuesta] of [
     ["Estado de salud", "Sí"],
     ["Antecedentes de contratación", "No"],
