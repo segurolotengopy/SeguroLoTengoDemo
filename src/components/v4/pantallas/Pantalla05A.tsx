@@ -58,6 +58,7 @@ import {
 } from "@/domain/v4/textos-pago";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
+import { AccionesV4, DisposicionV4, EncabezadoV4, RejillaV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   AvisoRojoV4,
@@ -283,7 +284,7 @@ function VentanaBancardV4({ children }: { readonly children: React.ReactNode }) 
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4"
       style={{ background: "rgba(7, 31, 120, 0.45)" }}
     >
-      <div className="relative mt-6 w-full max-w-[26rem] overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative mt-6 w-full max-w-[26rem] overflow-hidden rounded-2xl bg-white shadow-2xl lg:max-w-[32rem]">
         <div className="v4-filete-rojo" />
         <div className="px-5 pt-4">
           <p className="text-[0.75rem] font-bold uppercase tracking-wide" style={{ color: "var(--v4-azul-apagado)" }}>
@@ -562,131 +563,144 @@ export function Pantalla05A({
 
   const textoMedio = TEXTOS_MEDIOS_DE_PAGO_P7.find((opcion) => opcion.medio === medio);
   const importe = resumen ? formatearGuaranies(resumen.montoGs) : "—";
+  const mostrarPlazo = restanteMs !== null && !confirmado;
 
   return (
     <MarcoV4 codigo="05A">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_05A.titulo}
-            <br />
-            <em>{TEXTOS_05A.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_05A.bajada}</p>
-        </div>
-        <IlustracionPago tamano={104} className="shrink-0" />
-      </div>
-
-      <BarraPlanV4 className="mt-4" />
-
-      {/* Plazo para pagar (D-32 · 10 minutos), navy mientras corre y rojo al llegar a cero. */}
-      {restanteMs !== null && !confirmado ? (
-        <div className="v4-tarjeta mt-4 p-4 text-center">
-          <p className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: "var(--v4-azul-apagado)" }}>
-            {TEXTOS_05A.tituloPlazo}
-          </p>
-          <p
-            className="mt-1 text-[1.75rem] font-bold tabular-nums"
-            style={{ color: restanteMs <= 0 ? "var(--v4-rojo)" : "var(--v4-navy)" }}
-          >
-            {reloj(Math.floor(Math.max(restanteMs, 0) / 1000))}
-          </p>
-          <p className="mt-1 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-            {restanteMs <= 0 ? TEXTOS_05A.plazoVencido : TEXTOS_05A.avisoPlazo}
-          </p>
-        </div>
-      ) : null}
-
-      {/* Resumen del cobro */}
-      <section className="v4-tarjeta mt-4 p-4" aria-labelledby="resumen-cobro">
-        <h2 id="resumen-cobro" className="v4-rotulo">
-          {TEXTOS_05A.tituloResumen}
-        </h2>
-        <div className="mt-2">
-          <FilaResumen rotulo={TEXTOS_05A.rotuloPremio} valor={importe} />
-          {resumen?.desgloseProvisional ? (
-            <>
-              <FilaResumen rotulo={TEXTOS_05A.rotuloPrimaNeta} valor={formatearGuaranies(resumen.primaNetaGs)} />
-              <FilaResumen rotulo={TEXTOS_05A.rotuloIva} valor={formatearGuaranies(resumen.ivaGs)} />
-            </>
-          ) : null}
-          <FilaResumen rotulo={TEXTOS_05A.rotuloPropuesta} valor={numeroPropuesta ?? "—"} />
-        </div>
-        {resumen?.desgloseProvisional ? (
-          <p className="mt-2 text-[0.75rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-            {NOTA_DESGLOSE_PROVISIONAL_P7}
-          </p>
-        ) : null}
-      </section>
-
-      {confirmado ? (
-        <FranjaVerdeV4>
-          <span className="block">{TEXTOS_05A.pagoAcreditadoTitulo}</span>
-          <span className="mt-0.5 block text-[0.875rem] font-normal">{TEXTOS_05A.pagoAcreditado}</span>
-          <span className="mt-0.5 block text-[0.8125rem] font-normal">{TEXTOS_05A.continuando}</span>
-        </FranjaVerdeV4>
-      ) : (
-        <>
-          {/* Medio de pago */}
-          <section className="mt-4" aria-labelledby="medios-de-pago">
-            <h2 id="medios-de-pago" className="v4-rotulo">
-              {TEXTOS_05A.tituloMedios}
-            </h2>
-            <p className="mt-1 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-              {TEXTOS_05A.notaMedios}
-            </p>
-            <div className="mt-3 space-y-3">
-              {TEXTOS_MEDIOS_DE_PAGO_P7.map((opcion) => (
-                <TarjetaMedio
-                  key={opcion.medio}
-                  medio={opcion}
-                  elegido={medio === opcion.medio}
-                  deshabilitado={esperandoAlBanco}
-                  alElegir={() => elegirMedio(opcion.medio)}
-                />
-              ))}
+      <DisposicionV4
+        contexto_ancho="media"
+        contexto={
+          <>
+            <EncabezadoV4
+              titulo={TEXTOS_05A.titulo}
+              acento={TEXTOS_05A.tituloAcento}
+              bajada={TEXTOS_05A.bajada}
+              ilustracion={<IlustracionPago tamano={104} className="shrink-0" />}
+            />
+            <BarraPlanV4 className="mt-4" />
+          </>
+        }
+      >
+        {/* Plazo para pagar y resumen del cobro: lado a lado en escritorio
+            cuando el plazo está a la vista; el resumen solo, si no. */}
+        <div className={mostrarPlazo ? "lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start" : undefined}>
+          {/* Plazo para pagar (D-32 · 10 minutos), navy mientras corre y rojo al llegar a cero. */}
+          {mostrarPlazo ? (
+            <div className="v4-tarjeta p-4 text-center">
+              <p className="text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: "var(--v4-azul-apagado)" }}>
+                {TEXTOS_05A.tituloPlazo}
+              </p>
+              <p
+                className="mt-1 text-[1.75rem] font-bold tabular-nums"
+                style={{ color: restanteMs !== null && restanteMs <= 0 ? "var(--v4-rojo)" : "var(--v4-navy)" }}
+              >
+                {reloj(Math.floor(Math.max(restanteMs ?? 0, 0) / 1000))}
+              </p>
+              <p className="mt-1 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {restanteMs !== null && restanteMs <= 0 ? TEXTOS_05A.plazoVencido : TEXTOS_05A.avisoPlazo}
+              </p>
             </div>
-          </section>
-
-          {/* CHG-37 · autoriza lo que ocurre después del cobro: la emisión del
-              Certificado de Cobertura Provisional y el envío de la póliza y
-              la factura a los canales verificados. Literal y versión sin
-              cambios respecto de v2 (`TEXTO_ACEPTACION_CERTIFICADO_P7`). */}
-          <div className="v4-tarjeta mt-4 p-4">
-            <CasillaConsentimientoV4
-              marcada={aceptaCertificado}
-              alCambiar={setAceptaCertificado}
-              id="acepta-certificado"
-            >
-              {TEXTO_ACEPTACION_CERTIFICADO_P7}
-            </CasillaConsentimientoV4>
-          </div>
-
-          {error && origenError === "GENERAR" ? <AvisoRojoV4 className="mt-3">{error}</AvisoRojoV4> : null}
-
-          {intentosSinRespuesta >= INTENTOS_MAXIMOS_SIN_RESPUESTA ? (
-            <AvisoRojoV4 className="mt-3">{TEXTOS_05A.intentosAgotados(INTENTOS_MAXIMOS_SIN_RESPUESTA)}</AvisoRojoV4>
           ) : null}
 
-          <div className="mt-4">
-            <BotonPrincipalV4
-              onClick={generar}
-              disabled={!medio || !aceptaCertificado || esperandoAlBanco || intentosSinRespuesta >= INTENTOS_MAXIMOS_SIN_RESPUESTA}
-              cargando={generando}
-            >
-              {textoMedio?.botón ?? "ELEGÍ UN MEDIO DE PAGO"}
-            </BotonPrincipalV4>
-          </div>
-        </>
-      )}
+          {/* Resumen del cobro */}
+          <section className="v4-tarjeta mt-4 p-4 lg:mt-0" aria-labelledby="resumen-cobro">
+            <h2 id="resumen-cobro" className="v4-rotulo">
+              {TEXTOS_05A.tituloResumen}
+            </h2>
+            <div className="mt-2">
+              <FilaResumen rotulo={TEXTOS_05A.rotuloPremio} valor={importe} />
+              {resumen?.desgloseProvisional ? (
+                <>
+                  <FilaResumen rotulo={TEXTOS_05A.rotuloPrimaNeta} valor={formatearGuaranies(resumen.primaNetaGs)} />
+                  <FilaResumen rotulo={TEXTOS_05A.rotuloIva} valor={formatearGuaranies(resumen.ivaGs)} />
+                </>
+              ) : null}
+              <FilaResumen rotulo={TEXTOS_05A.rotuloPropuesta} valor={numeroPropuesta ?? "—"} />
+            </div>
+            {resumen?.desgloseProvisional ? (
+              <p className="mt-2 text-[0.75rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {NOTA_DESGLOSE_PROVISIONAL_P7}
+              </p>
+            ) : null}
+          </section>
+        </div>
 
-      <AvisoAzulV4 className="mt-4" titulo={TEXTOS_05A.avisoImportanteTitulo}>
-        {TEXTOS_05A.avisoImportante.map((parrafo) => (
-          <p key={parrafo} className="mt-1 first:mt-0">
-            {parrafo}
-          </p>
-        ))}
-      </AvisoAzulV4>
+        {confirmado ? (
+          <FranjaVerdeV4>
+            <span className="block">{TEXTOS_05A.pagoAcreditadoTitulo}</span>
+            <span className="mt-0.5 block text-[0.875rem] font-normal">{TEXTOS_05A.pagoAcreditado}</span>
+            <span className="mt-0.5 block text-[0.8125rem] font-normal">{TEXTOS_05A.continuando}</span>
+          </FranjaVerdeV4>
+        ) : (
+          <>
+            {/* Medio de pago */}
+            <section className="mt-4" aria-labelledby="medios-de-pago">
+              <h2 id="medios-de-pago" className="v4-rotulo">
+                {TEXTOS_05A.tituloMedios}
+              </h2>
+              <p className="mt-1 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {TEXTOS_05A.notaMedios}
+              </p>
+              <RejillaV4 columnas={3} className="mt-3">
+                {TEXTOS_MEDIOS_DE_PAGO_P7.map((opcion) => (
+                  <TarjetaMedio
+                    key={opcion.medio}
+                    medio={opcion}
+                    elegido={medio === opcion.medio}
+                    deshabilitado={esperandoAlBanco}
+                    alElegir={() => elegirMedio(opcion.medio)}
+                  />
+                ))}
+              </RejillaV4>
+            </section>
+
+            {/* CHG-37 · autoriza lo que ocurre después del cobro: la emisión del
+                Certificado de Cobertura Provisional y el envío de la póliza y
+                la factura a los canales verificados. Literal y versión sin
+                cambios respecto de v2 (`TEXTO_ACEPTACION_CERTIFICADO_P7`).
+                La casilla es una lectura (texto largo) y va a fila entera;
+                solo el botón entra en `AccionesV4`, que en escritorio le da
+                ancho de botón y lo alinea al final de la lectura. */}
+            <div className="v4-tarjeta mt-4 p-4">
+              <CasillaConsentimientoV4
+                marcada={aceptaCertificado}
+                alCambiar={setAceptaCertificado}
+                id="acepta-certificado"
+              >
+                {TEXTO_ACEPTACION_CERTIFICADO_P7}
+              </CasillaConsentimientoV4>
+            </div>
+
+            {error && origenError === "GENERAR" ? (
+              <AvisoRojoV4 className="mt-3">{error}</AvisoRojoV4>
+            ) : null}
+
+            {intentosSinRespuesta >= INTENTOS_MAXIMOS_SIN_RESPUESTA ? (
+              <AvisoRojoV4 className="mt-3">
+                {TEXTOS_05A.intentosAgotados(INTENTOS_MAXIMOS_SIN_RESPUESTA)}
+              </AvisoRojoV4>
+            ) : null}
+
+            <AccionesV4 className="mt-4">
+              <BotonPrincipalV4
+                onClick={generar}
+                disabled={!medio || !aceptaCertificado || esperandoAlBanco || intentosSinRespuesta >= INTENTOS_MAXIMOS_SIN_RESPUESTA}
+                cargando={generando}
+              >
+                {textoMedio?.botón ?? "ELEGÍ UN MEDIO DE PAGO"}
+              </BotonPrincipalV4>
+            </AccionesV4>
+          </>
+        )}
+
+        <AvisoAzulV4 className="mt-4 lg:max-w-prose" titulo={TEXTOS_05A.avisoImportanteTitulo}>
+          {TEXTOS_05A.avisoImportante.map((parrafo) => (
+            <p key={parrafo} className="mt-1 first:mt-0">
+              {parrafo}
+            </p>
+          ))}
+        </AvisoAzulV4>
+      </DisposicionV4>
 
       {instruccion && !confirmado ? (
         <VentanaBancardV4>

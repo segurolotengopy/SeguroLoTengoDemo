@@ -30,6 +30,7 @@ import {
 import type { PlanId } from "@/domain/tipos";
 import { TEXTOS_02 } from "@/domain/v4/textos-plan";
 import { MarcoV4 } from "../MarcoV4";
+import { AccionesV4, DisposicionV4, EncabezadoV4, RejillaV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   AvisoRojoV4,
@@ -50,13 +51,21 @@ function FilaCobertura({
   readonly valor: string;
   readonly detalle?: string;
 }) {
+  // Celular: concepto a la izquierda, importe a la derecha, en una línea
+  // (arte 02). Escritorio: las tres tarjetas van lado a lado y cada una mide
+  // ~15 rem, donde «Renta Hospitalaria por Accidente» y «Hasta Gs.
+  // 1.000.000/día» no caben en la misma línea sin pisarse: el importe baja a
+  // su propia línea, alineado con el concepto (D-30, sin cambiar orden).
   return (
-    <div className="flex items-center gap-3 border-t py-2.5" style={{ borderColor: "var(--v4-gris-borde)" }}>
+    <div className="flex items-center gap-3 border-t py-2.5 lg:flex-wrap" style={{ borderColor: "var(--v4-gris-borde)" }}>
       <Icono tamano={22} />
       <span className="min-w-0 flex-1 text-[0.875rem]" style={{ color: "var(--v4-azul-apagado)" }}>
         {concepto}
       </span>
-      <span className="shrink-0 text-right text-[0.875rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+      <span
+        className="shrink-0 text-right text-[0.875rem] font-bold lg:basis-full lg:pl-[34px] lg:text-left"
+        style={{ color: "var(--v4-navy)" }}
+      >
         {valor}
         {detalle ? (
           <span className="block text-[0.75rem] font-normal" style={{ color: "var(--v4-azul-apagado)" }}>
@@ -195,99 +204,100 @@ export function Pantalla02() {
 
   return (
     <MarcoV4 codigo="02">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_02.titulo}
-            <br />
-            <em>{TEXTOS_02.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_02.bajada}</p>
-        </div>
-        <IlustracionPlanes tamano={112} className="shrink-0" />
-      </div>
-
-      {/* Video informativo. Sin `NEXT_PUBLIC_VIDEO_INFORMATIVO_URL` la tarjeta
-          queda como marcador y no enlaza a ningún lado: no se inventa un video. */}
-      <div className="v4-tarjeta-azul mt-4 flex items-center gap-3 p-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--v4-rojo)" }}>
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path d="M8 5 L19 12 L8 19 Z" fill="#FFFFFF" />
-          </svg>
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: "var(--v4-navy)" }}>
-            {TEXTOS_02.video.rotulo}
-          </span>
-          <span className="block text-[0.875rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-            {TEXTOS_02.video.pie}
-          </span>
-        </span>
-        {video ? (
-          <a href={video} target="_blank" rel="noreferrer" aria-label={TEXTOS_02.video.pie}>
-            <IconoChevronDerecha color="var(--v4-azul)" />
-          </a>
-        ) : null}
-      </div>
-
-      <p className="mt-3 text-center text-[0.6875rem] leading-snug" style={{ color: "var(--v4-azul-apagado)" }}>
-        Producto inscrito: {REGISTRO_PRODUCTO.denominacionRegistral} · Código de Registro N.º{" "}
-        {REGISTRO_PRODUCTO.codigo} · {REGISTRO_PRODUCTO.acto}.
-      </p>
-
-      <fieldset className="mt-4 space-y-3">
-        <legend className="sr-only">{NOMBRE_PRODUCTO}: elegí un plan</legend>
-        {ORDEN_PLANES.map((planId) => (
-          <TarjetaPlan
-            key={planId}
-            planId={planId}
-            elegido={elegido === planId}
-            alElegir={() => setElegido(planId)}
+      <DisposicionV4
+        contexto={
+          <EncabezadoV4
+            titulo={TEXTOS_02.titulo}
+            acento={TEXTOS_02.tituloAcento}
+            bajada={TEXTOS_02.bajada}
+            ilustracion={<IlustracionPlanes tamano={112} className="shrink-0" />}
           />
-        ))}
-      </fieldset>
-
-      <div className="mt-4 text-center">
-        <button type="button" className="v4-enlace text-[0.9375rem]" onClick={() => setDetalleAbierto(true)}>
-          {TEXTOS_02.enlaceDetalle}
-        </button>
-      </div>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {TEXTOS_02.fichas.map((ficha, indice) => (
-          <div key={ficha.titulo} className="v4-tarjeta flex gap-3 p-3">
-            <span className="shrink-0">
-              {indice === 0 ? <IconoEscudo tamano={24} /> : indice === 1 ? <IconoCama tamano={24} /> : <IconoLazo tamano={24} />}
+        }
+      >
+        {/* Video informativo. Sin `NEXT_PUBLIC_VIDEO_INFORMATIVO_URL` la tarjeta
+            queda como marcador y no enlaza a ningún lado: no se inventa un video. */}
+        <div className="v4-tarjeta-azul mt-4 flex items-center gap-3 p-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--v4-rojo)" }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M8 5 L19 12 L8 19 Z" fill="#FFFFFF" />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[0.8125rem] font-bold uppercase tracking-wide" style={{ color: "var(--v4-navy)" }}>
+              {TEXTOS_02.video.rotulo}
             </span>
-            <span className="min-w-0">
-              <span className="block text-[0.75rem] font-bold uppercase tracking-wide" style={{ color: "var(--v4-navy)" }}>
-                {ficha.titulo}
-              </span>
-              {ficha.lineas.map((linea) => (
-                <span key={linea} className="block text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-                  {linea}
-                </span>
-              ))}
+            <span className="block text-[0.875rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+              {TEXTOS_02.video.pie}
             </span>
-          </div>
-        ))}
-      </div>
+          </span>
+          {video ? (
+            <a href={video} target="_blank" rel="noreferrer" aria-label={TEXTOS_02.video.pie}>
+              <IconoChevronDerecha color="var(--v4-azul)" />
+            </a>
+          ) : null}
+        </div>
 
-      <AvisoAzulV4 className="mt-4">
-        <p>
-          <strong style={{ color: "var(--v4-azul)" }}>{TEXTOS_02.aclaracionRotulo}</strong>{" "}
-          {TEXTOS_02.aclaracion[0]}
+        <p className="mt-3 text-center text-[0.6875rem] leading-snug" style={{ color: "var(--v4-azul-apagado)" }}>
+          Producto inscrito: {REGISTRO_PRODUCTO.denominacionRegistral} · Código de Registro N.º{" "}
+          {REGISTRO_PRODUCTO.codigo} · {REGISTRO_PRODUCTO.acto}.
         </p>
-        <p className="mt-2">{TEXTOS_02.aclaracion[1]}</p>
-      </AvisoAzulV4>
 
-      {error ? <AvisoRojoV4 className="mt-4">{error}</AvisoRojoV4> : null}
+        <fieldset className="mt-4">
+          <legend className="sr-only">{NOMBRE_PRODUCTO}: elegí un plan</legend>
+          <RejillaV4 columnas={3}>
+            {ORDEN_PLANES.map((planId) => (
+              <TarjetaPlan
+                key={planId}
+                planId={planId}
+                elegido={elegido === planId}
+                alElegir={() => setElegido(planId)}
+              />
+            ))}
+          </RejillaV4>
+        </fieldset>
 
-      <div className="mt-5">
-        <BotonPrincipalV4 onClick={continuar} disabled={!elegido} cargando={enviando}>
-          {TEXTOS_02.continuar}
-        </BotonPrincipalV4>
-      </div>
+        <div className="mt-4 text-center">
+          <button type="button" className="v4-enlace text-[0.9375rem]" onClick={() => setDetalleAbierto(true)}>
+            {TEXTOS_02.enlaceDetalle}
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {TEXTOS_02.fichas.map((ficha, indice) => (
+            <div key={ficha.titulo} className="v4-tarjeta flex gap-3 p-3">
+              <span className="shrink-0">
+                {indice === 0 ? <IconoEscudo tamano={24} /> : indice === 1 ? <IconoCama tamano={24} /> : <IconoLazo tamano={24} />}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[0.75rem] font-bold uppercase tracking-wide" style={{ color: "var(--v4-navy)" }}>
+                  {ficha.titulo}
+                </span>
+                {ficha.lineas.map((linea) => (
+                  <span key={linea} className="block text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                    {linea}
+                  </span>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <AvisoAzulV4 className="mt-4">
+          <p>
+            <strong style={{ color: "var(--v4-azul)" }}>{TEXTOS_02.aclaracionRotulo}</strong>{" "}
+            {TEXTOS_02.aclaracion[0]}
+          </p>
+          <p className="mt-2">{TEXTOS_02.aclaracion[1]}</p>
+        </AvisoAzulV4>
+
+        {error ? <AvisoRojoV4 className="mt-4">{error}</AvisoRojoV4> : null}
+
+        <AccionesV4 className="mt-5">
+          <BotonPrincipalV4 onClick={continuar} disabled={!elegido} cargando={enviando}>
+            {TEXTOS_02.continuar}
+          </BotonPrincipalV4>
+        </AccionesV4>
+      </DisposicionV4>
 
       {detalleAbierto ? <DetalleProducto02 alCerrar={() => setDetalleAbierto(false)} /> : null}
     </MarcoV4>

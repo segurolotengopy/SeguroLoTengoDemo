@@ -47,6 +47,7 @@ import { TEXTO_COMUNICACIONES_COMERCIALES, mensajeWhatsappP9 } from "@/domain/te
 import { MENSAJES_05B, TEXTOS_05B } from "@/domain/v4/textos-confirmacion";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
+import { AccionesV4, DisposicionV4, EncabezadoV4, RejillaV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   BotonSecundarioV4,
@@ -283,20 +284,22 @@ export function Pantalla05B() {
   if (error) {
     return (
       <MarcoV4 codigo="05B">
-        <h1 className="v4-titular">
-          {TEXTOS_05B.titulo}
-          <br />
-          <em>{TEXTOS_05B.tituloAcento}</em>
-        </h1>
-        <div className="mt-4">
-          <p className="v4-error-campo" role="alert">
-            {error}
-          </p>
-        </div>
-        <div className="mt-4">
-          <BotonSecundarioV4 onClick={() => void cargarResumen()}>
-            {TEXTOS_05B.botonReintentar}
-          </BotonSecundarioV4>
+        <div className="lg:max-w-prose">
+          <h1 className="v4-titular">
+            {TEXTOS_05B.titulo}
+            <br />
+            <em>{TEXTOS_05B.tituloAcento}</em>
+          </h1>
+          <div className="mt-4">
+            <p className="v4-error-campo" role="alert">
+              {error}
+            </p>
+          </div>
+          <div className="mt-4">
+            <BotonSecundarioV4 onClick={() => void cargarResumen()}>
+              {TEXTOS_05B.botonReintentar}
+            </BotonSecundarioV4>
+          </div>
         </div>
       </MarcoV4>
     );
@@ -304,131 +307,128 @@ export function Pantalla05B() {
 
   return (
     <MarcoV4 codigo="05B">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_05B.titulo}
-            <br />
-            <em>{TEXTOS_05B.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_05B.bajada}</p>
-        </div>
-        <IlustracionConfirmacion tamano={104} className="shrink-0" />
-      </div>
-
-      <BarraPlanV4 className="mt-4" />
-
-      <div className="mt-4">
-        <FranjaVerdeV4>
-          {TEXTOS_05B.franjaPago}{" "}
-          {resumen?.montoGs != null
-            ? `${TEXTOS_05B.rotuloPremio}: ${formatearGuaranies(resumen.montoGs)}.`
-            : null}
-        </FranjaVerdeV4>
-      </div>
-
-      {/* ---------------------------------------------------------------- */}
-      {/* ESTADO DE LA SOLICITUD — mismo modelo que la tarjeta de 03E2       */}
-      {/* ---------------------------------------------------------------- */}
-      <section className="v4-tarjeta mt-4 p-4">
-        <h2 className="text-[1.125rem] font-bold uppercase" style={{ color: "var(--v4-navy)" }}>
-          {TEXTOS_05B.tituloEstado}
-        </h2>
-        <div className="mt-2">
-          <FilaHito
-            concepto={TEXTOS_05B.filas.datos.concepto}
-            estado={TEXTOS_05B.filas.datos.estado}
-            icono={<IconoTildeDisco tamano={22} />}
-          />
-          <FilaHito
-            concepto={TEXTOS_05B.filas.firma.concepto}
-            estado={TEXTOS_05B.filas.firma.estado}
-            icono={<IconoTildeDisco tamano={22} />}
-          />
-          <FilaHito
-            concepto={TEXTOS_05B.filas.pago.concepto}
-            estado={TEXTOS_05B.filas.pago.estado}
-            icono={<IconoTildeDisco tamano={22} />}
-          />
-          <FilaHito
-            concepto={TEXTOS_05B.filas.solicitud.concepto}
-            estado={TEXTOS_05B.filas.solicitud.estado}
-            icono={<IconoTildeDisco tamano={22} />}
-          />
-          <FilaHito
-            concepto={TEXTOS_05B.filas.polizaConcepto}
-            estado={
-              polizaEmitida
-                ? TEXTOS_05B.filas.polizaEmitida(resumen?.numeroPoliza ?? "—")
-                : TEXTOS_05B.filas.polizaEnPreparacion
-            }
-            icono={polizaEmitida ? <IconoTildeDisco tamano={22} /> : <IconoReloj tamano={22} />}
-          />
-        </div>
-        <div className="mt-3 h-px" style={{ background: "var(--v4-gris-borde)" }} />
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-            {TEXTOS_05B.etiquetaPropuesta}
-          </span>
-          <span className="text-[0.9375rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-            {resumen?.numeroPropuesta ?? "—"}
-          </span>
-        </div>
-      </section>
-
-      {/* ---------------------------------------------------------------- */}
-      {/* TU COBERTURA                                                      */}
-      {/* ---------------------------------------------------------------- */}
-      <section className="v4-tarjeta-azul mt-4 p-4">
-        <h2 className="text-[1.125rem] font-bold uppercase" style={{ color: "var(--v4-navy)" }}>
-          {TEXTOS_05B.tituloCobertura}
-        </h2>
-        {certificado ? (
+      <DisposicionV4
+        contexto={
           <>
-            <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-                {TEXTOS_05B.etiquetaInicio}
-              </span>
-              <span className="text-[0.9375rem] font-bold tabular-nums" style={{ color: "var(--v4-navy)" }}>
-                {hora(certificado.inicioCobertura)}
-              </span>
-            </div>
-            <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-                {TEXTOS_05B.etiquetaFin}
-              </span>
-              <span className="text-[0.9375rem] font-bold tabular-nums" style={{ color: "var(--v4-navy)" }}>
-                {hora(certificado.finCobertura)}
-              </span>
-            </div>
-            <p className="mt-2 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-              {TEXTOS_05B.detalleInicio}
-            </p>
+            <EncabezadoV4
+              titulo={TEXTOS_05B.titulo}
+              acento={TEXTOS_05B.tituloAcento}
+              bajada={TEXTOS_05B.bajada}
+              ilustracion={<IlustracionConfirmacion tamano={104} className="shrink-0" />}
+            />
+            <BarraPlanV4 className="mt-4" />
           </>
-        ) : (
-          <p className="mt-2 flex items-center gap-2 text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-            <IconoReloj tamano={18} />
-            {TEXTOS_05B.certificadoPendiente}
-          </p>
-        )}
-        {resumen?.whatsappEnmascarado && resumen.correoEnmascarado ? (
-          <p className="mt-3 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-            {TEXTOS_05B.entregaCanales(resumen.whatsappEnmascarado, resumen.correoEnmascarado)}
-          </p>
-        ) : null}
-        <p className="mt-3 text-[0.875rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-          {TEXTOS_05B.leyendaSinNotaCobertura}
-        </p>
-      </section>
+        }
+      >
+        <div className="mt-4">
+          <FranjaVerdeV4>
+            {TEXTOS_05B.franjaPago}{" "}
+            {resumen?.montoGs != null
+              ? `${TEXTOS_05B.rotuloPremio}: ${formatearGuaranies(resumen.montoGs)}.`
+              : null}
+          </FranjaVerdeV4>
+        </div>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* TUS DOCUMENTOS                                                    */}
-      {/* ---------------------------------------------------------------- */}
-      <section className="mt-4">
-        <h2 className="v4-rotulo">{TEXTOS_05B.tituloDocumentos}</h2>
-        <div className="mt-3 space-y-2.5">
+        {/* ------------------------------------------------------------ */}
+        {/* ESTADO DE LA SOLICITUD + TU COBERTURA — lado a lado en escritorio */}
+        {/* ------------------------------------------------------------ */}
+        <RejillaV4 columnas={2} className="mt-4 items-stretch">
+          <section className="v4-tarjeta p-4">
+            <h2 className="text-[1.125rem] font-bold uppercase" style={{ color: "var(--v4-navy)" }}>
+              {TEXTOS_05B.tituloEstado}
+            </h2>
+            <div className="mt-2">
+              <FilaHito
+                concepto={TEXTOS_05B.filas.datos.concepto}
+                estado={TEXTOS_05B.filas.datos.estado}
+                icono={<IconoTildeDisco tamano={22} />}
+              />
+              <FilaHito
+                concepto={TEXTOS_05B.filas.firma.concepto}
+                estado={TEXTOS_05B.filas.firma.estado}
+                icono={<IconoTildeDisco tamano={22} />}
+              />
+              <FilaHito
+                concepto={TEXTOS_05B.filas.pago.concepto}
+                estado={TEXTOS_05B.filas.pago.estado}
+                icono={<IconoTildeDisco tamano={22} />}
+              />
+              <FilaHito
+                concepto={TEXTOS_05B.filas.solicitud.concepto}
+                estado={TEXTOS_05B.filas.solicitud.estado}
+                icono={<IconoTildeDisco tamano={22} />}
+              />
+              <FilaHito
+                concepto={TEXTOS_05B.filas.polizaConcepto}
+                estado={
+                  polizaEmitida
+                    ? TEXTOS_05B.filas.polizaEmitida(resumen?.numeroPoliza ?? "—")
+                    : TEXTOS_05B.filas.polizaEnPreparacion
+                }
+                icono={polizaEmitida ? <IconoTildeDisco tamano={22} /> : <IconoReloj tamano={22} />}
+              />
+            </div>
+            <div className="mt-3 h-px" style={{ background: "var(--v4-gris-borde)" }} />
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {TEXTOS_05B.etiquetaPropuesta}
+              </span>
+              <span className="text-[0.9375rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+                {resumen?.numeroPropuesta ?? "—"}
+              </span>
+            </div>
+          </section>
+
+          <section className="v4-tarjeta-azul p-4">
+            <h2 className="text-[1.125rem] font-bold uppercase" style={{ color: "var(--v4-navy)" }}>
+              {TEXTOS_05B.tituloCobertura}
+            </h2>
+            {certificado ? (
+              <>
+                <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                    {TEXTOS_05B.etiquetaInicio}
+                  </span>
+                  <span className="text-[0.9375rem] font-bold tabular-nums" style={{ color: "var(--v4-navy)" }}>
+                    {hora(certificado.inicioCobertura)}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                    {TEXTOS_05B.etiquetaFin}
+                  </span>
+                  <span className="text-[0.9375rem] font-bold tabular-nums" style={{ color: "var(--v4-navy)" }}>
+                    {hora(certificado.finCobertura)}
+                  </span>
+                </div>
+                <p className="mt-2 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                  {TEXTOS_05B.detalleInicio}
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 flex items-center gap-2 text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                <IconoReloj tamano={18} />
+                {TEXTOS_05B.certificadoPendiente}
+              </p>
+            )}
+            {resumen?.whatsappEnmascarado && resumen.correoEnmascarado ? (
+              <p className="mt-3 text-[0.8125rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {TEXTOS_05B.entregaCanales(resumen.whatsappEnmascarado, resumen.correoEnmascarado)}
+              </p>
+            ) : null}
+            <p className="mt-3 text-[0.875rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+              {TEXTOS_05B.leyendaSinNotaCobertura}
+            </p>
+          </section>
+        </RejillaV4>
+
+        {/* ------------------------------------------------------------ */}
+        {/* TUS DOCUMENTOS — dos columnas en escritorio                    */}
+        {/* ------------------------------------------------------------ */}
+        <section className="mt-4">
+          <h2 className="v4-rotulo">{TEXTOS_05B.tituloDocumentos}</h2>
           {resumen ? (
-            <>
+            <RejillaV4 columnas={2} className="mt-3 items-stretch">
               <FilaDocumento
                 icono={<IconoEntregaDigital tamano={30} />}
                 nombre={TEXTOS_05B.documentos.paquete.nombre}
@@ -463,61 +463,61 @@ export function Pantalla05B() {
                   pendiente=""
                 />
               ) : null}
-            </>
+            </RejillaV4>
           ) : (
-            <p className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+            <p className="mt-3 text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
               Preparando los documentos…
             </p>
           )}
-        </div>
-      </section>
+        </section>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Comunicaciones comerciales — opcional, desmarcado por defecto     */}
-      {/* ---------------------------------------------------------------- */}
-      <section className="v4-tarjeta mt-4 p-4">
-        <h2 className="v4-rotulo" style={{ fontSize: "0.875rem" }}>
-          {TEXTOS_05B.tituloComunicaciones}
-        </h2>
-        <div className="mt-2">
-          <CasillaConsentimientoV4
-            marcada={comunicaciones}
-            alCambiar={(valor) => void cambiarComunicaciones(valor)}
-            id="comunicaciones-comerciales"
-          >
-            {TEXTO_COMUNICACIONES_COMERCIALES}
-          </CasillaConsentimientoV4>
-        </div>
-      </section>
+        {/* ------------------------------------------------------------ */}
+        {/* Comunicaciones comerciales — opcional, desmarcado por defecto  */}
+        {/* ------------------------------------------------------------ */}
+        <section className="v4-tarjeta mt-4 p-4">
+          <h2 className="v4-rotulo" style={{ fontSize: "0.875rem" }}>
+            {TEXTOS_05B.tituloComunicaciones}
+          </h2>
+          <div className="mt-2">
+            <CasillaConsentimientoV4
+              marcada={comunicaciones}
+              alCambiar={(valor) => void cambiarComunicaciones(valor)}
+              id="comunicaciones-comerciales"
+            >
+              {TEXTO_COMUNICACIONES_COMERCIALES}
+            </CasillaConsentimientoV4>
+          </div>
+        </section>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* ¿Necesitás ayuda? — D-17                                          */}
-      {/* ---------------------------------------------------------------- */}
-      <section className="v4-tarjeta mt-4 p-4">
-        <h2 className="v4-rotulo" style={{ fontSize: "0.875rem" }}>
-          {TEXTOS_05B.tituloAyuda}
-        </h2>
-        <p className="mt-1 text-[0.875rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-          {TEXTOS_05B.bajadaAyuda}
-        </p>
-        {mostrarWhatsapp ? (
-          <a
-            href={enlaceWhatsapp(numeroWhatsapp, mensajeWhatsappP9(resumen?.numeroPropuesta ?? ""))}
-            target="_blank"
-            rel="noreferrer"
-            className="v4-boton mt-3"
-            style={{ background: "var(--v4-verde)", borderColor: "var(--v4-verde)", color: "var(--v4-blanco)" }}
-          >
-            {TEXTOS_05B.botonWhatsapp}
-          </a>
-        ) : null}
-      </section>
+        {/* ------------------------------------------------------------ */}
+        {/* ¿Necesitás ayuda? — D-17                                       */}
+        {/* ------------------------------------------------------------ */}
+        <section className="v4-tarjeta mt-4 p-4">
+          <h2 className="v4-rotulo" style={{ fontSize: "0.875rem" }}>
+            {TEXTOS_05B.tituloAyuda}
+          </h2>
+          <p className="mt-1 text-[0.875rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+            {TEXTOS_05B.bajadaAyuda}
+          </p>
+          {mostrarWhatsapp ? (
+            <a
+              href={enlaceWhatsapp(numeroWhatsapp, mensajeWhatsappP9(resumen?.numeroPropuesta ?? ""))}
+              target="_blank"
+              rel="noreferrer"
+              className="v4-boton mt-3 lg:w-auto lg:min-w-[16rem]"
+              style={{ background: "var(--v4-verde)", borderColor: "var(--v4-verde)", color: "var(--v4-blanco)" }}
+            >
+              {TEXTOS_05B.botonWhatsapp}
+            </a>
+          ) : null}
+        </section>
 
-      <AvisoAzulV4 className="mt-4">{TEXTOS_05B.leyendaCierre}</AvisoAzulV4>
+        <AvisoAzulV4 className="mt-4 lg:max-w-prose">{TEXTOS_05B.leyendaCierre}</AvisoAzulV4>
 
-      <div className="mt-5">
-        <BotonSecundarioV4 onClick={() => void finalizar()}>{TEXTOS_05B.botonFinalizar}</BotonSecundarioV4>
-      </div>
+        <AccionesV4 className="mt-5">
+          <BotonSecundarioV4 onClick={() => void finalizar()}>{TEXTOS_05B.botonFinalizar}</BotonSecundarioV4>
+        </AccionesV4>
+      </DisposicionV4>
     </MarcoV4>
   );
 }

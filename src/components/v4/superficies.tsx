@@ -106,8 +106,12 @@ export function HojaV4({
   useCierreConEscape(cerrar);
   useFocoDevuelto();
 
+  // Celular: hoja anclada abajo, como el arte. Escritorio (`lg`): la misma
+  // hoja centrada como diálogo, con esquinas completas — una hoja pegada al
+  // borde inferior de un monitor queda a medio metro del selector que la
+  // abrió (D-30).
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end lg:items-center lg:justify-center lg:p-6">
       <button
         type="button"
         aria-label="Cerrar"
@@ -119,7 +123,7 @@ export function HojaV4({
         role="dialog"
         aria-modal="true"
         aria-labelledby={idTitulo}
-        className="relative mx-auto flex w-full max-w-[38rem] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+        className="relative mx-auto flex w-full max-w-[38rem] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl lg:max-w-[32rem] lg:rounded-2xl"
         style={{ height: alto === "alta" ? "92vh" : "62vh" }}
       >
         <div className="v4-filete-rojo" />

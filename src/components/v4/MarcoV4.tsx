@@ -260,8 +260,13 @@ export function MarcoV4({ codigo, marcas = 3, children }: MarcoV4Props) {
       <div className="flex min-h-dvh flex-col" style={{ background: "var(--v4-blanco)" }}>
         <CabeceraV4 marcas={marcas} />
         <StepperV4 codigo={codigo} />
-        <main className="mx-auto w-full max-w-[38rem] flex-1 px-4 pb-6">{children}</main>
-        <div className="mx-auto w-full max-w-[38rem] px-4">
+        {/* D-30 · celular: la columna del arte (38 rem). Escritorio (`lg`):
+            72 rem, y cada pantalla reparte ese ancho con `DisposicionV4` /
+            `RejillaV4` (`disposicion.tsx`) — el marco solo da el lienzo. */}
+        <main className="mx-auto w-full max-w-[38rem] flex-1 px-4 pb-6 lg:max-w-[72rem] lg:px-8 lg:pt-4">
+          {children}
+        </main>
+        <div className="mx-auto w-full max-w-[38rem] px-4 lg:max-w-[72rem] lg:px-8">
           <PieV4 />
         </div>
       </div>

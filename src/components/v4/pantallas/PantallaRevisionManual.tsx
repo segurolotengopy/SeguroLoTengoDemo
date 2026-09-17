@@ -23,6 +23,7 @@ import { TEXTOS_REVISION_MANUAL } from "@/domain/v4/textos-actividad";
 import type { MotivoRevisionManualV4 } from "@/domain/v4/etapas";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
+import { AccionesV4, DisposicionV4, EncabezadoV4 } from "../disposicion";
 import { DialogoV4 } from "../superficies";
 import {
   AvisoAzulV4,
@@ -110,32 +111,34 @@ export function PantallaRevisionManual() {
     const error = TEXTOS_REVISION_MANUAL.error;
     return (
       <MarcoV4 codigo="03E2">
-        <h1 className="text-[1.75rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-          {error.titulo}
-        </h1>
-        <p className="v4-bajada mt-2">{error.bajada}</p>
+        <div className="lg:max-w-prose">
+          <h1 className="text-[1.75rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+            {error.titulo}
+          </h1>
+          <p className="v4-bajada mt-2">{error.bajada}</p>
 
-        <BarraPlanV4 className="mt-4" />
+          <BarraPlanV4 className="mt-4" />
 
-        <div className="v4-tarjeta mt-4 flex flex-col items-center px-4 py-10 text-center">
-          <IconoCruzGrande />
-          <p className="mt-6 text-[1.375rem] font-bold leading-tight" style={{ color: "var(--v4-rojo)" }}>
-            {error.tarjetaTitulo}
-          </p>
-          {error.cuerpo.map((linea) => (
-            <p key={linea} className="mt-2 text-[1rem]" style={{ color: "var(--v4-navy)" }}>
-              {linea}
+          <div className="v4-tarjeta mt-4 flex flex-col items-center px-4 py-10 text-center">
+            <IconoCruzGrande />
+            <p className="mt-6 text-[1.375rem] font-bold leading-tight" style={{ color: "var(--v4-rojo)" }}>
+              {error.tarjetaTitulo}
             </p>
-          ))}
-          <p className="mt-4 text-[1rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-            {error.remate}
-          </p>
-        </div>
+            {error.cuerpo.map((linea) => (
+              <p key={linea} className="mt-2 text-[1rem]" style={{ color: "var(--v4-navy)" }}>
+                {linea}
+              </p>
+            ))}
+            <p className="mt-4 text-[1rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+              {error.remate}
+            </p>
+          </div>
 
-        <AvisoAzulV4 className="mt-4">{error.aviso}</AvisoAzulV4>
+          <AvisoAzulV4 className="mt-4">{error.aviso}</AvisoAzulV4>
 
-        <div className="mt-5">
-          <BotonPrincipalV4 onClick={cerrarSesion}>{error.boton}</BotonPrincipalV4>
+          <AccionesV4 className="mt-5">
+            <BotonPrincipalV4 onClick={cerrarSesion}>{error.boton}</BotonPrincipalV4>
+          </AccionesV4>
         </div>
       </MarcoV4>
     );
@@ -149,83 +152,83 @@ export function PantallaRevisionManual() {
 
   return (
     <MarcoV4 codigo={motivo === "PEP" ? "03E2" : "04A1"}>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_REVISION_MANUAL.titulo}
-            <br />
-            <em>{TEXTOS_REVISION_MANUAL.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_REVISION_MANUAL.bajada}</p>
-        </div>
-        <Ilustracion tamano={112} className="shrink-0" />
-      </div>
+      <DisposicionV4
+        contexto={
+          <>
+            <EncabezadoV4
+              titulo={TEXTOS_REVISION_MANUAL.titulo}
+              acento={TEXTOS_REVISION_MANUAL.tituloAcento}
+              bajada={TEXTOS_REVISION_MANUAL.bajada}
+              ilustracion={<Ilustracion tamano={112} className="shrink-0" />}
+            />
+            <BarraPlanV4 className="mt-4" />
+          </>
+        }
+      >
+        <section className="v4-tarjeta mt-4 p-4 lg:max-w-prose">
+          <div className="flex items-center gap-3">
+            <IconoAlerta tamano={24} />
+            <h2 className="text-[1.25rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+              {textos.tarjetaTitulo}
+            </h2>
+          </div>
+          <div className="mt-3 space-y-3 text-[0.9375rem] leading-relaxed" style={{ color: "var(--v4-azul-apagado)" }}>
+            <p>{textos.primerParrafo}</p>
+            <p>{textos.segundoParrafo}</p>
+            <p>{TEXTOS_REVISION_MANUAL.tercerParrafo}</p>
+          </div>
+        </section>
 
-      <BarraPlanV4 className="mt-4" />
-
-      <section className="v4-tarjeta mt-4 p-4">
-        <div className="flex items-center gap-3">
-          <IconoAlerta tamano={24} />
-          <h2 className="text-[1.25rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-            {textos.tarjetaTitulo}
+        <section className="v4-tarjeta mt-4 p-4">
+          <h2 className="text-[1.125rem] font-bold uppercase" style={{ color: "var(--v4-navy)" }}>
+            {TEXTOS_REVISION_MANUAL.estadoTitulo}
           </h2>
-        </div>
-        <div className="mt-3 space-y-3 text-[0.9375rem] leading-relaxed" style={{ color: "var(--v4-azul-apagado)" }}>
-          <p>{textos.primerParrafo}</p>
-          <p>{textos.segundoParrafo}</p>
-          <p>{TEXTOS_REVISION_MANUAL.tercerParrafo}</p>
-        </div>
-      </section>
+          <div className="mt-2">
+            <FilaEstado
+              concepto={TEXTOS_REVISION_MANUAL.filas.datos.concepto}
+              estado={TEXTOS_REVISION_MANUAL.filas.datos.estado}
+              icono={<IconoTildeDisco tamano={22} />}
+            />
+            <FilaEstado
+              concepto={textos.filaEstado}
+              estado={TEXTOS_REVISION_MANUAL.enRevision}
+              icono={<IconoReloj />}
+            />
+            <FilaEstado
+              concepto={TEXTOS_REVISION_MANUAL.filas.firma.concepto}
+              estado={TEXTOS_REVISION_MANUAL.filas.firma.estado}
+              icono={<CirculoVacio />}
+            />
+            <FilaEstado
+              concepto={TEXTOS_REVISION_MANUAL.filas.pago.concepto}
+              estado={TEXTOS_REVISION_MANUAL.filas.pago.estado}
+              icono={<CirculoVacio />}
+            />
+            <FilaEstado
+              concepto={TEXTOS_REVISION_MANUAL.filas.cobertura.concepto}
+              estado={TEXTOS_REVISION_MANUAL.filas.cobertura.estado}
+              icono={<CirculoVacio />}
+            />
+          </div>
+          <div className="mt-3 h-px" style={{ background: "var(--v4-gris-borde)" }} />
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+              {TEXTOS_REVISION_MANUAL.etiquetaCaso}
+            </span>
+            <span className="text-[0.9375rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+              {caso?.numeroCaso ?? "—"}
+            </span>
+          </div>
+        </section>
 
-      <section className="v4-tarjeta mt-4 p-4">
-        <h2 className="text-[1.125rem] font-bold uppercase" style={{ color: "var(--v4-navy)" }}>
-          {TEXTOS_REVISION_MANUAL.estadoTitulo}
-        </h2>
-        <div className="mt-2">
-          <FilaEstado
-            concepto={TEXTOS_REVISION_MANUAL.filas.datos.concepto}
-            estado={TEXTOS_REVISION_MANUAL.filas.datos.estado}
-            icono={<IconoTildeDisco tamano={22} />}
-          />
-          <FilaEstado
-            concepto={textos.filaEstado}
-            estado={TEXTOS_REVISION_MANUAL.enRevision}
-            icono={<IconoReloj />}
-          />
-          <FilaEstado
-            concepto={TEXTOS_REVISION_MANUAL.filas.firma.concepto}
-            estado={TEXTOS_REVISION_MANUAL.filas.firma.estado}
-            icono={<CirculoVacio />}
-          />
-          <FilaEstado
-            concepto={TEXTOS_REVISION_MANUAL.filas.pago.concepto}
-            estado={TEXTOS_REVISION_MANUAL.filas.pago.estado}
-            icono={<CirculoVacio />}
-          />
-          <FilaEstado
-            concepto={TEXTOS_REVISION_MANUAL.filas.cobertura.concepto}
-            estado={TEXTOS_REVISION_MANUAL.filas.cobertura.estado}
-            icono={<CirculoVacio />}
-          />
-        </div>
-        <div className="mt-3 h-px" style={{ background: "var(--v4-gris-borde)" }} />
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-            {TEXTOS_REVISION_MANUAL.etiquetaCaso}
-          </span>
-          <span className="text-[0.9375rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-            {caso?.numeroCaso ?? "—"}
-          </span>
-        </div>
-      </section>
+        <AvisoAzulV4 className="mt-4 lg:max-w-prose">{TEXTOS_REVISION_MANUAL.avisoCanales}</AvisoAzulV4>
 
-      <AvisoAzulV4 className="mt-4">{TEXTOS_REVISION_MANUAL.avisoCanales}</AvisoAzulV4>
-
-      <div className="mt-5">
-        <BotonPrincipalV4 onClick={() => setConfirmando(true)}>
-          {TEXTOS_REVISION_MANUAL.cerrarSesion}
-        </BotonPrincipalV4>
-      </div>
+        <AccionesV4 className="mt-5">
+          <BotonPrincipalV4 onClick={() => setConfirmando(true)}>
+            {TEXTOS_REVISION_MANUAL.cerrarSesion}
+          </BotonPrincipalV4>
+        </AccionesV4>
+      </DisposicionV4>
 
       {confirmando ? (
         <DialogoV4

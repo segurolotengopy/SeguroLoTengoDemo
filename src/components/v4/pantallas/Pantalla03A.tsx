@@ -25,6 +25,7 @@ import { TEXTOS_03A } from "@/domain/v4/textos-verificacion";
 import { MarcoV4 } from "../MarcoV4";
 import { CamposOtpV4 } from "../CamposOtpV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
+import { AccionesV4, DisposicionV4, EncabezadoV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   AvisoRojoV4,
@@ -247,22 +248,21 @@ export function Pantalla03A() {
 
   return (
     <MarcoV4 codigo="03A">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_03A.titulo}
-            <br />
-            <em>{TEXTOS_03A.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_03A.bajada}</p>
-        </div>
-        <IlustracionWhatsApp tamano={112} className="shrink-0" />
-      </div>
-
-      <BarraPlanV4 className="mt-4" />
-
+      <DisposicionV4
+        contexto={
+          <>
+            <EncabezadoV4
+              titulo={TEXTOS_03A.titulo}
+              acento={TEXTOS_03A.tituloAcento}
+              bajada={TEXTOS_03A.bajada}
+              ilustracion={<IlustracionWhatsApp tamano={112} className="shrink-0" />}
+            />
+            <BarraPlanV4 className="mt-4" />
+          </>
+        }
+      >
       {/* Bloque 1 · el número y la autorización */}
-      <section className="v4-tarjeta mt-4 p-4" aria-labelledby="bloque-numero">
+      <section className="v4-tarjeta mt-4 p-4 lg:mt-0" aria-labelledby="bloque-numero">
         <h2 id="bloque-numero" className="text-[1.25rem] font-bold" style={{ color: "var(--v4-navy)" }}>
           {TEXTOS_03A.bloque1Titulo}
         </h2>
@@ -322,7 +322,7 @@ export function Pantalla03A() {
             </FranjaVerdeV4>
           </div>
         ) : (
-          <div className="mt-4">
+          <AccionesV4 className="mt-4">
             <BotonPrincipalV4
               onClick={enviar}
               disabled={!puedeEnviar || verificado}
@@ -331,7 +331,7 @@ export function Pantalla03A() {
             >
               {enviando ? TEXTOS_03A.botonEnviando : TEXTOS_03A.botonEnviar}
             </BotonPrincipalV4>
-          </div>
+          </AccionesV4>
         )}
 
         {error?.tipo === "ENVIO" ? (
@@ -394,7 +394,7 @@ export function Pantalla03A() {
               </p>
             ) : null}
 
-            <div className="mt-4">
+            <AccionesV4 className="mt-4">
               <BotonPrincipalV4
                 onClick={() => verificar(codigo)}
                 disabled={codigo.length !== 6 || !codigoVivo || bloqueado}
@@ -402,7 +402,7 @@ export function Pantalla03A() {
               >
                 {verificando ? TEXTOS_03A.botonVerificando : TEXTOS_03A.botonVerificar}
               </BotonPrincipalV4>
-            </div>
+            </AccionesV4>
 
             <div className="mt-4 flex items-center justify-center gap-4 text-[0.9375rem]">
               {(segundosReenvio ?? 0) > 0 ? (
@@ -438,6 +438,7 @@ export function Pantalla03A() {
       <AvisoAzulV4 className="mt-3" titulo={TEXTOS_03A.avisoImportanteTitulo}>
         {TEXTOS_03A.avisoImportante}
       </AvisoAzulV4>
+      </DisposicionV4>
     </MarcoV4>
   );
 }

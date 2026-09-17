@@ -32,6 +32,7 @@ import { TEXTOS_03D } from "@/domain/v4/textos-identidad";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
 import { HojaV4 } from "../superficies";
+import { AccionesV4, CampoAnchoV4, CamposV4, DisposicionV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   BotonPrincipalV4,
@@ -266,38 +267,43 @@ export function Pantalla03D() {
   if (servidor && !servidor.edadEnRango) {
     return (
       <MarcoV4 codigo="03D">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[1.25rem] font-bold" style={{ color: "var(--v4-rojo)" }}>
-            {TEXTOS_03D.noElegible.encabezado}
-          </h1>
-        </div>
-        <BarraPlanV4 className="mt-4" />
-        <div className="mt-10 flex flex-col items-center text-center">
-          <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
-            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--v4-rojo)" strokeWidth="4" />
-            <path d="M40 40 L80 80 M80 40 L40 80" stroke="var(--v4-rojo)" strokeWidth="5" strokeLinecap="round" />
-          </svg>
-          <p className="mt-6 text-[1.75rem] font-bold leading-tight" style={{ color: "var(--v4-rojo)" }}>
-            {TEXTOS_03D.noElegible.titulo}
+        {/* Vista de rechazo, no de formulario: sin campos que repartir lado a
+            lado, se la limita a un ancho de lectura en vez de estirarla a los
+            72 rem de la columna de escritorio (D-30). */}
+        <div className="lg:mx-auto lg:max-w-xl">
+          <div className="flex items-center justify-between">
+            <h1 className="text-[1.25rem] font-bold" style={{ color: "var(--v4-rojo)" }}>
+              {TEXTOS_03D.noElegible.encabezado}
+            </h1>
+          </div>
+          <BarraPlanV4 className="mt-4" />
+          <div className="mt-10 flex flex-col items-center text-center">
+            <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--v4-rojo)" strokeWidth="4" />
+              <path d="M40 40 L80 80 M80 40 L40 80" stroke="var(--v4-rojo)" strokeWidth="5" strokeLinecap="round" />
+            </svg>
+            <p className="mt-6 text-[1.75rem] font-bold leading-tight" style={{ color: "var(--v4-rojo)" }}>
+              {TEXTOS_03D.noElegible.titulo}
+            </p>
+            <p className="mt-4 text-[1rem]" style={{ color: "var(--v4-navy)" }}>
+              {TEXTOS_03D.noElegible.cuerpo}
+            </p>
+          </div>
+          <AvisoAzulV4 className="mt-6">{TEXTOS_03D.noElegible.aviso}</AvisoAzulV4>
+          <div className="mt-5">
+            <BotonPrincipalV4
+              onClick={async () => {
+                await fetch("/api/flujo/cerrar", { method: "POST" });
+                router.push("/");
+              }}
+            >
+              {TEXTOS_03D.noElegible.boton}
+            </BotonPrincipalV4>
+          </div>
+          <p className="mt-2 text-center text-[0.8125rem]" style={{ color: "var(--v4-azul)" }}>
+            {TEXTOS_03D.noElegible.pie}
           </p>
-          <p className="mt-4 text-[1rem]" style={{ color: "var(--v4-navy)" }}>
-            {TEXTOS_03D.noElegible.cuerpo}
-          </p>
         </div>
-        <AvisoAzulV4 className="mt-6">{TEXTOS_03D.noElegible.aviso}</AvisoAzulV4>
-        <div className="mt-5">
-          <BotonPrincipalV4
-            onClick={async () => {
-              await fetch("/api/flujo/cerrar", { method: "POST" });
-              router.push("/");
-            }}
-          >
-            {TEXTOS_03D.noElegible.boton}
-          </BotonPrincipalV4>
-        </div>
-        <p className="mt-2 text-center text-[0.8125rem]" style={{ color: "var(--v4-azul)" }}>
-          {TEXTOS_03D.noElegible.pie}
-        </p>
       </MarcoV4>
     );
   }
@@ -342,166 +348,173 @@ export function Pantalla03D() {
 
   return (
     <MarcoV4 codigo="03D">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_03D.titulo}
-            <em>{TEXTOS_03D.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_03D.bajada}</p>
-        </div>
-        <IlustracionDatos tamano={108} className="shrink-0" />
-      </div>
+      <DisposicionV4
+        contexto={
+          <>
+            {/* Sin `<br/>` entre título y acento (el arte los quiere en la
+                misma línea): `EncabezadoV4` siempre lo inserta, así que acá se
+                mantiene el markup manual — mismo criterio que 04A. */}
+            <div className="flex items-start gap-2 lg:flex-col lg:gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="v4-titular">
+                  {TEXTOS_03D.titulo}
+                  <em>{TEXTOS_03D.tituloAcento}</em>
+                </h1>
+                <p className="v4-bajada mt-2">{TEXTOS_03D.bajada}</p>
+              </div>
+              <IlustracionDatos tamano={108} className="shrink-0" />
+            </div>
 
-      <div className="v4-tarjeta-azul mt-4 flex items-center gap-3 p-3">
-        <IconoTildeDisco tamano={40} color="var(--v4-navy)" />
-        <p className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-          {TEXTOS_03D.identidadVerificada}
-        </p>
-      </div>
+            <div className="v4-tarjeta-azul mt-4 flex items-center gap-3 p-3">
+              <IconoTildeDisco tamano={40} color="var(--v4-navy)" />
+              <p className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {TEXTOS_03D.identidadVerificada}
+              </p>
+            </div>
 
-      <BarraPlanV4 className="mt-3" />
+            <BarraPlanV4 className="mt-3" />
+          </>
+        }
+      >
+        <h2 className="v4-rotulo mt-5 lg:mt-0">{TEXTOS_03D.seccionIdentidad}</h2>
+        <AvisoAzulV4 className="mt-3">{TEXTOS_03D.avisoCampos}</AvisoAzulV4>
 
-      <h2 className="v4-rotulo mt-5">{TEXTOS_03D.seccionIdentidad}</h2>
-      <AvisoAzulV4 className="mt-3">{TEXTOS_03D.avisoCampos}</AvisoAzulV4>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div>
-          <span className="v4-etiqueta">{TEXTOS_03D.etiquetas.tipoDocumento}</span>
-          <div className="v4-campo v4-campo-bloqueado flex items-center justify-between" style={{ paddingRight: "0.75rem" }}>
-            <span>{TEXTOS_03D.valorTipoDocumento}</span>
-            <IconoCandado />
+        {/* Un solo `CamposV4` continuo para toda la sección de identidad: el
+            flujo de la grilla arma exactamente las mismas parejas que antes
+            (cédula/número, apellidos, fecha/sexo, estado civil/país de
+            nacimiento, nacionalidad/país de residencia) sin reordenar un solo
+            campo — `nombres` es el único que se extiende a la fila entera,
+            como ya hacía en celular al estar solo en su propia fila. */}
+        <CamposV4 className="mt-4 gap-y-3">
+          <div>
+            <span className="v4-etiqueta">{TEXTOS_03D.etiquetas.tipoDocumento}</span>
+            <div className="v4-campo v4-campo-bloqueado flex items-center justify-between" style={{ paddingRight: "0.75rem" }}>
+              <span>{TEXTOS_03D.valorTipoDocumento}</span>
+              <IconoCandado />
+            </div>
           </div>
-        </div>
-        <CampoTextoV4
-          etiqueta={TEXTOS_03D.etiquetas.numeroCedula}
-          valor={numeroCedula}
-          alCambiar={(valor) => {
-            setNumeroCedula(valor);
-            marcarEditado("numeroCedula");
-          }}
-          editado={editados.has("numeroCedula")}
-          inputMode="numeric"
-        />
-      </div>
+          <CampoTextoV4
+            etiqueta={TEXTOS_03D.etiquetas.numeroCedula}
+            valor={numeroCedula}
+            alCambiar={(valor) => {
+              setNumeroCedula(valor);
+              marcarEditado("numeroCedula");
+            }}
+            editado={editados.has("numeroCedula")}
+            inputMode="numeric"
+          />
 
-      <div className="mt-3">
-        <CampoTextoV4
-          etiqueta={TEXTOS_03D.etiquetas.nombres}
-          valor={nombres}
-          alCambiar={(valor) => {
-            setNombres(valor);
-            marcarEditado("nombres");
-          }}
-          editado={editados.has("nombres")}
-        />
-      </div>
+          <CampoAnchoV4>
+            <CampoTextoV4
+              etiqueta={TEXTOS_03D.etiquetas.nombres}
+              valor={nombres}
+              alCambiar={(valor) => {
+                setNombres(valor);
+                marcarEditado("nombres");
+              }}
+              editado={editados.has("nombres")}
+            />
+          </CampoAnchoV4>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <CampoTextoV4
-          etiqueta={TEXTOS_03D.etiquetas.apellidoPaterno}
-          valor={apellidoPaterno}
-          alCambiar={(valor) => {
-            setApellidoPaterno(valor);
-            marcarEditado("apellidos");
-          }}
-          editado={editados.has("apellidos")}
-        />
-        <CampoTextoV4
-          etiqueta={TEXTOS_03D.etiquetas.apellidoMaterno}
-          valor={apellidoMaterno}
-          alCambiar={(valor) => {
-            setApellidoMaterno(valor);
-            marcarEditado("apellidos");
-          }}
-        />
-      </div>
+          <CampoTextoV4
+            etiqueta={TEXTOS_03D.etiquetas.apellidoPaterno}
+            valor={apellidoPaterno}
+            alCambiar={(valor) => {
+              setApellidoPaterno(valor);
+              marcarEditado("apellidos");
+            }}
+            editado={editados.has("apellidos")}
+          />
+          <CampoTextoV4
+            etiqueta={TEXTOS_03D.etiquetas.apellidoMaterno}
+            valor={apellidoMaterno}
+            alCambiar={(valor) => {
+              setApellidoMaterno(valor);
+              marcarEditado("apellidos");
+            }}
+          />
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <CampoTextoV4
-          etiqueta={TEXTOS_03D.etiquetas.fechaNacimiento}
-          valor={fechaNacimiento}
-          alCambiar={(valor) => {
-            setFechaNacimiento(valor);
-            marcarEditado("fechaNacimiento");
-            setCampoEnRojo(null);
-            setErrorFranja(null);
-          }}
-          error={campoEnRojo === "fechaNacimiento" ? "" : null}
-          editado={editados.has("fechaNacimiento")}
-          inputMode="numeric"
-        />
-        <Selector campo="sexo" etiqueta={TEXTOS_03D.etiquetas.sexo} />
-      </div>
+          <CampoTextoV4
+            etiqueta={TEXTOS_03D.etiquetas.fechaNacimiento}
+            valor={fechaNacimiento}
+            alCambiar={(valor) => {
+              setFechaNacimiento(valor);
+              marcarEditado("fechaNacimiento");
+              setCampoEnRojo(null);
+              setErrorFranja(null);
+            }}
+            error={campoEnRojo === "fechaNacimiento" ? "" : null}
+            editado={editados.has("fechaNacimiento")}
+            inputMode="numeric"
+          />
+          <Selector campo="sexo" etiqueta={TEXTOS_03D.etiquetas.sexo} />
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Selector campo="estadoCivil" etiqueta={TEXTOS_03D.etiquetas.estadoCivil} />
-        <Selector campo="paisNacimiento" etiqueta={TEXTOS_03D.etiquetas.paisNacimiento} />
-      </div>
+          <Selector campo="estadoCivil" etiqueta={TEXTOS_03D.etiquetas.estadoCivil} />
+          <Selector campo="paisNacimiento" etiqueta={TEXTOS_03D.etiquetas.paisNacimiento} />
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Selector campo="nacionalidad" etiqueta={TEXTOS_03D.etiquetas.nacionalidad} />
-        <Selector campo="paisResidencia" etiqueta={TEXTOS_03D.etiquetas.paisResidencia} />
-      </div>
+          <Selector campo="nacionalidad" etiqueta={TEXTOS_03D.etiquetas.nacionalidad} />
+          <Selector campo="paisResidencia" etiqueta={TEXTOS_03D.etiquetas.paisResidencia} />
+        </CamposV4>
 
-      <h2 className="v4-rotulo mt-5">{TEXTOS_03D.seccionDomicilio}</h2>
+        <h2 className="v4-rotulo mt-5">{TEXTOS_03D.seccionDomicilio}</h2>
 
-      <div className="mt-3">
-        <CampoTextoV4
-          etiqueta={TEXTOS_03D.etiquetas.direccion}
-          valor={direccion}
-          alCambiar={setDireccion}
-          marcador={TEXTOS_03D.marcadorComplete}
-          error={campoEnRojo === "domicilio" ? "" : null}
-        />
-      </div>
+        <CamposV4 className="mt-3 gap-y-3">
+          <CampoAnchoV4>
+            <CampoTextoV4
+              etiqueta={TEXTOS_03D.etiquetas.direccion}
+              valor={direccion}
+              alCambiar={setDireccion}
+              marcador={TEXTOS_03D.marcadorComplete}
+              error={campoEnRojo === "domicilio" ? "" : null}
+            />
+          </CampoAnchoV4>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Selector campo="ciudad" etiqueta={TEXTOS_03D.etiquetas.ciudad} />
-        <CampoTextoV4
-          etiqueta={TEXTOS_03D.etiquetas.barrio}
-          valor={barrio}
-          alCambiar={(valor) => {
-            setBarrio(valor);
-            setCampoEnRojo(null);
-            setErrorFranja(null);
-          }}
-          marcador={TEXTOS_03D.marcadorComplete}
-          error={campoEnRojo === "barrio" ? "" : null}
-        />
-      </div>
+          <Selector campo="ciudad" etiqueta={TEXTOS_03D.etiquetas.ciudad} />
+          <CampoTextoV4
+            etiqueta={TEXTOS_03D.etiquetas.barrio}
+            valor={barrio}
+            alCambiar={(valor) => {
+              setBarrio(valor);
+              setCampoEnRojo(null);
+              setErrorFranja(null);
+            }}
+            marcador={TEXTOS_03D.marcadorComplete}
+            error={campoEnRojo === "barrio" ? "" : null}
+          />
+        </CamposV4>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <AvisoAzulV4
-          titulo={editados.size > 0 ? TEXTOS_03D.fichaModificacion.titulo : TEXTOS_03D.fichaNoCoinciden.titulo}
-        >
-          {editados.size > 0 ? TEXTOS_03D.fichaModificacion.cuerpo : TEXTOS_03D.fichaNoCoinciden.cuerpo}
-        </AvisoAzulV4>
-
-        {/* La edad **se oculta con una fecha inválida**: calcular elegibilidad
-            con una fecha que no existe es exactamente lo que el manual
-            prohíbe. Y la que se muestra es la del servidor, calculada con lo
-            que leyó el OCR (D-31). */}
-        {servidor && fechaValida ? (
-          <AvisoAzulV4 titulo={TEXTOS_03D.fichaEdad.titulo(servidor.edad)}>
-            {TEXTOS_03D.fichaEdad.cuerpo}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <AvisoAzulV4
+            titulo={editados.size > 0 ? TEXTOS_03D.fichaModificacion.titulo : TEXTOS_03D.fichaNoCoinciden.titulo}
+          >
+            {editados.size > 0 ? TEXTOS_03D.fichaModificacion.cuerpo : TEXTOS_03D.fichaNoCoinciden.cuerpo}
           </AvisoAzulV4>
-        ) : (
-          <div />
-        )}
-      </div>
 
-      {errorFranja ? (
-        <div className="mt-4">
-          <FranjaErrorV4 titulo={errorFranja.titulo} indicacion={errorFranja.indicacion} />
+          {/* La edad **se oculta con una fecha inválida**: calcular elegibilidad
+              con una fecha que no existe es exactamente lo que el manual
+              prohíbe. Y la que se muestra es la del servidor, calculada con lo
+              que leyó el OCR (D-31). */}
+          {servidor && fechaValida ? (
+            <AvisoAzulV4 titulo={TEXTOS_03D.fichaEdad.titulo(servidor.edad)}>
+              {TEXTOS_03D.fichaEdad.cuerpo}
+            </AvisoAzulV4>
+          ) : (
+            <div />
+          )}
         </div>
-      ) : null}
 
-      <div className="mt-5">
-        <BotonPrincipalV4 onClick={continuar} disabled={!completo} cargando={enviando}>
-          {enviando ? TEXTOS_03D.validando : TEXTOS_03D.continuar}
-        </BotonPrincipalV4>
-      </div>
+        {errorFranja ? (
+          <div className="mt-4">
+            <FranjaErrorV4 titulo={errorFranja.titulo} indicacion={errorFranja.indicacion} />
+          </div>
+        ) : null}
+
+        <AccionesV4 className="mt-5">
+          <BotonPrincipalV4 onClick={continuar} disabled={!completo} cargando={enviando}>
+            {enviando ? TEXTOS_03D.validando : TEXTOS_03D.continuar}
+          </BotonPrincipalV4>
+        </AccionesV4>
+      </DisposicionV4>
 
       {abierto && !EN_LINEA.includes(abierto) ? (
         <HojaV4

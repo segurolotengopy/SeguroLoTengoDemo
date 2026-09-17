@@ -70,10 +70,52 @@ cada una de las pantallas, para gerencia».
   dice qué es: una corrida automatizada sobre el sistema real, con
   integraciones simuladas y datos ficticios.
 
+### Segundo tramo · disposición de escritorio (D-30)
+
+**Pedido de Andres:** «las pantallas web están en formato alargado, no llenan
+el ancho de la pantalla; deben ser responsivas. Ordená eso, modularizá y usá
+agentes para modificar y volver a elaborar el PDF mejorado, usando técnicas
+UX».
+
+Las doce pantallas eran una columna de 38 rem centrada: correcta en celular
+(el arte), vacía en escritorio. D-30 ya lo había decidido («en anchos de
+escritorio los componentes van lado a lado, sin cambiar orden, textos ni
+jerarquía») y estaba sin implementar.
+
+- **Sistema único:** `src/components/v4/disposicion.tsx` — `EncabezadoV4`
+  (titular + bajada + ilustración; en escritorio la ilustración baja debajo
+  del texto para que el titular no se parta en cuatro renglones),
+  `DisposicionV4` (columna de contexto fija a la izquierda, 20 o 24 rem, y
+  columna de acción de hasta 48 rem a la derecha, desde 1024 px),
+  `RejillaV4` (tarjetas iguales en 2–3 columnas, misma altura), `CamposV4` /
+  `CampoAnchoV4` (campos cortos y hermanos lado a lado, los largos a fila
+  entera), `AccionesV4` (el botón con ancho de botón, alineado al final de la
+  lectura) y `ProsaV4` (~65 caracteres por línea). `MarcoV4` pasa a 72 rem
+  desde `lg`; `HojaV4` se centra como diálogo en escritorio.
+- **Cuatro agentes en paralelo**, archivos disjuntos: 01–03B, 03C–03E,
+  04A–04E, 05A/05B/A/B. Regla común: toda clase nueva con prefijo responsivo,
+  ni un texto/id/rol/orden del DOM cambia (la E2E selecciona por rol y texto).
+  Desvíos documentados por los agentes: 01 y 03C mantienen su rejilla propia
+  porque el arte ya las pone en fila en celular; 03D/04A/04D conservan el
+  titular a mano porque `EncabezadoV4` inserta un salto que ese arte no tiene.
+- **Correcciones tras la primera captura:** las filas de cobertura de 02 se
+  pisaban a 15 rem (el importe baja a su propia línea en escritorio), los
+  titulares se partían con la ilustración al lado (apilados en `lg`), el ancho
+  «de botón» no aplicaba (`AccionesV4` envuelve cada acción) y en 05A la
+  casilla del certificado había quedado dentro de la fila de acciones.
+- **UX aplicada:** contexto fijo mientras se completa el formulario, largo
+  de línea de lectura, agrupación de campos relacionados, tarjetas de igual
+  altura, acción principal con ancho de botón y al final de la lectura,
+  jerarquía visual intacta. Sin texto nuevo ni elementos fuera del arte.
+- Documentado en D-30 (`DECISIONES.md`) y en `CLAUDE.md` → Convenciones de
+  UI.
+
 ### Verificaciones
 
 | Qué | Resultado |
 | :---- | :---- |
+| Tras la disposición de escritorio | `tsc` limpio · lint 0 errores · **1389** tests · capturas 14/14 en los dos formatos (segunda tanda) · E2E 01, 02 y 10 (ver línea siguiente) |
+| E2E tras la disposición | **3/3 en verde**: 01 camino feliz (2,5 min), 02 PEP (1,1 min), 10 rechazo de Bancard (1,0 min) — los selectores por rol y texto no se enteraron del cambio |
 | Capturas escritorio (1456 px) | 14/14, tres tests del spec en verde |
 | Capturas celular (390 px, 2x) | 14/14, tres tests del spec en verde |
 | `SeguroLoTengo-camino-feliz-web.pdf` | 15 páginas, 2,7 MB — portada + 12 pantallas + A y B, revisadas una por una |

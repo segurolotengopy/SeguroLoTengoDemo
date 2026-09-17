@@ -33,6 +33,7 @@ import { TEXTOS_03E } from "@/domain/v4/textos-actividad";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
 import { HojaV4 } from "../superficies";
+import { AccionesV4, CampoAnchoV4, CamposV4, DisposicionV4, EncabezadoV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   AvisoRojoV4,
@@ -208,117 +209,125 @@ export function Pantalla03E() {
 
   return (
     <MarcoV4 codigo="03E">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_03E.titulo}
-            <br />
-            <em>{TEXTOS_03E.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_03E.bajada}</p>
-        </div>
-        <IlustracionActividad tamano={108} className="shrink-0" />
-      </div>
+      <DisposicionV4
+        contexto={
+          <>
+            <EncabezadoV4
+              titulo={TEXTOS_03E.titulo}
+              acento={TEXTOS_03E.tituloAcento}
+              bajada={TEXTOS_03E.bajada}
+              ilustracion={<IlustracionActividad tamano={108} className="shrink-0" />}
+            />
+            <BarraPlanV4 className="mt-4" />
+          </>
+        }
+      >
+        <h2 className="v4-rotulo mt-5 lg:mt-0">{TEXTOS_03E.seccionLaboral}</h2>
 
-      <BarraPlanV4 className="mt-4" />
+        {/* Situación/actividad y ocupación/profesión quedan hermanas por el
+            simple orden de la grilla; empresa es la quinta y sola, así que se
+            extiende a la fila entera con `CampoAnchoV4` — igual que en
+            celular, donde ya era la única de la sección en su propia fila. */}
+        <CamposV4 className="mt-3 gap-y-3">
+          <Campo campo="situacionLaboral" />
+          <Campo campo="actividadEconomica" />
+          <Campo campo="ocupacion" />
+          <Campo campo="profesion" />
+          <CampoAnchoV4>
+            <div>
+              <CampoTextoV4
+                etiqueta={TEXTOS_03E.etiquetas.empresa}
+                valor={empresaNoAplica ? NO_APLICA_V4 : empresa}
+                alCambiar={empresaHabilitada ? setEmpresa : undefined}
+                deshabilitado={!empresaHabilitada}
+                marcador={
+                  empresaHabilitada ? TEXTOS_03E.marcadorComplete : TEXTOS_03E.marcadorEmpresaBloqueada
+                }
+                error={campoEnRojo === "empresa" ? "" : null}
+              />
+              <p
+                className="mt-1 text-[0.75rem]"
+                style={{
+                  color: campoEnRojo === "empresa" ? "var(--v4-rojo)" : "var(--v4-azul)",
+                  fontWeight: campoEnRojo === "empresa" ? 700 : 400,
+                }}
+              >
+                {TEXTOS_03E.notaEmpresa}
+              </p>
+            </div>
+          </CampoAnchoV4>
+        </CamposV4>
 
-      <h2 className="v4-rotulo mt-5">{TEXTOS_03E.seccionLaboral}</h2>
+        <h2 className="v4-rotulo mt-5">{TEXTOS_03E.seccionEconomica}</h2>
 
-      <div className="mt-3 space-y-3">
-        <Campo campo="situacionLaboral" />
-        <Campo campo="actividadEconomica" />
-        <Campo campo="ocupacion" />
-        <Campo campo="profesion" />
-        <div>
+        <CamposV4 className="mt-3 gap-y-3">
           <CampoTextoV4
-            etiqueta={TEXTOS_03E.etiquetas.empresa}
-            valor={empresaNoAplica ? NO_APLICA_V4 : empresa}
-            alCambiar={empresaHabilitada ? setEmpresa : undefined}
-            deshabilitado={!empresaHabilitada}
-            marcador={
-              empresaHabilitada ? TEXTOS_03E.marcadorComplete : TEXTOS_03E.marcadorEmpresaBloqueada
-            }
-            error={campoEnRojo === "empresa" ? "" : null}
-          />
-          <p
-            className="mt-1 text-[0.75rem]"
-            style={{
-              color: campoEnRojo === "empresa" ? "var(--v4-rojo)" : "var(--v4-azul)",
-              fontWeight: campoEnRojo === "empresa" ? 700 : 400,
+            etiqueta={TEXTOS_03E.etiquetas.ingreso}
+            valor={ingreso}
+            alCambiar={(valor) => {
+              setIngreso(valor);
+              setCampoEnRojo(null);
+              setErrorFranja(null);
             }}
-          >
-            {TEXTOS_03E.notaEmpresa}
+            marcador={TEXTOS_03E.marcadorComplete}
+            inputMode="numeric"
+            error={campoEnRojo === "ingreso" ? "" : null}
+          />
+          <div>
+            <Campo campo="origenIngresos" />
+            <p className="mt-1 text-[0.75rem]" style={{ color: "var(--v4-azul)" }}>
+              {TEXTOS_03E.notaOrigen}
+            </p>
+          </div>
+        </CamposV4>
+
+        <h2 className="v4-rotulo mt-5">{TEXTOS_03E.seccionPep}</h2>
+
+        {/* La pregunta PEP con su par SÍ/NO ocupa la fila entera: no es un
+            campo corto para emparejar con otro. */}
+        <div className="v4-tarjeta mt-3 flex items-center gap-3 p-4">
+          <p className="min-w-0 flex-1 text-[0.9375rem]" style={{ color: "var(--v4-navy)" }}>
+            {TEXTOS_03E.preguntaPep}
           </p>
+          <ParSiNoV4
+            valor={esPep}
+            alElegir={setEsPep}
+            etiquetaAccesible={TEXTOS_03E.preguntaPep}
+          />
         </div>
-      </div>
 
-      <h2 className="v4-rotulo mt-5">{TEXTOS_03E.seccionEconomica}</h2>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <CampoTextoV4
-          etiqueta={TEXTOS_03E.etiquetas.ingreso}
-          valor={ingreso}
-          alCambiar={(valor) => {
-            setIngreso(valor);
-            setCampoEnRojo(null);
-            setErrorFranja(null);
-          }}
-          marcador={TEXTOS_03E.marcadorComplete}
-          inputMode="numeric"
-          error={campoEnRojo === "ingreso" ? "" : null}
-        />
-        <div>
-          <Campo campo="origenIngresos" />
-          <p className="mt-1 text-[0.75rem]" style={{ color: "var(--v4-azul)" }}>
-            {TEXTOS_03E.notaOrigen}
-          </p>
+        <div className="mt-2 text-center">
+          <button type="button" className="v4-enlace text-[0.9375rem]" onClick={() => setPepAbierto(true)}>
+            {TEXTOS_03E.enlacePep}
+          </button>
         </div>
-      </div>
 
-      <h2 className="v4-rotulo mt-5">{TEXTOS_03E.seccionPep}</h2>
+        {esPep === true ? (
+          <AvisoRojoV4 className="mt-4" titulo={TEXTOS_03E.avisoPepTitulo}>
+            {TEXTOS_03E.avisoPep}
+          </AvisoRojoV4>
+        ) : (
+          <AvisoAzulV4 className="mt-4" titulo={TEXTOS_03E.avisoNeutroTitulo}>
+            {TEXTOS_03E.avisoNeutro}
+          </AvisoAzulV4>
+        )}
 
-      <div className="v4-tarjeta mt-3 flex items-center gap-3 p-4">
-        <p className="min-w-0 flex-1 text-[0.9375rem]" style={{ color: "var(--v4-navy)" }}>
-          {TEXTOS_03E.preguntaPep}
-        </p>
-        <ParSiNoV4
-          valor={esPep}
-          alElegir={setEsPep}
-          etiquetaAccesible={TEXTOS_03E.preguntaPep}
-        />
-      </div>
+        {errorFranja ? (
+          <div className="mt-4">
+            <FranjaErrorV4 titulo={errorFranja.titulo} indicacion={errorFranja.indicacion} />
+          </div>
+        ) : null}
 
-      <div className="mt-2 text-center">
-        <button type="button" className="v4-enlace text-[0.9375rem]" onClick={() => setPepAbierto(true)}>
-          {TEXTOS_03E.enlacePep}
-        </button>
-      </div>
-
-      {esPep === true ? (
-        <AvisoRojoV4 className="mt-4" titulo={TEXTOS_03E.avisoPepTitulo}>
-          {TEXTOS_03E.avisoPep}
-        </AvisoRojoV4>
-      ) : (
-        <AvisoAzulV4 className="mt-4" titulo={TEXTOS_03E.avisoNeutroTitulo}>
-          {TEXTOS_03E.avisoNeutro}
-        </AvisoAzulV4>
-      )}
-
-      {errorFranja ? (
-        <div className="mt-4">
-          <FranjaErrorV4 titulo={errorFranja.titulo} indicacion={errorFranja.indicacion} />
-        </div>
-      ) : null}
-
-      <div className="mt-5">
-        <BotonPrincipalV4 onClick={continuar} disabled={!completo} cargando={enviando}>
-          {enviando
-            ? esPep
-              ? TEXTOS_03E.registrandoRevision
-              : TEXTOS_03E.validando
-            : TEXTOS_03E.continuar}
-        </BotonPrincipalV4>
-      </div>
+        <AccionesV4 className="mt-5">
+          <BotonPrincipalV4 onClick={continuar} disabled={!completo} cargando={enviando}>
+            {enviando
+              ? esPep
+                ? TEXTOS_03E.registrandoRevision
+                : TEXTOS_03E.validando
+              : TEXTOS_03E.continuar}
+          </BotonPrincipalV4>
+        </AccionesV4>
+      </DisposicionV4>
 
       {abierto ? (
         <HojaV4
