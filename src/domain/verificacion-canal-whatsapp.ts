@@ -28,7 +28,6 @@ import type {
   ResultadoVerificacionCanal,
 } from "./verificacion-canal";
 import { enmascararCelular, normalizarCelularRegional } from "./telefono";
-import { flujoV3Activo } from "./flujo-vigente";
 // Los literales viven aparte (`textos-p1.ts`) para que la pantalla pueda
 // mostrarlos sin importar este módulo de servidor. Se re-exportan porque la
 // evidencia de este paso los usa y quien lea el caso de uso los espera acá.
@@ -63,11 +62,8 @@ export const PASO_EVIDENCIA_VERIFICACION = "P1_OTP_WHATSAPP_VERIFICACION";
 export const CANAL_WHATSAPP_P1: ConfiguracionCanal = {
   proposito: "VERIFICACION_CELULAR",
   canal: "WHATSAPP",
-  // v2 (CHG-01): el WhatsApp se verifica con el plan ya elegido.
-  // v3 (DI-2, flujo de 3 pasos): la identidad va primero, así que el canal se
-  // verifica con la identidad ya aprobada, dentro de la misma página de
-  // inscripción.
-  estadoRequerido: flujoV3Activo() ? "IDENTIDAD_VERIFICADA" : "PLAN_SELECCIONADO",
+  // CHG-01: el WhatsApp se verifica con el plan ya elegido.
+  estadoRequerido: "PLAN_SELECCIONADO",
   estadoDestino: "CANAL_WA_VERIFICADO",
   campoCanal: "canalWhatsapp",
   // Regional desde 2026-08-14 (pruebas del demo con celulares de Bolivia y

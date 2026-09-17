@@ -21,7 +21,9 @@ import {
   obtenerCodigoFirmaDemo,
 } from "@/adapters/mock/signature-provider";
 import { describirIntegraciones } from "@/adapters/registro";
-import { HeaderInstitucional, VisorEvidencia } from "@/components/shared";
+import { VisorEvidencia } from "@/components/shared";
+import { CabeceraV4, IndicadorFueraDeFlujoV4, PieV4 } from "@/components/v4/MarcoV4";
+import { CapaLegalV4 } from "@/components/v4/CapaLegalV4";
 import { enmascararCorreo } from "@/domain/correo";
 import { enmascararCelular } from "@/domain/telefono";
 import { crearEvidenceStore, crearExpedienteRepository } from "@/repositories";
@@ -88,12 +90,17 @@ export default async function PanelDeDemo() {
 
   if (!autorizado) {
     return (
-      <div className="flex flex-1 flex-col bg-fondo">
-        <HeaderInstitucional />
-        <main className="mx-auto flex w-full max-w-pantalla flex-1 flex-col items-center justify-center px-4 py-10">
-          <FormularioClave />
-        </main>
-      </div>
+      <CapaLegalV4>
+        <div className="flex flex-1 flex-col bg-fondo">
+          <CabeceraV4 marcas={3} />
+          <main className="mx-auto flex w-full max-w-pantalla flex-1 flex-col items-center justify-center px-4 py-10">
+            <FormularioClave />
+          </main>
+          <div className="mx-auto w-full max-w-pantalla px-4">
+            <PieV4 />
+          </div>
+        </div>
+      </CapaLegalV4>
     );
   }
 
@@ -161,19 +168,10 @@ export default async function PanelDeDemo() {
   const estadoDelExpediente = expedienteActivo?.estado ?? null;
 
   return (
-    <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional
-        indicador={
-          <div className="text-right leading-tight">
-            <p className="text-sm font-bold text-naranja-600 dark:text-naranja-300">
-              PANEL DE DEMO
-            </p>
-            <p className="text-[11px] font-semibold tracking-wide text-etiqueta uppercase">
-              Fuera del flujo
-            </p>
-          </div>
-        }
-      />
+    <CapaLegalV4>
+      <div className="flex flex-1 flex-col bg-fondo">
+        <CabeceraV4 marcas={3} />
+        <IndicadorFueraDeFlujoV4 titulo="PANEL DE DEMO" detalle="Fuera del flujo" tono="neutral" />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6">
         <header className="flex flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-4">
@@ -289,6 +287,11 @@ export default async function PanelDeDemo() {
           repetí el envío.
         </p>
       </main>
-    </div>
+
+        <div className="mx-auto w-full max-w-pantalla px-4">
+          <PieV4 />
+        </div>
+      </div>
+    </CapaLegalV4>
   );
 }

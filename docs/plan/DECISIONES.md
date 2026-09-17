@@ -313,6 +313,98 @@ Todas las entradas de este bloque las decidió Andres el 15-sep-2026.
 - **Consecuencia que queda por diseñar:** el CPC necesita la firma de Alianza (unos 5 minutos, por SFTP), así que no puede quedar firmado en la misma escritura que el cobro, como pedía CMP-07. Hay dos momentos: el CPC se **genera** con el cobro y se **entrega firmado** cuando vuelve de Alianza. Falta decidir qué ve la persona mientras tanto (P2).
 - **Consentimiento biométrico (C-13), cerrado:** es obligatorio, y lo cubre la casilla obligatoria de 03B (fotografías, datos biométricos, prueba de vida y coincidencia con la cédula). En 03C no se agrega otra casilla.
 
+## Bloque H — v4 como única versión (16-sep-2026)
+
+Decisiones de Andres del 16-sep-2026, tras el análisis arte por arte de los 103
+PNG (`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md`).
+Cierran cuatro puntos que ese análisis dejó abiertos y **cambian el alcance**:
+v4 deja de ser una fuente visual a portar y pasa a ser **la versión del
+producto**.
+
+### D-43 · v4 es la única versión — **DECIDIDA**
+- *"Definamos que esta es la v4, el resto no va."* El flujo de 8 pasos (v2) y
+  el de 3 pasos (v3) **dejan de ser objetivos**: no se les agregan pantallas ni
+  se los mantiene más allá de lo necesario para que la suite siga en verde
+  mientras v4 se construye.
+- **Cómo entra:** con el mismo mecanismo que usó v3, `FLUJO_V4`, por una razón
+  operativa y no de diseño — `PASOS_FLUJO`, el grafo de transiciones y la
+  batería E2E se resuelven a import-time desde la versión activa, así que
+  encender v4 antes de que existan sus pantallas dejaría la suite en rojo, y
+  *"no hagas commits que dejen tests en rojo"*. El flag se enciende cuando las
+  15 pantallas estén, y **ahí v2 y v3 se borran**; no quedan como alternativa.
+- **Manda el manual** (D-28) **y las pantallas tienen que ser coherentes entre
+  sí**: donde el arte se contradice —contadores, rótulos, estados
+  deshabilitados— gana la coherencia, no el píxel.
+
+### D-44 · No hay SMS — **DECIDIDA**
+- *"No existirá SMS."* **Deja sin efecto a D-37.** El único canal de OTP es
+  **WhatsApp**, como ya dice la regla inviolable #1.
+- **Qué se cae del arte:** los estados `03A_10 · SMS disponible` y
+  `03A_11 · Código SMS enviado` **no se implementan**, y con ellos desaparece
+  el rótulo inconsistente que el análisis marcó (*«Verifique su número de
+  WhatsApp»* con un código llegado por SMS).
+- **La cadena queda:** WhatsApp → reenvío por WhatsApp (espera de 60 s) →
+  agotados los 3 intentos o los reenvíos, **bloqueo temporal de 5 minutos**.
+  No se ofrece un canal alternativo que no existe.
+- **Consecuencia de coherencia:** `03A_12 · Bloqueo temporal` deja de mostrar
+  la franja verde de un SMS enviado.
+
+### D-45 · Renombre del producto a VIVE — **DECIDIDA**
+- *"Se renombra el producto a VIVE, todos los documentos deben cambiar."*
+- **Nombre comercial:** `Seguro de Vida Oncológico VIVE`. **Planes:** `VIVE`,
+  `VIVE+`, `VIVE TOTAL`. **Premios** de la tabla de la p. 5 del manual:
+  **390.000 / 575.000 / 760.000**, IVA incluido.
+- La **denominación registral no cambia** (`Seguro de Vida Individual con
+  Indemnización Adicional por Diagnóstico de Cáncer`, código `15-VI.0002`,
+  Nota SS.SG. N.º 397/2026): es lo que la SIS inscribió, y no es un nombre
+  comercial que podamos cambiar por decisión propia. Los documentos imprimen
+  las dos cosas, como ya hacían.
+- **El `PlanId` interno no se renombra** (`CONFIO`, `CONFIO_PLUS`,
+  `CONFIO_TOTAL`), ni las variables `NEXT_PUBLIC_PLAN_CONFIO_*` que lo
+  sobrescriben: identifican al plan, no lo nombran, y es lo que ya está
+  persistido en los expedientes (regla inviolable #10). Lo que cambia es el
+  **nombre comercial** que sale de `catalogo.ts` y el `ID_VERSION_OFERTA`
+  (`OFERTA-VIVE-v1`, subido el 15-sep-2026 con los premios). Enmienda del
+  16-sep-2026: la primera implementación de esta rama había renombrado el
+  `PlanId` y traducía los viejos al leer (`PLAN_ID_LEGADO`); se deshizo al
+  fusionar con `main`, que ya había hecho el renombre comercial sin tocar el
+  identificador. Manda `main`.
+
+### D-46 · Sin proveedor de alteración documental; se permite cargar archivos — **DECIDIDA**
+- *"No vamos a usar un proveedor de alteración documental. Permitiremos que
+  carguen archivos."* **Confirma D-40 y amplía lo que decía el arte:** la carga
+  de imagen del **frente y el dorso** deja de ser una comodidad de `DEMO_MODE`
+  y pasa a ser un camino **de producción**, como ya lo anunciaba el aviso
+  `ARCHIVOS Y CAPTURA` de 03C (JPG, JPEG, PNG o HEIC, hasta 20 MB, sin PDF).
+- **La selfie sigue siendo solo cámara**: es el ancla biométrica y el único
+  control que queda contra la suplantación.
+- **`03C_19 · Posible alteración` no se implementa como estado alcanzable**:
+  sin proveedor que lo detecte, dibujarlo sería prometer una verificación que
+  no existe. El texto queda descrito en el análisis visual por si vuelve.
+- **Queda anotado el riesgo**, para que la decisión sea trazable: sin detección
+  de alteración y con archivo admitido, la autenticidad documental descansa en
+  el MRZ (consistencia interna, no existencia) y en la coincidencia facial.
+
+### D-47 · Se dice «premio», no «prima» — **DECIDIDA**
+- *"Se llama PREMIO."* Cierra el punto que el análisis dejó abierto entre el
+  arte (`Premio total anual`) y el manual (`prima anual`).
+- Se usa **premio** en toda la interfaz y en los documentos que genera el
+  portal. Donde un texto sea **cita literal** de una norma o del condicionado
+  que dice «prima», se conserva la cita y no se la reescribe.
+
+### D-48 · Catálogos de 03E — **DECIDIDA**
+- *"Investigá listados similares que tengan entre 15 y 20 opciones."* Los artes
+  candidatos muestran 7-8 filas y declaran un total (7, 15, 28, 23 y 10); las
+  listas completas no llegaron.
+- Se arman **cinco catálogos de 15 a 20 opciones**, salvo `Situación laboral`,
+  que queda con las **7** que el arte enumera enteras. Cada uno se ancla en un
+  listado reconocido —CIIU Rev. 4 para actividad económica, CIUO-08 para
+  ocupación y profesión, y los conceptos de origen de fondos del FIPF— y
+  **conserva en su orden las opciones visibles del arte**.
+- Siguen siendo **decisión de producto, no obligación legal**: ningún documento
+  fuente enumera estas listas. Cuando Interseguros mande el catálogo aprobado,
+  manda el suyo.
+
 ## Actualizaciones que la Matriz V4 necesita (consecuencia de la ronda 1)
 
 Dos decisiones **establecidas** dejan desactualizado el texto de la matriz. No son

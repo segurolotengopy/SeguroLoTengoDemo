@@ -1,10 +1,10 @@
 /**
  * La guarda de origen de `/api/p5/captura`.
  *
- * `CAPTURA_SOLO_DESDE_CAMARA` es una regla del proceso, y la pantalla solo
- * dibuja u oculta un botón — eso es cosmético, porque cualquiera puede armar
- * la petición a mano. **Lo único que hace cumplir la regla es este handler**,
- * así que es lo que se prueba acá.
+ * `CAPTURA_SOLO_DESDE_CAMARA` (la selfie, desde D-46) es una regla del
+ * proceso, y la pantalla solo dibuja u oculta un botón — eso es cosmético,
+ * porque cualquiera puede armar la petición a mano. **Lo único que hace
+ * cumplir la regla es este handler**, así que es lo que se prueba acá.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -56,10 +56,25 @@ describe("fuera del modo demostración", () => {
     vi.stubEnv("DEMO_MODE", "false");
   });
 
-  it("rechaza un archivo aunque el cuerpo esté perfecto", async () => {
+  it("D-46 · acepta un archivo para el frente y el dorso, y lo marca como tal", async () => {
+    // La cédula se puede cargar como archivo también en producción (Andres,
+    // 16-sep-2026). El origen viaja igual a la evidencia: un documento subido
+    // no queda registrado como fotografiado en vivo.
+    for (const tipo of ["FRENTE", "DORSO"] as const) {
+      const respuesta = await POST(peticion({ tipo, imagen: IMAGEN, origen: "ARCHIVO" }));
+      expect(respuesta.status).toBe(200);
+      expect(registrarCaptura).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tipo, origen: "ARCHIVO" }),
+      );
+    }
+  });
+
+  it("rechaza la selfie como archivo aunque el cuerpo esté perfecto", async () => {
     // El caso que importa: un despliegue de producción no tiene forma de
-    // aceptar un archivo por ninguna vía, ni con la petición armada a mano.
-    const respuesta = await POST(peticion({ tipo: "FRENTE", imagen: IMAGEN, origen: "ARCHIVO" }));
+    // aceptar la selfie por archivo por ninguna vía, ni con la petición armada
+    // a mano.
+    const respuesta = await POST(peticion({ tipo: "SELFIE", imagen: IMAGEN, origen: "ARCHIVO" }));
     const cuerpo = (await respuesta.json()) as { motivo?: string };
 
     expect(respuesta.status).toBe(400);

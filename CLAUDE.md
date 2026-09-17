@@ -1,6 +1,6 @@
 # SeguroLoTengo — Demo del sistema integrado (AAB1)
 
-Portal B2C de venta electrónica del **Seguro de Vida Oncológico CONFÍO**. Marca y canal digital de **Interseguros S.A.** (corredor) · Aseguradora: **Alianza Garantía Seguros y Reaseguros S.A.** · Operador tecnológico: **AAB1**. Mercado: Paraguay.
+Portal B2C de venta electrónica del **Seguro de Vida Oncológico VIVE**. Marca y canal digital de **Interseguros S.A.** (corredor) · Aseguradora: **Alianza Garantía Seguros y Reaseguros S.A.** · Operador tecnológico: **AAB1**. Mercado: Paraguay.
 
 Este es un **entorno de demostración**: todas las integraciones externas están simuladas. La funcionalidad y las reglas de negocio son reales y completas.
 
@@ -78,30 +78,81 @@ de esta ronda de decisiones, y se reescriben con el lote que los cambie;
 **(3)** Alianza **no** firma la Solicitud ni el FIPF — **implementado** (D-42
 confirmó esta parte: ver «Firmantes por documento» más abajo).
 
-### ⚠️ Pantallas v4 y manual funcional (14/15-sep-2026), pendientes de implementar
+### ⚠️ v4 es la versión del producto (16-sep-2026)
 
 Interseguros mandó el handoff de pantallas v4 y el manual funcional
 (`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/`). Andres decidió
-D-28 a D-41 (Bloque G de `docs/plan/DECISIONES.md`). Lo que cambia:
+D-28 a D-41 (Bloque G de `docs/plan/DECISIONES.md`) y, el 16-sep, **D-43 a
+D-48** (Bloque H): *«esta es la v4, el resto no va»*.
 
 - **Fuente visual:** v4 reemplaza al prototipo v3 de Lovable. Manda el
   **manual**, después el arte `APROBADA_FINAL`, después el JSON.
 - **Flujo:** 5 etapas con portada. El plazo de pago pasa a **10 minutos**
   desde la firma del cliente — **implementado** (D-32, lote «Cierre v4 ·
   dominio», 15-sep-2026: ver la máquina de estados y el Panel de demo más
-  arriba). Las cinco etapas con portada siguen sin implementarse.
+  arriba).
 - **Datos:** en 03D los datos extraídos son editables y se registran, pero la
   **elegibilidad y el bloqueo se calculan con el OCR**.
-- **Canales y firmas:** SMS de contingencia sobre AWS. Interseguros firma en
-  lote por fuera del sistema.
+- **Canales y firmas:** no hay SMS (D-44 deja sin efecto a D-37). Interseguros
+  firma en lote por fuera del sistema (D-38).
 - **Presentación:** voseo en todo, sin modo oscuro en la primera fase, Arimo
   en lugar de DM Sans, y analítica sin datos sensibles.
 
-**Antes de tocar una pantalla o una regla del flujo, leé el `ANALISIS.md` de
-esa carpeta**: lista qué se adopta, qué choca con las reglas de abajo
-(conflictos C-1 a C-14, sin decidir) y en qué orden se implementa. Nada de esto
-está implementado todavía: las reglas y la máquina de estados de este archivo
-siguen describiendo el código de hoy, y se corrigen con el lote que las cambie.
+**v4 es el único flujo desde el 16-sep-2026 («encendido de v4»).** Los flujos
+v2 (8 pasos) y v3 (3 páginas largas, `FLUJO_V3`) se borraron del árbol, con
+sus flags: no existen `flujoV3Activo()` ni `flujoV4Activo()`, `layout.tsx`
+fija `data-flujo="v4"`, y cada `page.tsx` del flujo renderiza su pantalla de
+`src/components/v4/pantallas/` sin condicional. El marco único es `MarcoV4`
+(`CabeceraV4` con el menú 01B y la capa legal, `StepperV4` por **código de
+pantalla** de `src/domain/v4/etapas.ts`, `PieV4`); las páginas fuera del flujo
+(`/solicitud-vencida`, `/asistencia-identidad`, `/verificar`, `/privacidad`,
+`/retracto`, la consola, el panel) montan `CabeceraV4` y `PieV4` dentro de
+`CapaLegalV4`, con `IndicadorFueraDeFlujoV4` si necesitan rótulo.
+`HeaderInstitucional`, `StepperPasos` y `PieLegal` ya no existen. La batería
+E2E de la raíz `e2e/` prueba las doce pantallas v4. Las redirecciones de las
+rutas viejas (`/p1-…`, `/inscripcion`, `/seguro`, `/pago-y-firma`) siguen
+vivas en `REDIRECCIONES_RUTAS_VIEJAS`: hay enlaces enviados.
+
+Antes de tocar una pantalla:
+
+1. **`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md`**
+   — los 103 artes descritos uno por uno: textos literales, posiciones,
+   desplegables, estados, y las 14 correcciones que **no** se copian del arte.
+2. **`MANUAL_FUNCIONAL_TRANSCRIPCION.txt`** — manda sobre el arte (D-28).
+3. **`ANALISIS.md`** — qué se adopta y qué choca.
+
+Lo que v4 cambia y **ya está implementado**:
+
+- **Producto `VIVE`** (D-45), planes `VIVE` / `VIVE+` / `VIVE TOTAL`, premios
+  390.000 / 575.000 / 760.000. `ID_VERSION_OFERTA` = `OFERTA-VIVE-v1`. **El
+  `PlanId` interno no se renombra** (`CONFIO_*`, regla #10): es identificador,
+  no nombre.
+- **No hay SMS** (D-44, deja sin efecto a D-37): el único canal de OTP es
+  WhatsApp. Los artes `03A_10` y `03A_11` no se implementan.
+- **Se dice «premio», no «prima»** (D-47), salvo en citas literales de normas.
+- **Carga de archivo del frente y el dorso en producción** (D-46): ya no
+  depende de `DEMO_MODE` (`origenCapturaAdmitido`). La
+  **selfie sigue siendo solo cámara**. El estado `03C_19 · posible alteración`
+  no se implementa: no hay proveedor que lo detecte.
+- **Plazo de pago de 10 minutos** (D-32): `PLAZO_PAGO_MS`, sin flag.
+- **Doce pantallas** y sus rutas: `/` (01) · `/plan` (02) ·
+  `/whatsapp` (03A) · `/preparacion` (03B) · `/identidad` (03C) · `/datos`
+  (03D) · `/actividad` (03E) · `/declaraciones` (04A) · `/consentimientos`
+  (04D) · `/firma` (04E) · `/pago` (05A) · `/confirmacion` (05B), más
+  `/revision-manual` (03E2 y 04A1). `04E`, `05A` y `05B` **no tienen arte**
+  (D-41): están hechas con el sistema de estilo de las aprobadas y se
+  reemplazan cuando llegue el arte.
+- **Cinco endpoints nuevos**, todos bajo `/api/v4/`: `identidad`,
+  `datos-personales`, `actividad`, `declaraciones` y `consentimientos`. Las
+  rutas de la firma interna (`/api/p8/firma-interna/*`) responden siempre: ya
+  no hay flag que las gatee.
+- **La máquina de estados es la de `main`.** 03D, 03E y 04A llenan el
+  expediente sin moverlo de `IDENTIDAD_VERIFICADA`; `04D` es la única puerta a
+  `DECLARACIONES_OK`; `04E` deja el expediente en `FIRMADO_CLIENTE`, que ya
+  habilita `05A` (D-08 enmendada); la firma diferida de Interseguros llega
+  después del pago y `05B` no nombra a Alianza como firmante del paquete
+  (D-42). Campos nuevos: `datosPersonales`, `actividadEconomica` y
+  `declaracionesMedicas`, los tres `null` en los expedientes anteriores.
 
 ### Documentos fuente adicionales
 
@@ -188,18 +239,22 @@ src/
 
 app/ \# App Router: una carpeta por pantalla
 
-    (flujo)/plan, whatsapp, preparacion, identidad,
-            declaraciones, pago, firma, confirmacion   \# 8 pasos, sin número en el slug
+    page.tsx              \# 01 · portada
+    (flujo)/plan, whatsapp, preparacion, identidad, datos, actividad,
+            declaraciones, consentimientos, firma, pago, confirmacion
+                          \# 02…05B: un page.tsx por pantalla, que monta su
+                          \# componente de components/v4/pantallas/; sin número en el slug
 
-    revision-manual/      \# Pantalla A
+    revision-manual/      \# 03E2 / 04A1 (Pantalla A)
 
     solicitud-vencida/    \# Pantalla B
 
     demo-panel/           \# panel de control del demo (solo con DEMO\_MODE=true)
 
-    api/                  \# Route Handlers
+    api/                  \# Route Handlers (api/v4/* son los cinco de v4)
 
-components/shared/ \# cabecera, stepper, barra de plan, campos OTP
+components/v4/ \# MarcoV4 (cabecera, stepper, pie), CapaLegalV4, piezas, pantallas/
+components/shared/ \# lo que sobrevive fuera del flujo: BandaDemo, VisorEvidencia, ChatFlotante…
 
 domain/ \# máquina de estados, reglas de elegibilidad, tipos
 
@@ -332,7 +387,7 @@ Reglas no negociables de esa integración: el documento único viaja en **un** `
 **Code100 no puede recibir la firma del cliente, y eso ya está respondido por escrito.**
 `docs/Integraciones/Code100 - Respuestas C1 a C12.md` (C1): Api Flow firma **exclusivamente con
 certificado cualificado que el firmante ya tenga emitido a su nombre**, y no existe flujo alternativo.
-El cliente de CONFÍO no lo tiene. Así que el adaptador oficial de `SignatureProvider`, cuando se
+El cliente de VIVE no lo tiene. Así que el adaptador oficial de `SignatureProvider`, cuando se
 escriba, cubre **las firmas institucionales**. **La del cliente quedó decidida (D1, ratificada por
 Andres el 30-ago-2026): la ejecuta SeguroLoTengo con su firma electrónica no cualificada interna**
 (Res. SS.SG. 210/2025 art. 4) — `src/domain/firma-cliente.ts`, sobre lo que la plataforma ya hace:
@@ -340,8 +395,10 @@ identidad verificada, OTP de firma de un solo uso (propósito `FIRMA`, por el ca
 elegido), IP, sello de tiempo y huella. El respaldo legal está en
 `docs/VALIDACION_LEGAL_FIRMA_INTERNA.md`. Dos datos del proveedor que confirmaron el camino: **no
 registra IP ni dispositivo del firmante** y **no emite acta de evidencias descargable**, así que el
-respaldo probatorio lo produce y conserva el portal de todos modos. En el flujo v3 el acto interno
-es el camino del cliente; en el v2 sigue operando el flujo simulado de Code100 hasta su retiro.
+respaldo probatorio lo produce y conserva el portal de todos modos. Desde el encendido de v4
+(16-sep-2026) el acto interno es **el único** camino del cliente (pantalla 04E,
+`/api/p8/firma-interna/*`); el flujo simulado de Code100 para el cliente se borró con v2, y
+`SignatureProvider` queda para las firmas cualificadas institucionales (`aplicarFirmasDiferidas`).
 **Ninguna pantalla nombra al proveedor**: dicen «te enviaremos un enlace» y «te confirmaremos la
 firma», y quedan válidas se decida lo que se decida.
 
@@ -483,7 +540,7 @@ La regla #5 queda intacta: la derivación por elegibilidad sigue siendo exclusiv
 
 ## Consola administrativa
 
-Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de las 12 pantallas** ni del contador de 8 pasos. Especificación completa en `docs/CONSOLA_ADMINISTRATIVA.md` — leela antes de tocar esto. En resumen: búsqueda de expedientes, vista de datos y de envíos/respuestas a proveedores (incluidos los mocks), visibilidad de derivación a Pantalla A / vencimiento a Pantalla B, y reinicio con justificativo que **crea un expediente nuevo enlazado al anterior** — nunca reactiva ni cambia de estado el expediente original (`DERIVADO_MANUAL` sigue siendo terminal, regla inviolable #5). Introdujo la regla de negocio inviolable #11 (bloqueo de nuevo registro por cédula).
+Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de las 12 pantallas** ni de las cinco etapas del stepper. Especificación completa en `docs/CONSOLA_ADMINISTRATIVA.md` — leela antes de tocar esto. En resumen: búsqueda de expedientes, vista de datos y de envíos/respuestas a proveedores (incluidos los mocks), visibilidad de derivación a Pantalla A / vencimiento a Pantalla B, y reinicio con justificativo que **crea un expediente nuevo enlazado al anterior** — nunca reactiva ni cambia de estado el expediente original (`DERIVADO_MANUAL` sigue siendo terminal, regla inviolable #5). Introdujo la regla de negocio inviolable #11 (bloqueo de nuevo registro por cédula).
 
 **Estado: implementada.** Ruta `/admin-consola`, protegida por `ADMIN_CONSOLE_ENABLED=true` y `ADMIN_CONSOLE_KEY` (secreto **distinto** del panel de demo). Búsqueda por cédula, número de caso, y estado + rango de fechas, con filtro por nombre. La búsqueda por nombre es un filtro en memoria sobre el resultado de un criterio indexado — limitación conocida, documentada en `src/domain/consola-administrativa.ts`. El detalle **sí muestra** respuestas médicas y condición PEP: es la única excepción autorizada a la regla #7, porque la consola es cumplimiento interno y no analítica/CRM/IA. No copiar ese criterio a ninguna otra pantalla.
 
@@ -491,15 +548,13 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
-Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 10 minutos a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **tarjeta rechazada**, rechazo de Code100, **firmas institucionales caídas**, registro civil caído, **mensajería caída** y **entrega sin acuse**), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 10 minutos a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **tarjeta rechazada**, **firmas institucionales caídas**, registro civil caído, **mensajería caída** y **entrega sin acuse**), reiniciar el expediente y ver el registro de evidencia. El endpoint `/api/demo-panel/firma` (completar un acto de Code100) sobrevive como legado: en v4 el cliente no firma por Code100, así que ningún recorrido lo necesita.
 
 El plazo que el panel acorta es el de D-10/D-32 —10 minutos para **pagar** un expediente ya firmado por el cliente—, y se congela al confirmarse la firma del cliente (`FIRMADO_CLIENTE`): para verlo caducar en segundos hay que fijarlo corto **antes** de firmar. Acortarlo es además la forma de demostrar la reversa: al vencer, el expediente **apaga la operación abierta en Bancard** y deja su propia evidencia.
 
 `BANCARD_TIMEOUT` y `BANCARD_TARJETA_RECHAZADA` son **dos momentos distintos**, no dos intensidades: el timeout corta **al abrir** la operación —la persona nunca ve el formulario— y la tarjeta rechazada ocurre **al terminar de pagar**, que es cuando contesta el emisor. La segunda es la que muestra lo que importa de G2: el pago queda `RECHAZADO`, la pantalla suelta la operación y el reintento funciona con una clave de idempotencia nueva.
 
-**El acto de firma también se puede completar sin abrir el panel**, desde el modal de P8 (`ModalFirmadorSimulado.tsx` + `/api/p8/firmador-simulado`, extensión `route.demo.ts`). Es la misma simulación de Code100, presentada como lo que es —la ventana del proveedor, no una pantalla de SeguroLoTengo— y existe para no tener que mostrar la consola de trucos en una demostración por pantalla compartida. **Nunca muestra el código**: lo recibe tipeado (regla inviolable #2). A diferencia del endpoint del panel, no acepta `idCode100` del cliente: lo saca del expediente de la sesión, y esa es la propiedad que reemplaza a la clave del panel.
-
-El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. La palanca de _cortar el sellado a la mitad_ que llevaba antes **desapareció con D-11**: con un solo documento no hay dos archivos que puedan quedar a medias. `FIRMAS_INSTITUCIONALES_FALLAN` sigue viviendo en el panel, pero **desde la enmienda del 04-sep-2026 a D-08 (D-38) actúa después del pago**, no en el acto de firma: el cliente firma y cobra sin que esta palanca la toque, y recién cuando `aplicarFirmasDiferidas` (invocada desde P9, antes de remitir a Alianza) la consulta, un expediente `PAGO_CONFIRMADO` puede quedar sin avanzar a `FIRMADO` — la emisión no se ordena (motivo `FIRMA_CORREDOR_PENDIENTE`) y el cobro no se pierde.
+**El modal del firmador simulado de Code100 (`ModalFirmadorSimulado.tsx`, `/api/p8/firmador-simulado`) se borró con el flujo v2 el 16-sep-2026.** En v4 el cliente firma con la firma interna (04E): el código de firma sale por WhatsApp o correo y, en demo, se lee del panel como cualquier otro OTP. No hay ventana de proveedor que simular para el cliente. La palanca de _cortar el sellado a la mitad_ ya había desaparecido con D-11: con un solo documento no hay dos archivos que puedan quedar a medias. `FIRMAS_INSTITUCIONALES_FALLAN` sigue viviendo en el panel, pero **desde la enmienda del 04-sep-2026 a D-08 (D-38) actúa después del pago**, no en el acto de firma: el cliente firma y cobra sin que esta palanca la toque, y recién cuando `aplicarFirmasDiferidas` (invocada desde P9, antes de remitir a Alianza) la consulta, un expediente `PAGO_CONFIRMADO` puede quedar sin avanzar a `FIRMADO` — la emisión no se ordena (motivo `FIRMA_CORREDOR_PENDIENTE`) y el cobro no se pierde.
 
 Tres reglas de las palancas del panel, todas verificadas por tests: **se consumen en un solo intento** (se ve el error una vez y el reintento funciona); **ninguna inventa un camino** — cada fallo produce un estado real que rechaza la validación de siempre, no una rama especial del código; y **ninguna existe fuera de `DEMO_MODE`**, ni siquiera si quedó armada antes de apagar el flag. El plazo de firma, además, solo se puede acortar: alargarlo sería cambiarle a la persona una condición ya informada (fila 30 de la matriz).
 
@@ -515,10 +570,10 @@ Personas de prueba definidas en `src/adapters/mock/personas.ts`:
 
 ## Convenciones de UI
 
-- Cabecera de tres marcas (SeguroLoTengo, Interseguros, Alianza), stepper de **cinco macroetapas** ("N de 5") y barra de plan seleccionado son componentes compartidos. **No los redefinas por pantalla.** El stepper recibe el **slug** de la pantalla, nunca un número: la etapa vive en `PasoDelFlujo.etapa` dentro de `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) y de ahí se deriva todo (`etapaDePaso`). Escribir un número a mano es cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".
-  **Desde el handoff de pantallas v4 (15-sep-2026, D-36) el stepper ya no cuenta "Paso N de 8"**: cuenta las cinco macroetapas del manual funcional (Plan · Verificación · Actividad e ingresos · Declaraciones y firma · Pago y confirmación). Varios slugs de las ocho pantallas comparten etapa —`/whatsapp` y `/preparacion` son las dos "2 de 5"— porque 03D y 03E todavía no existen como pantallas propias (D-41); es correcto, no un bug. `numeroDePaso`/`TOTAL_PASOS` (8) siguen existiendo para la navegación siguiente/anterior, que no cambia de semántica.
-- **Sin tema oscuro en la primera fase de v4 (D-29, 15-sep-2026).** `HeaderInstitucional` ya no monta `ToggleTema`, y `SCRIPT_TEMA_INICIAL` (`src/components/shared/tema.ts`) fuerza el tema claro sin leer `localStorage` ni la preferencia del sistema — una preferencia oscura guardada de antes de esta fase no se aplica. Los tokens semánticos (`bg-fondo`, `bg-superficie`, `border-borde-sutil`, `text-titulo`, `text-cuerpo`, `text-etiqueta`) y el módulo `tema.ts` se conservan intactos para cuando se retome el oscuro. Referencia visual viva en `/design-system`. La paleta vigente del flujo es la **v4** de `docs/GUIA_DE_ESTILOS.md` §8 (navy `#071F78`, rojo `#FF1721`, azul `#0876F9`, azul atenuado `#55709D`; CTA principal roja) — reemplaza a la paleta alineada a interseguros360.com que describían las secciones 1-7 de esa guía para las pantallas que todavía no se migraron a v4 (D-28, una por sesión). Ninguna de las dos tiene respaldo en la matriz de cumplimiento: es decisión de producto.
-- **Tipografía: Arimo** (D-39, `next/font/google`, OFL, pesos 400-700), con pila de respaldo `"Helvetica Neue", Helvetica, Arial, sans-serif`. Reemplaza a DM Sans como `--font-sans` del flujo desde el 15-sep-2026. DM Sans se sigue cargando porque el canvas v3 (`[data-flujo="v3"]`, superado por v4) la nombra explícitamente; Arimo no se usa ahí.
+- Cabecera de tres marcas (SeguroLoTengo, Interseguros, Alianza; dos en la portada), stepper de **cinco macroetapas** ("N de 5") y barra de plan seleccionado son componentes compartidos (`MarcoV4`, `BarraPlanV4`). **No los redefinas por pantalla.** El stepper recibe el **código de pantalla** (`CodigoPantallaV4`), nunca un número ni un slug: la etapa vive en `PANTALLAS_V4` (`src/domain/v4/etapas.ts`) y `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) repite la misma `etapa` por slug para el enrutado, con un test que cruza las dos tablas. Escribir un número a mano es cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".
+  Las cinco macroetapas son las del manual funcional (D-36): Plan · Verificación · Actividad e ingresos · Declaraciones y firma · Pago y confirmación. Varias pantallas comparten etapa —03A, 03B, 03C y 03D son todas "2 de 5"— y es correcto, no un bug.
+- **Sin tema oscuro en la primera fase de v4 (D-29, 15-sep-2026).** No hay botón de día/noche (`ToggleTema` se borró el 16-sep-2026), y `SCRIPT_TEMA_INICIAL` (`src/components/shared/tema.ts`) fuerza el tema claro sin leer `localStorage` ni la preferencia del sistema — una preferencia oscura guardada de antes de esta fase no se aplica. Los tokens semánticos (`bg-fondo`, `bg-superficie`, `border-borde-sutil`, `text-titulo`, `text-cuerpo`, `text-etiqueta`) y el módulo `tema.ts` se conservan para cuando se retome el oscuro. Referencia visual viva en `/design-system` (vidriera de las piezas v4). La paleta del flujo es la **v4** de `docs/GUIA_DE_ESTILOS.md` §8 (navy `#071F78`, rojo `#FF1721`, azul `#0876F9`, azul atenuado `#55709D`; CTA principal roja); las secciones 1-7 de esa guía (paleta alineada a interseguros360.com) describen el flujo anterior y ya no rigen ninguna pantalla. Ninguna de las dos tiene respaldo en la matriz de cumplimiento: es decisión de producto.
+- **Tipografía: Arimo** (D-39, `next/font/google`, OFL, pesos 400-700), con pila de respaldo `"Helvetica Neue", Helvetica, Arial, sans-serif`. Es la única fuente que carga `layout.tsx` desde el 16-sep-2026: DM Sans y Archivo se fueron con v2 y v3.
 - P0 (portada), Pantalla A y Pantalla B están **fuera del contador de etapas** y usan su propio indicador.
 - Los botones de continuar arrancan deshabilitados y se habilitan solo con los requisitos de esa pantalla cumplidos.
 - Los campos autocompletados por OCR en P5 se muestran con ícono de candado. El número de cédula y la fecha de nacimiento **no son editables** —de ellos cuelgan el bloqueo por cédula y el corte de edad—, así que ante una discrepancia el único camino es repetir la captura. Nombres, apellidos y nacionalidad se corrigen tocando el candado, y lo corregido se coteja contra lo que leyó el OCR (CHG-15).
@@ -526,22 +581,12 @@ Personas de prueba definidas en `src/adapters/mock/personas.ts`:
 - Mobile-first: el producto es B2C y la mayoría del tráfico será celular.
 - Nunca muestres el OTP, el número completo de tarjeta ni datos sin enmascarar en la UI del flujo.
 - Textos en español rioplatense-paraguayo (voseo), exactamente como figuran en la especificación.
-- **Fuente visual del flujo v3 (desde el 02-sep-2026):** el prototipo de Lovable
-  `github.com/segurolotengo-diseno/slt-diseno-v3` (pendiente de aprobación;
-  hasta entonces, rama `main`). Es un prototipo React + Tailwind sin backend y
-  con datos ficticios; **no se fusiona nunca con este repositorio** — se lee
-  (clon hermano `../slt-diseno-lovable` o MCP de Lovable) y se porta. Método
-  obligatorio, en `docs/rediseno-lovable/semilla/04-mapa-porteo.md`: **el
-  armazón JSX de cada pantalla se toma del prototipo** y sobre él se cuelgan
-  los datos y las llamadas que el producto ya tiene; el CSS se porta literal y
-  encapsulado (`src/app/lovable-v4.css`, bajo `[data-flujo="v3"]`); los
-  componentes shadcn del prototipo **no se instalan**, se reproducen en
-  `src/components/shared/`. No se trabaja «por diferencias» contra la pantalla
-  existente. Textos, campos y valores siguen mandando desde
-  `docs/ESPECIFICACION_PANTALLAS.md`: lo que el prototipo traiga de más se
-  reporta como divergencia en la Bitácora y no se copia. Las relajaciones de
-  v3 en componentes compartidos con v2 van detrás de la prop `canvas`, y
-  `npm run test:e2e` (v2, producción) corre en cada sesión de porteo.
+- **Fuente visual: el handoff v4 de Interseguros** (`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/`,
+  D-28): manda el manual funcional, después el arte `APROBADA_FINAL`, después
+  el JSON. Los 103 artes están descritos uno por uno en `ANALISIS_VISUAL_PNG.md`
+  (los PNG viven en `docs/v4/`, fuera de git). El prototipo de Lovable de v3 y
+  su método de porteo (`docs/rediseno-lovable/`) quedaron superados y se
+  conservan solo como registro histórico.
 
 ---
 
@@ -586,7 +631,7 @@ Reglas al tocarlo: el widget **no usa cookies ni almacenamiento** (fila 85 sigue
 
 Además de `npm run typecheck && npm run lint && npm test`:
 
-1. ¿El cambio respeta el orden y contenido de los 8 pasos que fija `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) —o las Pantallas A/B— y el detalle de cada pantalla en `docs/ESPECIFICACION_PANTALLAS.md`?
+1. ¿El cambio respeta el orden de las doce pantallas que fija `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) y las cinco etapas de `PANTALLAS_V4` (`src/domain/v4/etapas.ts`) —o las Pantallas A/B— y el detalle de cada pantalla en `ANALISIS_VISUAL_PNG.md` y el manual funcional?
 2. Si toca campos de Solicitud/FIPF: ¿existen y respetan el formato de `Solicitud.pdf`/`FIPF.pdf`?
 3. ¿Hay una fila en `docs/Tabla Cumplimiento SeguroLo Tengo - Tabla.csv` que respalde la regla implementada? Si no, ¿está marcado como decisión de producto y no de ley?
 4. Si usa una integración externa: ¿está descrita en `docs/Tabla de Integraciones externas - Tabla.csv`? ¿Respeta las "Reglas transversales de integraciones" de arriba?

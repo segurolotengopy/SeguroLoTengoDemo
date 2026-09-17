@@ -1,38 +1,49 @@
 "use client";
 
-import {
-  BarraPlanSeleccionado,
-  HeaderInstitucional,
-  StepperPasos,
-} from "@/components/shared";
+import { BarraPlanSeleccionado } from "@/components/shared";
+import { CabeceraV4, IndicadorFueraDeFlujoV4, PieV4, StepperV4 } from "@/components/v4/MarcoV4";
+import { CapaLegalV4 } from "@/components/v4/CapaLegalV4";
 
 /**
  * Vista de verificación del sistema de diseño base: no es una pantalla del
- * flujo (P0–P9, Pantalla A, Pantalla B) ni forma parte de la consola
- * administrativa — sirve solo para revisar visualmente los componentes
- * compartidos y sus variantes durante el desarrollo.
+ * flujo v4 ni forma parte de la consola administrativa — sirve solo para
+ * revisar visualmente los componentes compartidos y sus variantes durante el
+ * desarrollo.
+ *
+ * El marco (`CabeceraV4`/`StepperV4`/`PieV4`, `components/v4/MarcoV4.tsx`) es
+ * el único que queda en pie tras el "encendido de v4": esta vista dejó de
+ * mostrar `HeaderInstitucional`/`StepperPasos` (v2), que se borraron con el
+ * flujo de 8 pasos el 16-sep-2026.
  */
 export default function DesignSystemPreview() {
   return (
-    <div className="flex flex-1 flex-col gap-8 bg-fondo pb-16">
-      <HeaderInstitucional indicador={<StepperPasos slug="/identidad" />} />
+    <CapaLegalV4>
+      <div className="flex flex-1 flex-col gap-8 bg-fondo pb-16">
+        <CabeceraV4 marcas={3} />
+        <StepperV4 codigo="03D" />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-10 px-4 sm:px-6">
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-            HeaderInstitucional — variantes del indicador
+            CabeceraV4 / StepperV4 / IndicadorFueraDeFlujoV4 — variantes
           </h2>
           <div className="flex flex-col gap-3 overflow-hidden rounded-xl border border-borde-sutil bg-superficie">
-            <HeaderInstitucional indicador={<StepperPasos variante="p0" />} />
-            <HeaderInstitucional indicador={<StepperPasos slug="/plan" />} />
-            <HeaderInstitucional indicador={<StepperPasos slug="/confirmacion" />} />
-            <HeaderInstitucional
-              indicador={<StepperPasos variante="pantalla-a" />}
-            />
-            <HeaderInstitucional
-              indicador={<StepperPasos variante="pantalla-b" />}
-            />
-            <HeaderInstitucional />
+            {/* Portada: dos marcas, sin filete rojo, sin stepper. */}
+            <CabeceraV4 marcas={2} />
+            {/* Flujo de contratación: tres marcas + stepper por código de pantalla. */}
+            <CabeceraV4 marcas={3} />
+            <StepperV4 codigo="02" />
+            <StepperV4 codigo="04E" />
+            <StepperV4 codigo="05B" />
+            {/* Terminales de revisión manual (03E2 PEP, 04A1 salud): misma
+                cabecera, sin barra de plan — la usa `PantallaRevisionManual`. */}
+            <StepperV4 codigo="03E2" />
+            {/* Páginas fuera de las cinco etapas, sin código de pantalla
+                propio: `/solicitud-vencida`, `/asistencia-identidad`,
+                `/admin-consola`, `/demo-panel`. */}
+            <IndicadorFueraDeFlujoV4 titulo="SOLICITUD VENCIDA" detalle="Firmada · Pago no completado" />
+            <IndicadorFueraDeFlujoV4 titulo="CONSOLA ADMIN" detalle="Herramienta interna" tono="neutral" />
+            <PieV4 />
           </div>
         </section>
 
@@ -42,13 +53,13 @@ export default function DesignSystemPreview() {
           </h2>
           <div className="flex flex-col gap-3">
             <BarraPlanSeleccionado
-              planNombre="Seguro de Vida Oncológico · CONFÍO+"
+              planNombre="Seguro de Vida Oncológico · VIVE+"
               premioTexto="Gs. 475.000 al año · IVA incluido"
               enlaceTexto="Cambiar plan"
               enlaceHref="#"
             />
             <BarraPlanSeleccionado
-              planNombre="Seguro de Vida Oncológico · CONFÍO+"
+              planNombre="Seguro de Vida Oncológico · VIVE+"
               premioTexto="Gs. 475.000 · premio anual · IVA incluido"
               enlaceTexto="Volver al pago"
               onEnlaceClick={() => {}}
@@ -218,6 +229,7 @@ export default function DesignSystemPreview() {
           </div>
         </section>
       </main>
-    </div>
+      </div>
+    </CapaLegalV4>
   );
 }

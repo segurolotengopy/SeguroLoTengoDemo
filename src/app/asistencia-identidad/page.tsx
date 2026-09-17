@@ -1,7 +1,8 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HeaderInstitucional } from "@/components/shared";
+import { CabeceraV4, PieV4 } from "@/components/v4/MarcoV4";
+import { CapaLegalV4 } from "@/components/v4/CapaLegalV4";
 import { CONTACTOS_PANTALLA_A } from "@/domain/textos-pantalla-a";
 import {
   BAJADA_ASISTENCIA_IDENTIDAD,
@@ -33,8 +34,8 @@ import { DatosDelCaso } from "./DatosDelCaso";
  * se llega desde P6 por una declaración incompatible o PEP, y su texto lo dice.
  * Acá no hay nada en contra de la persona y su cédula **no queda bloqueada**.
  *
- * Fuera del contador de 9 pasos y sin barra de plan seleccionado, igual que
- * las pantallas A y B: no hay una contratación en curso.
+ * Fuera de las cinco etapas y sin barra de plan seleccionado, igual que
+ * `/revision-manual` y `/solicitud-vencida`: no hay una contratación en curso.
  *
  * Es **decisión de producto**: no figura en `ESPECIFICACION_PANTALLAS.md` como
  * una de las 12 pantallas originales ni tiene fila en la matriz de
@@ -55,14 +56,14 @@ const ICONO_HITO: Readonly<Record<string, string>> = {
 
 export default function PantallaAsistenciaIdentidad() {
   return (
-    <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional
-        indicador={
+    <CapaLegalV4>
+      <div className="flex flex-1 flex-col bg-fondo">
+        <CabeceraV4 marcas={3} />
+        <div className="px-4 py-3 text-right">
           <span className="rounded-full bg-naranja-100 px-3 py-1 text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:bg-naranja-950 dark:text-naranja-200">
             {ROTULO_MODO_ASISTENCIA}
           </span>
-        }
-      />
+        </div>
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         <header className="flex flex-col gap-2 rounded-lg border border-naranja-300 bg-naranja-50 p-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6 dark:border-naranja-700 dark:bg-naranja-950">
@@ -169,7 +170,12 @@ export default function PantallaAsistenciaIdentidad() {
           <p className="text-xs text-etiqueta">{LEYENDA_NO_ES_RECHAZO_IDENTIDAD}</p>
           <p className="text-xs text-etiqueta">{LEYENDA_CASO_DISTINTO}</p>
         </footer>
-      </main>
-    </div>
+        </main>
+
+        <div className="mx-auto w-full max-w-pantalla px-4">
+          <PieV4 />
+        </div>
+      </div>
+    </CapaLegalV4>
   );
 }

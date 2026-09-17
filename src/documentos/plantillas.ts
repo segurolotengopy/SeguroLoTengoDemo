@@ -187,7 +187,7 @@ function bloqueReferencias(lienzo: Lienzo, titulo: string, campos: readonly { et
 // ---------------------------------------------------------------------------
 
 function dibujarSeccionSolicitud(lienzo: Lienzo, contenido: ContenidoSolicitud): void {
-  lienzo.pagina.texto(MARGEN, lienzo.y - 4, "Producto CONFÍO · Contratación exclusivamente para el titular identificado.", {
+  lienzo.pagina.texto(MARGEN, lienzo.y - 4, "Producto VIVE · Contratación exclusivamente para el titular identificado.", {
     fuente: "negrita",
     tamano: 7.5,
     color: AZUL,

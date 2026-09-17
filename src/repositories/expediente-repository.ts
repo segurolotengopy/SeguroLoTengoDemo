@@ -190,6 +190,26 @@ export function crearExpedienteRepositoryDynamoDb(
     return guardado === undefined ? { ...expediente, otpVigente: {} } : expediente;
   }
 
+  /**
+   * Los expedientes anteriores a v4 no traen `datosPersonales` ni
+   * `actividadEconomica`. Se leen en `null` —que es lo que significa «esa
+   * pantalla no existía cuando este trámite pasó por acá»— y no se reescriben
+   * (regla inviolable #10).
+   */
+  function conDatosV4(expediente: Expediente): Expediente {
+    const conPersonales =
+      expediente.datosPersonales === undefined
+        ? { ...expediente, datosPersonales: null }
+        : expediente;
+    const conActividad =
+      conPersonales.actividadEconomica === undefined
+        ? { ...conPersonales, actividadEconomica: null }
+        : conPersonales;
+    return conActividad.declaracionesMedicas === undefined
+      ? { ...conActividad, declaracionesMedicas: null }
+      : conActividad;
+  }
+
   /** Resuelve ids a expedientes, salteando los que ya no existan. */
   async function hidratar(ids: readonly string[]): Promise<readonly Expediente[]> {
     const expedientes: Expediente[] = [];
@@ -278,7 +298,7 @@ export function crearExpedienteRepositoryDynamoDb(
       );
       if (!respuesta.Item) return null;
       const item = respuesta.Item as { pk: string; sk: string; entityType: string } & Expediente;
-      return conOtpVigente(conPlazoDePago(quitarClavesInternas(item)));
+      return conDatosV4(conOtpVigente(conPlazoDePago(quitarClavesInternas(item))));
     },
 
     async guardar(expediente: Expediente, actualizadoEnEsperado?: string): Promise<void> {

@@ -136,9 +136,7 @@ export const PASO_EVIDENCIA_CONFIRMACION_DUPLICADA_P8 = "P8_CONFIRMACION_DUPLICA
 /**
  * D-08 enmendada · firmado por el cliente, el paso siguiente es el pago: ya
  * no hace falta esperar a la institucional, que ahora llega después (D-38).
- * Derivada del mapa estado→pantalla para que siga al flag del flujo: `/pago`
- * en v2, la página larga del paso 3 en v3 (donde el pago es la sección
- * siguiente de la misma pantalla).
+ * Derivada del mapa estado→pantalla para que no haya que escribirla a mano.
  */
 export const RUTA_PAGO = PANTALLA_POR_ESTADO.FIRMADO_CLIENTE;
 

@@ -21,7 +21,6 @@ import { ID_VERSION_OFERTA, OFERTA_VIGENTE, PLANES, esPlanId, serializarOfertaCa
 import type { OfertaVersionada } from "./catalogo";
 import { esTransicionLegal, transicionarExpediente } from "./expediente";
 import { crearExpedienteInicial } from "./tipos";
-import { flujoV3Activo } from "./flujo-vigente";
 import type { ContextoPeticion, RepositorioExpediente } from "./verificacion-canal-whatsapp";
 import type {
   EstadoExpediente,
@@ -192,9 +191,6 @@ export async function seleccionarPlan(
   // cliente, y esos ids son la llave de todo el trámite.
   let expediente: Expediente;
   if (entrada.expedienteId === null) {
-    if (flujoV3Activo()) {
-      return { ok: false, motivo: "EXPEDIENTE_NO_ENCONTRADO" };
-    }
     expediente = crearExpedienteInicial({ id: nuevoId(), ahora: fecha });
     await deps.expedientes.crear(expediente);
   } else {

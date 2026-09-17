@@ -2,7 +2,8 @@ import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { HeaderInstitucional } from "@/components/shared";
+import { CabeceraV4, IndicadorFueraDeFlujoV4, PieV4 } from "@/components/v4/MarcoV4";
+import { CapaLegalV4 } from "@/components/v4/CapaLegalV4";
 import { describirIntegraciones } from "@/adapters/registro";
 import { JUSTIFICATIVOS_REINICIO } from "@/domain/consola-administrativa";
 import { COOKIE_CONSOLA, consolaHabilitada, sesionConsolaValida } from "./_sesion";
@@ -37,27 +38,25 @@ export default async function ConsolaAdministrativa() {
 
   if (!autorizado) {
     return (
-      <div className="flex flex-1 flex-col bg-fondo">
-        <HeaderInstitucional />
-        <main className="mx-auto flex w-full max-w-pantalla flex-1 flex-col items-center justify-center px-4 py-10">
-          <FormularioClaveConsola />
-        </main>
-      </div>
+      <CapaLegalV4>
+        <div className="flex flex-1 flex-col bg-fondo">
+          <CabeceraV4 marcas={3} />
+          <main className="mx-auto flex w-full max-w-pantalla flex-1 flex-col items-center justify-center px-4 py-10">
+            <FormularioClaveConsola />
+          </main>
+          <div className="mx-auto w-full max-w-pantalla px-4">
+            <PieV4 />
+          </div>
+        </div>
+      </CapaLegalV4>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional
-        indicador={
-          <div className="text-right leading-tight">
-            <p className="text-sm font-bold text-azul-700 dark:text-azul-200">CONSOLA ADMIN</p>
-            <p className="text-[11px] font-semibold tracking-wide text-etiqueta uppercase">
-              Herramienta interna
-            </p>
-          </div>
-        }
-      />
+    <CapaLegalV4>
+      <div className="flex flex-1 flex-col bg-fondo">
+        <CabeceraV4 marcas={3} />
+        <IndicadorFueraDeFlujoV4 titulo="CONSOLA ADMIN" detalle="Herramienta interna" tono="neutral" />
 
       {/* Ancho completo: la consola es una herramienta de escritorio y usa
           toda la pantalla, con el panel de búsqueda a la izquierda. */}
@@ -75,6 +74,11 @@ export default async function ConsolaAdministrativa() {
           descripcionIntegraciones={describirIntegraciones()}
         />
       </main>
-    </div>
+
+        <div className="w-full px-4 sm:px-6">
+          <PieV4 />
+        </div>
+      </div>
+    </CapaLegalV4>
   );
 }

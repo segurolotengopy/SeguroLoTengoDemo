@@ -16,7 +16,7 @@ export function runAsistenteProviderContractTests(crear: () => AsistenteProvider
     });
 
     it("responde con texto y respaldo tipado, sin datos de la persona", async () => {
-      const r = await crear().responder({ conversacionId: "web_contrato01", perfilId: "VIDA_ONCOLOGICO", texto: "¿Cuánto cuesta el plan CONFÍO?" });
+      const r = await crear().responder({ conversacionId: "web_contrato01", perfilId: "VIDA_ONCOLOGICO", texto: "¿Cuánto cuesta el plan VIVE?" });
       expect(r.ok).toBe(true);
       if (r.ok) {
         expect(typeof r.texto).toBe("string");

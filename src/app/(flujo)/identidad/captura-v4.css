@@ -1,0 +1,62 @@
+/**
+ * Piel v4 del visor de cámara (`CapturaConCamara`, prop `piel="v4"`).
+ *
+ * Fondo azul marino casi negro, marco punteado blanco y obturador con anillo
+ * rojo — 03C_01 / 03C_04 / 03C_07 del arte
+ * (`docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md`
+ * §5.2). No depende de `[data-flujo="v4"]`: la piel ya la elige la prop, y
+ * varias clases de `v4.css` (`.v4-boton-secundario`, pensada para fondo
+ * claro) no sirven acá porque el fondo del visor es oscuro.
+ *
+ * Prefijo `captura-v4-` para no chocar con nada de `v4.css`, que este
+ * archivo no toca.
+ */
+
+.captura-v4 {
+  /* var(--v4-navy) oscurecido: el arte pide "azul marino casi negro", más
+     oscuro que el navy de marca (#071f78) que usa el resto del flujo. */
+  background: #050b30;
+}
+
+.captura-v4-marco {
+  border-style: dashed;
+  border-width: 4px;
+  border-color: #ffffff;
+}
+
+/* Mismo aviso que en la piel v2 (antes `border-verde-400`): el marco cambia
+   de color cuando el disparo automático está por saltar. */
+.captura-v4-marco-lista {
+  border-color: var(--v4-verde, #16a34a);
+}
+
+.captura-v4-obturador {
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 9999px;
+  background: #ffffff;
+}
+.captura-v4-obturador:disabled {
+  opacity: 0.45;
+}
+
+.captura-v4-obturador-anillo {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 9999px;
+  border: 5px solid var(--v4-rojo, #ff1721);
+}
+
+/* "Repetir": blanco con borde, para el fondo oscuro del visor — la variante
+   `.v4-boton-secundario` de `v4.css` usa borde y texto navy, invisibles acá. */
+.captura-v4-boton-secundario {
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+}
+.captura-v4-boton-secundario:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.captura-v4-boton-secundario:disabled {
+  opacity: 0.5;
+}

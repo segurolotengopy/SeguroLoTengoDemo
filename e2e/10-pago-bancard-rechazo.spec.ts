@@ -1,21 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
-import { TEXTOS_MEDIOS_DE_PAGO_P7 } from "@/domain/textos-p7";
+import { TEXTOS_MEDIOS_DE_PAGO_P7 } from "@/domain/v4/textos-pago";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarP5Aprobado,
-  completarP6,
+  completarActividadV4,
+  completarConsentimientosV4,
+  completarDatosPersonalesV4,
+  completarDeclaracionesV4,
+  completarFirmaV4,
+  completarIdentidadAprobada,
   completarPlan,
   completarPreparacion,
   completarWhatsapp,
-  declararCorreo,
-  enviarEnlaceYAbrir,
-  enviarP6,
-  firmarNormalmente,
+  esperarHidratacion,
 } from "./support/flujo";
 
 /**
- * Escenario 10 — **G2**: una tarjeta rechazada no encierra a la persona.
+ * Escenario 10 — **G2**: una tarjeta rechazada no encierra a la persona (v4).
  *
  * Mientras hay una operación abierta, la pantalla de pago bloquea el botón y
  * el cambio de medio. Un rechazo que solo cortara el sondeo dejaría un error
@@ -31,6 +32,12 @@ import {
  * que no son dos intensidades: `BANCARD_TIMEOUT` corta **al abrir** y esta
  * corta **al terminar de pagar**.
  *
+ * `05A` (`Pantalla05A.tsx`) es una extrapolación provisional de
+ * `FormularioPagoP7.tsx` (v2/v3): reutiliza los mismos componentes de la
+ * ventana de Bancard (`QrBancard`, `VentanaBancardSimulada`), así que el
+ * contrato de negocio de esta prueba no cambió — solo los selectores de la
+ * piel v4 (`Elegir Tarjeta de débito`, `#acepta-certificado`, `PAGADO`).
+ *
  * La mecánica del lado del servidor —qué estado queda, qué evidencia, qué le
  * pasa a la operación en Bancard— vive en
  * `src/domain/__tests__/pago-bancard-integracion.test.ts`, que corre en
@@ -39,19 +46,12 @@ import {
  * **G1 (la reversa al vencer) no se prueba acá a propósito:** exige agotar el
  * plazo dentro del recorrido completo por una garantía que el test de
  * integración ya verifica mirando la operación del lado de Bancard, y el
- * escenario 06 ya cubre la caducidad en pantalla. El E2E no agregaría nada
- * que se vea.
- *
- * Este escenario **nació en la batería v3** y se trajo acá cuando v4 pasó a
- * ser el flujo vigente (D-28): la pantalla de pago es la misma
- * —`FormularioPagoP7`—, así que lo único que cambia es el camino para llegar.
+ * escenario 06 ya cubre la caducidad en pantalla.
  */
 
 const BOTON_DEBITO = TEXTOS_MEDIOS_DE_PAGO_P7.find((t) => t.medio === "TARJETA_DEBITO")?.botón;
 
-test("una tarjeta rechazada no encierra a la persona: puede reintentar y cobrar", async ({
-  page,
-}) => {
+test("una tarjeta rechazada no encierra a la persona: puede reintentar y cobrar", async ({ page }) => {
   // El recorrido entero más los dos intentos de pago.
   test.setTimeout(300_000);
 
@@ -70,24 +70,26 @@ test("una tarjeta rechazada no encierra a la persona: puede reintentar y cobrar"
   await completarPlan(page, persona);
   await completarWhatsapp(page, persona);
   await completarPreparacion(page);
-  await declararCorreo(page, persona);
-  await completarP5Aprobado(page);
-  await completarP6(page, persona);
-  await enviarP6(page, /\/firma$/);
+  await completarIdentidadAprobada(page, persona);
+  await completarDatosPersonalesV4(page);
+  await completarActividadV4(page, { esPep: false });
+  await completarDeclaracionesV4(page, persona, /\/consentimientos$/);
+  await completarConsentimientosV4(page);
 
   // No hay cobro sin firma (regla 6-bis, D-08): el medio de pago recién existe
   // del otro lado de esto.
-  const idCode100 = await enviarEnlaceYAbrir(page);
-  await firmarNormalmente(page, idCode100);
+  await completarFirmaV4(page, persona);
   await expect(page).toHaveURL(/\/pago$/);
+  await esperarHidratacion(page);
 
   // ── Primer intento: la operación se abre bien ───────────────────────────
   // CHG-37 · sin esta casilla el botón queda deshabilitado.
-  await page.locator("#p7-acepta-certificado").check();
-  // El medio arranca en QR: hay que elegir débito, y el botón de pagar cambia
-  // de rótulo con él (`TEXTOS_MEDIOS_DE_PAGO_P7`).
-  await page.getByRole("radio", { name: "Tarjeta de débito" }).click();
-  const pagar = page.getByRole("button", { name: BOTON_DEBITO });
+  await page.locator("#acepta-certificado").check();
+  // El medio arranca sin elegir en v4 (a diferencia de v2, que heredaba QR por
+  // defecto): hay que elegir débito, y el botón de pagar cambia de rótulo con
+  // él (`TEXTOS_MEDIOS_DE_PAGO_P7`).
+  await page.getByRole("radio", { name: "Elegir Tarjeta de débito", exact: true }).click();
+  const pagar = page.getByRole("button", { name: BOTON_DEBITO, exact: true });
   // Corto a propósito: si el rótulo cambiara, el spec tiene que fallar en
   // segundos y no consumir los 5 minutos del timeout del test.
   await expect(pagar).toBeEnabled({ timeout: 10_000 });
@@ -121,8 +123,7 @@ test("una tarjeta rechazada no encierra a la persona: puede reintentar y cobrar"
   // ── El reintento cobra ──────────────────────────────────────────────────
   // Se espera la respuesta del POST y no solo el modal: si el reintento no
   // prospera, este `expect` dice **por qué** —con el cuerpo de la respuesta— en
-  // vez de dejar al spec esperando un botón que nunca aparece. Fue lo que
-  // destapó el rechazo no idempotente que devolvía `CONFLICTO_CONCURRENCIA`.
+  // vez de dejar al spec esperando un botón que nunca aparece.
   const [apertura] = await Promise.all([
     page.waitForResponse(
       (respuesta) =>
@@ -140,7 +141,5 @@ test("una tarjeta rechazada no encierra a la persona: puede reintentar y cobrar"
   await datosDeEjemploOtraVez.click();
   await page.getByRole("button", { name: /^Pagar / }).click();
 
-  await expect(page.getByRole("heading", { name: "Pago acreditado" })).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(page.getByText("Pago acreditado", { exact: true })).toBeVisible({ timeout: 20_000 });
 });

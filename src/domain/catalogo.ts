@@ -367,3 +367,11 @@ export function formatearGuaranies(monto: number): string {
 export function esPlanId(valor: unknown): valor is PlanId {
   return typeof valor === "string" && valor in PLANES;
 }
+
+/**
+ * El plan que la pantalla 02 marca como «recomendado» (arte
+ * `PANTALLA_02_SELECCION_PLAN_APROBADA_FINAL.png`: la tarjeta de VIVE TOTAL
+ * lleva la cinta). Es un dato del catálogo y no de la pantalla, para que el
+ * arte y el dominio no puedan recomendar planes distintos.
+ */
+export const PLAN_RECOMENDADO: PlanId = "CONFIO_TOTAL";

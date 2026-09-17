@@ -29,16 +29,22 @@
  * momento la institucional ya se aplicó (`PAGO_CONFIRMADO`) o no (`FIRMADO`).
  */
 import type {
+  ActividadEconomicaV4,
   ActoDeFirmaEnCurso,
   CertificadoCobertura,
   PolizaDelExpediente,
   Beneficiario,
+  DatosComplementariosP6,
   DatosFacturacionP7,
+  DatosPersonalesV4,
   Declaraciones,
   EstadoExpediente,
   Expediente,
+  DeclaracionesMedicasV4,
   Firma,
   FirmaInstitucional,
+  Identidad,
+  RespuestaDeclaracion,
   PaqueteDocumental,
   Pago,
   ConstanciaFirmaEmitida,
@@ -49,10 +55,17 @@ import { codigoCertificado } from "./certificado-cobertura";
 import { firmantesDiferidos } from "./firmantes-documento";
 import type { PropositoOtp } from "../ports/otp-provider";
 import { evaluarElegibilidad } from "./elegibilidad";
-import { flujoV3Activo } from "./flujo-vigente";
 
-/** Grafo del flujo de 8 pasos, vigente mientras `FLUJO_V3` esté apagado. */
-export const TRANSICIONES_V2: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
+/**
+ * Grafo de la máquina de estados: única fuente de verdad de qué transición es
+ * legal desde cada estado.
+ *
+ * v4 (D-43) no lo cambió: 03D, 03E y 04A llenan el expediente sin moverlo de
+ * `IDENTIDAD_VERIFICADA`, y `04D` es la única puerta a `DECLARACIONES_OK`. El
+ * grafo alternativo del flujo de 3 pasos (`TRANSICIONES_V3`, identidad antes
+ * que plan) se borró con ese flujo el 16-sep-2026.
+ */
+export const TRANSICIONES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
   // CHG-01 · el plan se elige primero y el OTP de WhatsApp viene después.
   // Todo lo anterior al OTP es información pública, así que ponerlo delante no
   // protegía nada; puesto acá, el código funciona como elemento disuasivo y da
@@ -159,53 +172,8 @@ export const TRANSICIONES_V2: Readonly<Record<EstadoExpediente, readonly EstadoE
   EMITIDO: ["DEVOLUCION_EN_TRAMITE"],
 };
 
-/**
- * Grafo del flujo de 3 pasos (DI-2, Bloque E de `docs/plan/DECISIONES.md`).
- *
- * El orden nuevo —identidad primero, plan después— se logra **recableando
- * aristas entre los mismos estados**: no hay estados nuevos, así que los
- * expedientes históricos siguen siendo legibles y los terminales y legados
- * quedan idénticos. El tramo desde `DECLARACIONES_OK` hasta el final es el
- * mismo del v2, copiado a propósito y con test que lo verifica: la inversión
- * firma→pago (D-08) y la regla 6-bis no se renegocian con este rediseño.
- */
-export const TRANSICIONES_V3: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
-  // Paso 1 · la cédula se conoce al comienzo: el bloqueo por cédula (regla
-  // inviolable #11) se evalúa antes de que la persona invierta tiempo en el
-  // flujo, y la salida a asistencia humana (tres análisis fallidos) sale de
-  // acá y ya no de AUTORIZADO.
-  INICIADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
-  IDENTIDAD_VERIFICADA: ["CANAL_WA_VERIFICADO"],
-  CANAL_WA_VERIFICADO: ["AUTORIZADO"],
-  // La aceptación agrupada del paso 1 (DI-8) es la autorización: cierra la
-  // inscripción y habilita el paso 2.
-  AUTORIZADO: ["PLAN_SELECCIONADO"],
-  // El autobucle sigue siendo el enlace `cambiar plan`. Las declaraciones
-  // viven ahora en el mismo paso que el plan, así que la derivación a análisis
-  // (regla inviolable #5) sale de acá.
-  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "DECLARACIONES_OK", "DERIVADO_MANUAL"],
 
-  // Legado (D-06): sin aristas de entrada; conserva sus salidas v2 para que
-  // un expediente histórico detenido acá pueda terminar su trámite.
-  CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
-  ASISTENCIA_IDENTIDAD: [],
-  DERIVADO_MANUAL: [],
-
-  // Paso 3 en adelante: idéntico al v2, aristas copiadas sin cambios.
-  DECLARACIONES_OK: ["PAQUETE_GENERADO"],
-  PAQUETE_GENERADO: ["FIRMADO_CLIENTE"],
-  FIRMADO_CLIENTE: ["PAGO_CONFIRMADO", "VENCIDO", "FIRMADO"],
-  PAGO_CONFIRMADO: ["FIRMADO", "EMITIDO", "DEVOLUCION_EN_TRAMITE"],
-  FIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE", "PAGO_CONFIRMADO", "VENCIDO"],
-  VENCIDO: ["DEVOLUCION_EN_TRAMITE"],
-  DEVOLUCION_EN_TRAMITE: ["DEVUELTO"],
-  DEVUELTO: [],
-  EMITIDO: ["DEVOLUCION_EN_TRAMITE"],
-};
-
-/** Grafo vigente en este despliegue: única fuente de verdad de la máquina de estados. */
-const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> =
-  flujoV3Activo() ? TRANSICIONES_V3 : TRANSICIONES_V2;
+const TRANSICIONES_LEGALES = TRANSICIONES;
 
 export type ResultadoTransicion =
   | { readonly ok: true; readonly expediente: Expediente }
@@ -528,6 +496,252 @@ export function registrarOtpVigente(
   };
 }
 
+// ---------------------------------------------------------------------------
+// v4 · datos personales (03D) y actividad e ingresos (03E)
+// ---------------------------------------------------------------------------
+
+/**
+ * 03D · completa la identidad con lo que la persona declara y guarda su
+ * domicilio. **No cambia el estado**: el expediente ya está en
+ * `IDENTIDAD_VERIFICADA` desde 03C y sigue ahí hasta que 04D cierre las
+ * declaraciones.
+ *
+ * Que no haya transición no lo vuelve un detalle de presentación: lo que se
+ * escribe acá —país de nacimiento, nacionalidad, sexo, estado civil,
+ * domicilio— termina impreso en la Solicitud y en el FIPF, y por eso pasa por
+ * el dominio y deja evidencia, como cualquier otro dato del expediente.
+ *
+ * La cédula y la fecha de nacimiento **no se tocan**: siguen siendo las que
+ * leyó el OCR, aunque la persona las haya editado en pantalla (D-31). Lo
+ * editado viaja como dato declarado y la elegibilidad se calcula con lo leído.
+ */
+export function registrarDatosPersonalesV4(
+  expediente: Expediente,
+  cambios: {
+    readonly identidad: Identidad;
+    readonly datosPersonales: DatosPersonalesV4;
+  },
+  ahora: string = new Date().toISOString(),
+): Expediente {
+  return {
+    ...expediente,
+    identidad: cambios.identidad,
+    datosPersonales: cambios.datosPersonales,
+    actualizadoEn: ahora,
+  };
+}
+
+/**
+ * 03E · actividad, ingresos y condición PEP.
+ *
+ * Dos desenlaces, y la diferencia es la única regla dura de la pantalla:
+ *
+ * - **PEP `false`**: se guarda la actividad y el expediente **sigue** en
+ *   `IDENTIDAD_VERIFICADA`, camino a las declaraciones.
+ * - **PEP `true`**: el expediente pasa a `DERIVADO_MANUAL` con su número de
+ *   caso. No es un rechazo —el manual y el propio arte lo dicen con todas las
+ *   letras— sino el fin del camino automático: desde `DERIVADO_MANUAL` no hay
+ *   transición a firma, pago ni emisión, así que la garantía es estructural y
+ *   no depende de que nadie se acuerde de comprobarla.
+ *
+ * `datosComplementarios` se compone acá con las dos mitades —el domicilio de
+ * 03D y la actividad de 03E— porque es el bloque que leen el FIPF, la consola
+ * y los documentos. Sin esto, partir la pantalla en dos habría obligado a
+ * cambiar todo lo que ya lee ese bloque.
+ */
+export function registrarActividadV4(
+  expediente: Expediente,
+  entrada: {
+    readonly actividad: ActividadEconomicaV4;
+    /** Obligatorio cuando `esPep` es `true`; ignorado cuando no lo es. */
+    readonly numeroCasoDerivacion?: string;
+  },
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  const domicilio = expediente.datosPersonales;
+  if (!domicilio) {
+    return {
+      ok: false,
+      error: "Falta el domicilio de 03D: la actividad no se puede registrar sin él.",
+    };
+  }
+
+  const datosComplementarios: DatosComplementariosP6 = {
+    domicilio: domicilio.domicilio,
+    ciudad: domicilio.ciudad,
+    situacionLaboral: entrada.actividad.situacionLaboral,
+    actividad: entrada.actividad.actividadEconomica,
+    profesion: entrada.actividad.profesion,
+    empresa: entrada.actividad.empresa,
+    ingresoMensualDeclaradoGs: entrada.actividad.ingresoMensualDeclaradoGs,
+    origenFondos: entrada.actividad.origenIngresos,
+  };
+
+  if (!entrada.actividad.esPep) {
+    return {
+      ok: true,
+      expediente: {
+        ...expediente,
+        actividadEconomica: entrada.actividad,
+        datosComplementarios,
+        actualizadoEn: ahora,
+      },
+    };
+  }
+
+  if (!entrada.numeroCasoDerivacion) {
+    return {
+      ok: false,
+      error: "Derivar por condición PEP exige un número de caso.",
+    };
+  }
+
+  return transicionarExpediente(
+    expediente,
+    "DERIVADO_MANUAL",
+    {
+      actividadEconomica: entrada.actividad,
+      datosComplementarios,
+      numeroCasoDerivacion: entrada.numeroCasoDerivacion,
+      // La condición PEP dejó de ser una pregunta de la pantalla de
+      // declaraciones y pasó a 03E (D-33), pero **sigue siendo la misma
+      // categoría de bloqueo**: la número 8 del motor de elegibilidad, cuya
+      // `categoriaBloqueo` es `PEP`. Se asienta ese número y no una lista
+      // vacía porque de él sale el motivo que muestran la Pantalla A, la
+      // consola y la remisión a Alianza — y porque decir «derivado sin motivo»
+      // sería falso. Nunca se asienta una declaración de salud: eso lo hace
+      // la pantalla 04A, con las suyas.
+      motivoDerivacionManual: [8],
+    },
+    ahora,
+  );
+}
+
+/**
+ * 04A · las tres declaraciones de salud y el beneficiario (flujo v4).
+ *
+ * Es el momento en que la **evaluación médica** puede detener el proceso, y
+ * por eso tiene dos desenlaces como 03E:
+ *
+ * - **Compatibles**: se guardan las tres y el beneficiario, y el expediente
+ *   **sigue** en `IDENTIDAD_VERIFICADA`. Las declaraciones completas se
+ *   escriben en 04D, que es donde se aceptan las que faltan.
+ * - **Alguna incompatible**: `DERIVADO_MANUAL` con su número de caso. Es la
+ *   regla inviolable #5, que no cambia con v4: lo que cambió es que ahora son
+ *   **tres** preguntas en esta pantalla y la PEP se declara en 03E.
+ *
+ * La evaluación usa el mismo motor de siempre. Las cinco declaraciones que
+ * todavía no se contestaron entran como su **respuesta habilitante**, que es
+ * lo único honesto: no se está afirmando que la persona las aceptó —para eso
+ * están 04D y la firma—, se está diciendo que **no son las que bloquean**.
+ * Ninguna de las cinco es de las que bloquean, salvo la PEP, que se toma del
+ * dato ya declarado en 03E.
+ */
+export function registrarDeclaracionesMedicasV4(
+  expediente: Expediente,
+  entrada: {
+    readonly declaracionesMedicas: DeclaracionesMedicasV4;
+    readonly beneficiario: Beneficiario;
+    /** Obligatorio solo si alguna respuesta bloquea. */
+    readonly numeroCasoDerivacion?: string;
+  },
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  const pep: RespuestaDeclaracion = expediente.actividadEconomica?.esPep ? "SI" : "NO";
+
+  const paraEvaluar: Declaraciones = {
+    ...entrada.declaracionesMedicas,
+    vigenciaYCarencias: "SI",
+    veracidad: "SI",
+    entregaDigital: "SI",
+    corredorDeLaPoliza: "SI",
+    condicionPep: pep,
+  };
+
+  const resultado = evaluarElegibilidad(paraEvaluar);
+
+  if (resultado.elegibleParaEmisionAutomatica) {
+    return {
+      ok: true,
+      expediente: {
+        ...expediente,
+        declaracionesMedicas: entrada.declaracionesMedicas,
+        beneficiario: entrada.beneficiario,
+        actualizadoEn: ahora,
+      },
+    };
+  }
+
+  if (!entrada.numeroCasoDerivacion || entrada.numeroCasoDerivacion.trim() === "") {
+    return { ok: false, error: "Una derivación a DERIVADO_MANUAL requiere un número de caso." };
+  }
+
+  return transicionarExpediente(
+    expediente,
+    "DERIVADO_MANUAL",
+    {
+      declaracionesMedicas: entrada.declaracionesMedicas,
+      beneficiario: entrada.beneficiario,
+      motivoDerivacionManual: resultado.declaracionesQueBloquean,
+      numeroCasoDerivacion: entrada.numeroCasoDerivacion,
+    },
+    ahora,
+  );
+}
+
+/**
+ * 04D · los consentimientos, y con ellos el cierre de las declaraciones (v4).
+ *
+ * Es la **única** puerta a `DECLARACIONES_OK` en v4. Compone el
+ * `Declaraciones` completo con las tres médicas de 04A, la condición PEP de
+ * 03E y los consentimientos de esta pantalla, y delega en
+ * `registrarDeclaracionesP6`: el mismo motor, la misma derivación y la misma
+ * garantía de que un expediente derivado no puede seguir.
+ *
+ * La declaración 5 —veracidad— entra en `SI` porque es lo que la persona firma
+ * a continuación, integrada al PDF por la Matriz Legal V4 §4 y no como una
+ * casilla aparte.
+ */
+export function registrarConsentimientosV4(
+  expediente: Expediente,
+  entrada: {
+    readonly aceptaInicioDeCoberturaYCarencias: boolean;
+    readonly aceptaEntregaDigital: boolean;
+    readonly numeroCasoDerivacion: string;
+  },
+  ahora: string = new Date().toISOString(),
+): ResultadoTransicion {
+  const medicas = expediente.declaracionesMedicas;
+  if (!medicas) {
+    return { ok: false, error: "Faltan las declaraciones de salud de 04A." };
+  }
+  if (!expediente.beneficiario) {
+    return { ok: false, error: "Falta el beneficiario de 04A." };
+  }
+  if (!entrada.aceptaInicioDeCoberturaYCarencias || !entrada.aceptaEntregaDigital) {
+    return { ok: false, error: "Los dos consentimientos de 04D son obligatorios." };
+  }
+
+  const declaraciones: Declaraciones = {
+    ...medicas,
+    vigenciaYCarencias: entrada.aceptaInicioDeCoberturaYCarencias ? "SI" : "NO",
+    veracidad: "SI",
+    entregaDigital: entrada.aceptaEntregaDigital ? "SI" : "NO",
+    // El tercer bloque de 04D es **informativo y sin casilla**: el manual lo
+    // fija así y se registra al continuar (ANALISIS.md §3).
+    corredorDeLaPoliza: "SI",
+    condicionPep: expediente.actividadEconomica?.esPep ? "SI" : "NO",
+  };
+
+  return registrarDeclaracionesP6(
+    expediente,
+    declaraciones,
+    expediente.beneficiario,
+    entrada.numeroCasoDerivacion,
+    ahora,
+  );
+}
+
 /**
  * El `otpId` vigente de `proposito` cuando `otpId` **no** es él; `null` si
  * `otpId` es el vigente o si el propósito no tiene ninguno asentado.
@@ -741,7 +955,7 @@ export function registrarFirmaClienteInterna(
  * quedar habilitado para la emisión.
  *
  * **Solo desde `PAGO_CONFIRMADO`.** El grafo también admite legalmente
- * `FIRMADO_CLIENTE → FIRMADO` (legado, ver `TRANSICIONES_V2`), pero esta
+ * `FIRMADO_CLIENTE → FIRMADO` (legado, ver `TRANSICIONES`), pero esta
  * función lo rechaza explícitamente: aplicar la institucional antes de cobrar
  * volvería a acoplar el cobro a una firma que D-38 sacó del camino crítico.
  * La arista legada existe para expedientes históricos que llegaron a

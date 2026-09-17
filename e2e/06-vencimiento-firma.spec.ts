@@ -1,31 +1,27 @@
 import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
+import { TEXTOS_05A } from "@/domain/v4/textos-pago";
 import { prepararEscenario } from "./support/demo-panel";
 import {
-  completarWhatsapp,
+  completarActividadV4,
+  completarConsentimientosV4,
+  completarDatosPersonalesV4,
+  completarDeclaracionesV4,
+  completarFirmaV4,
+  completarIdentidadAprobada,
   completarPlan,
   completarPreparacion,
-  declararCorreo,
-  completarP5Aprobado,
-  completarP6,
-  enviarEnlaceYAbrir,
-  enviarP6,
-  firmarNormalmente,
+  completarWhatsapp,
 } from "./support/flujo";
 
 /**
- * Escenario 6 — Caducidad del expediente firmado sin pagar (D-10).
+ * Escenario 6 — Caducidad del expediente firmado sin pagar (D-10, v4).
  *
- * **La inversión de firma y pago (D-08) dio vuelta este escenario.** Antes se
- * pagaba, no se firmaba y había que devolver el premio; ahora se firma, no se
- * paga, y el expediente caduca sin que se haya movido un guaraní. Es
- * exactamente lo que buscaba la inversión: vencer dejó de costar plata.
- *
- * El plazo se fija **antes** de firmar, con una palanca corta que sigue
- * dejando margen para completar la firma sin flakiness (30 segundos, no el
- * piso de 5): desde la enmienda del 04-sep-2026 a D-08 y D-32, el reloj
- * arranca con la firma del cliente, no con la institucional —que ahora se
- * aplica después del pago (D-38) y no bloquea este escenario.
+ * Se firma en 04E, no se paga, y el expediente caduca sin que se haya movido
+ * un guaraní: es exactamente lo que buscaba la inversión de D-08. El plazo se
+ * fija **antes** de firmar, con una palanca corta que sigue dejando margen
+ * para completar la firma sin flakiness (30 segundos, no el piso de 5): el
+ * reloj arranca con la firma del cliente (D-32, D-38).
  *
  * Con Lucía Fernanda Ortiz Meza (C.I. 6.155.740) — la persona de prueba
  * pensada para este desenlace.
@@ -45,18 +41,18 @@ test("expediente firmado sin pagar dentro del plazo dispara Pantalla B", async (
   await completarPlan(page, persona);
   await completarWhatsapp(page, persona);
   await completarPreparacion(page);
-  await declararCorreo(page, persona);
-  await completarP5Aprobado(page);
-  await completarP6(page, persona);
-  await enviarP6(page, /\/firma$/);
+  await completarIdentidadAprobada(page, persona);
+  await completarDatosPersonalesV4(page);
+  await completarActividadV4(page, { esPep: false });
+  await completarDeclaracionesV4(page, persona, /\/consentimientos$/);
+  await completarConsentimientosV4(page);
 
   // Se firma, y ahí arranca el reloj de los 10 minutos comprimidos (D-32).
-  const idCode100 = await enviarEnlaceYAbrir(page);
-  await firmarNormalmente(page, idCode100);
+  await completarFirmaV4(page, persona);
 
   // No se genera ningún QR: se deja transcurrir el plazo en la pantalla de pago.
   await expect(page).toHaveURL(/\/pago$/);
-  await expect(page.getByText("Tiempo restante para pagar")).toBeVisible();
+  await expect(page.getByText(TEXTOS_05A.tituloPlazo, { exact: true })).toBeVisible();
 
   // La propia pantalla de pago lleva sola a Pantalla B en cuanto el plazo se
   // cumple: ni bien el contador llega a cero, `POST /api/p7/vencimiento` hace

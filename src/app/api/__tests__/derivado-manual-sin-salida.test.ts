@@ -74,7 +74,15 @@ import type { SignatureProvider } from "@/ports/signature-provider";
 import { esTransicionLegal, transicionarExpediente, transicionesLegalesDesde } from "@/domain/expediente";
 import { seleccionarPlan } from "@/domain/seleccion-plan";
 import type { EstadoExpediente, Expediente, RegistroEvidencia } from "@/domain/tipos";
-import { analizarIdentidadP5, confirmarIdentidadP5, registrarCapturaP5 } from "@/domain/verificacion-identidad";
+import {
+  analizarIdentidadP5,
+  confirmarIdentidadP5,
+  registrarCapturaP5,
+  verificarIdentidadV4,
+} from "@/domain/verificacion-identidad";
+import { registrarDatosPersonales } from "@/domain/v4/datos-personales";
+import { registrarActividad } from "@/domain/v4/actividad";
+import { registrarConsentimientos, registrarDeclaracionesSalud } from "@/domain/v4/declaraciones";
 import { enviarOtpWhatsapp, reenviarOtpWhatsapp, verificarOtpWhatsapp } from "@/domain/verificacion-canal-whatsapp";
 import type { ContextoPeticion, RepositorioExpediente } from "@/domain/verificacion-canal";
 import type { EvidenceStore } from "@/ports/evidence-store";
@@ -427,6 +435,95 @@ describe("2. Casos de uso: todos rechazan un expediente derivado", () => {
             correo: "monica.gorena@example.com",
             datosComplementarios: COMPLEMENTARIOS_CRUDOS,
             autorizacionBiometrica: true,
+            contexto: CONTEXTO,
+          },
+        ),
+    },
+    // v4 · las tres pantallas nuevas del flujo del handoff. Las tres mutan el
+    // expediente, así que las tres tienen que rebotar contra un derivado.
+    {
+      ruta: "v4/identidad",
+      ejecutar: async (repo) =>
+        verificarIdentidadV4(
+          {
+            identidad: crearIdentityProviderMock(),
+            expedientes: repo,
+            evidencias: evidenciasFalsas(),
+            bloqueos: { buscarPorCedula: async () => [], buscarSucesores: async () => [] },
+          },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            imagenes: IMAGENES,
+            correo: "monica.gorena@example.com",
+            autorizacionBiometrica: true,
+            contexto: CONTEXTO,
+          },
+        ),
+    },
+    {
+      ruta: "v4/datos-personales",
+      ejecutar: async (repo) =>
+        registrarDatosPersonales(
+          { expedientes: repo, evidencias: evidenciasFalsas() },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            sexo: "Femenino",
+            estadoCivil: "Soltero/a",
+            paisNacimiento: "Paraguay",
+            nacionalidad: "Paraguay",
+            paisResidencia: "Paraguay",
+            domicilio: "Avda. España 1234",
+            ciudad: "Asunción",
+            barrio: "Villa Morra",
+            contexto: CONTEXTO,
+          },
+        ),
+    },
+    {
+      ruta: "v4/actividad",
+      ejecutar: async (repo) =>
+        registrarActividad(
+          { expedientes: repo, evidencias: evidenciasFalsas(), nuevoNumeroCaso: () => "CAS-00099999" },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            situacionLaboral: "Empleado (dependiente)",
+            actividadEconomica: "Servicios",
+            ocupacion: "Empleado administrativo",
+            profesion: "Administrador",
+            empresa: "Interseguros S.A.",
+            ingresoMensualDeclarado: "9.500.000",
+            origenIngresos: "Salario",
+            esPep: false,
+            contexto: CONTEXTO,
+          },
+        ),
+    },
+    {
+      ruta: "v4/declaraciones",
+      ejecutar: async (repo) =>
+        registrarDeclaracionesSalud(
+          { expedientes: repo, evidencias: evidenciasFalsas(), nuevoNumeroCaso: () => "CAS-00099998" },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            respuestas: {
+              estadoDeSalud: "SI",
+              antecedentesDeContratacion: "NO",
+              enfermedadesDiagnosticadas: "NO",
+            },
+            beneficiario: { beneficiarioTipo: "HEREDEROS_LEGALES" },
+            contexto: CONTEXTO,
+          },
+        ),
+    },
+    {
+      ruta: "v4/consentimientos",
+      ejecutar: async (repo) =>
+        registrarConsentimientos(
+          { expedientes: repo, evidencias: evidenciasFalsas(), nuevoNumeroCaso: () => "CAS-00099997" },
+          {
+            expedienteId: EXPEDIENTE_ID,
+            aceptaInicioDeCoberturaYCarencias: true,
+            aceptaEntregaDigital: true,
             contexto: CONTEXTO,
           },
         ),
@@ -819,11 +916,6 @@ describe("3. Inventario de rutas de la API", () => {
      */
     const CREAN_SIN_TOCAR_EL_ORIGINAL: readonly string[] = [
       "admin-consola/reinicio",
-      // T&C del inicio del flujo v3 (DI-10, lote F2): crea el expediente en
-      // INICIADO. Con uno ya existente en la sesión —derivado o no— responde
-      // EXPEDIENTE_YA_EXISTE sin tocarlo; probado en
-      // `src/domain/__tests__/inicio-terminos.test.ts`.
-      "inicio/terminos",
     ];
 
     const CUBIERTAS: readonly string[] = [
@@ -840,6 +932,11 @@ describe("3. Inventario de rutas de la API", () => {
       "p5/captura",
       "p5/identidad",
       "p6/declaraciones",
+      "v4/identidad",
+      "v4/datos-personales",
+      "v4/actividad",
+      "v4/declaraciones",
+      "v4/consentimientos",
       "p7/estado",
       "p7/pago",
       "p8/estado",

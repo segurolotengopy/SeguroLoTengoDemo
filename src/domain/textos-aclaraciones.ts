@@ -44,7 +44,7 @@ export interface DocumentoAclaracion {
 
 export const ACLARACION_COBERTURAS: DocumentoAclaracion = {
   id: "coberturas-exclusiones-condiciones",
-  titulo: "Coberturas, exclusiones y condiciones — Seguro de Vida Oncológico CONFÍO",
+  titulo: "Coberturas, exclusiones y condiciones — Seguro de Vida Oncológico VIVE",
   version: "v1.0",
   secciones: [
     {
@@ -226,7 +226,7 @@ export const ACLARACION_TERMINOS_CONDICIONES: DocumentoAclaracion = {
       titulo: "Sobre el canal",
       parrafos: [
         "SeguroLoTengo.com es la marca y el canal digital de venta de Interseguros S.A., corredor de seguros inscripto ante la Superintendencia de Seguros. La aseguradora del producto es Alianza Garantía Seguros y Reaseguros S.A.",
-        "El canal permite contratar el Seguro de Vida Oncológico CONFÍO íntegramente en línea, con verificación de identidad, pago electrónico y firma electrónica.",
+        "El canal permite contratar el Seguro de Vida Oncológico VIVE íntegramente en línea, con verificación de identidad, pago electrónico y firma electrónica.",
       ],
     },
     {

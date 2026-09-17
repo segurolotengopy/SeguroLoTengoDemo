@@ -29,7 +29,7 @@ Manual operativo para la persona que presenta o prueba el demo de SeguroLoTengo.
 
 ## 2. Recorrido principal — Camino feliz (Mónica, ~10 minutos)
 
-**Persona:** Mónica Mariana Gorena Tapia · celular `981 000 123` · correo `monica.gorena@example.com` · C.I. 9.323.336 · plan CONFÍO+.
+**Persona:** Mónica Mariana Gorena Tapia · celular `981 000 123` · correo `monica.gorena@example.com` · C.I. 9.323.336 · plan VIVE+.
 
 Antes de arrancar: en el panel, verificá que la persona activa sea **Camino feliz** y que no quede ninguna falla armada.
 
@@ -37,7 +37,7 @@ Antes de arrancar: en el panel, verificá que la persona activa sea **Camino fel
 | :---- | :---- | :---- | :---- | :---- |
 | 1 | **P0** `/` | `VERIFICAR WHATSAPP Y COTIZAR` | Nada todavía: P0 es informativa, no pide datos ni crea expediente | — |
 | 2 | **P1** | Tipear `981 000 123`, marcar la autorización, `ENVIAR CÓDIGO` | Se crea el expediente en `INICIADO` y se envía el primer OTP | **Ir al panel**: leer el código de 6 dígitos, volver, verificar → `CANAL_WA_VERIFICADO` |
-| 3 | **P2** | Elegir CONFÍO+ | `PLAN_SELECCIONADO` — queda guardado el ID de versión de la oferta y su hash | — |
+| 3 | **P2** | Elegir VIVE+ | `PLAN_SELECCIONADO` — queda guardado el ID de versión de la oferta y su hash | — |
 | 4 | **P3** | `TENGO TODO LISTO` | `AUTORIZADO` — consentimiento versionado con IP, dispositivo y texto íntegro | — |
 | 5 | **P4** | Correo `monica.gorena@example.com` | Segundo OTP, **distinto e independiente** del de P1 | **Ir al panel**: código nuevo → `CANAL_EMAIL_VERIFICADO` |
 | 6 | **P5** | Capturas simuladas de cédula y selfie; completar país y estado civil | OCR llena los campos con candado (no editables); la edad se calcula de la cédula → `IDENTIDAD_VERIFICADA` | — |
@@ -62,7 +62,7 @@ Reiniciá el expediente desde el panel antes de cada uno, y cambiá la **persona
 
 ### 3.1 Bloqueo por PEP → Pantalla A (Ramón, ~4 minutos)
 
-**Persona:** PEP positivo · celular `982 000 456` · correo `ramon.duarte@example.com` · C.I. 3.874.512 · plan CONFÍO TOTAL · beneficiaria designada (cónyuge, 100%).
+**Persona:** PEP positivo · celular `982 000 456` · correo `ramon.duarte@example.com` · C.I. 3.874.512 · plan VIVE TOTAL · beneficiaria designada (cónyuge, 100%).
 
 1. Repetir P0→P5 como en el camino feliz (dos visitas al panel por los OTP).
 2. En **P6**, responder la declaración 8 (condición PEP) en **"Sí"**.
@@ -72,7 +72,7 @@ Reiniciá el expediente desde el panel antes de cada uno, y cambiá la **persona
 
 ### 3.2 Bloqueo por salud → Pantalla A (Carolina, ~3 minutos)
 
-**Persona:** Salud incompatible · celular `983 000 789` · correo `carolina.ayala@example.com` · C.I. 5.612.908 · plan CONFÍO.
+**Persona:** Salud incompatible · celular `983 000 789` · correo `carolina.ayala@example.com` · C.I. 5.612.908 · plan VIVE.
 
 Igual que el anterior, pero en P6 las declaraciones 1, 2 y 3 van en su respuesta incompatible (1 en "No", 2 y 3 en "Sí"). Señalar: el motivo se registra **por número de declaración**, y las respuestas médicas no salen hacia analítica, CRM ni monitoreo — solo la consola las muestra.
 
@@ -84,7 +84,7 @@ Igual que el anterior, pero en P6 las declaraciones 1, 2 y 3 van en su respuesta
 
 ### 3.4 Paga y no firma → Pantalla B (Lucía, ~5 minutos)
 
-**Persona:** Paga y no firma · celular `985 000 567` · correo `lucia.ortiz@example.com` · C.I. 6.155.740 · plan CONFÍO+.
+**Persona:** Paga y no firma · celular `985 000 567` · correo `lucia.ortiz@example.com` · C.I. 6.155.740 · plan VIVE+.
 
 1. **Primero, en el panel: fijar el plazo de firma corto.** El vencimiento se congela al confirmarse el pago, así que hay que elegirlo **antes** de pagar en P7. (Solo se puede acortar, nunca alargar: alargarlo cambiaría una condición ya informada a la persona.)
 2. Recorrer P0→P7 y pagar con **QR**.

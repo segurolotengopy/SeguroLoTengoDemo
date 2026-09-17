@@ -1,49 +1,52 @@
 import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
-import { leerSesionFirmaDelPanel, prepararEscenario } from "./support/demo-panel";
+import { TEXTOS_04E } from "@/domain/v4/textos-firma";
+import { leerCodigoOtpDelPanel, prepararEscenario } from "./support/demo-panel";
 import {
-  completarWhatsapp,
+  abrirBloqueCodigoFirma,
+  completarActividadV4,
+  completarConsentimientosV4,
+  completarDatosPersonalesV4,
+  completarDeclaracionesV4,
+  completarIdentidadAprobada,
   completarPlan,
   completarPreparacion,
-  declararCorreo,
-  completarP5Aprobado,
-  completarP6,
-  enviarEnlaceYAbrir,
-  enviarP6,
+  completarWhatsapp,
+  enviarCodigoFirmaPorWhatsappV4,
+  tipearOtpV4,
 } from "./support/flujo";
 
 /**
- * Escenario 9 — El código de firma se puede reintentar: por error y a pedido.
+ * Escenario 9 — El código de firma se puede reintentar: por error y a pedido
+ * (v4).
  *
  * ## Por qué existe
  *
- * El paso 6 dejó de mandar un enlace y pasa a pedir el código en la pantalla
- * (21-ago-2026). Andres aceptó ese cambio **con una condición**: que se pueda
- * reintentar si hay un error, y que se pueda pedir otro código cuando la
- * persona quiera. Sin eso, equivocarse al tipear seis dígitos sería un callejón
- * sin salida — y equivocarse tipeando seis dígitos es lo más normal del mundo.
- *
- * Verificar eso destapó que los mensajes de esta pantalla **no correspondían a
- * los motivos que el servidor devuelve**: de los ocho posibles, el mapa acertaba
- * dos, y el resto caía en un genérico que no decía qué hacer. Este escenario
- * fija los dos caminos y, de paso, que el texto sea el correcto y no el
- * comodín.
+ * En v2, equivocarse tipeando el código de firma tenía una salida inmediata
+ * —"Pedir un código nuevo"—, distinta del reenvío con cooldown, precisamente
+ * para no dejar a alguien esperando 60 segundos por haberse confundido de
+ * dígito. **04E (v4) no tiene esa distinción**: hay un solo botón de reenvío
+ * (`TEXTOS_04E.reenviar`, "Reenviar código") y comparte el mismo cooldown de
+ * 60 segundos que el envío inicial, tanto si el motivo es "recién lo pedí"
+ * como "me equivoqué". Como 04E no tiene arte aprobado ni candidato
+ * (`Pantalla04E.tsx`, cabecera del archivo) y es una extrapolación
+ * provisional, queda anotado como divergencia para que Andres decida si hay
+ * que traer de vuelta la salida inmediata cuando llegue el arte — no se
+ * implementa acá.
  *
  * ## Qué prueba, en orden
  *
- * 1. Un código equivocado **no cierra nada**: avisa qué pasó y cuántos intentos
- *    quedan.
- * 2. *Pedir un código nuevo* emite otro y reinicia el contador de intentos —el
- *    proveedor simulado devuelve un `hash` nuevo con `intentos: 0`—, así que el
- *    código viejo deja de servir y el nuevo sí.
+ * 1. Un código equivocado **no cierra nada**: avisa qué pasó y cuántos
+ *    intentos quedan, y el trámite sigue en `/firma`.
+ * 2. Pasado el cooldown de reenvío, pedir un código nuevo emite otro y el
+ *    código viejo deja de servir.
  * 3. Con el código nuevo se firma y el flujo sigue al pago, como siempre.
  *
  * Con Mónica Mariana Gorena Tapia, el camino que aprueba.
  */
-test("el código de firma se puede errar y volver a pedir sin perder el trámite", async ({
-  page,
-}) => {
-  // Recorre el flujo entero y además yerra el código, pide otro y firma.
+test("el código de firma se puede errar y volver a pedir sin perder el trámite", async ({ page }) => {
+  // Recorre el flujo entero y además yerra el código, espera el cooldown de
+  // reenvío, pide otro y firma.
   test.setTimeout(300_000);
 
   const persona = obtenerPersonaDemo("camino-feliz");
@@ -54,72 +57,45 @@ test("el código de firma se puede errar y volver a pedir sin perder el trámite
   await completarPlan(page, persona);
   await completarWhatsapp(page, persona);
   await completarPreparacion(page);
-  await declararCorreo(page, persona);
-  await completarP5Aprobado(page);
-  await completarP6(page, persona);
-  await enviarP6(page, /\/firma$/);
+  await completarIdentidadAprobada(page, persona);
+  await completarDatosPersonalesV4(page);
+  await completarActividadV4(page, { esPep: false });
+  await completarDeclaracionesV4(page, persona, /\/consentimientos$/);
+  await completarConsentimientosV4(page);
 
-  const idCode100 = await enviarEnlaceYAbrir(page);
+  await abrirBloqueCodigoFirma(page);
+  await enviarCodigoFirmaPorWhatsappV4(page);
 
   // --- 1 · Un código equivocado avisa y deja seguir --------------------------
-  const primera = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(primera.codigo, "El panel no tiene código de firma para esta sesión.").not.toBeNull();
+  const primerCodigo = await leerCodigoOtpDelPanel(page, persona.celular.slice(-3));
 
   // Seis dígitos que no son el emitido. Se deriva del real para no chocar con
   // él por casualidad.
-  const equivocado = (primera.codigo as string)
+  const equivocado = primerCodigo
     .split("")
     .map((digito) => String((Number(digito) + 1) % 10))
     .join("");
 
-  for (let i = 0; i < equivocado.length; i += 1) {
-    await page.locator(`#p8-otp-${i}`).fill(equivocado[i]);
-  }
+  await tipearOtpV4(page, equivocado);
 
-  // El mensaje es el específico del motivo real (`CODIGO_INCORRECTO`), no el
-  // comodín, y dice cuántos intentos quedan.
-  //
-  // Se busca por texto y no por `getByRole("alert")`: Next monta su propio
-  // `role="alert"` invisible para anunciar las navegaciones
-  // (`__next-route-announcer__`), así que el rol solo devuelve dos elementos y
-  // el modo estricto de Playwright —con razón— se niega a elegir.
-  const aviso = page.getByText("El código no coincide", { exact: false });
+  const aviso = page.getByText(TEXTOS_04E.errorCodigoIncorrecto(2));
   await expect(aviso).toBeVisible({ timeout: 15_000 });
-  await expect(aviso).toContainText("intento");
   // Y sobre todo: el trámite sigue acá, no se cerró ni se cayó a otra pantalla.
   await expect(page).toHaveURL(/\/firma$/);
 
-  // --- 2 · Se pide uno nuevo, a demanda -------------------------------------
-  await page.getByRole("button", { name: "Pedir un código nuevo" }).click();
+  // --- 2 · Se pide uno nuevo, pasado el cooldown de reenvío -----------------
+  // A diferencia de 03A (donde el reenvío tras error también respeta el
+  // cooldown), acá no hay atajo: ver la nota de arriba.
+  const reenviar = page.getByRole("button", { name: TEXTOS_04E.reenviar, exact: true });
+  await expect(reenviar).toBeVisible({ timeout: 65_000 });
+  await reenviar.click();
 
-  await expect
-    .poll(
-      async () => {
-        const sesion = await leerSesionFirmaDelPanel(page, idCode100);
-        return sesion.codigo;
-      },
-      {
-        message: "El proveedor no emitió un código nuevo al pedirlo.",
-        timeout: 15_000,
-      },
-    )
-    .not.toBe(primera.codigo);
+  await expect(page.getByText(/^Enviamos un nuevo código de firma a/)).toBeVisible({ timeout: 15_000 });
 
-  const segunda = await leerSesionFirmaDelPanel(page, idCode100);
-  expect(segunda.codigo).not.toBeNull();
+  const segundoCodigo = await leerCodigoOtpDelPanel(page, persona.celular.slice(-3));
+  expect(segundoCodigo).not.toBe(primerCodigo);
 
   // --- 3 · Con el código nuevo se firma y el flujo sigue --------------------
-  const codigoNuevo = segunda.codigo as string;
-  for (let i = 0; i < codigoNuevo.length; i += 1) {
-    await page.locator(`#p8-otp-${i}`).fill(codigoNuevo[i]);
-  }
-
-  // El mismo margen que `firmarNormalmente`, y por la misma razón: tipear el
-  // código no lleva al pago en el acto —el sondeo tiene que ver
-  // `FIRMADO_CLIENTE` para navegar, al menos un ciclo contra DynamoDB real—.
-  // Acá el paso está escrito en línea en vez de con el helper, porque este
-  // spec firma con el **código nuevo**, y al copiarlo se le quedó un plazo de
-  // 20 s que el helper ya había descartado por corto: con la batería completa
-  // cargada, la navegación llega después y el spec fallaba habiendo funcionado.
+  await tipearOtpV4(page, segundoCodigo);
   await expect(page).toHaveURL(/\/pago$/, { timeout: 60_000 });
 });

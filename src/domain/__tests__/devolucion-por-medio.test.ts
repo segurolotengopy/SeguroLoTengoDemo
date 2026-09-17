@@ -77,7 +77,7 @@ describe("condiciones que Bancard puso al trámite", () => {
   });
 
   /**
-   * B2(d): la parcial existe solo con crédito. CONFÍO hoy devuelve siempre el
+   * B2(d): la parcial existe solo con crédito. VIVE hoy devuelve siempre el
    * total, así que esto no cambia ningún camino — está para que quien alguna
    * vez diseñe una devolución parcial se encuentre con el límite escrito y no
    * lo descubra contra el proveedor.

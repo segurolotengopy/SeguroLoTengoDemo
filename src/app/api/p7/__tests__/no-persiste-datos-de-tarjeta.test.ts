@@ -307,7 +307,8 @@ const ARCHIVOS_DE_P7: readonly string[] = [
   "src/app/api/p7/estado/route.ts",
   "src/app/api/p7/resumen/route.ts",
   "src/app/(flujo)/pago/page.tsx",
-  "src/app/(flujo)/pago/FormularioPagoP7.tsx",
+  "src/components/v4/pantallas/Pantalla05A.tsx",
+  "src/domain/v4/textos-pago.ts",
 ];
 
 /** Quita comentarios: la prosa explica por qué NO se guarda el CVV. */
@@ -347,20 +348,19 @@ describe("P7 · ningún campo de tarjeta en la superficie de entrada", () => {
     }
   });
 
-  it("el formulario de P7 no tiene ningún input que pueda recibir una tarjeta", () => {
+  it("la pantalla de pago no tiene ningún input que pueda recibir una tarjeta", () => {
     const fuente = readFileSync(
-      join(process.cwd(), "src/app/(flujo)/pago/FormularioPagoP7.tsx"),
+      join(process.cwd(), "src/components/v4/pantallas/Pantalla05A.tsx"),
       "utf8",
     );
 
-    // Los únicos inputs de la pantalla son el nombre (bloqueado), el RUC y el
-    // checkbox de origen lícito. El medio de pago dejó de ser un grupo de
-    // radios al portarse el dibujo del canvas: son botones, y por eso ya no
-    // aparece `p7-medio` en esta lista.
+    // El único input de la pantalla v4 (`05A`) es el radio del medio de pago:
+    // los datos de facturación ya vienen del expediente y la tarjeta se
+    // tipea en la ventana del proveedor, nunca acá.
     const inputs = [...fuente.matchAll(/<input[\s\S]*?\/>/g)].map((m) => m[0]);
     const ids = inputs.flatMap((input) => [...input.matchAll(/(?:id|name)="([^"]+)"/g)].map((m) => m[1]));
 
-    expect(ids.sort()).toEqual(["p7-acepta-certificado", "p7-nombre", "p7-ruc"]);
+    expect(ids.sort()).toEqual(["medio-de-pago"]);
     for (const input of inputs) {
       expect(input).not.toMatch(/autoComplete="cc-/i);
     }

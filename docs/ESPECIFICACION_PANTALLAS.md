@@ -83,7 +83,7 @@ desplegable: `INFORMACIÓN LEGAL Y REGULATORIA ▾` (abierto: `▴`). Cuerpo:
 
 > SeguroLoTengo.com es marca y canal digital de Interseguros S.A. — Corredores
 > de Seguros. La aseguradora es Alianza Garantía Seguros y Reaseguros S.A.
-> Producto inscrito: Seguro de Vida Oncológico CONFÍO, 15-VI.0002 · Nota SS.SG. N.º 397/2026 ·
+> Producto inscrito: Seguro de Vida Oncológico VIVE, 15-VI.0002 · Nota SS.SG. N.º 397/2026 ·
 > Res. SS.SG. N° 250/2026. Firma electrónica del cliente: simple, autenticada
 > por código de un solo uso; las firmas institucionales son cualificadas.
 > Pagos procesados por Bancard directamente a favor de la aseguradora. La
@@ -298,14 +298,14 @@ es la regla inviolable #9 en palabras del cliente; la aceptación agrupada deja
 **Tabs de ramos:** `ONCOLÓGICO` (activo) · `VIDA`, `ACCIDENTES PERSONALES`,
 `RESPONSABILIDAD CIVIL` con etiqueta `PRONTO`, deshabilitados.
 
-**Leyenda:** `Seguro de Vida Individual Oncológico CONFÍO · producto inscrito
+**Leyenda:** `Seguro de Vida Individual Oncológico VIVE · producto inscrito
 15-VI.0002 · Nota SS.SG. N.º 397/2026 · Res. SS.SG. N° 250/2026. Los importes son premios
 anuales finales, IVA incluido. Todavía no estás firmando ni pagando.`
 (identificadores provisionales, DI-4).
 
 **Tres planes (valores exactos, aprobados el 20-ago — derogan a los de D-04):**
 
-| Cobertura | CONFÍO | CONFÍO+ | CONFÍO TOTAL |
+| Cobertura | VIVE | VIVE+ | VIVE TOTAL |
 | :---- | :---- | :---- | :---- |
 | Indemnización por cáncer (pago único) | Gs. 50.000.000 | Gs. 75.000.000 | Gs. 100.000.000 |
 | Muerte por cualquier causa | Gs. 3.500.000 | Gs. 5.000.000 | Gs. 7.000.000 |

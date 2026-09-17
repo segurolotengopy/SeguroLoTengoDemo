@@ -44,10 +44,10 @@ export async function POST(request: Request): Promise<Response> {
   // cuerpo sin el campo no puede convertirse en una subida silenciosa.
   //
   // **Esta guarda es la que sostiene la regla en producción.** La pantalla
-  // esconde el botón de subir archivo fuera del modo demostración, pero eso es
-  // cosmético: cualquiera puede armar la petición a mano. Acá se rechaza, así
-  // que un despliegue sin `DEMO_MODE` no tiene forma de aceptar un archivo por
-  // ninguna vía.
+  // ofrece la carga de archivo solo para el frente y el dorso (D-46), pero eso
+  // es cosmético: cualquiera puede armar la petición a mano. Acá se rechaza,
+  // así que un despliegue sin `DEMO_MODE` no tiene forma de aceptar una selfie
+  // como archivo por ninguna vía.
   const origen: OrigenCaptura = cuerpo.origen === "ARCHIVO" ? "ARCHIVO" : "CAMARA";
   if (!origenCapturaAdmitido(cuerpo.tipo, origen, esModoDemo())) {
     return respuestaJson({ ok: false, motivo: "ORIGEN_NO_ADMITIDO" }, { status: 400 });

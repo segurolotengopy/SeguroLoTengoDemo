@@ -104,10 +104,10 @@
       "port": 3000
     },
     {
-      "name": "segurolotengo-dev-flujo-v3",
+      "name": "segurolotengo-dev-flujo-v4",
       "runtimeExecutable": "env",
       "runtimeArgs": [
-        "FLUJO_V3=true",
+        "DEMO_PANEL_KEY=demo-v4",
         "INTEGRATION_MODE=mock",
         "DEMO_MODE=true",
         "ADMIN_CONSOLE_ENABLED=true",

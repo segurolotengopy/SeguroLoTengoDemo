@@ -124,7 +124,7 @@ export const MESES_MAXIMO_PARA_PEDIR_DEVOLUCION = 12;
 
 /**
  * La devolución parcial existe **solo con tarjeta de crédito** (respuesta
- * B2(d)). Hoy no la usamos —CONFÍO cobra un premio único y devuelve el total—,
+ * B2(d)). Hoy no la usamos —VIVE cobra un premio único y devuelve el total—,
  * así que esto es un dato para el día que alguien proponga devolver una parte:
  * con débito y con QR no se puede, y conviene que esté escrito antes de que se
  * diseñe una pantalla que lo ofrezca.

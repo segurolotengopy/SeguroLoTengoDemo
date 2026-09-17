@@ -230,7 +230,7 @@ describe("privacidad de la página pública (regla inviolable #7)", () => {
     }
     // Tampoco el importe ni el plan: no hacen falta para verificar nada.
     expect(serializado).not.toContain(String(expediente.pago?.montoGs ?? "@@"));
-    expect(serializado).not.toContain("confio");
+    expect(serializado).not.toContain("vive");
   });
 });
 

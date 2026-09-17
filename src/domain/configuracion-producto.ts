@@ -49,10 +49,10 @@ export type CampoConfigurable =
 export type ConfiguracionCampos = Readonly<Record<CampoConfigurable, ExigenciaCampo>>;
 
 /**
- * Configuración del Seguro de Vida Oncológico CONFÍO, en sus tres planes.
+ * Configuración del Seguro de Vida Oncológico VIVE, en sus tres planes.
  *
  * Los tres comparten configuración porque son el mismo producto con distintas
- * sumas aseguradas: lo que cambia entre CONFÍO y CONFÍO TOTAL es cuánto paga,
+ * sumas aseguradas: lo que cambia entre VIVE y VIVE TOTAL es cuánto paga,
  * no qué datos pide.
  */
 const CONFIO: ConfiguracionCampos = {

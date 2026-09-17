@@ -64,6 +64,11 @@ import {
   type TipoTomaCalidad,
 } from "@/domain/calidad-captura";
 import type { TipoCapturaP5 } from "@/domain/catalogo-identidad";
+// Solo textos: `TEXTOS_03C.camara` ya trae lo que dice el arte de la piel v4
+// (`docs/.../ANALISIS_VISUAL_PNG.md` §5.2, filas 01/04/07). Nada de este
+// módulo depende de `node:*` ni de un puerto, así que importarlo acá no
+// arrastra nada pesado a la piel v2.
+import { TEXTOS_03C } from "@/domain/v4/textos-identidad";
 import {
   ajustarContenido,
   anchoRelativoDelMarco,
@@ -71,6 +76,7 @@ import {
   type Caja,
   type ModoAjuste,
 } from "./geometria-captura";
+import "./captura-v4.css";
 
 /**
  * Proporción del marco guía del documento: 85,60 × 53,98 mm, el formato ID-1
@@ -182,9 +188,21 @@ export interface CapturaConCamaraProps {
    */
   readonly alCapturar: (imagen: string) => Promise<ResultadoEnvioCaptura>;
   readonly alCancelar: () => void;
+  /**
+   * `"v2"` (default): el dibujo de siempre, el que usan v2 y v3.
+   * `"v4"`: fondo azul marino, marco punteado y obturador del arte 03C. La
+   * cámara, el disparo automático, la calidad y el recorte son exactamente
+   * los mismos — cambia solo el CSS y los textos, nunca la geometría.
+   */
+  readonly piel?: "v2" | "v4";
 }
 
-export function CapturaConCamara({ tipo, alCapturar, alCancelar }: CapturaConCamaraProps) {
+export function CapturaConCamara({
+  tipo,
+  alCapturar,
+  alCancelar,
+  piel = "v2",
+}: CapturaConCamaraProps) {
   const video = useRef<HTMLVideoElement | null>(null);
   const marco = useRef<HTMLDivElement | null>(null);
   /** Área entre la cabecera y el pie; su alto cambia cuando aparece un consejo. */
@@ -563,6 +581,198 @@ export function CapturaConCamara({ tipo, alCapturar, alCancelar }: CapturaConCam
     width: `${(anchoMarco * 100).toFixed(3)}%`,
     aspectRatio: `${proporcionMarco}`,
   };
+
+  // -------------------------------------------------------------------
+  // Piel v4 (03C_01 / 03C_04 / 03C_07 del arte). Mismo estado, mismos refs
+  // y mismos manejadores que la piel v2 de más abajo — cambia solo cómo se
+  // dibuja. El marco guía conserva la geometría exacta (`estiloMarco`, el
+  // mismo `<div ref={marco}>`): el recorte que se manda al servidor sale de
+  // medir ese elemento, así que tocarle tamaño o proporción cambiaría lo que
+  // se captura, no solo cómo se ve.
+  //
+  // Dos desvíos del arte, deliberados y sin implementar:
+  // - El óvalo de la selfie queda **circular** (`aspect-ratio: 1`, igual que
+  //   la piel v2): estirarlo a óvalo tocaría `PROPORCION_DOCUMENTO` /
+  //   `OCUPACION_GUIA_SELFIE`, y con ellos el recorte real.
+  // - El enlace «Información legal» del pie no se replica: abrirlo pide
+  //   `useCapaLegalV4()`, que solo existe dentro de `<CapaLegalV4>` (v4).
+  //   Este componente lo comparten v2 y v3, que no la montan, así que llamar
+  //   ese hook sin condición los rompería.
+  if (piel === "v4") {
+    const textosV4 = TEXTOS_03C.camara[tipo];
+    const pieV4 = esSelfie ? TEXTOS_03C.pieCamaraSelfie : TEXTOS_03C.pieCamara;
+
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={textosV4.titulo}
+        className="captura-v4 fixed inset-0 z-50 flex flex-col"
+      >
+        <header className="relative z-10 flex flex-col gap-1 px-5 pt-4 pb-2">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xl font-bold text-white">
+              {textosV4.titulo}
+              {foto ? " · revisá la foto" : ""}
+            </p>
+            <button
+              type="button"
+              aria-label="Cancelar"
+              onClick={() => {
+                detener();
+                alCancelar();
+              }}
+              disabled={enviando}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white text-white disabled:opacity-50"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M6 6 L18 18 M18 6 L6 18"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+          {!foto ? <p className="text-sm text-white/80">{textosV4.bajada}</p> : null}
+        </header>
+
+        <div ref={area} className="relative flex flex-1 items-center justify-center overflow-hidden">
+          <div
+            className="relative flex items-center justify-center"
+            style={
+              recuadro && recuadro.ancho > 0
+                ? { width: recuadro.ancho, height: recuadro.alto }
+                : { width: "100%", height: "100%" }
+            }
+          >
+            <video
+              ref={video}
+              playsInline
+              muted
+              className={`h-full w-full object-contain ${esSelfie ? "-scale-x-100" : ""} ${
+                foto ? "invisible" : ""
+              }`}
+            />
+
+            {foto ? (
+              /* eslint-disable-next-line @next/next/no-img-element --
+                 Mismo criterio que en la piel v2: data URL recién generado
+                 por el propio navegador, sin optimizador de por medio. */
+              <img
+                src={foto}
+                alt={`Vista previa de la captura: ${textosV4.titulo.toLowerCase()}`}
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+            ) : null}
+
+            {listo && !error && !foto ? (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div
+                  ref={marco}
+                  style={estiloMarco}
+                  className={`captura-v4-marco transition-colors ${
+                    porDisparar ? "captura-v4-marco-lista" : ""
+                  } ${esSelfie ? "rounded-full" : "rounded-2xl"}`}
+                />
+                <span className="text-sm font-bold tracking-wide text-white">{textosV4.rotulo}</span>
+              </div>
+            ) : null}
+
+            {!listo && !error ? (
+              <p role="status" className="absolute text-sm font-semibold text-white">
+                Abriendo la cámara…
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <footer className="relative z-10 flex flex-col items-center gap-3 px-5 pt-3 pb-6 text-center">
+          {error ? (
+            <p role="alert" className="text-sm font-semibold text-rojo-200">
+              {error}
+            </p>
+          ) : foto ? (
+            <div className="flex w-full flex-col gap-2">
+              {rechazo ? (
+                <p role="alert" className="text-sm font-semibold text-rojo-200">
+                  {rechazo}
+                </p>
+              ) : (
+                <p className="text-sm text-white/80">
+                  ¿Se lee bien y entra completa? Si no, repetila: los datos no se corrigen a mano
+                  después.
+                </p>
+              )}
+              <div className="flex flex-col gap-2 sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={usarFoto}
+                  disabled={enviando}
+                  className="v4-boton v4-boton-principal flex-1"
+                >
+                  {enviando ? "Enviando…" : rechazo ? "Volver a enviar" : "Usar esta foto"}
+                </button>
+                <button
+                  type="button"
+                  onClick={repetir}
+                  disabled={enviando}
+                  className="captura-v4-boton-secundario flex h-12 flex-1 items-center justify-center rounded-lg text-sm font-bold tracking-wide uppercase disabled:opacity-50"
+                >
+                  Repetir
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {resolucionCorta ? (
+                <p role="status" className="text-sm font-semibold text-naranja-200">
+                  {CONSEJO_RESOLUCION_INSUFICIENTE}
+                </p>
+              ) : null}
+              {consejo ? (
+                <p
+                  role="status"
+                  className={`text-sm font-semibold ${
+                    consejo === CONSEJO_APTA ? "text-verde-300" : "text-naranja-200"
+                  }`}
+                >
+                  {porDisparar ? "Listo. Sacando la foto…" : consejo}
+                </p>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={tomarFoto}
+                disabled={!listo}
+                aria-label={textos.boton}
+                className="captura-v4-obturador flex items-center justify-center disabled:opacity-40"
+              >
+                <span className="captura-v4-obturador-anillo" aria-hidden="true" />
+              </button>
+              <p className="text-sm text-white/60">{pieV4}</p>
+
+              {/* Mismo apagador que en la piel v2: en una cédula muy gastada
+                  o con poca luz el automático puede no decidirse nunca. */}
+              <label className="flex items-center gap-2 text-xs text-white/70">
+                <input
+                  type="checkbox"
+                  checked={disparoAutomatico}
+                  onChange={(evento) => {
+                    setDisparoAutomatico(evento.target.checked);
+                    if (!evento.target.checked) desarmarDisparo();
+                  }}
+                  className="h-4 w-4 accent-[var(--v4-rojo)]"
+                />
+                Sacar la foto sola cuando se vea bien
+              </label>
+            </>
+          )}
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div
