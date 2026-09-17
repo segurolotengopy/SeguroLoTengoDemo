@@ -40,8 +40,11 @@ Dos reglas que hacen que esto sirva:
 
 ## 2026-09-16 (d) · Encendido de v4: un solo flujo, un solo marco, batería E2E contra las doce pantallas
 
-**Rama:** `v4/encendido` (worktree, desde `v4/pantallas` en `8d7e7e1`; PR B) ·
-**Pedido de Andres:** «seguí con el PR B, múltiples agentes».
+**Rama:** `v4/encendido` (worktree, desde `v4/pantallas` en `8d7e7e1`; PR B,
+#134) · **Pedido de Andres:** «seguí con el PR B, múltiples agentes».
+**Consolidado el 17-sep en #131** a pedido de Andres («consolida los PR»):
+`v4/pantallas` avanzó por fast-forward al mismo commit (`7002256`) y GitHub dio
+#134 por fusionado. Queda un solo PR hacia `main`, con el encendido completo.
 
 ### El caso
 
