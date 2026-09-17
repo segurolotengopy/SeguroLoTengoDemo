@@ -1,6 +1,17 @@
 # Borrador de respuesta a Alianza — SFTP, firma y emisión
 
-**Estado: borrador, no enviado.** Redactado el 14-sep-2026 en respuesta al correo
+**Estado: ENVIADO por Andres el 17-sep-2026**, con la redacción revisada del
+16-sep (bitácora `2026-09-16 (c)` y `(e)`): el punto 2 describe el conector de
+Transfer Family con sus **tres IP fijas** y promete enviarlas **dentro de las
+48 h** de que Alianza confirme host, puerto y clave pública del servidor
+(2.2–2.4); el punto 3 incorpora lo que se sabe de su firmador (NUC con token
+de Confirma, carpetas cada 30 s, una firma por programa) y pregunta explícitamente
+por el **sello de tiempo (TSA)**. Lo que ese compromiso obliga apenas contesten:
+`terraform apply` del conector (`docs/CONFIGURACION_SFTP_ALIANZA.md`). Sigue
+faltando el modelo de CPC aprobado. El texto de abajo es el borrador original
+del 14-sep, conservado como referencia; el enviado difiere en los puntos 1, 2 y 3.
+
+Redactado el 14-sep-2026 en respuesta al correo
 de Alianza que pidió la IP pública para su firewall, avisó que el servidor SFTP
 está listo y adjuntó un TXT de ejemplo de migración de vida colectivo.
 

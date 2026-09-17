@@ -30,34 +30,45 @@ Uso:  python3 scripts/armar-pdf-pantallas.py
 from __future__ import annotations
 
 import sys
+from datetime import date
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 RAIZ = Path(__file__).resolve().parent.parent
+# La fecha va en la portada: gerencia recibe una prueba de funcionamiento con
+# fecha, no una maqueta sin tiempo.
+FECHA_CORRIDA = date.today().strftime("%d-%m-%Y")
 FUENTE_NEGRITA = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FUENTE_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
-# Paleta de `docs/GUIA_DE_ESTILOS.md`, para que la portada y las bandas no
-# desentonen con lo que muestran.
-NARANJA = (189, 85, 15)
-AZUL = (43, 90, 158)
+# Paleta v4 de `docs/GUIA_DE_ESTILOS.md` §8 (navy, rojo, azul apagado), para
+# que la portada y las bandas no desentonen con lo que muestran.
+NARANJA = (255, 23, 33)  # rojo v4 (#FF1721): el acento del arte
+AZUL = (7, 31, 120)  # navy v4 (#071F78)
 TINTA = (51, 51, 51)
-ETIQUETA = (107, 107, 107)
+ETIQUETA = (85, 112, 157)  # azul apagado v4 (#55709D)
 BLANCO = (255, 255, 255)
 BORDE = (224, 224, 224)
 
-# Cómo se llama cada captura en el PDF. La clave es el nombre del archivo.
+# Cómo se llama cada captura en el PDF. La clave es el nombre del archivo que
+# escribe `98-capturas-gerencia.spec.ts` (doce pantallas v4 + las dos
+# derivadas). El orden alfabético de los archivos es el orden del recorrido.
 NOMBRES: dict[str, str] = {
-    "00-inicio": "Inicio · antes de empezar",
-    "01-plan": "Paso 1 · Elegí tu plan",
-    "02-whatsapp": "Paso 2 · Verificá tu WhatsApp",
-    "03-preparacion": "Paso 3 · Prepará lo necesario",
-    "04-identidad": "Paso 4 · Datos e identificación",
-    "05-declaraciones": "Paso 5 · Datos y declaraciones",
-    "06-firma": "Paso 6 · Revisá, aceptá y firmá",
-    "07-pago": "Paso 7 · Realizá el pago",
-    "08-confirmacion": "Paso 8 · Contratación aceptada",
+    "01-portada": "01 · Portada y catálogo de productos",
+    "02-plan": "02 · Elegí tu plan (etapa 1 de 5)",
+    "03a-whatsapp": "03A · Verificá tu WhatsApp (etapa 2 de 5)",
+    "03b-preparacion": "03B · Prepará lo necesario (etapa 2 de 5)",
+    "03c-identidad": "03C · Verificá tu identidad (etapa 2 de 5)",
+    "03d-datos": "03D · Completá tus datos (etapa 2 de 5)",
+    "03e-actividad": "03E · Actividad e ingresos (etapa 3 de 5)",
+    "04a-declaraciones": "04A · Declaraciones de salud (etapa 4 de 5)",
+    "04d-consentimientos": "04D · Consentimientos (etapa 4 de 5)",
+    "04e-firma": "04E · Revisá, aceptá y firmá (etapa 4 de 5)",
+    "05a-pago": "05A · Realizá el pago (etapa 5 de 5)",
+    "05b-confirmacion": "05B · Contratación confirmada (etapa 5 de 5)",
+    "pantalla-a-revision-manual": "Pantalla A · Derivación a revisión manual",
+    "pantalla-b-solicitud-vencida": "Pantalla B · Solicitud vencida",
 }
 
 ALTO_BANDA = 64
@@ -92,7 +103,7 @@ def portada(ancho: int, alto: int, formato: str) -> Image.Image:
     dibujo.text((MARGEN * 2, y), "SeguroLoTengo", font=fuente(FUENTE_NEGRITA, 64), fill=NARANJA)
     dibujo.text(
         (MARGEN * 2, y + 84),
-        "Camino feliz · las nueve pantallas del recorrido",
+        "Camino feliz · las doce pantallas del flujo v4 y las dos derivadas",
         font=fuente(FUENTE_NEGRITA, 34),
         fill=TINTA,
     )
@@ -104,12 +115,24 @@ def portada(ancho: int, alto: int, formato: str) -> Image.Image:
     )
     dibujo.text(
         (MARGEN * 2, y + 200),
-        "Entorno de demostración — integraciones simuladas.",
+        "Prueba de funcionamiento: corrida automatizada de punta a punta (Playwright)",
+        font=fuente(FUENTE_REGULAR, 22),
+        fill=ETIQUETA,
+    )
+    dibujo.text(
+        (MARGEN * 2, y + 230),
+        "sobre el sistema real, con integraciones simuladas y datos ficticios.",
+        font=fuente(FUENTE_REGULAR, 22),
+        fill=ETIQUETA,
+    )
+    dibujo.text(
+        (MARGEN * 2, y + 276),
+        f"Seguro de Vida Oncológico VIVE · corrida del {FECHA_CORRIDA}",
         font=fuente(FUENTE_REGULAR, 24),
         fill=ETIQUETA,
     )
     dibujo.text(
-        (MARGEN * 2, y + 236),
+        (MARGEN * 2, y + 312),
         "Interseguros S.A. · Corredores de Seguros · Matrícula SIS N° 118",
         font=fuente(FUENTE_REGULAR, 24),
         fill=ETIQUETA,

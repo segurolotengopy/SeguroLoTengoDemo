@@ -38,6 +38,58 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-17 · #131 en producción, correo a Alianza enviado y PDF de prueba de funcionamiento para gerencia
+
+**Rama:** `chore/capturas-gerencia-v4` (desde `main` en `f89a962`) ·
+**Pedidos de Andres:** «consolida los PR», «OK, fusiona #131 cuando el CI
+esté en verde», «borrá el worktree y la rama v4/encendido», «ya mandé el
+correo a Alianza», «elaborá un PDF con una corrida E2E happy path capturando
+cada una de las pantallas, para gerencia».
+
+### Qué pasó
+
+- **Consolidación y despliegue.** `v4/pantallas` avanzó por fast-forward al
+  commit de PR B (`7002256`), GitHub dio #134 por fusionado, y **#131 se
+  fusionó en `main`** (`f89a962`) con el OK explícito de Andres en el chat,
+  los 10 checks en verde y la constancia en el cuerpo del merge. Amplify job
+  **124** en `SUCCEED`; el sitio responde 200 sirviendo la portada v4
+  (`data-flujo="v4"`, menú 01B, catálogo) y las rutas del flujo. Rama y
+  worktree `v4/encendido` borrados.
+- **Correo a Alianza enviado por Andres** con la redacción revisada del
+  16-sep: promete las tres IP a las 48 h de que confirmen host/puerto/clave, y
+  pregunta por el sello de tiempo de su firmador. `BORRADOR_CORREO_ALIANZA.md`
+  quedó marcado como enviado. Apenas contesten, toca el `apply` del conector.
+- **PDF de prueba de funcionamiento.** `98-capturas-gerencia.spec.ts`
+  (reescrito para v4 en PR B pero nunca corrido) fotografiaba las pantallas
+  antes de que cargaran sus datos: 04E con «Estamos cerrando…», 05A y 05B con
+  «—», Pantalla A sin número de caso. Se agregaron esperas por el marcador de
+  carga de cada una (cédula prellenada en 03D, «QUÉ VAS A FIRMAR» en 04E,
+  premio formateado en 05A y Pantalla B, botón «Descargar» en 05B, número de
+  caso `PREFIJO-AAAA-NNNNNN` en Pantalla A). `scripts/armar-pdf-pantallas.py`
+  pasó a los catorce nombres v4, la paleta v4 y una portada con fecha que
+  dice qué es: una corrida automatizada sobre el sistema real, con
+  integraciones simuladas y datos ficticios.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| Capturas escritorio (1456 px) | 14/14, tres tests del spec en verde |
+| Capturas celular (390 px, 2x) | 14/14, tres tests del spec en verde |
+| `SeguroLoTengo-camino-feliz-web.pdf` | 15 páginas, 2,7 MB — portada + 12 pantallas + A y B, revisadas una por una |
+| `SeguroLoTengo-camino-feliz-movil.pdf` | 37 páginas, 5,4 MB — tajadas de viewport con solape |
+| Entregados a Andres | los dos PDF, por el chat; los PDF no se versionan (`pantallas/` fuera de git) |
+
+### Queda abierto
+
+- Las mismas cuatro decisiones de #131 (literal de aceptación de la firma,
+  guard de «trámite en otro paso», acuse de entrega en 05B, textos de 05A).
+- Pantalla B conserva los hitos «1 / 5 / 12 / 24 horas» del seguimiento del
+  plazo, que no tienen sentido con 10 minutos (pendiente desde el 15-sep).
+- Respuesta de Alianza → `terraform apply` del conector y envío de las IP.
+
+---
+
 ## 2026-09-16 (d) · Encendido de v4: un solo flujo, un solo marco, batería E2E contra las doce pantallas
 
 **Rama:** `v4/encendido` (worktree, desde `v4/pantallas` en `8d7e7e1`; PR B,
