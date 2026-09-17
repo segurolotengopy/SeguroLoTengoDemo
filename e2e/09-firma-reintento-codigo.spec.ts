@@ -114,5 +114,12 @@ test("el código de firma se puede errar y volver a pedir sin perder el trámite
     await page.locator(`#p8-otp-${i}`).fill(codigoNuevo[i]);
   }
 
-  await expect(page).toHaveURL(/\/pago$/, { timeout: 20_000 });
+  // El mismo margen que `firmarNormalmente`, y por la misma razón: tipear el
+  // código no lleva al pago en el acto —el sondeo tiene que ver
+  // `FIRMADO_CLIENTE` para navegar, al menos un ciclo contra DynamoDB real—.
+  // Acá el paso está escrito en línea en vez de con el helper, porque este
+  // spec firma con el **código nuevo**, y al copiarlo se le quedó un plazo de
+  // 20 s que el helper ya había descartado por corto: con la batería completa
+  // cargada, la navegación llega después y el spec fallaba habiendo funcionado.
+  await expect(page).toHaveURL(/\/pago$/, { timeout: 60_000 });
 });

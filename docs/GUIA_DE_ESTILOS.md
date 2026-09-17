@@ -12,6 +12,13 @@ decisión de producto** a la descripta en la sección "Elementos comunes" de esa
 especificación (no hay obligación legal involucrada: no existe fila en la
 matriz de cumplimiento sobre colores).
 
+> **Desde el 15-sep-2026, la §8 "Paleta y tipografía v4" reemplaza a esta
+> guía para el flujo.** Lo que sigue (secciones 1 a 7) describe la identidad
+> visual anterior, alineada a interseguros360.com; se conserva porque las
+> pantallas que todavía no se migraron a v4 (una por sesión, D-28) siguen
+> usándola. Antes de tocar color o tipografía en una pantalla, mirá primero
+> si ya está en v4 (§8) o si sigue en la paleta de acá.
+
 ---
 
 ## 1. Origen de la paleta
@@ -240,3 +247,86 @@ rige hoy en el código.
   cosa).
 - No generar variantes de los isologos (monocromo, invertido) sin registrar
   la decisión en esta guía.
+
+---
+
+## 8. Paleta y tipografía v4
+
+**Reemplaza a las secciones 1-7 para el flujo**, desde el handoff de
+pantallas v4 de Interseguros (14-sep-2026) y D-39 (Bloque G de
+`docs/plan/DECISIONES.md`). Fuente: manual funcional, p. 6 ("Línea gráfica
+congelada" y "Estructura responsive").
+
+### Paleta
+
+Cuatro colores congelados, más blanco. El manual los declara "congelados": no
+son un punto de partida para derivar una escala completa como las de la
+sección 2 — son los cuatro valores, y nada más.
+
+| Rol | Color | Hex | Token Tailwind |
+| :-- | :-- | :-- | :-- |
+| Marca / texto institucional | navy | `#071F78` | `v4-navy` (`bg-v4-navy`, `text-v4-navy`, …) |
+| **CTA principal**, bloqueo, alertas | rojo | `#FF1721` | `v4-rojo` |
+| Enlaces, acentos | azul | `#0876F9` | `v4-azul` |
+| Texto secundario, rótulos, etiquetas | azul atenuado | `#55709D` | `v4-atenuado` |
+| Fondos, superficies | blanco | `#FFFFFF` | `bg-white` (Tailwind) |
+
+Prefijo `v4-` a propósito: los tokens son **aditivos** sobre los de la
+sección 2 (`azul`, `naranja`, `rojo`, `verde`, `hueso`), que siguen vigentes
+en las pantallas que todavía no se migraron. No hay una escala 50-950 por
+color: el manual da un único valor por rol, así que los tokens son planos
+(`--color-v4-navy`, no `--color-v4-navy-500`). Estados de interacción
+(hover, disabled) se resuelven con `opacity`/`brightness` de Tailwind sobre
+ese único valor, no inventando tonos intermedios.
+
+**Prohibido explícitamente por el manual** (p. 6): sombreado naranja,
+diagonal roja o cualquier línea decorativa no aprobada. La escala `naranja`
+de la sección 2 no se usa en ninguna pantalla v4.
+
+La CTA principal es **siempre roja**, en la misma posición vertical en todas
+las pantallas equivalentes del handoff (manual p. 6, "Estructura
+responsive").
+
+### Tipografía
+
+**Arimo** (D-39), con `next/font/google`: OFL 1.1, gratuita, pesos 400 a 700,
+métrica compatible con Arial — la alternativa libre más parecida a Nimbus
+Sans que pide el manual (`#font: Nimbus Sans`, p. 6). La alternativa más
+fiel al dibujo, TeX Gyre Heros, quedó descartada por licencia y por traer
+solo dos pesos (400/700) sin autoalojarla.
+
+Pila de respaldo: `Arimo, "Helvetica Neue", Helvetica, Arial, sans-serif`.
+
+Reemplaza a **DM Sans** como `--font-sans` del flujo. DM Sans se sigue
+cargando porque el canvas v3 (`[data-flujo="v3"]`, superado por v4 pero
+todavía presente en el código) la nombra explícitamente.
+
+Cuerpo mínimo: 16 px en implementación (manual p. 6) — no bajar de ahí en
+texto de lectura, aunque el arte use letra más chica en algunas leyendas.
+
+### Estructura responsive (D-30)
+
+Mobile-first. En anchos de escritorio los componentes van **lado a lado**:
+las tarjetas de plan y las fichas informativas que el arte dibuja apiladas en
+el celular pasan a una fila cuando hay espacio (`sm:grid-cols-3` o
+equivalente). El arte del handoff es enteramente móvil; la disposición de
+escritorio de cada pantalla se deriva de su arte sin cambiar orden, textos
+ni jerarquía, y se aprueba con capturas — no hay arte de escritorio que
+copiar.
+
+### Cabecera y stepper v4
+
+Ver `src/components/shared/HeaderInstitucional.tsx` y `StepperPasos.tsx`.
+Tres marcas (SeguroLoTengo, Interseguros, Alianza) separadas por filetes,
+sobre una franja clara con una línea roja al pie; debajo, el stepper de
+cinco macroetapas con puntos y línea roja, y "N de 5" a la derecha (D-36).
+Sin botón de día/noche (D-29, ver más abajo).
+
+### Sin modo oscuro (D-29)
+
+La primera fase de v4 sale **solo en tema claro**. `HeaderInstitucional` no
+monta `ToggleTema`, y `SCRIPT_TEMA_INICIAL` (`src/components/shared/tema.ts`)
+fuerza `data-tema="claro"` sin leer `localStorage` ni la preferencia del
+sistema. Los tokens semánticos de la sección 2 (`--tema-fondo`,
+`[data-tema="oscuro"]`, …) se conservan intactos para retomar el oscuro más
+adelante — no se borró nada, solo se dejó de invocarlo.

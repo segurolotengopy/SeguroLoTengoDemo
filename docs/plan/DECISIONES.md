@@ -29,6 +29,7 @@ y obtener aprobación"*).
 
 ### D-03 · Marca "Seguro lo tengo"
 - **DECIDIDA (19-ago-2026):** la marca es **Seguro Lo Tengo**; se adopta la recomendación: flag `MARCA_FANTASIA_AUTORIZADA=false` por defecto, frente público con denominación registrada (Interseguros S.A. + actividad + Matrícula SIS N° 118, formato Circ. 011/2025), y el popup TRV-03 implementado detrás del mismo flag. Cierra ALR-03 (queda condicionada a la autorización SIS, compuerta §8.E.1).
+- **MODIFICADA (15-sep-2026), para el demo:** Andres decidió que la cabecera v4 muestre **siempre** el logo de SeguroLoTengo, como los artes aprobados del handoff v4 (D-28), sin esperar el flag `MARCA_FANTASIA_AUTORIZADA`. El flag y `marcaVisible()` se conservan para los demás usos del nombre comercial. La autorización de la SIS para la marca de fantasía sigue siendo compuerta de producción real (§8.E.1): esta decisión no la reemplaza.
 
 ### D-04 · Cifras de premio
 - **DECIDIDA (19-ago-2026):** de acuerdo con la propuesta — montos de la Matriz V4 (290.000 / 475.000 / 660.000) como **parámetros provisionales**, marcador `CDXXXXX` para código/acto/URL, desglose prima/IVA/premio parametrizado y rotulado como provisional. No se publican cifras definitivas hasta el desglose oficial de Alianza. Cierra ALR-04.

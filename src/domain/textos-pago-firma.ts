@@ -41,19 +41,26 @@ export const ROTULO_ACEPTACION_FIRMA =
   "Marcá acá para aceptar la propuesta y firmarla — revisión, licitud de fondos y solicitud de " +
   "firma, en un solo paso.";
 
+/**
+ * D-08 enmendada (04-sep-2026) / D-32, D-38, D-42 · el tercer ítem se
+ * reescribió tres veces: el pago se habilita con mi firma, no con la
+ * espera de la institucional (que ahora se aplica **después** del cobro);
+ * Alianza no firma la propuesta (solo Interseguros la firma, en modalidad
+ * diferida); y el plazo pasó de 24 horas a 10 minutos.
+ */
 export const ITEMS_ACEPTACION_FIRMA: readonly string[] = [
   "Confirmo que recibí de Interseguros el PDF único con la propuesta y el FIPF, que pude " +
     "revisarlo y corregir mis datos, que acepto su contenido y que deseo firmarlo " +
     "electrónicamente.",
   "Declaro que los fondos con los que pagaré este seguro tienen origen lícito.",
-  "Entiendo que después de mi firma firman Interseguros y Alianza Garantía (firma cualificada) " +
-    "y recién entonces se habilita el pago, con 24 horas para completarlo.",
+  "Entiendo que con mi firma ya se habilita el pago, con 10 minutos para completarlo, y que " +
+    "Interseguros firma después el paquete con firma cualificada.",
 ];
 
 /** El literal que la firma del cliente registra como texto aceptado. */
 export const TEXTO_ACEPTACION_FIRMA = ITEMS_ACEPTACION_FIRMA.join(" ");
 
-export const VERSION_ACEPTACION_FIRMA = "PAGO-FIRMA-ACEPTACION-v1";
+export const VERSION_ACEPTACION_FIRMA = "PAGO-FIRMA-ACEPTACION-v2";
 
 // ---------------------------------------------------------------------------
 // Canal, código y estados del acto
@@ -66,11 +73,21 @@ export const INTRO_CANAL_FIRMA =
 export const AVISO_CANAL_FIRMA =
   "Solo se envía a los canales que ya verificaste. Ningún operador te va a pedir ese código.";
 
-export const CONFIRMACION_FIRMADO =
-  "✓ Documento firmado · cliente + Interseguros + Alianza Garantía";
+/**
+ * D-08 enmendada (04-sep-2026) / D-42 · ya no anuncia a Interseguros ni a
+ * Alianza: con la firma del cliente sola ya se habilita el pago (D-38), así
+ * que decirlo acá sería adelantar un hecho que todavía no ocurrió.
+ * Interseguros firma después, dentro de 24/48 h operativas — eso se cuenta
+ * en la confirmación, no en este bloque.
+ */
+export const CONFIRMACION_FIRMADO = "✓ Documento firmado";
 
-export const ESPERANDO_INSTITUCIONALES =
-  "Tu firma quedó registrada. Estamos aplicando las firmas de Interseguros y Alianza Garantía…";
+/**
+ * Texto breve para el instante entre que se tipea el código y que el sondeo
+ * confirma la transición a `FIRMADO_CLIENTE` (hasta dos segundos): ya no hay
+ * ningún tramo institucional que esperar acá.
+ */
+export const ESPERANDO_INSTITUCIONALES = "Tu firma quedó registrada. Confirmando…";
 
 export const INTRO_PAGO =
   "El pago se habilita apenas firmes — es la garantía de que solo pagás lo que ya aceptaste.";

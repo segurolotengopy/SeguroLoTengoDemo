@@ -6,18 +6,27 @@
  *   INICIADO → PLAN_SELECCIONADO → CANAL_WA_VERIFICADO → AUTORIZADO
  *     → IDENTIDAD_VERIFICADA
  *        ├─ DERIVADO_MANUAL (terminal) → Pantalla A
- *        └─ DECLARACIONES_OK → PAQUETE_GENERADO → FIRMADO_CLIENTE → FIRMADO
- *               ├─ VENCIDO (24 h sin pagar; sin cobro, sin devolución)
- *               └─ PAGO_CONFIRMADO → EMITIDO
+ *        └─ DECLARACIONES_OK → PAQUETE_GENERADO → FIRMADO_CLIENTE
+ *               ├─ VENCIDO (10 min sin pagar; sin cobro, sin devolución)
+ *               └─ PAGO_CONFIRMADO → FIRMADO → EMITIDO
  *                      └─ DEVOLUCION_EN_TRAMITE → DEVUELTO (a pedido)
  *
- * **Se firma antes de pagar** (D-08, Matriz Legal V4 §7). Es la inversión del
- * orden que tenía el flujo hasta el Lote 4: cobrar antes de la firma dejaba a
- * la persona pagando por un contrato que todavía no había aceptado, y obligaba
- * a devolver el premio cada vez que no firmaba. Con el orden nuevo el
- * vencimiento ocurre **antes** de que haya dinero, así que caducar es gratis y
- * la devolución queda reservada a lo que sí puede pedirse: un cobro con
- * tarjeta ya acreditado (D-02).
+ * **Se firma antes de pagar, y la firma cualificada de Interseguros llega
+ * después** (D-08, enmendada el 04-sep-2026; Res. 210/2025 arts. 4-5). La
+ * firma del cliente sigue antes del pago; la cualificada del corredor —antes
+ * aplicada en el mismo acto— se mueve a después del cobro, dentro de 24/48 h
+ * operativas (D-38), para sacar su latencia del camino crítico de la venta.
+ * `FIRMADO_CLIENTE` es, desde la enmienda, el estado que habilita el cobro —no
+ * `FIRMADO`, que pasó a describir el momento **posterior** al pago en el que
+ * ya se aplicó también la institucional. El plazo de 10 minutos para pagar
+ * (D-32) se abre con la firma del cliente y no con la institucional: es el
+ * hito que corresponde, porque ya no hay que esperar a la segunda para saber
+ * que hay algo que puede vencer.
+ *
+ * Con el orden nuevo el vencimiento ocurre **antes** de que haya dinero, así
+ * que caducar es gratis y la devolución queda reservada a lo que sí puede
+ * pedirse: un cobro con tarjeta ya acreditado (D-02), sin importar si para ese
+ * momento la institucional ya se aplicó (`PAGO_CONFIRMADO`) o no (`FIRMADO`).
  */
 import type {
   ActividadEconomicaV4,
@@ -43,7 +52,7 @@ import type {
 import { ESTADOS_TERMINALES, cobroConfirmadoParaEmision, pagoAcreditado } from "./tipos";
 import { codigoFipf, codigoSolicitud, codigoConstancia } from "./documentos";
 import { codigoCertificado } from "./certificado-cobertura";
-import { firmantesConjuntos } from "./firmantes-documento";
+import { firmantesDiferidos } from "./firmantes-documento";
 import type { PropositoOtp } from "../ports/otp-provider";
 import { evaluarElegibilidad } from "./elegibilidad";
 import { flujoV3Activo } from "./flujo-vigente";
@@ -90,30 +99,51 @@ export const TRANSICIONES_V2: Readonly<Record<EstadoExpediente, readonly EstadoE
   // válida*) y la que el código tiene que hacer imposible de violar.
   DECLARACIONES_OK: ["PAQUETE_GENERADO"],
   // El paquete cerrado sin firmar **no caduca**, y es deliberado: el reloj de
-  // D-10 mide un expediente firmado que no pagó, y acá todavía no hay ni firma
-  // ni dinero. Un expediente abandonado en este punto no le cuesta nada a
-  // nadie ni bloquea la cédula (regla inviolable #11 no lo incluye), así que
-  // inventarle un vencimiento sería agregar un estado terminal sin motivo.
-  // La caducidad de la *sesión* de firma es otra cosa y la fija Code100 con su
-  // `fecha_expiracion` (D-10).
+  // D-32 mide un expediente firmado por el cliente que no pagó, y acá todavía
+  // no hay ni firma ni dinero. Un expediente abandonado en este punto no le
+  // cuesta nada a nadie ni bloquea la cédula (regla inviolable #11 no lo
+  // incluye), así que inventarle un vencimiento sería agregar un estado
+  // terminal sin motivo. La caducidad de la *sesión* de firma es otra cosa y
+  // la fija Code100 con su `fecha_expiracion` (D-10).
   PAQUETE_GENERADO: ["FIRMADO_CLIENTE"],
-  // Entre la firma del cliente y las institucionales. Existe como estado
-  // propio para que un sellado a medio hacer sea distinguible de un expediente
-  // sin firmar (regla inviolable #3): si Code100 confirma la firma del cliente
-  // y las de Interseguros y Alianza fallan, el expediente queda acá y no en
-  // FIRMADO, así que el cobro sigue inhabilitado.
-  FIRMADO_CLIENTE: ["FIRMADO"],
-  // Firmado por todos los intervinientes previstos y esperando el pago. Caduca
-  // a las 24 horas (D-10) **sin devolución que tramitar**: bajo este orden el
+  // Firmado por el cliente: desde la enmienda del 04-sep-2026 a D-08, este es
+  // el estado que habilita el cobro — ya no hace falta esperar a la
+  // institucional, que se movió a después del pago (D-38). Caduca a los 10
+  // minutos (D-32) **sin devolución que tramitar**: bajo este orden el
   // vencimiento ocurre antes del cobro, así que no hay premio que devolver.
   // La fila 30 de la matriz (*"Devolver el premio si el cliente no firma
   // dentro del plazo comunicado"*, Ley 4868/13, arts. 7(f), 17 y 30(b)) queda
   // satisfecha de la única manera que no puede fallar: no cobrando antes.
-  FIRMADO: ["PAGO_CONFIRMADO", "VENCIDO"],
-  // El pago acreditado habilita la emisión. La salida a devolución existe
-  // porque un cobro con tarjeta sí puede devolverse **a pedido** (D-02), que
-  // es un hecho distinto del vencimiento.
-  PAGO_CONFIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE"],
+  //
+  // La arista hacia FIRMADO **se conserva como legado**: hasta la enmienda del
+  // 04-sep era el camino normal —el cliente firmaba y, en la misma operación,
+  // también las institucionales—, y todavía la usan los expedientes que
+  // llegaron a `FIRMADO_CLIENTE` bajo ese código y no se reescriben (regla
+  // inviolable #10). Ningún caso de uso nuevo la produce: `registrarFirmaP8` y
+  // `registrarFirmaClienteInterna` dejan el expediente en `FIRMADO_CLIENTE`, y
+  // de ahí en más el pago es lo único que sigue.
+  FIRMADO_CLIENTE: ["PAGO_CONFIRMADO", "VENCIDO", "FIRMADO"],
+  // Cobrado y esperando la firma institucional diferida de Interseguros
+  // (D-38, D-42), que `aplicarFirmasDiferidas` aplica —en línea, si el
+  // adaptador puede, o por el lote externo cuando no— para dejarlo FIRMADO.
+  // La salida a EMITIDO **se conserva pero queda guardada**: solo la toman los
+  // expedientes legados que ya traen `firmasInstitucionales` aplicadas desde
+  // antes de esta arista (`registrarEmisionP9` lo hace cumplir). La salida a
+  // devolución existe porque un cobro con tarjeta sí puede devolverse **a
+  // pedido** (D-02), sin esperar a que la institucional llegue.
+  PAGO_CONFIRMADO: ["FIRMADO", "EMITIDO", "DEVOLUCION_EN_TRAMITE"],
+  // Cobrado y con la firma institucional ya aplicada: lo único que falta es
+  // remitir el expediente a Alianza. La salida a devolución es la misma que
+  // desde PAGO_CONFIRMADO: un cobro con tarjeta puede devolverse a pedido,
+  // haya llegado o no la institucional.
+  //
+  // Las salidas a PAGO_CONFIRMADO y a VENCIDO **se conservan como legado**:
+  // eran el camino normal antes de la enmienda del 04-sep, cuando `FIRMADO`
+  // era el estado que habilitaba el cobro (con el cliente y las
+  // institucionales ya aplicadas en el mismo acto) y podía vencer sin haberse
+  // pagado. Los expedientes que llegaron a `FIRMADO` bajo ese orden y no se
+  // reescriben (regla inviolable #10) siguen teniendo a dónde ir.
+  FIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE", "PAGO_CONFIRMADO", "VENCIDO"],
   // Bajo el orden nuevo, vencer es gratis: no hubo cobro, así que no hay
   // premio que devolver y el expediente termina acá. La arista hacia
   // DEVOLUCION_EN_TRAMITE **se conserva y queda como legado**, no porque el
@@ -170,9 +200,9 @@ export const TRANSICIONES_V3: Readonly<Record<EstadoExpediente, readonly EstadoE
   // Paso 3 en adelante: idéntico al v2, aristas copiadas sin cambios.
   DECLARACIONES_OK: ["PAQUETE_GENERADO"],
   PAQUETE_GENERADO: ["FIRMADO_CLIENTE"],
-  FIRMADO_CLIENTE: ["FIRMADO"],
-  FIRMADO: ["PAGO_CONFIRMADO", "VENCIDO"],
-  PAGO_CONFIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE"],
+  FIRMADO_CLIENTE: ["PAGO_CONFIRMADO", "VENCIDO", "FIRMADO"],
+  PAGO_CONFIRMADO: ["FIRMADO", "EMITIDO", "DEVOLUCION_EN_TRAMITE"],
+  FIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE", "PAGO_CONFIRMADO", "VENCIDO"],
   VENCIDO: ["DEVOLUCION_EN_TRAMITE"],
   DEVOLUCION_EN_TRAMITE: ["DEVUELTO"],
   DEVUELTO: [],
@@ -295,7 +325,7 @@ export function registrarDeclaracionesP6(
 
 /**
  * Asienta el intento de pago **sin mover el estado**: el expediente se queda
- * en FIRMADO hasta que Bancard confirme (D-08).
+ * en FIRMADO_CLIENTE hasta que Bancard confirme (D-08 enmendada).
  *
  * **Ya no acuña el correlativo.** Con el orden invertido lo acuña el cierre
  * del paquete documental, que ahora ocurre antes: acá el número ya existe y
@@ -322,10 +352,11 @@ export function registrarIntentoPagoP7(
   },
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
-  if (expediente.estado !== "FIRMADO") {
+  if (expediente.estado !== "FIRMADO_CLIENTE") {
     return {
       ok: false,
-      error: `Solo se puede preparar el pago desde FIRMADO; el expediente está en ${expediente.estado}.`,
+      error:
+        `Solo se puede preparar el pago desde FIRMADO_CLIENTE; el expediente está en ${expediente.estado}.`,
     };
   }
 
@@ -348,21 +379,24 @@ export function registrarIntentoPagoP7(
 }
 
 /**
- * FIRMADO → PAGO_CONFIRMADO. Es el único punto por el que el paso de pago
- * mueve el estado, y ahora ocurre **después** de la firma (D-08).
+ * FIRMADO_CLIENTE → PAGO_CONFIRMADO. Es el único punto por el que el paso de
+ * pago mueve el estado, y ahora ocurre **después** de la firma del cliente
+ * (D-08 enmendada el 04-sep-2026).
  *
  * `PAGO_CONFIRMADO` significa *"el dinero entró"*, sin matices: los tres
  * medios de Bancard cobran directo desde que se retiró la preautorización
  * (D-02), así que la distinción entre garantía y cobro dejó de existir.
  *
- * **No hay cobro sin firma.** El único estado de origen legal es FIRMADO, al
- * que solo se llega con el paquete cerrado, la firma del cliente y las
- * institucionales aplicadas. Es la garantía que pide la Matriz Legal V4 §7 —
- * el medio de cobro solo se habilita con firma válida— y la razón por la que
- * ya no existe la arista DECLARACIONES_OK → PAGO_CONFIRMADO.
+ * **No hay cobro sin firma.** El único estado de origen legal es
+ * FIRMADO_CLIENTE, al que solo se llega con el paquete cerrado y la firma del
+ * cliente registrada — la institucional de Interseguros ya **no** es
+ * condición: se aplica después, sobre el expediente cobrado (D-38). Es la
+ * garantía que pide la Matriz Legal V4 §7 — el medio de cobro solo se habilita
+ * con firma válida— y la razón por la que ya no existe la arista
+ * DECLARACIONES_OK → PAGO_CONFIRMADO.
  *
  * El vencimiento no entra acá: bajo el orden nuevo el plazo se abre al firmar
- * (`abrirPlazoDePago`, D-10) y lo que hace esta transición es cerrarlo.
+ * el cliente (D-32) y lo que hace esta transición es cerrarlo.
  *
  * **El Certificado de Cobertura Provisional entra en esta misma transición**
  * (D-12), y es obligatorio: no existe la forma de asentar un cobro sin la
@@ -799,7 +833,7 @@ export function registrarEnvioEnlaceFirmaP8(
  * PAQUETE_GENERADO → FIRMADO_CLIENTE. Es la única escritura de
  * `expediente.firma`.
  *
- * Las cuatro cosas que hace imposibles de violar:
+ * Las cinco cosas que hace imposibles de violar:
  *
  * **Un documento, una huella** (regla inviolable #3, ahora estructural). Con
  * el PDF único (D-11) no existe un expediente con la Solicitud firmada y el
@@ -821,14 +855,17 @@ export function registrarEnvioEnlaceFirmaP8(
  * donde se cobraba antes de firmar; ahora el cobro llega después y exigirlo
  * acá haría imposible llegar a firmar.
  *
- * **Deja el expediente en `FIRMADO_CLIENTE`, no en `FIRMADO`**: faltan las
- * firmas institucionales (D-13). Que sean dos estados y no uno es lo que
- * permite distinguir un sellado a medio hacer de un expediente sin firmar, y
- * lo que mantiene el cobro inhabilitado mientras el acto no cerró.
+ * **Abre el plazo de pago en la misma transición** (D-32: 10 minutos). Desde
+ * la enmienda del 04-sep-2026 a D-08 este es el estado que habilita el cobro
+ * —no hace falta esperar a la firma institucional de Interseguros, que se
+ * aplica después (D-38)—, así que es acá donde corresponde arrancar el reloj:
+ * dejarlo para una escritura posterior abriría una ventana en la que existe un
+ * expediente firmado sin vencimiento posible.
  */
 export function registrarFirmaP8(
   expediente: Expediente,
   firma: Firma,
+  plazoPagoVenceEn: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
   if (!expediente.paqueteDocumental) {
@@ -852,7 +889,7 @@ export function registrarFirmaP8(
     return { ok: false, error: "La firma tiene que traer la huella del documento firmado." };
   }
 
-  return transicionarExpediente(expediente, "FIRMADO_CLIENTE", { firma }, ahora);
+  return transicionarExpediente(expediente, "FIRMADO_CLIENTE", { firma, plazoPagoVenceEn }, ahora);
 }
 
 /**
@@ -869,8 +906,9 @@ export function registrarFirmaP8(
  *
  * Lo que sí se sigue haciendo cumplir es lo mismo de siempre: no hay firma sin
  * paquete cerrado (regla inviolable #4), la huella no puede venir vacía, y el
- * expediente queda en `FIRMADO_CLIENTE` —faltan las institucionales (D-13)—,
- * así que el cobro sigue inhabilitado hasta que el acto cierre.
+ * plazo de pago se abre en la misma transición (D-32), igual que en
+ * `registrarFirmaP8`: desde la enmienda del 04-sep a D-08, `FIRMADO_CLIENTE`
+ * ya habilita el cobro sin esperar a la institucional (D-38).
  *
  * **Sobre la huella mientras no haya sellado.** Con la variante de evidencia
  * (`docs/VALIDACION_LEGAL_FIRMA_INTERNA.md` §1), firmar no modifica el PDF: la
@@ -882,6 +920,7 @@ export function registrarFirmaP8(
 export function registrarFirmaClienteInterna(
   expediente: Expediente,
   acto: { readonly firma: Firma; readonly constancia: ConstanciaFirmaEmitida },
+  plazoPagoVenceEn: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
   const { firma, constancia } = acto;
@@ -934,41 +973,55 @@ export function registrarFirmaClienteInterna(
   return transicionarExpediente(
     expediente,
     "FIRMADO_CLIENTE",
-    { firma, constanciaFirma: constancia },
+    { firma, constanciaFirma: constancia, plazoPagoVenceEn },
     ahora,
   );
 }
 
 /**
- * FIRMADO_CLIENTE → FIRMADO: las firmas institucionales sobre el mismo
- * documento que ya firmó el cliente (D-13).
+ * PAGO_CONFIRMADO → FIRMADO: la firma institucional de Interseguros sobre el
+ * mismo documento que ya firmó el cliente, aplicada **después del pago**
+ * (D-38, D-42).
  *
- * Interseguros y Alianza firman con certificado cualificado, y recién con eso
- * el expediente queda `FIRMADO` — que es lo único que habilita el cobro. En el
- * demo las aplica el adaptador simulado apenas vuelve la firma del cliente;
- * el orden de firmantes, sus certificados y la modalidad (`PREFIRMADO` o
- * `CONJUNTO`) se vuelven configurables en L4c.
+ * Hasta la enmienda del 04-sep-2026 a D-08, esta transición era
+ * `FIRMADO_CLIENTE → FIRMADO` y abría acá el plazo de pago. Las dos cosas se
+ * movieron: el origen pasó a `PAGO_CONFIRMADO` —el cobro ya no depende de
+ * esta firma— y el plazo se abre antes, con la firma del cliente (D-32). Lo
+ * que esta transición sigue haciendo es cerrar el tramo: quiénes firman y con
+ * qué modalidad sale de la configuración (`firmantesDiferidos`, D-42), no de
+ * una lista escrita acá, y sin la lista completa el expediente no puede
+ * quedar habilitado para la emisión.
  *
- * **Abre el plazo de pago en la misma transición** (D-10): el reloj de 24
- * horas arranca cuando el expediente queda firmado y esperando plata, y
- * dejarlo para una escritura posterior abriría una ventana en la que existe un
- * expediente firmado sin vencimiento posible. Es la misma razón por la que el
- * plazo entraba antes junto al pago, aplicada al hito que ahora corresponde.
+ * **Solo desde `PAGO_CONFIRMADO`.** El grafo también admite legalmente
+ * `FIRMADO_CLIENTE → FIRMADO` (legado, ver `TRANSICIONES_V2`), pero esta
+ * función lo rechaza explícitamente: aplicar la institucional antes de cobrar
+ * volvería a acoplar el cobro a una firma que D-38 sacó del camino crítico.
+ * La arista legada existe para expedientes históricos que llegaron a
+ * `FIRMADO` por el camino viejo, no para que este caso de uso la reabra.
  */
 export function registrarFirmasInstitucionales(
   expediente: Expediente,
   firmas: readonly FirmaInstitucional[],
-  plazoPagoVenceEn: string,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
+  if (expediente.estado !== "PAGO_CONFIRMADO") {
+    return {
+      ok: false,
+      error:
+        `Las firmas institucionales diferidas solo se aplican desde PAGO_CONFIRMADO; ` +
+        `el expediente está en ${expediente.estado}.`,
+    };
+  }
+
   if (!expediente.firma) {
     return { ok: false, error: "No hay firma del cliente sobre la que aplicar las institucionales." };
   }
 
   // La lista tiene que traer exactamente los firmantes que la configuración
-  // declara como `CONJUNTO` para este documento (D-13). Si falta uno, el acto
-  // no está completo y el expediente no puede quedar habilitado para el cobro.
-  const esperados = firmantesConjuntos("PAQUETE").map((firmante) => firmante.rol);
+  // declara como `DIFERIDO` para este documento (D-42). Si falta uno, el acto
+  // no está completo y el expediente no puede quedar habilitado para la
+  // emisión.
+  const esperados = firmantesDiferidos("PAQUETE").map((firmante) => firmante.rol);
   const aplicados = firmas.map((firma) => firma.rol);
   const faltantes = esperados.filter((rol) => !aplicados.includes(rol));
   if (faltantes.length > 0) {
@@ -978,26 +1031,37 @@ export function registrarFirmasInstitucionales(
     };
   }
 
-  return transicionarExpediente(
-    expediente,
-    "FIRMADO",
-    { firmasInstitucionales: firmas, plazoPagoVenceEn },
-    ahora,
-  );
+  return transicionarExpediente(expediente, "FIRMADO", { firmasInstitucionales: firmas }, ahora);
 }
 
 /**
- * Vencimiento del plazo para pagar → VENCIDO (D-10).
+ * Vencimiento del plazo para pagar → VENCIDO (D-10, D-32).
  *
- * Bajo el orden nuevo lo que caduca es un expediente **firmado y no pagado**:
- * el reloj arranca con las firmas institucionales y se apaga con el cobro. La
- * consecuencia es que vencer ya no cuesta plata — no hubo cobro, así que no
- * hay premio que devolver— y por eso VENCIDO es terminal en el flujo nuevo.
+ * Bajo el orden nuevo lo que caduca es un expediente **firmado por el cliente
+ * y no pagado**: el reloj arranca con esa firma (D-32) y se apaga con el
+ * cobro. La consecuencia es que vencer ya no cuesta plata — no hubo cobro, así
+ * que no hay premio que devolver— y por eso VENCIDO es terminal en el flujo
+ * nuevo.
  *
- * Solo caduca `FIRMADO`. Un expediente que cerró su paquete y nunca firmó no
- * vence: no hay firma ni dinero de por medio, no bloquea la cédula y ponerle
- * un estado terminal no protegería nada. La caducidad de la *sesión* de firma
- * es un hecho distinto y lo fija Code100 con su `fecha_expiracion` (D-10).
+ * Vence desde `FIRMADO_CLIENTE` y, como legado, también desde `FIRMADO`: los
+ * expedientes que llegaron a `FIRMADO` por el camino anterior a la enmienda
+ * del 04-sep (cliente e institucional firmando en el mismo acto) ya traen su
+ * `plazoPagoVenceEn` calculado ahí, y este chequeo lo sigue respetando sin
+ * reescribirlos (regla inviolable #10).
+ *
+ * **`FIRMADO` con cobro acreditado nunca vence.** Desde la enmienda, `FIRMADO`
+ * también es el estado de un expediente *ya cobrado* al que se le aplicó la
+ * firma institucional diferida, y ese expediente conserva el
+ * `plazoPagoVenceEn` que se abrió con la firma del cliente. Sin esta guarda,
+ * pasados esos 10 minutos cualquier lectura (la consola, un sondeo) lo movería
+ * a `VENCIDO` por la arista legada: un expediente pagado declarado vencido. Con
+ * la firma de Interseguros en lote (D-38) puede quedar horas en `FIRMADO`, así
+ * que no es un caso de borde.
+ *
+ * Un expediente que cerró su paquete y nunca firmó no vence: no hay firma ni
+ * dinero de por medio, no bloquea la cédula y ponerle un estado terminal no
+ * protegería nada. La caducidad de la *sesión* de firma es un hecho distinto y
+ * lo fija Code100 con su `fecha_expiracion` (D-10).
  *
  * No hay ningún proceso en segundo plano que dispare esto: el plazo se evalúa
  * contra `plazoPagoVenceEn` cada vez que alguien toca el expediente (el sondeo
@@ -1009,11 +1073,17 @@ export function registrarFirmasInstitucionales(
  * se cumplió o si el expediente ya no está en la ventana que puede caducar:
  * quien llama puede aplicarlo siempre y quedarse con lo que salga.
  */
+const ESTADOS_QUE_VENCEN: readonly EstadoExpediente[] = ["FIRMADO_CLIENTE", "FIRMADO"];
+
 export function vencerPlazoSiCorresponde(
   expediente: Expediente,
   ahora: string = new Date().toISOString(),
 ): ResultadoTransicion {
-  if (expediente.estado !== "FIRMADO") return { ok: true, expediente };
+  if (!ESTADOS_QUE_VENCEN.includes(expediente.estado)) return { ok: true, expediente };
+
+  // Lo que caduca es un expediente firmado y **no pagado**. Un cobro acreditado
+  // apaga el reloj, sea cual sea el estado desde el que se lo mire.
+  if (expediente.pago && pagoAcreditado(expediente.pago.estado)) return { ok: true, expediente };
 
   if (!expediente.plazoPagoVenceEn || ahora < expediente.plazoPagoVenceEn) {
     return { ok: true, expediente };
@@ -1027,8 +1097,8 @@ export function vencerPlazoSiCorresponde(
 // ---------------------------------------------------------------------------
 
 /**
- * PAGO_CONFIRMADO → EMITIDO: SeguroLoTengo remitió el expediente y Alianza
- * aceptó la solicitud. Es la única escritura de `expediente.poliza`.
+ * PAGO_CONFIRMADO o FIRMADO → EMITIDO: SeguroLoTengo remitió el expediente y
+ * Alianza aceptó la solicitud. Es la única escritura de `expediente.poliza`.
  *
  * **EMITIDO significa "solicitud aceptada y emisión ordenada", no "póliza en
  * mano".** P9 lo muestra exactamente así: `Solicitud aceptada ✓` junto a
@@ -1036,21 +1106,31 @@ export function vencerPlazoSiCorresponde(
  * `poliza.estado` y lo mueve Alianza a su ritmo — por eso son dos cosas
  * distintas y no un solo campo.
  *
- * Las tres cosas que hace imposibles de violar:
+ * Las cuatro cosas que hace imposibles de violar:
  *
  * **No hay emisión sin firma completa** (regla inviolable #3): se verifica que
- * `firma` esté, y llegar a PAGO_CONFIRMADO ya exigió pasar por FIRMADO, al que
- * solo se llega con los dos documentos firmados en un mismo acto y con las
- * firmas institucionales aplicadas.
+ * `firma` esté.
+ *
+ * **No hay emisión sin la firma institucional aplicada** (D-38, D-42). El
+ * grafo admite legalmente `PAGO_CONFIRMADO → EMITIDO` —es la arista que
+ * conservan los expedientes legados que ya cobraron y firmaron todo en el
+ * mismo acto, bajo el código anterior a la enmienda del 04-sep—, pero un
+ * expediente **nuevo** que llega a `PAGO_CONFIRMADO` todavía no tiene la
+ * institucional: la aplica `aplicarFirmasDiferidas`, que lo deja `FIRMADO`.
+ * Exigir `firmasInstitucionales` no vacío, sin importar el estado exacto de
+ * origen, es lo que distingue un expediente legado (ya las trae) de uno nuevo
+ * a medio camino (todavía no): sin esta guarda, la arista legada quedaría
+ * abierta para cualquier expediente nuevo que SEBAOT alcanzara a procesar
+ * antes de que la institucional llegara.
  *
  * **No hay emisión sin cobro efectivo** (fila 44 de la matriz: *"Si falla el
  * cobro, no solicitar la emisión automática"*, Código Civil, art. 1373; Ley
- * 4868/13, arts. 7(e) y 7(p)). Con la firma adelantada, el único estado de
- * origen legal es PAGO_CONFIRMADO, que ya significa *"el dinero entró"*: la
- * comprobación explícita del `Pago` queda igual porque una condición de la
- * que depende una obligación legal no se sostiene sola en el grafo. Es el
- * orden de la fila 43 —firma → cobro → envío a Alianza → validación →
- * emisión—, que con D-08 pasó a ser también el orden de las pantallas.
+ * 4868/13, arts. 7(e) y 7(p)). Los dos estados de origen legales ya significan
+ * *"el dinero entró"*: la comprobación explícita del `Pago` queda igual porque
+ * una condición de la que depende una obligación legal no se sostiene sola en
+ * el grafo. Es el orden de la fila 43 —firma → cobro → envío a Alianza →
+ * validación → emisión—, que con D-08 pasó a ser también el orden de las
+ * pantallas.
  *
  * **La póliza conserva el correlativo de la propuesta**: se valida que
  * `numeroPoliza` sea el mismo `numeroPropuesta` del expediente. Una póliza con
@@ -1063,6 +1143,18 @@ export function registrarEmisionP9(
 ): ResultadoTransicion {
   if (!expediente.firma) {
     return { ok: false, error: "No se puede emitir una póliza sin la Solicitud y el FIPF firmados." };
+  }
+
+  // D-38/D-42 · sin la institucional aplicada no hay emisión, sea cual sea el
+  // estado exacto de origen. `FIRMADO` siempre la trae (`registrarFirmasInstitucionales`
+  // la exige); `PAGO_CONFIRMADO` solo la trae en expedientes legados.
+  if (expediente.firmasInstitucionales.length === 0) {
+    return {
+      ok: false,
+      error:
+        "No se puede emitir sin la firma institucional diferida aplicada (D-38/D-42): " +
+        "el expediente está en PAGO_CONFIRMADO sin firmasInstitucionales.",
+    };
   }
 
   const pago = expediente.pago;

@@ -13,8 +13,19 @@ import "./canvas-v3.css";
 // El sistema de diseño del handoff v4, scopeado a `[data-flujo="v4"]`.
 import "./v4.css";
 
-// DM Sans: la tipografía del sitio institucional interseguros360.com
-// (docs/GUIA_DE_ESTILOS.md → "Tipografía").
+// Arimo (D-39): tipografía del flujo desde el handoff de pantallas v4 —
+// libre, gratuita y de métrica parecida a Nimbus Sans (docs/GUIA_DE_ESTILOS.md
+// → "Paleta y tipografía v4"). Reemplaza a DM Sans como `--font-sans`.
+const arimo = Arimo({
+  variable: "--font-arimo",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+// DM Sans: la tipografía del sitio institucional interseguros360.com que
+// usaba el flujo antes del handoff v4. Se sigue cargando porque
+// `[data-flujo="v3"]` (canvas-v3.css) la sigue nombrando explícitamente; el
+// flujo vigente ya no la usa como `--font-sans` (ver globals.css).
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
@@ -32,15 +43,6 @@ const archivo = Archivo({
   variable: "--font-archivo",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
-});
-
-// Arimo: la libre métricamente compatible con Helvetica, que es lo más cerca
-// de Nimbus Sans —la tipografía congelada del handoff v4— sin licencia de pago
-// (D-39). Se carga siempre y solo la aplica el bloque `[data-flujo="v4"]`.
-const arimo = Arimo({
-  variable: "--font-arimo",
-  subsets: ["latin"],
-  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
@@ -64,8 +66,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       // La piel del canvas (paleta, Archivo, esquinas rectas) se activa por
       // tokens bajo este atributo — ver el bloque v3 de globals.css.
+      // `v4` activa `v4.css` (`[data-flujo="v4"]`) para las doce pantallas
+      // del handoff; sin flag, la base visual v4 de globals.css ya aplica.
       data-flujo={flujoV4Activo() ? "v4" : flujoV3Activo() ? "v3" : undefined}
-      className={`${dmSans.variable} ${geistMono.variable} ${archivo.variable} ${arimo.variable} h-full antialiased`}
+      className={`${arimo.variable} ${dmSans.variable} ${geistMono.variable} ${archivo.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_INICIAL }} />

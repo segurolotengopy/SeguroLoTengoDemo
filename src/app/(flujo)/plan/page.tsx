@@ -4,17 +4,18 @@ import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
 import {
   HeaderInstitucional,
-  PestanasDeProducto,
   PieLegal,
   StepperPasos,
-  TituloDePantalla,
   TramiteEnOtroPaso,
 } from "@/components/shared";
-import { NOMBRE_PRODUCTO, REGISTRO_PRODUCTO, urlVideoInformativo } from "@/domain/catalogo";
+import { REGISTRO_PRODUCTO, urlVideoInformativo } from "@/domain/catalogo";
 import {
   BAJADA_VIDEO_PLAN,
   DETALLE_TRAMITE_EN_OTRO_PASO,
+  ENLACE_INFORMACION_LEGAL,
   INFORMACION_RELEVANTE,
+  NOTA_LEGAL_PLAN,
+  ROTULO_ACLARACION_PLAN,
   ROTULO_PRODUCTO_INSCRITO,
   SUBTITULO_PLAN,
   TITULO_INFORMACION_RELEVANTE,
@@ -30,20 +31,29 @@ import { crearExpedienteRepository } from "@/repositories";
 import { SelectorDePlanes } from "./SelectorDePlanes";
 
 /**
- * Paso 1 · Selección del plan — `/plan`, en el formato de la maqueta
- * (`docs/antecedentes/PantallasDemo2.pdf`, p.1; reformulación explícita en
- * `docs/plan/REFORMULACION_PANTALLAS_MAQUETA.md`).
+ * Paso 1 (etapa 1 de 5) · Selección del plan — `/plan`, en el formato del
+ * handoff de pantallas v4 (`PANTALLA_02_SELECCION_PLAN_APROBADA_FINAL.png`,
+ * manual funcional p. 25-26; D-28).
  *
- * De arriba hacia abajo, como la maqueta: pestañas de producto, título
- * centrado con el botón de video, línea del producto inscrito, las tres
- * tarjetas de plan, la franja `Información relevante`, y al pie la nota legal
- * junto al botón de continuar (dentro del selector, que es quien conoce el
- * estado).
+ * De arriba hacia abajo, como el arte: título de dos líneas (navy / rojo) con
+ * subtítulo, la tarjeta del video informativo, la línea del producto
+ * inscrito, las tres tarjetas de plan, el enlace único a coberturas, la fila
+ * de tres fichas (edad / carencias / inicio de cobertura), la aclaración
+ * legal y la CTA roja de continuar.
+ *
+ * **Lo que no se reprodujo del arte, a propósito:**
+ * - La ilustración de los tres escudos (cáncer / fallecimiento / accidente)
+ *   no existe como archivo entregado: se deja el espacio libre en vez de
+ *   inventarla o dibujarla desde cero.
+ * - El ícono de menú hamburguesa: abre la pantalla 01B, fuera de este
+ *   alcance (ver `HeaderInstitucional`).
+ * - Las pestañas de producto (`PestanasDeProducto`) del formato anterior: el
+ *   arte de la pantalla 02 no las dibuja — el catálogo de productos vive en
+ *   la portada (01), que también queda fuera de este alcance.
  *
  * Los importes y coberturas NO están acá: viven en la tabla versionada
- * `src/domain/catalogo.ts` (D-04: los montos de la Matriz V4, provisionales;
- * los premios de la maqueta quedaron superados). Todo lo estático se renderiza
- * en el servidor; lo único con estado es el selector.
+ * `src/domain/catalogo.ts` (producto VIVE, manual v4 p. 5). Todo lo estático
+ * se renderiza en el servidor; lo único con estado es el selector.
  */
 
 export const metadata: Metadata = {
@@ -52,8 +62,8 @@ export const metadata: Metadata = {
     "Paso 1: selección del plan del Seguro de Vida Oncológico VIVE. Todavía no se contrata ni se firma.",
 };
 
-/** Íconos de línea de la maqueta. Decorativos: la información va en el texto. */
-function Icono({ trazo, className = "h-4 w-4" }: { trazo: string; className?: string }) {
+/** Íconos de línea del arte. Decorativos: la información va en el texto. */
+function Icono({ trazo, className = "h-5 w-5" }: { trazo: string; className?: string }) {
   return (
     <svg
       aria-hidden="true"
@@ -72,17 +82,16 @@ function Icono({ trazo, className = "h-4 w-4" }: { trazo: string; className?: st
 
 const TRAZOS = {
   persona: "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21c0-4 3.6-6 8-6s8 2 8 6",
-  corazon: "M12 20s-7-4.6-9-9a5 5 0 019-3 5 5 0 019 3c-2 4.4-9 9-9 9z",
-  escudo: "M12 3l7 2.5v5.2c0 4.6-3 8.2-7 10.3-4-2.1-7-5.7-7-10.3V5.5L12 3z",
   calendario: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
   reloj: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2",
+  info: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 11v5M12 8v.01",
 } as const;
 
-
 /**
- * Botón de video de la maqueta. Es el mismo material de P0 —un marcador de
- * demostración, sin video real detrás— presentado como la maqueta lo dibuja:
- * recuadro naranja con el play y las dos líneas.
+ * Botón/tarjeta de video informativo del arte: recuadro con el ícono de play
+ * en rojo, título y bajada, y un chevron a la derecha. Es el mismo marcador
+ * de demostración de siempre —sin video real detrás—, sin más cambio que la
+ * paleta v4.
  */
 function VideoInformativo() {
   const url = urlVideoInformativo();
@@ -90,27 +99,28 @@ function VideoInformativo() {
     <>
       <span
         aria-hidden="true"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-naranja-500 text-sm text-azul-950"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-v4-rojo text-sm text-white"
       >
         ▶
       </span>
-      <span className="leading-tight">
-        <span className="block text-[11px] font-bold tracking-wide text-naranja-800 uppercase dark:text-naranja-200">
+      <span className="flex-1 leading-tight">
+        <span className="block text-[11px] font-bold tracking-wide text-v4-navy uppercase">
           {TITULO_VIDEO_PLAN}
         </span>
-        <span className="block text-[11px] text-naranja-800 dark:text-naranja-200">
-          {BAJADA_VIDEO_PLAN}
-        </span>
+        <span className="block text-[11px] text-etiqueta">{BAJADA_VIDEO_PLAN}</span>
+      </span>
+      <span aria-hidden="true" className="shrink-0 text-v4-atenuado">
+        ›
       </span>
     </>
   );
   const clase =
-    "flex items-center gap-2.5 rounded-lg border border-naranja-400 bg-naranja-50 px-3 py-2 text-left dark:border-naranja-600 dark:bg-naranja-950";
+    "flex items-center gap-2.5 rounded-xl border border-borde-sutil bg-superficie px-3 py-2.5 text-left";
 
   // Con URL configurada (`NEXT_PUBLIC_VIDEO_INFORMATIVO_URL`) es un enlace a
   // YouTube; sin ella queda como marcador de demo, sin fingir un video.
   return url ? (
-    <a href={url} target="_blank" rel="noreferrer noopener" className={`${clase} hover:bg-naranja-100 dark:hover:bg-naranja-900`}>
+    <a href={url} target="_blank" rel="noreferrer noopener" className={`${clase} hover:bg-superficie-suave`}>
       {contenido}
     </a>
   ) : (
@@ -168,32 +178,36 @@ export default async function PantallaSeleccionDePlan() {
     <div className="flex flex-1 flex-col bg-fondo">
       <HeaderInstitucional indicador={<StepperPasos slug="/plan" />} />
 
-      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
-        <PestanasDeProducto />
+      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-5 px-4 py-5 sm:px-6">
+        {/* Título de dos líneas del arte: "Seguro de Vida" en navy,
+            "Oncológico VIVE" en rojo. La ilustración de escudos del arte no
+            está como archivo entregado: se deja el espacio libre. */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl leading-tight font-bold sm:text-3xl">
+            <span className="block text-v4-navy">Seguro de Vida</span>
+            <span className="block text-v4-rojo">Oncológico VIVE</span>
+          </h1>
+          <p className="text-sm font-semibold text-v4-navy">{SUBTITULO_PLAN}</p>
+        </div>
 
-        <TituloDePantalla
-          titulo={NOMBRE_PRODUCTO}
-          subtitulo={SUBTITULO_PLAN}
-          accesorio={<VideoInformativo />}
-        />
+        <VideoInformativo />
 
         {/* CHG-03 · identificación del producto registrado, centrada bajo el
-            título como en la maqueta. Código y acto oficiales desde la Nota
+            título como en el arte. Código y acto oficiales desde la Nota
             SS.SG. N.º 397/2026 (D-26); el acto se imprime tal cual, porque es
             una Nota y no una Resolución. */}
-        <p className="-mt-2 text-center text-xs text-etiqueta">
+        <p className="text-center text-xs text-etiqueta">
           <span className="font-semibold text-cuerpo">{ROTULO_PRODUCTO_INSCRITO}</span>{" "}
+          {REGISTRO_PRODUCTO.denominacionRegistral} · Código de Registro N.º{" "}
           <span className="tabular-nums">{REGISTRO_PRODUCTO.codigo}</span> ·{" "}
           <span className="tabular-nums">{REGISTRO_PRODUCTO.acto}</span>
           {REGISTRO_PRODUCTO.esProvisional ? (
-            <span className="ml-2 rounded-full border border-naranja-300 bg-naranja-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-naranja-800 uppercase dark:border-naranja-700 dark:bg-naranja-950 dark:text-naranja-200">
+            <span className="ml-2 rounded-full border border-v4-atenuado/40 bg-v4-atenuado/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-v4-atenuado uppercase">
               Pendiente de Alianza
             </span>
           ) : null}
         </p>
 
-        {/* La franja `Información relevante` entra por prop: la maqueta la
-            dibuja entre las tarjetas y el pie, y el pie vive en el selector. */}
         {enOtroPaso ? (
           <TramiteEnOtroPaso
             destino={enOtroPaso}
@@ -202,32 +216,51 @@ export default async function PantallaSeleccionDePlan() {
           />
         ) : (
           <SelectorDePlanes
-            entreTarjetasYPie={
-              <section aria-label="Información relevante" className="flex flex-col gap-1.5">
-                <h2 className="text-sm font-bold text-naranja-700 dark:text-naranja-300">
-                  {TITULO_INFORMACION_RELEVANTE}
-                </h2>
-                <dl className="grid gap-x-8 gap-y-2 rounded-xl border-2 border-borde-sutil bg-superficie px-4 py-3 sm:grid-cols-3">
-                  {INFORMACION_RELEVANTE.map(({ rotulo, detalle }, indice) => (
-                    <div key={rotulo} className="flex items-start gap-2.5 leading-tight">
-                      <Icono
-                        trazo={[TRAZOS.persona, TRAZOS.calendario, TRAZOS.reloj][indice] ?? TRAZOS.reloj}
-                        className="mt-0.5 h-6 w-6 text-azul-700 dark:text-azul-300"
-                      />
-                      <div className="flex flex-col gap-0.5">
-                        <dt className="text-[11px] font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200">
-                          {rotulo}
-                        </dt>
-                        <dd className="text-xs text-cuerpo">{detalle}</dd>
-                      </div>
+            fichas={
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {/* El arte no dibuja un título de sección acá (las tres
+                    fichas van directo), pero el grupo necesita nombre para
+                    quien navega con lector de pantalla. */}
+                <h2 className="sr-only">{TITULO_INFORMACION_RELEVANTE}</h2>
+                {INFORMACION_RELEVANTE.map(({ rotulo, detalle }, indice) => (
+                  <div
+                    key={rotulo}
+                    className="flex items-start gap-2.5 rounded-xl border border-borde-sutil bg-superficie px-3.5 py-3"
+                  >
+                    <Icono
+                      trazo={[TRAZOS.persona, TRAZOS.calendario, TRAZOS.reloj][indice] ?? TRAZOS.reloj}
+                      className="mt-0.5 h-6 w-6 shrink-0 text-v4-navy"
+                    />
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-[11px] font-bold tracking-wide text-v4-navy uppercase">
+                        {rotulo}
+                      </p>
+                      <p className="text-xs leading-snug text-cuerpo">{detalle}</p>
                     </div>
-                  ))}
-                </dl>
-              </section>
+                  </div>
+                ))}
+              </div>
+            }
+            aclaracion={
+              <div className="flex items-start gap-2.5 rounded-xl border border-v4-azul/25 bg-v4-azul/5 px-4 py-3">
+                <Icono trazo={TRAZOS.info} className="mt-0.5 h-5 w-5 shrink-0 text-v4-azul" />
+                <p className="text-xs leading-relaxed text-cuerpo">
+                  <span className="font-bold text-v4-navy">{ROTULO_ACLARACION_PLAN}</span>{" "}
+                  {NOTA_LEGAL_PLAN}
+                </p>
+              </div>
             }
           />
         )}
 
+        <p className="text-center">
+          <a
+            href="/privacidad"
+            className="text-xs font-semibold text-v4-azul underline decoration-v4-azul/40 underline-offset-2 hover:opacity-80"
+          >
+            {ENLACE_INFORMACION_LEGAL}
+          </a>
+        </p>
       </main>
 
       <PieLegal />

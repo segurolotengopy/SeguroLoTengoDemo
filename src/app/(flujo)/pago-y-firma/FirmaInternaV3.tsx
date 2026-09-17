@@ -7,8 +7,14 @@
  * Recorrido: resumen del paquete cerrado (`GET /api/p8/resumen`, que además lo
  * genera si el expediente viene de las declaraciones) → aceptación agrupada 3
  * (DI-8) → elección de canal (DI-5) → código de un solo uso → firma del
- * cliente (`FIRMADO_CLIENTE`) → sondeo de las institucionales
- * (`GET /api/p8/estado`, el mismo de siempre) → `FIRMADO` y `onCompletado`.
+ * cliente (`FIRMADO_CLIENTE`) → confirmación por el mismo sondeo de siempre
+ * (`GET /api/p8/estado`) → `onCompletado`.
+ *
+ * **Enmienda del 04-sep-2026 a D-08 (D-38, D-42).** Antes el sondeo esperaba,
+ * además, a que se aplicaran las firmas institucionales y recién ahí avisaba
+ * — hoy `FIRMADO_CLIENTE` ya es la confirmación completa: la institucional de
+ * Interseguros se aplica **después del pago**, y Alianza no firma la
+ * propuesta.
  *
  * Ninguna parte nombra proveedor: el código lo emite y verifica el portal.
  */

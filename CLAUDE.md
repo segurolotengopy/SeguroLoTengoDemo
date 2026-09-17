@@ -57,20 +57,26 @@ limiting y el resto de los CMP nuevos). Cada regla se corrige acá cuando el
 lote que la cambia se implementa, no antes: hasta entonces, **la regla escrita
 abajo es la que rige el código que existe hoy**.
 
-### ⚠️ Decisiones del 04-sep-2026 sobre firmas y CPC, pendientes de implementar
+### ⚠️ Decisiones del 04-sep-2026 sobre firmas y CPC
 
 Tras el análisis legal de Rodrigo (03/04-sep-2026; `docs/firma-cualificada/CAMBIOS_NECESARIOS.md`
 §4 y `docs/plan/DECISIONES.md`, enmiendas a D-08, D-12 y D-13) Andres decidió:
 **(1)** el cobro se habilita con la firma **del cliente** (`FIRMADO_CLIENTE`) y la
 firma cualificada de Interseguros pasa a aplicarse **después del pago**, dentro
-de 24/48 h operativas (Res. 210/2025 art. 5; Res. 215/17 num. 11.15); **(2)** el
-Certificado de Cobertura Provisional **lo emite y firma únicamente Alianza**
+de 24/48 h operativas (Res. 210/2025 art. 5; Res. 215/17 num. 11.15) — **implementado**
+(lote «Cierre v4 · dominio», 15-sep-2026: la regla 6-bis y la máquina de estados de
+más arriba ya lo describen; la firma diferida de Interseguros la aplica
+`aplicarFirmasDiferidas`, invocada desde P9, en línea cuando el adaptador de firma
+activo puede — hoy solo el mock — y por el lote externo de D-38 cuando no);
+**(2)** el Certificado de Cobertura Provisional **lo emite y firma únicamente Alianza**
 desde su sistema (Res. 231/2025 Anexo I arts. 1-2; Res. 215/17 art. 7º y num.
-10) — SeguroLoTengo deja de emitirlo, y el comprobante de pago (D-05) cubre la
-entrega inmediata; **(3)** Alianza **no** firma la Solicitud ni el FIPF. Nada de
-esto está implementado: la regla 6-bis, la máquina de estados, la sección del
-CPC y los «tres descargables» de más abajo siguen describiendo el código de hoy,
-y se reescriben con el lote que los cambie.
+10) — **quedó reemplazada por D-42** (15-sep-2026, Bloque G de `docs/plan/DECISIONES.md`):
+el CPC lo genera **Interseguros desde SeguroLoTengo** y lo firma Alianza por el
+intercambio SFTP. Ninguna de las dos versiones está implementada: la sección del
+CPC y los «tres descargables» de más abajo siguen describiendo el código de antes
+de esta ronda de decisiones, y se reescriben con el lote que los cambie;
+**(3)** Alianza **no** firma la Solicitud ni el FIPF — **implementado** (D-42
+confirmó esta parte: ver «Firmantes por documento» más abajo).
 
 ### ⚠️ v4 es la versión del producto (16-sep-2026)
 
@@ -79,9 +85,38 @@ Interseguros mandó el handoff de pantallas v4 y el manual funcional
 D-28 a D-41 (Bloque G de `docs/plan/DECISIONES.md`) y, el 16-sep, **D-43 a
 D-48** (Bloque H): *«esta es la v4, el resto no va»*.
 
+- **Fuente visual:** v4 reemplaza al prototipo v3 de Lovable. Manda el
+  **manual**, después el arte `APROBADA_FINAL`, después el JSON.
+- **Flujo:** 5 etapas con portada. El plazo de pago pasa a **10 minutos**
+  desde la firma del cliente — **implementado** (D-32, lote «Cierre v4 ·
+  dominio», 15-sep-2026: ver la máquina de estados y el Panel de demo más
+  arriba).
+- **Datos:** en 03D los datos extraídos son editables y se registran, pero la
+  **elegibilidad y el bloqueo se calculan con el OCR**.
+- **Canales y firmas:** no hay SMS (D-44 deja sin efecto a D-37). Interseguros
+  firma en lote por fuera del sistema (D-38).
+- **Presentación:** voseo en todo, sin modo oscuro en la primera fase, Arimo
+  en lugar de DM Sans, y analítica sin datos sensibles.
+
 **v2 y v3 dejaron de ser objetivos.** Siguen en el árbol solo hasta que
 `FLUJO_V4` se encienda para siempre; ahí se borran. No se les agregan
 pantallas ni se los mantiene.
+
+**Dos capas conviven hoy, y hay que saber cuál se está mirando:**
+
+1. **Lo que corre en producción** (`FLUJO_V4` apagado): el flujo de 8 pasos
+   de v2 con la **base visual v4 aplicada encima** (PR #126: paleta,
+   `HeaderInstitucional` de tres marcas, `StepperPasos` de 5 etapas por
+   `etapaDePaso(slug)`, Arimo, tema claro) y la pantalla 02 rehecha en su
+   lugar. La batería E2E de la raíz `e2e/` prueba **esta** capa.
+2. **Las doce pantallas v4** (PR #131), detrás de `FLUJO_V4=true`: cada
+   `page.tsx` del flujo elige entre su cuerpo v2 y `src/components/v4/pantallas/`
+   según `flujoV4Activo()`. Marco propio (`MarcoV4` = `CabeceraV4` con menú
+   01B + `StepperV4` por **código de pantalla** de `src/domain/v4/etapas.ts`),
+   `src/app/v4.css` bajo `[data-flujo="v4"]`, cámara con `piel="v4"`.
+   Encenderla para siempre —unificar el marco con `HeaderInstitucional`,
+   borrar los cuerpos v2/v3 y reescribir los E2E contra estas pantallas— es
+   el PR siguiente.
 
 Antes de tocar una pantalla:
 
@@ -91,35 +126,39 @@ Antes de tocar una pantalla:
 2. **`MANUAL_FUNCIONAL_TRANSCRIPCION.txt`** — manda sobre el arte (D-28).
 3. **`ANALISIS.md`** — qué se adopta y qué choca.
 
-Lo que v4 cambia y **ya está implementado**:
+Lo que v4 cambia y **ya está implementado** (en las dos capas, salvo que se
+diga lo contrario):
 
 - **Producto `VIVE`** (D-45), planes `VIVE` / `VIVE+` / `VIVE TOTAL`, premios
-  390.000 / 575.000 / 760.000. `ID_VERSION_OFERTA` = `OFERTA-VIVE-v3`. Los
-  `PlanId` viejos se traducen al leer (`PLAN_ID_LEGADO`).
+  390.000 / 575.000 / 760.000. `ID_VERSION_OFERTA` = `OFERTA-VIVE-v1`. **El
+  `PlanId` interno no se renombra** (`CONFIO_*`, regla #10): es identificador,
+  no nombre.
 - **No hay SMS** (D-44, deja sin efecto a D-37): el único canal de OTP es
   WhatsApp. Los artes `03A_10` y `03A_11` no se implementan.
 - **Se dice «premio», no «prima»** (D-47), salvo en citas literales de normas.
-- **Carga de archivo del frente y el dorso en producción** (D-46): ya no
-  depende de `DEMO_MODE`. La **selfie sigue siendo solo cámara**. El estado
-  `03C_19 · posible alteración` no se implementa: no hay proveedor que lo
-  detecte.
-- **Cinco etapas**, no ocho pasos: el stepper lee `PANTALLAS_V4` de
-  `src/domain/v4/etapas.ts` y recibe el **código de pantalla**, nunca un número.
-- **Plazo de pago de 10 minutos** (D-32): `PLAZO_PAGO_V4_MS`.
-- **Doce pantallas** y sus rutas: `/` (01) · `/plan` (02) · `/whatsapp` (03A) ·
-  `/preparacion` (03B) · `/identidad` (03C) · `/datos` (03D) · `/actividad`
-  (03E) · `/declaraciones` (04A) · `/consentimientos` (04D) · `/firma` (04E) ·
-  `/pago` (05A) · `/confirmacion` (05B), más `/revision-manual` (03E2 y 04A1).
+- **Carga de archivo del frente y el dorso en producción** (D-46): con
+  `FLUJO_V4` ya no depende de `DEMO_MODE` (`origenCapturaAdmitido`). La
+  **selfie sigue siendo solo cámara**. El estado `03C_19 · posible alteración`
+  no se implementa: no hay proveedor que lo detecte.
+- **Plazo de pago de 10 minutos** (D-32): `PLAZO_PAGO_MS`, sin flag.
+- **Doce pantallas** (capa 2) y sus rutas: `/` (01) · `/plan` (02) ·
+  `/whatsapp` (03A) · `/preparacion` (03B) · `/identidad` (03C) · `/datos`
+  (03D) · `/actividad` (03E) · `/declaraciones` (04A) · `/consentimientos`
+  (04D) · `/firma` (04E) · `/pago` (05A) · `/confirmacion` (05B), más
+  `/revision-manual` (03E2 y 04A1). `04E`, `05A` y `05B` **no tienen arte**
+  (D-41): están hechas con el sistema de estilo de las aprobadas y se
+  reemplazan cuando llegue el arte.
 - **Cinco endpoints nuevos**, todos bajo `/api/v4/`: `identidad`,
-  `datos-personales`, `actividad`, `declaraciones` y `consentimientos`.
-- **La máquina de estados no cambió.** 03D, 03E y 04A llenan el expediente sin
-  moverlo de `IDENTIDAD_VERIFICADA`; `04D` es la única puerta a
-  `DECLARACIONES_OK`. Campos nuevos: `datosPersonales`, `actividadEconomica` y
+  `datos-personales`, `actividad`, `declaraciones` y `consentimientos`. Y las
+  rutas de la firma interna (`/api/p8/firma-interna/*`) responden también con
+  `FLUJO_V4`, no solo con `FLUJO_V3`.
+- **La máquina de estados es la de `main`.** 03D, 03E y 04A llenan el
+  expediente sin moverlo de `IDENTIDAD_VERIFICADA`; `04D` es la única puerta a
+  `DECLARACIONES_OK`; `04E` deja el expediente en `FIRMADO_CLIENTE`, que ya
+  habilita `05A` (D-08 enmendada); la firma diferida de Interseguros llega
+  después del pago y `05B` no nombra a Alianza como firmante del paquete
+  (D-42). Campos nuevos: `datosPersonales`, `actividadEconomica` y
   `declaracionesMedicas`, los tres `null` en los expedientes anteriores.
-
-Lo que **falta**: `04E` (revisión y firma), `05A` (pago) y `05B` (confirmación)
-**no tienen arte** —ni aprobado ni candidato— y siguen mostrando las pantallas
-de v2. La cámara de 03C funciona pero conserva la piel de v2.
 
 ### Documentos fuente adicionales
 
@@ -260,7 +299,7 @@ Estas reglas tienen consecuencia legal (Ley 6822/2021 de firma electrónica, Ley
 5. **Bloqueo automático de elegibilidad**: una respuesta incompatible en las declaraciones 1, 2, 3 u 8 de P6 detiene la emisión automática y deriva a Pantalla A. Ese estado es **terminal en el flujo digital**: no existe transición desde ahí hacia paquete documental, firma, pago ni emisión.
 6. **Nunca se persiste PAN completo ni CVV**, en ninguna capa, incluidos logs y trazas de error.
 
-   6-bis. **No hay cobro sin firma** (D-08, Matriz V4 §7). El único estado desde el que se abre y se confirma una operación en Bancard es `FIRMADO`, al que solo se llega con el paquete cerrado y hasheado, la firma del cliente registrada y las institucionales aplicadas. No existe arista `DECLARACIONES_OK → PAGO_CONFIRMADO`. El corolario es la fila 30 de la matriz cumplida por construcción: el expediente caduca **antes** de cobrar, así que nunca hay premio que devolver por no firmar.
+   6-bis. **No hay cobro sin firma** (D-08, Matriz V4 §7; re-baseada el 04-sep-2026). El único estado desde el que se abre y se confirma una operación en Bancard es `FIRMADO_CLIENTE`, al que solo se llega con el paquete cerrado y hasheado y la firma del cliente registrada — la institucional de Interseguros ya **no** es condición: se aplica **después** del cobro, dentro de 24/48 h operativas (D-38). No existe arista `DECLARACIONES_OK → PAGO_CONFIRMADO`. El corolario es la fila 30 de la matriz cumplida por construcción: el expediente caduca **antes** de cobrar, así que nunca hay premio que devolver por no firmar.
 
 7. **Datos sensibles aislados**: las respuestas médicas y la condición PEP no salen hacia analítica, CRM, monitoreo de errores ni servicios de IA. Si agregás cualquier instrumentación, excluí explícitamente esos campos.
 8. **Edad 18-64 años** verificada contra la fecha de nacimiento extraída de la cédula, no contra un campo declarado.
@@ -280,25 +319,27 @@ INICIADO → PLAN\_SELECCIONADO → CANAL\_WA\_VERIFICADO → AUTORIZADO
 
      ├─ DERIVADO\_MANUAL (terminal) → Pantalla A
 
-     └─ DECLARACIONES\_OK → PAQUETE\_GENERADO → FIRMADO\_CLIENTE → FIRMADO
+     └─ DECLARACIONES\_OK → PAQUETE\_GENERADO → FIRMADO\_CLIENTE
 
-            ├─ VENCIDO (24 h sin pagar; sin cobro, sin devolución)
+            ├─ VENCIDO (10 min sin pagar; sin cobro, sin devolución)
 
-            └─ PAGO\_CONFIRMADO → EMITIDO → P9
+            └─ PAGO\_CONFIRMADO → FIRMADO → EMITIDO → P9
 
                    └─ DEVOLUCION\_EN\_TRAMITE → DEVUELTO (a pedido, Pantalla B)
 
-**Se firma antes de pagar** (D-08, Lote 4b; Matriz Legal V4 §7). Es la inversión del orden que tenía el flujo hasta el Plan v2: cobrar antes de la firma dejaba a la persona pagando por un contrato que todavía no había aceptado, y obligaba a devolver el premio cada vez que no firmaba. Con el orden nuevo el vencimiento ocurre **antes** de que haya dinero, así que caducar es gratis y la devolución queda reservada a lo que sí puede pedirse: un cobro con tarjeta ya acreditado (D-02).
+**Se firma antes de pagar, y la firma cualificada de Interseguros llega después** (D-08, Lote 4b; Matriz Legal V4 §7; re-baseada el 04-sep-2026, D-38). Es la inversión del orden que tenía el flujo hasta el Plan v2: cobrar antes de la firma dejaba a la persona pagando por un contrato que todavía no había aceptado, y obligaba a devolver el premio cada vez que no firmaba. La firma del cliente sigue antes del pago; la cualificada del corredor —antes aplicada en el mismo acto— se movió a **después** del cobro, dentro de 24/48 h operativas, para sacar su latencia del camino crítico de la venta. Con el orden nuevo el vencimiento sigue ocurriendo **antes** de que haya dinero, así que caducar es gratis y la devolución queda reservada a lo que sí puede pedirse: un cobro con tarjeta ya acreditado (D-02), sin importar si para ese momento la institucional ya se aplicó (`PAGO_CONFIRMADO`) o no (`FIRMADO`).
 
-`FIRMADO_CLIENTE` es el estado entre la firma del cliente y las institucionales de Interseguros y Alianza (D-13). Existe como estado propio y no como un campo porque un sellado a medio hacer tiene que ser distinguible de un expediente sin firmar (regla inviolable #3): si Code100 confirma la firma del cliente y las institucionales fallan, el expediente queda ahí y el cobro sigue inhabilitado.
+`FIRMADO_CLIENTE` es, desde la enmienda del 04-sep-2026, un **estado completo** del paso de firma: habilita el cobro sin esperar a Interseguros. Existe como estado propio y no como un campo porque nombra con precisión el hecho que importa —el cliente ya firmó el documento entero— y porque los expedientes que llegaron acá por el código anterior a la enmienda (que sí esperaba a la institucional en el mismo acto) siguen teniendo una salida legada hacia `FIRMADO` (regla #10).
 
-`PAGO_CONFIRMADO` significa _"el dinero entró"_ y, desde D-12, **también** que existe el Certificado de Cobertura Provisional: los dos entran por la misma transición, así que no hay estado intermedio en el que uno exista sin el otro (CMP-07). Ver "El Certificado de Cobertura Provisional" más abajo.
+`PAGO_CONFIRMADO` significa _"el dinero entró"_, y desde ahí `aplicarFirmasDiferidas` (`src/domain/firma-p8.ts`) aplica la firma cualificada de Interseguros —en línea, si el adaptador de firma activo declara esa capacidad (hoy, solo el mock), o por el lote externo de D-38 cuando no— para dejar el expediente `FIRMADO`. Sin la institucional aplicada no hay emisión: `registrarEmisionP9` lo hace cumplir exigiendo `firmasInstitucionales` no vacío, sea cual sea el estado exacto de origen. El Certificado de Cobertura Provisional sigue naciendo en la transición del cobro (D-12): ver "El Certificado de Cobertura Provisional" más abajo.
+
+`FIRMADO` describe, desde la enmienda del 04-sep-2026, un momento **posterior** al pago: cobrado y con la institucional ya aplicada, esperando que se ordene la emisión. Antes de la enmienda significaba lo contrario —firmado por todos y esperando el cobro— y esa arista `FIRMADO_CLIENTE → FIRMADO` **se conserva como legado** (regla #10), igual que `FIRMADO → PAGO_CONFIRMADO` y `FIRMADO → VENCIDO`: son las que usaban los expedientes que llegaron a `FIRMADO` bajo el código anterior.
 
 `EMITIDO` significa **solicitud aceptada y emisión ordenada**, no "póliza en mano": P9 lo muestra como `Solicitud aceptada ✓` junto a `Póliza en preparación ⋯`. El estado del documento vive aparte, en `Expediente.poliza`, y lo mueve Alianza (SEBAOT y SIFEN) a su ritmo — por eso son dos cosas distintas. La póliza **conserva el correlativo de la propuesta**: SEBAOT no acuña un número nuevo. El correlativo lo acuña ahora el **cierre del paquete documental**, no el pago: los documentos se cierran antes de firmarse, así que el número nace con ellos (`generarNumeroPropuesta` en `src/documentos/servicio.ts`).
 
-`VENCIDO` significa **firmado y no pagado dentro de las 24 h** (D-10), y en el flujo vigente es el final del camino: no hubo cobro, así que no hay premio que devolver. El reloj arranca al aplicarse las firmas institucionales (`Expediente.plazoPagoVenceEn`) y lo apaga el cobro. La arista `VENCIDO → DEVOLUCION_EN_TRAMITE` **se conserva como legado**: hay expedientes que vencieron bajo el orden viejo con el pago hecho y no se los reescribe (regla #10); sin esa salida quedarían con dinero adentro y sin trámite al que ir. Quien la guarda es `iniciarDevolucionPantallaB`, que exige un pago acreditado — condición que un vencimiento nuevo nunca cumple.
+`VENCIDO` significa **firmado por el cliente y no pagado dentro de los 10 minutos** (D-10, D-32), y en el flujo vigente es el final del camino: no hubo cobro, así que no hay premio que devolver. El reloj arranca al confirmarse la firma del cliente (`Expediente.plazoPagoVenceEn`, abierto en la misma transición que `FIRMADO_CLIENTE`) y lo apaga el cobro. La arista `VENCIDO → DEVOLUCION_EN_TRAMITE` **se conserva como legado**: hay expedientes que vencieron bajo el orden viejo con el pago hecho y no se los reescribe (regla #10); sin esa salida quedarían con dinero adentro y sin trámite al que ir. Quien la guarda es `iniciarDevolucionPantallaB`, que exige un pago acreditado — condición que un vencimiento nuevo nunca cumple.
 
-**Vencer no es solo marcar el expediente: apaga la operación abierta en Bancard.** El QR dinámico vive **3 días** (respuesta B5 del proveedor) y esa vigencia **no es configurable por comercio** (B5-bis), contra las 24 horas de D-10; sin cerrarla quedan hasta dos días en los que alguien puede pagar un QR que apunta a un expediente terminal, que es exactamente lo que D-08 fue diseñado para hacer imposible. La forma de cerrarla la declaró Bancard: la reversa por `hook_alias` *"permite inactivar o invalidar un QR que haya sido generado y que aún no haya sido pagado"*, y usarla al cancelar la venta es **mandatorio** (B4-bis). `aplicarVencimiento` la invoca **después** de ganar la escritura del vencimiento —el bloqueo optimista es la prueba de que ningún sondeo confirmó el pago— y deja evidencia propia (`P7_REVERSA_OPERACION`), incluida la del caso de borde en que el dinero entró en el intervalo y la reversa terminó devolviéndolo.
+**Vencer no es solo marcar el expediente: apaga la operación abierta en Bancard.** El QR dinámico vive **3 días** (respuesta B5 del proveedor) y esa vigencia **no es configurable por comercio** (B5-bis), contra los **10 minutos** de D-10/D-32 —una diferencia todavía mayor que con las 24 h anteriores—; sin cerrarla queda casi tres días enteros en los que alguien puede pagar un QR que apunta a un expediente terminal, que es exactamente lo que D-08 fue diseñado para hacer imposible. La forma de cerrarla la declaró Bancard: la reversa por `hook_alias` *"permite inactivar o invalidar un QR que haya sido generado y que aún no haya sido pagado"*, y usarla al cancelar la venta es **mandatorio** (B4-bis). `aplicarVencimiento` la invoca **después** de ganar la escritura del vencimiento —el bloqueo optimista es la prueba de que ningún sondeo confirmó el pago— y deja evidencia propia (`P7_REVERSA_OPERACION`), incluida la del caso de borde en que el dinero entró en el intervalo y la reversa terminó devolviéndolo.
 
 El vencimiento no es el único disparador: **toda operación que el expediente deja de referenciar se apaga**. `Expediente.pago` guarda un solo intento, así que cambiar de medio de pago vuelve invisible al anterior — y del lado de Bancard sigue vivo. `iniciarPagoP7` reversa el intento abandonado **antes** de abrir el siguiente (`INTENTO_REEMPLAZADO`), para que no exista ningún instante con dos operaciones vivas para el mismo expediente. Si esa reversa falla, el pago nuevo se abre igual: no dejar pagar por una falla de Bancard sería castigar a la persona por algo que no es suyo.
 
@@ -320,15 +361,17 @@ Los 10 proveedores externos viven detrás de interfaces en `src/ports/`:
 
 La selección de adaptador es por variable de entorno (`INTEGRATION_MODE`, o flags granulares `INTEGRATION_OTP`, `INTEGRATION_PAYMENT`, etc.). Los mocks y las implementaciones oficiales comparten los mismos tests de contrato en `src/ports/__tests__/`.
 
-### Firmantes por documento (D-13)
+### Firmantes por documento (D-13, D-42)
 
-Quiénes firman cada documento, en qué orden, con qué nivel y en qué modalidad (`PREFIRMADO` / `CONJUNTO`) es **dato configurable**, en `src/domain/firmantes-documento.ts`. De ahí salen tres cosas a la vez: el bloque de firmas que se imprime en el PDF, el orden en que el adaptador aplica las firmas, y lo que la consola muestra de cada una — cuando eran tres listas separadas, el PDF podía anunciar un firmante que el proveedor no aplicaba.
+Quiénes firman cada documento, en qué orden, con qué nivel y en qué modalidad (`PREFIRMADO` / `CONJUNTO` / `DIFERIDO`) es **dato configurable**, en `src/domain/firmantes-documento.ts`. De ahí salen tres cosas a la vez: el bloque de firmas que se imprime en el PDF, el orden en que se aplican las firmas, y lo que la consola muestra de cada una — cuando eran tres listas separadas, el PDF podía anunciar un firmante que el proveedor no aplicaba.
 
-Dos invariantes que la configuración no puede romper, las dos con test: **el cliente firma primero y firma simple**, y **toda firma institucional es cualificada**. `PREFIRMADO` es la excepción ordenada a lo primero: la firma ya está sobre el documento antes de que el cliente lo reciba, como en una póliza modelo.
+`PAQUETE` (Solicitud + FIPF) lleva dos firmantes: **CLIENTE** (simple, en el acto) e **INTERSEGUROS** (cualificada, `DIFERIDO` — se aplica después del pago, D-38). **Alianza no firma la propuesta** (D-08 enmendada el 04-sep-2026, D-42): la Res. 215/17 num. 11.15 prevé la firma del corredor o del proponente, y nada exige la de la aseguradora.
+
+Tres invariantes que la configuración no puede romper, las tres con test: **el cliente firma primero y firma simple**, **toda firma institucional es cualificada**, y **ninguna institucional en modalidad `CONJUNTO` ni `DIFERIDO` precede al cliente**. `PREFIRMADO` es la excepción a lo tercero: la firma ya está sobre el documento antes de que el cliente lo reciba, como en el CPC.
 
 Cada firma institucional aplicada queda en `Expediente.firmasInstitucionales` con su rol, nivel, modalidad y certificado, visible en la consola: un expediente `FIRMADO` que no dijera quién lo firmó no probaría nada. El certificado es simulado mientras Code100 sea un mock y la referencia lo dice (`DEMO-CERT-…`).
 
-**Divergencia declarada:** la Matriz V4 §2 dice que _"Alianza no firma la propuesta salvo exigencia del modelo"_; D-13 establece lo contrario y manda D-13. ALR-07 registra que Rodrigo y Legal actualicen la matriz.
+**La divergencia con la Matriz V4 §2 ya no existe.** D-13 se corrigió el 04-sep-2026 en este punto y coincide con la matriz: ALR-07 se cerró sin cambiar el texto de la matriz.
 
 ### Contrato oficial de `SignatureProvider` (Code100)
 
@@ -505,15 +548,15 @@ Herramienta interna nueva (staff AAB1/Interseguros/Alianza), **no forma parte de
 
 `/demo-panel`, protegido por `DEMO_PANEL_KEY`, disponible solo con `DEMO_MODE=true` y excluido del bundle cuando el flag está apagado.
 
-Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 24 h a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **tarjeta rechazada**, rechazo de Code100, **firmas institucionales caídas**, registro civil caído, **mensajería caída** y **entrega sin acuse**), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
+Permite: elegir persona de prueba, ver los OTP generados, acelerar el plazo de **pago** de 10 minutos a segundos, forzar fallos puntuales (OTP expirado, intentos agotados, timeout de Bancard, **tarjeta rechazada**, rechazo de Code100, **firmas institucionales caídas**, registro civil caído, **mensajería caída** y **entrega sin acuse**), completar el acto de firma de Code100, reiniciar el expediente y ver el registro de evidencia.
 
-El plazo que el panel acorta es el de D-10 —24 horas para **pagar** un expediente ya firmado—, y se congela al aplicarse las firmas institucionales: para verlo caducar en segundos hay que fijarlo corto **antes** de firmar. Acortarlo es además la forma de demostrar la reversa: al vencer, el expediente **apaga la operación abierta en Bancard** y deja su propia evidencia.
+El plazo que el panel acorta es el de D-10/D-32 —10 minutos para **pagar** un expediente ya firmado por el cliente—, y se congela al confirmarse la firma del cliente (`FIRMADO_CLIENTE`): para verlo caducar en segundos hay que fijarlo corto **antes** de firmar. Acortarlo es además la forma de demostrar la reversa: al vencer, el expediente **apaga la operación abierta en Bancard** y deja su propia evidencia.
 
 `BANCARD_TIMEOUT` y `BANCARD_TARJETA_RECHAZADA` son **dos momentos distintos**, no dos intensidades: el timeout corta **al abrir** la operación —la persona nunca ve el formulario— y la tarjeta rechazada ocurre **al terminar de pagar**, que es cuando contesta el emisor. La segunda es la que muestra lo que importa de G2: el pago queda `RECHAZADO`, la pantalla suelta la operación y el reintento funciona con una clave de idempotencia nueva.
 
 **El acto de firma también se puede completar sin abrir el panel**, desde el modal de P8 (`ModalFirmadorSimulado.tsx` + `/api/p8/firmador-simulado`, extensión `route.demo.ts`). Es la misma simulación de Code100, presentada como lo que es —la ventana del proveedor, no una pantalla de SeguroLoTengo— y existe para no tener que mostrar la consola de trucos en una demostración por pantalla compartida. **Nunca muestra el código**: lo recibe tipeado (regla inviolable #2). A diferencia del endpoint del panel, no acepta `idCode100` del cliente: lo saca del expediente de la sesión, y esa es la propiedad que reemplaza a la clave del panel.
 
-El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. La palanca de _cortar el sellado a la mitad_ que llevaba antes **desapareció con D-11**: con un solo documento no hay dos archivos que puedan quedar a medias. La falla equivalente —y la que sí tiene un estado que mostrar— es `FIRMAS_INSTITUCIONALES_FALLAN`, que vive en el panel: el cliente firma, las cualificadas no llegan y el expediente queda en `FIRMADO_CLIENTE` con el cobro inhabilitado.
+El modal cubre las tres acciones del otro lado del enlace: abrir, firmar y **rechazar**. La palanca de _cortar el sellado a la mitad_ que llevaba antes **desapareció con D-11**: con un solo documento no hay dos archivos que puedan quedar a medias. `FIRMAS_INSTITUCIONALES_FALLAN` sigue viviendo en el panel, pero **desde la enmienda del 04-sep-2026 a D-08 (D-38) actúa después del pago**, no en el acto de firma: el cliente firma y cobra sin que esta palanca la toque, y recién cuando `aplicarFirmasDiferidas` (invocada desde P9, antes de remitir a Alianza) la consulta, un expediente `PAGO_CONFIRMADO` puede quedar sin avanzar a `FIRMADO` — la emisión no se ordena (motivo `FIRMA_CORREDOR_PENDIENTE`) y el cobro no se pierde.
 
 Tres reglas de las palancas del panel, todas verificadas por tests: **se consumen en un solo intento** (se ve el error una vez y el reintento funciona); **ninguna inventa un camino** — cada fallo produce un estado real que rechaza la validación de siempre, no una rama especial del código; y **ninguna existe fuera de `DEMO_MODE`**, ni siquiera si quedó armada antes de apagar el flag. El plazo de firma, además, solo se puede acortar: alargarlo sería cambiarle a la persona una condición ya informada (fila 30 de la matriz).
 
@@ -529,9 +572,11 @@ Personas de prueba definidas en `src/adapters/mock/personas.ts`:
 
 ## Convenciones de UI
 
-- Cabecera de aseguradora/intermediario, stepper "Paso N de 8" y barra de plan seleccionado son componentes compartidos. **No los redefinas por pantalla.** El stepper recibe el **slug** de la pantalla, nunca un número: el orden vive en `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) y de ahí se deriva todo. Escribir un número a mano es cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".
-- **Tema claro/oscuro:** el botón de día/noche vive dentro de `HeaderInstitucional`, así que aparece solo en toda pantalla que use la cabecera — no lo agregues por pantalla. Para la estructura usá los tokens semánticos (`bg-fondo`, `bg-superficie`, `border-borde-sutil`, `text-titulo`, `text-cuerpo`, `text-etiqueta`), que se reescriben con el tema; para los bloques de acento (verde de seguridad, naranja de acción, rojo de bloqueo) usá la escala de marca con su variante `dark:` explícita. Referencia visual viva en `/design-system`. La paleta (claro y oscuro) es la de `docs/GUIA_DE_ESTILOS.md` —alineada a interseguros360.com por decisión de producto, reemplaza a la descripta en `docs/ESPECIFICACION_PANTALLAS.md`—; el tema oscuro tampoco tiene respaldo en la matriz de cumplimiento. La preferencia es cosmética: vive en `localStorage`, no es dato del expediente y no genera evidencia.
-- P0, Pantalla A y Pantalla B están **fuera del contador de 8 pasos** y usan su propio indicador.
+- Cabecera de tres marcas (SeguroLoTengo, Interseguros, Alianza), stepper de **cinco macroetapas** ("N de 5") y barra de plan seleccionado son componentes compartidos. **No los redefinas por pantalla.** El stepper recibe el **slug** de la pantalla, nunca un número: la etapa vive en `PasoDelFlujo.etapa` dentro de `PASOS_FLUJO` (`src/domain/rutas-flujo.ts`) y de ahí se deriva todo (`etapaDePaso`). Escribir un número a mano es cómo la pantalla de firma llegó a anunciar "Paso 7 de 7".
+  **Desde el handoff de pantallas v4 (15-sep-2026, D-36) el stepper ya no cuenta "Paso N de 8"**: cuenta las cinco macroetapas del manual funcional (Plan · Verificación · Actividad e ingresos · Declaraciones y firma · Pago y confirmación). Varios slugs de las ocho pantallas comparten etapa —`/whatsapp` y `/preparacion` son las dos "2 de 5"— porque 03D y 03E todavía no existen como pantallas propias (D-41); es correcto, no un bug. `numeroDePaso`/`TOTAL_PASOS` (8) siguen existiendo para la navegación siguiente/anterior, que no cambia de semántica.
+- **Sin tema oscuro en la primera fase de v4 (D-29, 15-sep-2026).** `HeaderInstitucional` ya no monta `ToggleTema`, y `SCRIPT_TEMA_INICIAL` (`src/components/shared/tema.ts`) fuerza el tema claro sin leer `localStorage` ni la preferencia del sistema — una preferencia oscura guardada de antes de esta fase no se aplica. Los tokens semánticos (`bg-fondo`, `bg-superficie`, `border-borde-sutil`, `text-titulo`, `text-cuerpo`, `text-etiqueta`) y el módulo `tema.ts` se conservan intactos para cuando se retome el oscuro. Referencia visual viva en `/design-system`. La paleta vigente del flujo es la **v4** de `docs/GUIA_DE_ESTILOS.md` §8 (navy `#071F78`, rojo `#FF1721`, azul `#0876F9`, azul atenuado `#55709D`; CTA principal roja) — reemplaza a la paleta alineada a interseguros360.com que describían las secciones 1-7 de esa guía para las pantallas que todavía no se migraron a v4 (D-28, una por sesión). Ninguna de las dos tiene respaldo en la matriz de cumplimiento: es decisión de producto.
+- **Tipografía: Arimo** (D-39, `next/font/google`, OFL, pesos 400-700), con pila de respaldo `"Helvetica Neue", Helvetica, Arial, sans-serif`. Reemplaza a DM Sans como `--font-sans` del flujo desde el 15-sep-2026. DM Sans se sigue cargando porque el canvas v3 (`[data-flujo="v3"]`, superado por v4) la nombra explícitamente; Arimo no se usa ahí.
+- P0 (portada), Pantalla A y Pantalla B están **fuera del contador de etapas** y usan su propio indicador.
 - Los botones de continuar arrancan deshabilitados y se habilitan solo con los requisitos de esa pantalla cumplidos.
 - Los campos autocompletados por OCR en P5 se muestran con ícono de candado. El número de cédula y la fecha de nacimiento **no son editables** —de ellos cuelgan el bloqueo por cédula y el corte de edad—, así que ante una discrepancia el único camino es repetir la captura. Nombres, apellidos y nacionalidad se corrigen tocando el candado, y lo corregido se coteja contra lo que leyó el OCR (CHG-15).
 - **El sexo no lo completa el OCR**: se elige, entre los dos valores que puede decir una cédula (21-ago-2026). Era el campo donde el prellenado rendía menos —son dos opciones, elegir cuesta un toque— y costaba más, porque una lectura errada pasaba inadvertida justo por venir ya puesta, hasta aparecer en el documento firmado. Viaja igual en `correcciones.sexo` y el servidor lo sigue cotejando contra `SEXOS_ADMITIDOS`.
@@ -604,7 +649,7 @@ Además de `npm run typecheck && npm run lint && npm test`:
 4. Si usa una integración externa: ¿está descrita en `docs/Tabla de Integraciones externas - Tabla.csv`? ¿Respeta las "Reglas transversales de integraciones" de arriba?
 5. ¿Se generan y persisten las evidencias probatorias correspondientes (hash, timestamp, IP, canal, resultado) vía `EvidenceStore`?
 6. ¿La firma, si aplica, va sobre el documento único y con los firmantes que declara `firmantes-documento.ts` (D-13)?
-7. ¿El pago, si aplica, ocurre **después** de la firma (D-08) y es idempotente? ¿El único estado de origen es `FIRMADO`? ¿El Certificado de Cobertura Provisional se emite en la misma escritura que el cobro (D-12, CMP-07)? ¿La emisión exige el cobro confirmado (fila 44)?
+7. ¿El pago, si aplica, ocurre **después** de la firma del cliente (D-08) y es idempotente? ¿El único estado de origen es `FIRMADO_CLIENTE`? ¿El Certificado de Cobertura Provisional se emite en la misma escritura que el cobro (D-12, CMP-07)? ¿La emisión exige el cobro confirmado (fila 44) y la firma institucional diferida ya aplicada (D-38, D-42)?
 8. ¿Ningún dato de salud, PEP, tarjeta o cédula quedó expuesto en logs no cifrados, analítica o al asistente IA? (El asistente tiene su propio test de no filtración: `src/app/api/__tests__/asistente-no-filtra-datos-sensibles.test.ts`.)
 
 ---

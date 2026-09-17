@@ -41,7 +41,6 @@ function estadoHttp(motivo: MotivoRechazoP8): number {
     case "ESTADO_INVALIDO":
     case "FIRMA_NO_INICIADA":
     case "FIRMA_NO_COMPLETADA":
-    case "FIRMAS_INSTITUCIONALES_PENDIENTES":
     // Perdió la carrera contra el sondeo. No se perdió nada: el próximo tick
     // ve la versión que ganó.
     case "CONFLICTO_CONCURRENCIA":

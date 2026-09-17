@@ -10,6 +10,8 @@
  */
 import { createHash } from "node:crypto";
 import {
+  aplicaFirmasDiferidasEnLinea,
+  firmasInstitucionalesCaidas,
   obtenerMessagingProvider,
   obtenerPolicyIssuer,
   obtenerSignatureProvider,
@@ -18,6 +20,8 @@ import { CONTENT_TYPE_PDF, claveCertificado, claveDocumentoFirmado } from "@/doc
 import type { DependenciasArchivadoFirmados } from "@/documentos";
 import type { DependenciasP9 } from "@/domain/emision-p9";
 import type { DependenciasEntrega, LectorDeAdjuntos } from "@/domain/entrega-documentos";
+import { aplicarFirmasDiferidas } from "@/domain/firma-p8";
+import type { AplicadorFirmasDiferidas } from "@/domain/firma-p8";
 import type { Expediente } from "@/domain/tipos";
 import type { DocumentoAdjunto } from "@/ports/messaging-provider";
 import {
@@ -27,11 +31,32 @@ import {
   crearExpedienteRepository,
 } from "@/repositories";
 
+/**
+ * Aplica en línea la firma institucional diferida (D-38, D-42), cableada con
+ * las dependencias del composition root. Solo se ofrece cuando el adaptador
+ * de firma activo declara la capacidad (`aplicaFirmasDiferidasEnLinea`): sin
+ * ella, `DependenciasP9.aplicarFirmasDiferidas` queda `undefined` y
+ * `emitirPolizaP9` deja el expediente en `PAGO_CONFIRMADO`.
+ */
+function aplicadorFirmasDiferidasP9(): AplicadorFirmasDiferidas | undefined {
+  if (!aplicaFirmasDiferidasEnLinea()) return undefined;
+  return (entrada) =>
+    aplicarFirmasDiferidas(
+      {
+        expedientes: crearExpedienteRepository(),
+        evidencias: crearEvidenceStore(),
+        firmasInstitucionalesCaidas,
+      },
+      entrada,
+    );
+}
+
 export function dependenciasP9(): DependenciasP9 {
   return {
     polizas: obtenerPolicyIssuer(),
     expedientes: crearExpedienteRepository(),
     evidencias: crearEvidenceStore(),
+    aplicarFirmasDiferidas: aplicadorFirmasDiferidasP9(),
   };
 }
 

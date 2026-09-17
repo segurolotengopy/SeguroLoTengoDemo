@@ -271,6 +271,662 @@ Pidió el análisis. No hubo acciones suyas en consolas ni proveedores.
   declaran el total. Hay que pedírselos a Interseguros junto con el arte
   aprobado, como existe el JSON de 03D.
 - **04E, 05A y 05B siguen sin arte**, ni aprobado ni candidato.
+## 2026-09-16 (b) · Se retira la batería v3
+
+**Rama:** `chore/retirar-bateria-v3` ·
+**Decisión de Andres:** «ahora la versión actual es la v4, las otras ya no van»
+y, al preguntarle por la copia duplicada, «borrá la batería v3 entera».
+
+### Por qué
+
+La batería v3 estaba **roja a propósito** desde el cierre del 15-sep: esperaba
+«Plan elegido: CONFÍO+» y el plan pasó a llamarse VIVE+. Se la dejaba así
+porque v3 había quedado superado por v4 (D-28). Una suite que nadie puede
+poner en verde no informa nada y confunde a quien la encuentre; y desde que el
+escenario de rechazo de Bancard se portó a v4 —entrada anterior— lo único que
+quedaba ahí que todavía importaba estaba duplicado.
+
+### Qué se fue
+
+Los 5 specs de `e2e/v3/` con su helper `soporte/llegar-a-firmado.ts`, y
+`playwright.v3.config.ts`. Detrás cayeron cuatro cabos que existían sólo para
+sostenerlos: el script `test:e2e:v3`, el ignore de `playwright-report-v3/**`
+en ESLint, la misma ruta en `.gitignore`, y el `testIgnore: ["**/v3/**"]` de
+`playwright.config.ts`, que estaba puesto justamente para no levantar esos
+specs contra un servidor sin el flag.
+
+**No se tocó el código del flujo v3.** Las pantallas de 3 pasos y el flag
+`FLUJO_V3` siguen donde estaban: lo que Andres mandó retirar es la batería, y
+retirar el flujo es otra decisión, con otro alcance.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npm run verify` | typecheck y lint limpios (0 errores, 9 warnings previos) · **1419** tests en verde |
+| `npx playwright test --list` | **13 tests en 11 archivos** — los mismos que antes de sacar el `testIgnore`, sin arrastrar nada de v3 |
+
+### Queda abierto
+
+- Las guías de `docs/rediseno-lovable/` siguen describiendo el método de porteo
+  a v3 y la bitácora conserva sus entradas: son registro histórico y no se
+  reescriben (regla de la bitácora), pero conviene que quien las lea sepa que
+  el flujo que describen quedó superado por v4.
+
+---
+
+## 2026-09-16 · La batería v4 entera en verde: el rechazo de Bancard vuelve del flujo muerto, y tres márgenes que mentían
+
+**Rama:** `fix/e2e-margenes-y-bancard-v4` (worktree `practical-brahmagupta-e30c22`) ·
+**Pedido de Andres:** «verifica el estado, corrige los defectos», y después
+«ahora la versión actual es la v4, las otras ya no van».
+
+### De dónde se partía
+
+El worktree venía del trabajo de Bancard (G1 y G2) y estaba **doblemente
+atrasado**: su rama ya se había fusionado por el [#114], y el `main` local
+estaba 18 commits detrás de `origin/main`. Verificar así habría medido un
+árbol que no existe. Se mergeó hasta `f191854`, se reinstalaron dependencias
+—la lock se había movido dos veces— y recién entonces se midió.
+
+**El trabajo de Bancard sobrevivió intacto** a que D-08/D-42 y D-32
+reescribieran `pago-p7.ts`: G1 sigue reversando **después** de ganar la
+escritura del vencimiento —que es lo único que prueba que ningún sondeo
+confirmó el pago— y la rama idempotente de `RECHAZADO` sigue en pie. 94 tests
+de la batería de Bancard en verde.
+
+### Lo que la indicación de Andres corrigió
+
+La cobertura en navegador de **G2** —que un rechazo de tarjeta no encierre a
+la persona— vivía **sólo** en `e2e/v3/05-pago-bancard.spec.ts`, es decir en el
+flujo que dejó de ir. La batería vigente es la raíz `e2e/`, que **es** la de v4
+(el flujo de 8 pasos al que `a9d9853` le puso la paleta); `e2e/v3/` es el
+rediseño de 3 pasos detrás de `FLUJO_V3`. Y v4 no tenía ninguna prueba del
+rechazo: su único paso por Bancard era el QR del camino feliz.
+
+Se portó a `e2e/10-pago-bancard-rechazo.spec.ts`, con los helpers de v4 y
+tomando el rótulo del botón del dominio (`TEXTOS_MEDIOS_DE_PAGO_P7`), como ya
+habían hecho `bf8723f` y `bec1ac6`. La pantalla de pago es la misma
+—`FormularioPagoP7`—, así que lo único que cambió fue el camino para llegar.
+
+### Tres márgenes que hacían fallar tests que funcionaban
+
+La batería completa daba rojo en escenarios que **aislados pasaban**. No era
+código: eran plazos fijos por debajo del `expect.timeout` de 30 s del propio
+proyecto, puestos sobre los pasos más pesados del recorrido.
+
+- `enviarP6` esperaba **20 s** la navegación que ocurre después de que el
+  servidor acuña el correlativo, arma el PDF del paquete, lo hashea y lo
+  guarda. El 06 falló con el botón todavía en «Guardando…»; aislado dio verde
+  en 3,6 min. Pasó a 90 s.
+- El 09 duplicaba **en línea** el paso que `firmarNormalmente` ya espera con
+  60 s —y por escrito: tipear el código no lleva al pago en el acto, el sondeo
+  tiene que ver `FIRMADO_CLIENTE`—, pero con 20 s. Se alineó a 60 s.
+
+El criterio es el que `playwright.config.ts` ya se había dado: un timeout que
+corta un paso que estaba funcionando no reporta nada útil.
+
+### El defecto que no se tocó, a propósito
+
+`04-biometria-rechazada` fallaba por *strict mode violation*: P5 mostraba
+«La selfie no coincide con la fotografía de la cédula.» **dos veces**. Nació el
+**31-ago** (`b54ae52`), dos semanas antes de la rama de Bancard — preexistente
+y ajeno.
+
+Se había arreglado acá **precisando el locator**, y se **descartó** ese arreglo
+al encontrar el [#125], abierto y con CI en verde, que diagnostica mejor: es un
+defecto de **UI** —el `setError` quedó vivo tras el lote F5d— y encima ese
+aviso dice «Los datos no se editan a mano», que es **falso** desde CHG-15.
+Precisar el locator habría escondido el defecto y dejado un test afirmando un
+texto equivocado. La verificación de acá se corrió con el archivo del #125
+traído al árbol y devuelto después.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npm run typecheck` · `npm run lint` | Limpios · 0 errores (9 warnings previos) |
+| `npm test` | **1419 tests**, 105 archivos, en verde |
+| Batería Bancard (G1/G2, integración, mock, palancas) | **94** en verde |
+| `e2e/10-pago-bancard-rechazo` aislado | 1 passed (3,0 min) |
+| `e2e/06-vencimiento-firma` aislado | 1 passed (3,6 min) |
+| **Batería v4 completa** | **10 passed · 3 skipped · 0 failed** (15,9 min) |
+
+Los 3 *skipped* son las capturas de gerencia, detrás de `CAPTURAS_GERENCIA=1`.
+La batería verde se corrió con el archivo de UI del #125 traído al árbol y
+devuelto después; con el #125 ya fusionado, ese verde es el de `main`.
+
+### Queda abierto
+
+- ~~Fusionar el [#125]~~ · **hecho**: Andres lo autorizó y se fusionó el
+  16-sep. Venía en conflicto con `main` —su base era `b117298`, y desde
+  entonces habían entrado #126, #127 y #128—; el conflicto era sólo de
+  bitácora (dos entradas insertadas arriba) y su entrada pasó a `(e)`, porque
+  main ya tenía tomadas la `(c)` y la `(d)` del 15-sep.
+- **`e2e/v3/05-pago-bancard.spec.ts` quedó duplicado** con el 10: la copia de
+  v3 no puede pasar nunca, porque esa batería está roja a propósito. Falta
+  decidir si se borra sólo esa copia o se retira la batería v3 entera, ahora
+  que v3 no va.
+- **Del trabajo de Bancard siguen abiertos**: el «tiempo X» antes de reversar
+  por callback ausente (Bancard recomienda 5 min, B8-bis), el límite de
+  intentos de tarjeta, `payment_card_type`, y **B7 y B13-bis**, que bloquean el
+  adaptador `live/`. `Correo 6` sigue redactado y sin mandar.
+- **PRs abiertos**: #125, #124, #123, #122 y #121.
+
+[#114]: https://github.com/segurolotengopy/SeguroLoTengoDemo/pull/114
+[#125]: https://github.com/segurolotengopy/SeguroLoTengoDemo/pull/125
+## 2026-09-15 (e) · P5: el rechazo de la selfie se decía dos veces — e2e 04 en verde
+
+**Rama:** `claude/brave-perlman-bd67c0` (desde `main`, `bdbea0b`; fusionada
+con `main` en `b117298` antes del PR) ·
+**Pedido de Andres (15-sep):** el spec `e2e/04-biometria-rechazada.spec.ts`
+fallaba en `main` con un «strict mode violation»; decidir si el texto
+duplicado es un defecto de UI o hay que precisar el selector.
+
+### El caso
+
+Con la selfie rechazada, P5 mostraba «La selfie no coincide con la fotografía
+de la cédula.» en **dos** lugares: en la tarjeta de la selfie (desde F5d,
+31-ago) y en el aviso rojo general junto a «Validar identidad y continuar».
+El selector `getByText` de `e2e/support/flujo.ts` encontraba los dos.
+
+Es un defecto, no algo buscado: F5d llevó el veredicto a la tarjeta
+justamente para que «viva donde está la foto, no tres bloques más abajo», pero
+el `setError` del análisis quedó vivo. Además, el aviso de abajo agregaba «Los
+datos no se editan a mano», que es falso desde CHG-15: nombres, apellidos,
+sexo y nacionalidad se corrigen con el candado. Se descartó precisar el
+selector: habría escondido el problema en vez de arreglarlo.
+
+### Qué cambió
+
+- **`VerificacionIdentidad.tsx`**: `analizar()` ya no llama a `setError`
+  cuando falla la coincidencia facial. El mensaje queda solo en la tarjeta,
+  junto al botón «Repetir», y es accionable («Repetila»). Para no perder
+  accesibilidad, el párrafo de la tarjeta hereda el `role="alert"` que tenía
+  el aviso quitado, así el lector de pantalla lo sigue anunciando. El
+  «Te falta: completar y aprobar las tres capturas» de abajo sigue
+  explicando por qué el botón no avanza.
+- **`e2e/support/flujo.ts`**: se actualizó el comentario. El selector no
+  cambió porque ahora encuentra un solo elemento.
+
+### Qué hizo Andres
+
+- Detectó la falla (15-sep, sobre `bdbea0b` y la rama del PR #120) y pidió
+  que se priorizara corregir la UI.
+- Autorizó descargar Chromium 1243 y pidió quitar el MCP de Lovable, que no va
+  a usar (`claude mcp remove lovable -s user`). CLAUDE.md todavía nombra el
+  «MCP de Lovable» como vía para leer el prototipo v3; la otra vía, el clon
+  hermano `../slt-diseno-lovable`, sigue disponible.
+
+### Verificaciones
+
+- `npm run typecheck`: limpio. `npm run lint`: 0 errores y 9 warnings
+  previos; el único warning de `VerificacionIdentidad.tsx` (`numero` sin usar,
+  línea 834) ya estaba. `npm test`: **1413 tests** en verde.
+- Spec 04 con el cambio: **1 passed** (48 s). **Contraprueba**: con el diff
+  apartado y el mismo navegador, falla con «strict mode violation … resolved
+  to 2 elements». La corrección es la causa del verde.
+- Navegador: `@playwright/test` 1.63 pide Chromium 1243 y no está instalado.
+  No se descargó nada: se usó el Chromium **1234** en caché
+  (`~/.cache/ms-playwright/chromium-1234`) con un config local temporal
+  (`executablePath`), que se borró al terminar.
+- Después, con el OK de Andres, se instaló Chromium **1243**
+  (`npx playwright install chromium`, 114 MiB). El spec 04 repasó con la
+  configuración normal: **1 passed** (44 s).
+
+### Queda abierto
+
+- No se corrió la batería e2e completa, solo el spec 04. El cambio toca
+  únicamente la rama «coincidencia facial rechazada», que los demás specs no
+  recorren.
+- El PR espera la revisión y el OK de Andres para fusionarse.
+
+---
+
+## 2026-09-15 (d) · Corrida real en producción, el reloj que no se apagaba, y la limpieza
+
+**Rama:** `fix/e2e-v3-boton-continuar` (worktree `analisis-handoff-front-5c7ab1`) ·
+**PR:** [#127](https://github.com/segurolotengopy/segurolotengo-demo/pull/127) ·
+**Pedido de Andres:** probar el camino feliz **en producción**, con expedientes
+reales, y borrar todos los datos al terminar.
+
+### El caso
+
+La base visual v4 (#126) y el lote de dominio (#120) ya estaban desplegados,
+pero nadie había recorrido el flujo nuevo de punta a punta contra el sistema
+real: el plazo de 10 minutos, el cobro desde `FIRMADO_CLIENTE`, el CPC y la
+firma diferida de Interseguros solo se habían visto en tests. Andres autorizó
+crear expedientes reales *a condición de borrarlos después*, y pidió que la
+corrida E2E fuera sobre **v4** —el flujo que cambia a rojo y azul—, no sobre
+v3, que quedó superado por D-28.
+
+### Qué cambió
+
+**Dominio, un arreglo de verdad: `4130ec9`.** `vencerPlazoSiCorresponde`
+marcaba `VENCIDO` a cualquier expediente en `FIRMADO` cuya fecha de plazo
+hubiera pasado — incluidos los que **ya habían pagado**. Como `FIRMADO` es,
+desde D-38, un estado *posterior* al cobro, cualquier lectura del expediente
+diez minutos después del pago lo caducaba: dinero adentro y expediente
+terminal. El arreglo es un guardia explícito —si el pago está acreditado, el
+reloj está apagado, sea cual sea el estado— con su test
+(`src/domain/__tests__/vencimiento-con-cobro.test.ts`), que falla sin el
+guardia. Lo encontró la revisión del lote, no la corrida.
+
+**Antes, otro del mismo lote: `28dbb91`.** `registrarFirmaClienteInterna`
+sumó el parámetro `plazoPagoVenceEn`, pero su llamador seguía pasando los
+argumentos en el orden viejo —los dos `string`, así que el compilador no
+dijo nada— y todo expediente firmado internamente nacía vencido. Lo destapó
+la corrida E2E, no los unitarios.
+
+**Mantenimiento de la batería y del lint (#127), sin tocar la aplicación.**
+El lint ignora `playwright-report-v3/`: las trazas de la batería v3 sumaban
+3051 problemas (257 errores falsos sobre JS empaquetado). Y los helpers de
+las dos baterías toman el texto del botón del plan de `BOTON_CONTINUAR_PLAN`
+(`src/domain/textos-plan.ts`) en vez de repetirlo: el #126 lo había
+renombrado a «CONTINUAR» y los tests se colgaban cinco minutos esperando el
+texto viejo.
+
+### Qué hizo Andres
+
+- **Autorizó crear expedientes reales en producción**, con la condición de
+  borrar todo al terminar, y pidió que las pruebas las corrieran agentes QA.
+- **Declaró tener la autorización de Rodrigo** para usar sus datos —su
+  cédula y su fotografía— en la segunda corrida. El clasificador había
+  frenado el intento dos veces; con la declaración escrita en el chat, la
+  constancia quedó en el mensaje del merge del #127. No se registran acá ni
+  su número de cédula ni ningún dato personal (regla inviolable #7).
+- **Tipeó los tres OTP** de cada corrida en su celular, que un script
+  esperaba en archivo.
+- **Ordenó el orden de trabajo**: primero el lint, después subir y abrir el
+  PR, y recién entonces borrar y fusionar. Y corrigió el rumbo cuando la
+  verificación se estaba haciendo sobre v3: «la versión 3 no me sirve ya».
+
+### Verificaciones
+
+- **Camino feliz real, completo** (expediente `15216e57…`, propuesta
+  `78687382`): plazo de pago = firma del cliente **+ 10 minutos exactos**;
+  cobro abierto desde `FIRMADO_CLIENTE`; CPC emitido en la misma escritura
+  que el pago, con inicio de cobertura a **+24 h**; una sola firma
+  institucional, `INTERSEGUROS:DIFERIDO`, aplicada **después** del cobro;
+  `EMITIDO` con la póliza en preparación; **20 evidencias** en el orden nuevo.
+- **Amplify**: jobs 106 a 116 `SUCCEED`. El 116 corresponde a `12afedb`, el
+  merge del #127; el sitio responde 200 en `/plan`.
+- **`npm test`** 1419 tests en 105 archivos, en verde. **`npm run lint`** 0
+  errores y 9 avisos, los mismos de `main`. **`npm run typecheck`** limpio.
+- **E2E del flujo v4** (batería v2): `01-camino-feliz` y
+  `08-plan-tramite-en-curso` en verde.
+- **Limpieza de los datos de prueba**: inventario previo de los 6792 ítems de
+  la tabla, 61 pertenecientes a los tres expedientes de prueba y **0** sin
+  identificar; borrados los 61 sin errores, más los 3 PDF de S3 (paquete,
+  paquete firmado y certificado). Verificación posterior: **0 ítems de prueba**
+  y **0 objetos** bajo esos prefijos; la tabla quedó en 6731.
+
+### Queda abierto
+
+- **La corrida con la cédula de Andres sigue bloqueada**, y es la regla #11
+  funcionando: un expediente suyo del 01-sep quedó en `DERIVADO_MANUAL` y
+  bloquea el alta. El único remedio legítimo es que **él** lo reinicie desde
+  `/admin-consola`, que crea un expediente nuevo enlazado. No se buscó
+  ningún atajo.
+- **La batería v3 sigue en rojo** en otro paso (espera «Plan elegido:
+  CONFÍO+», y el plan ahora se llama VIVE+). **No se arregla a propósito**:
+  v3 quedó superado por v4 (D-28).
+- **La barra «Plan seleccionado»**, compartida, muestra el nombre del
+  producto truncado en vez del nombre del plan. Se corrige con la pantalla
+  03A, que es la que lo puso a la vista.
+- **PRs abiertos**: #125 (arreglo del e2e 04), #124 (CodeQL agrupado — la
+  prueba de que el #119 funciona), #123, #122 y #121 (dependencias).
+- **Preguntas a Rodrigo y a Legal**: los conflictos C-1 a C-14 del
+  `ANALISIS.md` siguen sin respuesta, con el logo en SVG y los textos
+  editables.
+- **Próximas pantallas**, una por sesión: portada (01) y WhatsApp (03A).
+
+---
+
+## 2026-09-15 (c) · Base visual v4 y pantalla 02 (selección de plan)
+
+**Rama:** `feat/v4-base-visual` (worktree `analisis-handoff-front-5c7ab1`) ·
+**Pedido de Andres:** implementar la base visual del handoff de pantallas v4
+(paleta, tipografía, cabecera de tres marcas, stepper de 5 etapas) y la
+pantalla 02 (selección de plan), sobre `PANTALLA_02_SELECCION_PLAN_APROBADA_FINAL.png`
+y el manual funcional.
+
+### El caso
+
+D-28 a D-42 (Bloque G de `docs/plan/DECISIONES.md`) ya estaban decididas
+desde el 15-sep, pero sin código: la paleta, la tipografía, la cabecera y el
+stepper seguían siendo los de `docs/GUIA_DE_ESTILOS.md` (DM Sans, naranja,
+modo oscuro, "Paso N de 8"), y el producto seguía llamándose CONFÍO con los
+premios de agosto. `ANALISIS.md` §9 fija el plan: primero la base
+compartida, después una pantalla por sesión — esta sesión hizo las dos
+cosas porque la base sin ninguna pantalla que la probara no se podía
+verificar contra el arte.
+
+### Qué cambió
+
+**Dominio.** `src/domain/rutas-flujo.ts`: `PasoDelFlujo` suma `etapa` (1 a
+5, D-36) y `TOTAL_ETAPAS = 5`; nueva `etapaDePaso(slug)`. Mapeo de los ocho
+slugs v2 a las cinco etapas, documentado en el código (tabla en el propio
+archivo): `/plan`→1, `/whatsapp` y `/preparacion`→2, `/identidad`→3,
+`/declaraciones` y `/firma`→4, `/pago` y `/confirmacion`→5. `numeroDePaso` y
+`TOTAL_PASOS` (8) no cambian: siguen gobernando la navegación
+siguiente/anterior. `src/domain/catalogo.ts`: nombre comercial CONFÍO → VIVE,
+premios 319.000/522.500/726.000 → 390.000/575.000/760.000 (manual v4 p. 5),
+`ID_VERSION_OFERTA` sube a `OFERTA-VIVE-v1`. Las sumas aseguradas no
+cambiaron: son las mismas de CONFÍO. `PlanId` interno (`CONFIO`,
+`CONFIO_PLUS`, `CONFIO_TOTAL`) no se tocó (regla #10, hay expedientes con
+esos ids). `src/domain/textos-plan.ts`: reescrito sobre el arte v4 —
+carencias corregidas (90/1/1 días, antes 180/30/1, buscado y corregido
+donde el manual lo pide), botón "CONTINUAR" (antes "CONTINUAR CON EL PLAN
+SELECCIONADO →"), enlace "Ver coberturas, exclusiones y condiciones" (antes
+"+ Info sobre…"), rótulos de cobertura sin dos puntos y con el texto exacto
+del arte, aclaración legal transcrita literal. El texto de "Inicio de
+cobertura" **no** se tocó: es el conflicto abierto C-3, dejado con el texto
+vigente del repo (24 h después del pago) en vez del "al acreditarse el pago"
+del arte.
+
+**Compartidos.** `globals.css`: tokens `v4-navy`, `v4-rojo`, `v4-azul`,
+`v4-atenuado`, `v4-header-bg` (aditivos, no reemplazan las escalas
+existentes); `--font-sans` pasa de DM Sans a Arimo, con pila de respaldo
+`"Helvetica Neue", Helvetica, Arial, sans-serif`. `layout.tsx`: carga Arimo
+con `next/font/google` (pesos 400-700); DM Sans se conserva para
+`[data-flujo="v3"]`. `tema.ts`: `SCRIPT_TEMA_INICIAL` fuerza tema claro sin
+leer `localStorage` ni el sistema (D-29); `aplicarTema`/`esTema` intactos.
+`HeaderInstitucional.tsx`: reescrito — tres marcas (SeguroLoTengo,
+Interseguros, Alianza) separadas por filetes, franja clara, línea roja al
+pie, y el slot `indicador` pasa a ser una banda de ancho completo debajo de
+la línea (antes vivía arriba a la derecha, junto a los logos); sin
+`ToggleTema`. `StepperPasos.tsx`: reescrito sobre `etapaDePaso`/
+`TOTAL_ETAPAS` — cinco puntos con línea roja y "N de 5", en vez de "Paso N
+de {TOTAL_PASOS}". `BandaDemo.tsx` y `AvisoCookies.tsx`: recoloreados a la
+paleta v4 (navy/rojo en vez de naranja); el contenido del aviso de cookies
+no se tocó (C-2 sigue abierto). Nuevo `public/marca/seguro-lo-tengo-provisional.png`
+(recorte del arte aprobado, provisional hasta que Interseguros mande el
+SVG); se reutilizaron `interseguros-logo.svg` y `alianza-logo.svg`, ya
+existentes en el repo desde una sesión anterior.
+
+**Pantalla 02.** `src/app/(flujo)/plan/page.tsx` y `SelectorDePlanes.tsx`
+reescritos sobre el arte: título de dos líneas (navy/rojo), tarjeta de
+video con ícono rojo, línea de producto inscrito, tres tarjetas con radio en
+la cabecera (no al pie) y "PLAN RECOMENDADO" en VIVE TOTAL sin
+preselección, un único enlace de coberturas debajo de las tres tarjetas (no
+uno por tarjeta, que era el formato anterior), tres fichas lado a lado en
+escritorio, aclaración con ícono, CTA roja a todo el ancho deshabilitada
+hasta elegir. Se quitaron las pestañas de producto (`PestanasDeProducto`):
+el arte de la 02 no las dibuja. El componente `SelectorDePlanes` conserva
+intacto el camino `canvas` (v3, usado por `/seguro`) detrás del mismo prop
+booleano; solo se reescribió la rama por defecto (v4).
+
+**No se reprodujeron del arte, a propósito:** la ilustración de los tres
+escudos (no llegó como archivo — se dejó el espacio libre); el ícono de
+menú hamburguesa (abre 01B, fuera de este alcance); el texto de "Inicio de
+vigencia/cobertura" (C-3, sin resolver).
+
+**Documentación.** `docs/GUIA_DE_ESTILOS.md` suma la §8 "Paleta y
+tipografía v4", con una nota al inicio de que reemplaza a las secciones 1-7
+para el flujo. `CLAUDE.md` → "Convenciones de UI": stepper de 5 etapas en
+vez de "Paso N de 8", tema oscuro retirado (D-29), Arimo en vez de DM Sans
+(D-39).
+
+**Tests actualizados** (premios, nombre comercial y versión de oferta, en
+los que dependían de CONFÍO/319.000 y no eran arbitrarios):
+`catalogo.test.ts`, `documentos.test.ts`, `pdf.test.ts`,
+`seleccion-plan.test.ts`, `asistente-provider.test.ts` (mock). No se tocaron
+`bancard-emvco.test.ts` ni `logs-sin-datos-sensibles.test.ts`: sus importes
+319.000/522.500 son arbitrarios, no dependen del catálogo.
+`e2e/support/flujo.ts`: rótulos de plan VIVE/VIVE+/VIVE TOTAL y el texto del
+botón "CONTINUAR".
+
+### Qué hizo Andres
+
+Encargó la tarea con el detalle de qué reproducir del arte, qué decisiones
+ya tomadas aplicar (paleta, D-29, D-30, D-35, D-36, D-39) y qué divergencias
+dejar explícitas sin resolver (C-2, C-3, hamburguesa, ilustración).
+
+### Verificaciones
+
+- `npm run typecheck`: en verde.
+- `npm run lint`: 0 errores, 9 warnings — los mismos 9 que tiene `main` sin
+  tocar (verificado con `git stash`); ninguno nuevo.
+- `npm test`: **1419 tests, 105 archivos, todos en verde.**
+- `npm run test:e2e` (envoltorio con Chromium 1234, sobre este worktree):
+  `e2e/01-camino-feliz.spec.ts` — **1 passed** (P0→P9 completo con Mónica
+  Gorena Tapia, incluida la selección de VIVE en la pantalla rediseñada).
+- Capturas con Playwright + Chromium 1234 (no el `chrome-headless-shell`
+  del envoltorio: con Arimo variable, esa build renderiza mal un texto en
+  mayúsculas — "ENTENDIDO" salía "ENT ENDIDO" — que con el Chromium
+  completo se ve correcto; es un defecto del binario de pruebas, no del
+  código) contra `/plan` y `/whatsapp` en `localhost:3100`, servidas desde
+  este worktree. Verificado a mano: el CTA pasa de deshabilitado (rosa
+  pálido) a habilitado (rojo sólido) al elegir un plan, en las dos
+  resoluciones.
+
+**Ajustes de la revisión de la sesión principal** (Andres vio las capturas y
+decidió tres cosas):
+
+- **La paleta v4 se extiende a todo el flujo, sin tocar la estructura.** La
+  escala `naranja-*` de `globals.css` pasa a anclarse en el rojo v4 `#FF1721`
+  (el nombre queda por historia; cada pantalla pasa a los tokens `v4-*` cuando
+  se rehace según su arte), y los títulos (`--tema-titulo`) pasan a navy. Así
+  WhatsApp, identidad, declaraciones, firma y pago dejan de verse naranjas.
+- **La línea del producto inscrito** lleva ahora la denominación registral
+  completa y «Código de Registro N.º», como en el arte.
+- **D-03 modificada:** la cabecera muestra siempre el logo de SeguroLoTengo; el
+  flag `MARCA_FANTASIA_AUTORIZADA` se conserva para los demás usos, y la
+  autorización de la SIS sigue siendo compuerta de producción.
+
+### Queda abierto
+
+- El logo de SeguroLoTengo sigue siendo el PNG recortado del arte
+  (`seguro-lo-tengo-provisional.png`): reemplazar cuando Interseguros mande
+  el SVG (pendiente #4 de `ANALISIS.md` §7).
+- **Divergencia sin resolver, para Andres:** la cabecera v4 muestra el
+  nombre y el logo "seguroLOtengo" sin la compuerta de `marcaVisible()`
+  (`NEXT_PUBLIC_MARCA_FANTASIA_AUTORIZADA`) que D-03 exige para exponer la
+  marca de fantasía en el frente público sin autorización expresa de la
+  SIS. El arte de Interseguros la muestra sin condicionarla a ese flag; se
+  implementó tal cual la pide el arte porque así lo indicó explícitamente
+  el pedido de esta sesión, pero el conflicto con D-03/ALR-03 no está en la
+  lista C-1..C-14 de `ANALISIS.md` y conviene que Andres lo resuelva
+  expresamente antes de un despliegue real.
+- Conflictos abiertos que la sesión dejó intactos, tal como se pidió: C-2
+  (contenido del aviso de cookies), C-3 (texto de inicio de cobertura).
+- El resto de las ocho pantallas del flujo v2 sigue con la paleta y la
+  tipografía anteriores (naranja, DM Sans salvo el `--font-sans` global que
+  ya es Arimo en todas): se migran una por sesión, como pide `CLAUDE.md`.
+- `IconoEscudo` (el escudo de la tarjeta de plan de la maqueta v2 anterior)
+  se borró de `SelectorDePlanes.tsx` por quedar sin uso; si alguna pantalla
+  vieja lo necesitaba importado desde ahí, no la había — se verificó con
+  `grep` antes de borrarlo.
+
+---
+
+## 2026-09-15 (b) · Lote «Cierre v4 · dominio»: plazo de 10 minutos, firma institucional diferida al pago, Alianza fuera del paquete
+
+**Rama:** `feat/cierre-v4-dominio` (worktree `analisis-handoff-front-5c7ab1`) ·
+**Pedido de Andres:** implementar en el dominio las tres decisiones ya tomadas
+del Bloque G y de la enmienda del 04-sep: D-32 (plazo de 10 minutos), la
+enmienda a D-08 (firma institucional de Interseguros después del pago, D-38) y
+D-42 (Alianza fuera del paquete Solicitud + FIPF).
+
+### El caso
+
+Tres decisiones de Andres estaban tomadas pero sin código: D-32 (15-sep) fija
+el plazo de pago en 10 minutos desde la firma del cliente, en lugar de las 24
+horas de D-10; la enmienda del 04-sep a D-08 mueve la firma cualificada de
+Interseguros a **después** del pago, dentro de 24/48 h operativas, para sacar
+su latencia del camino crítico de la venta; y D-42 (15-sep, preliminar) fija
+que el paquete Solicitud + FIPF lo firman el cliente e Interseguros nada más
+— Alianza no firma la propuesta. El código de `main` seguía haciendo lo del
+19-ago: cobraba desde `FIRMADO` (cliente + Interseguros + Alianza firmados en
+el mismo acto) con un plazo de 24 horas.
+
+### Qué cambió
+
+**Máquina de estados (`src/domain/expediente.ts`).** El único estado desde el
+que se abre y confirma una operación en Bancard pasa a ser `FIRMADO_CLIENTE`.
+`FIRMADO` deja de ser precondición del cobro y pasa a describir un momento
+posterior: cobrado y con la institucional ya aplicada, esperando la emisión.
+Grafo nuevo, igual en `TRANSICIONES_V2` y `TRANSICIONES_V3`:
+`FIRMADO_CLIENTE → PAGO_CONFIRMADO | VENCIDO | FIRMADO` (legado);
+`PAGO_CONFIRMADO → FIRMADO | EMITIDO` (legado, guardado) `| DEVOLUCION_EN_TRAMITE`;
+`FIRMADO → EMITIDO | DEVOLUCION_EN_TRAMITE | PAGO_CONFIRMADO` (legado) `| VENCIDO` (legado).
+`registrarFirmaP8` y `registrarFirmaClienteInterna` reciben `plazoPagoVenceEn`
+y lo abren en la misma transición a `FIRMADO_CLIENTE` (D-32).
+`registrarFirmasInstitucionales` pasa a ser `PAGO_CONFIRMADO → FIRMADO`, ya no
+abre el plazo, y valida contra `firmantesDiferidos` (D-42).
+`registrarEmisionP9` exige `firmasInstitucionales` no vacío sin importar el
+estado exacto de origen, para que la arista legada `PAGO_CONFIRMADO → EMITIDO`
+solo sirva a expedientes que ya la tenían aplicada de antes de la enmienda.
+`vencerPlazoSiCorresponde` vence desde `FIRMADO_CLIENTE` y, como legado, desde
+`FIRMADO`.
+
+**Corregido en la revisión de la sesión principal:** así como quedó, un
+`FIRMADO` del grafo nuevo —ya cobrado, con la institucional diferida
+aplicada— conservaba el `plazoPagoVenceEn` de la firma del cliente. Pasados
+esos 10 minutos, cualquier lectura que llamara a `vencerPlazoSiCorresponde`
+(la consola, un sondeo) lo pasaba a `VENCIDO` por la arista legada: un
+expediente pagado declarado vencido. Con la firma de Interseguros en lote
+(D-38) el expediente puede quedar horas en `FIRMADO`, así que no era un borde.
+Se agregó una guarda: **un cobro acreditado apaga el reloj**, sea cual sea el
+estado. `vencimiento-con-cobro.test.ts` falla sin la guarda (1 de 2) y pasa con
+ella; suite en 1346 tests, 100 archivos.
+
+**Firmantes (`src/domain/firmantes-documento.ts`, D-42).** `ModalidadFirma`
+suma `DIFERIDO`. `PAQUETE` queda en dos firmantes: CLIENTE (simple, en el
+acto) e INTERSEGUROS (cualificada, `DIFERIDO`). Alianza sale del paquete.
+`firmantesDiferidos()` nueva, simétrica de `firmantesConjuntos()`.
+`VERSION_BLOQUE_FIRMAS` → `FIRMAS-v3`. El CPC no se tocó (Alianza,
+`PREFIRMADO`): el CPC en dos tiempos que trae D-42 preliminar es un lote
+aparte, sobre el puerto SFTP que otro agente construye en paralelo.
+
+**Firma institucional diferida (`src/domain/firma-p8.ts`, D-38/D-42).**
+`confirmarFirmaP8` deja de aplicar las institucionales: `FIRMADO_CLIENTE` es
+ahora un estado completo del paso de firma. Operación nueva,
+`aplicarFirmasDiferidas`, `PAGO_CONFIRMADO → FIRMADO`: reusa la evidencia
+(`PASO_EVIDENCIA_FIRMAS_INSTITUCIONALES_P8`) y la palanca de demo
+(`FIRMAS_INSTITUCIONALES_FALLAN`) del tramo que reemplaza. Solo la invoca el
+adaptador simulado, en línea, desde `emision-p9.ts`
+(`DependenciasP9.aplicarFirmasDiferidas`, opcional) — la capacidad se declara
+en el composition root (`aplicaFirmasDiferidasEnLinea()` en
+`src/adapters/registro.ts`, `true` solo para el mock: en producción la firma
+de Interseguros llega por el lote externo de D-38, todavía sin construir).
+Sin esa capacidad, o si la palanca de demo la hace fallar, el expediente
+queda en `PAGO_CONFIRMADO` y la emisión no se ordena (motivo
+`FIRMA_CORREDOR_PENDIENTE`, 202 — no es un error). Sin pantalla nueva para
+ese caso (05B no tiene arte aprobado, D-41): solo el dato en la API y un
+texto mínimo en voseo en `textos-p9.ts`, por si hace falta mostrarlo.
+`PLAZO_PAGO_MS` → 10 minutos.
+
+**Pago, emisión y devolución.** `pago-p7.ts`: `ESTADO_REQUERIDO_P7` →
+`FIRMADO_CLIENTE`. `emision-p9.ts`: `ESTADO_REQUERIDO_P9` → `FIRMADO`, con la
+excepción legada de `PAGO_CONFIRMADO` ya firmado institucionalmente.
+`devolucion.ts`: `FIRMADO` entra a `ESTADOS_CON_DEVOLUCION_POSIBLE` (ahora
+describe un cobro con la institucional aplicada, no uno sin cobrar).
+`devolucion-pantalla-b.ts` no se tocó: es exclusivo del linaje legado
+`VENCIDO` con pago hecho bajo el orden viejo, y ese camino no cambia.
+
+**Rutas (`src/domain/rutas-flujo.ts`).** El paso `/firma` (v2) se completa
+con `FIRMADO_CLIENTE`. `FIRMADO_CLIENTE` va a la pantalla de pago en v2 y en
+v3; `FIRMADO` (momento posterior al pago) va a `/confirmacion`, igual que
+`PAGO_CONFIRMADO`.
+
+**UI v3 (`pago-y-firma/`).** La sección de pago pasa a gatear en
+`FIRMADO_CLIENTE`, no en `FIRMADO`. `CONFIRMACION_FIRMADO` deja de nombrar a
+Interseguros y Alianza como firmantes simultáneos del cliente (ya no lo son).
+El override de reencaminado por `FIRMADO` en `page.tsx` se retira: el estado
+ya apunta solo a `/confirmacion`.
+
+**Textos a 10 minutos**, en vez de 24 horas: `textos-p7.ts`, `textos-p8.ts`,
+`textos-pago-firma.ts`, `textos-pantalla-b.ts` (solo la variante "sin cobro"
+del flujo vigente — el inicio de cobertura a 24 h después del pago, CHG-41,
+no se tocó, es otro plazo, conflicto C-3 abierto). Los recordatorios «a 1, 5
+y 12 horas» (fila 29) se retiraron del texto de P8 — no caben en 10 minutos —
+pero el código que los calcula (`HITOS_SEGUIMIENTO` / `calcularHitos` en
+`textos-pantalla-b.ts` / `devolucion-pantalla-b.ts`) no se tocó: sigue
+describiendo bien a los expedientes legados de 24 horas, y decidir qué hacer
+con la Pantalla B bajo 10 minutos queda para quien la revise.
+
+**Panel de demo.** `plazo-pago-demo.ts`: el máximo y el valor "real" pasan a
+10 minutos. `SelectorPlazoPago.tsx` y los comentarios de `FormularioPagoP7.tsx`,
+`FirmaP8.tsx`, `api/p7/estado`, `api/p8/resumen` actualizados.
+
+**Un bug de verdad, encontrado por el E2E.** `registrarFirmaClienteInterna`
+cambió de firma (nuevo parámetro `plazoPagoVenceEn` antes de `ahora`), pero
+su único llamador real —`registrarActoDeFirmaCliente` en `firma-cliente.ts`,
+el camino de firma interna del flujo v3— seguía invocándola con el orden
+viejo. Como los dos parámetros nuevos son `string`, TypeScript no lo marcó:
+la fecha del acto quedaba escrita en `plazoPagoVenceEn`, así que **todo
+expediente firmado por el camino interno quedaba vencido en el mismo
+instante en que se firmaba**. Ningún test unitario lo detectó —
+`firma-cliente.test.ts` no revisaba `plazoPagoVenceEn`—; lo encontró
+`playwright test --config playwright.v3.config.ts e2e/v3/04-camino-feliz.spec.ts`,
+que mostraba Pantalla B justo al intentar pagar. Arreglado: `DependenciasFirmaCliente`
+suma `plazoPagoMs`, se cablea desde la ruta, y se agregó un test que fija el
+valor esperado de `plazoPagoVenceEn`.
+
+**CLAUDE.md** actualizado: regla 6-bis, diagrama y párrafos de la máquina de
+estados, «Firmantes por documento», «Panel de demo», el checklist final, y
+los avisos del 04-sep (marcadas (1) y (3) implementadas, (2) reemplazada por
+D-42 sin implementar) y de v4 (el plazo de 10 minutos ya implementado).
+
+### Qué hizo Andres
+
+Tomó las decisiones D-32, la enmienda del 04-sep a D-08 y D-42 en sesiones
+anteriores (ver las entradas del 04-sep y del 15-sep de esta bitácora);
+lanzó este lote para implementarlas en el dominio, con la firma en lote de
+D-38 y el CPC en dos tiempos de D-42 explícitamente diferidos a otro lote
+posterior sobre el puerto SFTP que otro agente construye en paralelo.
+
+### Verificaciones
+
+- `npm run typecheck`: sin errores.
+- `npm run lint`: 0 errores, 9 warnings — las mismas 9 que ya existían antes
+  de este lote (imágenes sin `next/image`, una variable sin usar en
+  `VerificacionIdentidad.tsx`, un `eslint-disable` sin efecto en `asistente.ts`
+  y dos en `canvas-logica.js`, que no forma parte del código de producto).
+- `npm test`: **1344 tests en 99 archivos, en verde** (línea de base antes
+  del lote: 1340 tests en 99 archivos).
+- **E2E, corridos de verdad contra DynamoDB/S3/Secrets Manager reales**
+  (`aab1-demo-qa`), no simulados:
+  - `e2e/06-vencimiento-firma.spec.ts` — verde.
+  - `e2e/07-firma-atomica.spec.ts` (reescrito: el escenario de la falla se
+    movió de P8, donde ya no existe, a la firma institucional diferida de
+    P9) — verde.
+  - `e2e/v3/04-camino-feliz.spec.ts` — rojo en el primer intento (el bug de
+    `plazoPagoVenceEn` de arriba), verde después del arreglo.
+  - `e2e/01-camino-feliz.spec.ts` — verde (2.1 min).
+  - `e2e/02-pep-bloqueo.spec.ts`, `03-salud-incompatible.spec.ts`,
+    `05-otp-agotado.spec.ts`, `08-plan-tramite-en-curso.spec.ts`,
+    `09-firma-reintento-codigo.spec.ts` — verdes.
+  - `e2e/04-biometria-rechazada.spec.ts` — **rojo, pero no relacionado**: un
+    "strict mode violation" de Playwright por texto duplicado en la pantalla
+    de P5 (`getByText` resuelve a dos elementos), ajeno a la firma, el pago o
+    la máquina de estados. No se investigó más a fondo por estar fuera del
+    alcance de este lote.
+
+### Queda abierto
+
+- **El CPC en dos tiempos (D-42 preliminar).** Se genera con el cobro y se
+  entrega firmado cuando vuelve de Alianza por SFTP — qué ve la persona
+  mientras tanto (P2 abierta en D-42) no está resuelto; lo hace el lote del
+  puerto SFTP, en paralelo.
+- **D-42 sigue preliminar** ("luego veremos si hay cambios"), y el correo a
+  Rodrigo con las preguntas C-4/C-5 sigue sin enviar.
+- **`FIRMA_CORREDOR_PENDIENTE` no tiene pantalla.** 05B no tiene arte
+  aprobado (D-41); el dato ya se expone por API con un texto mínimo, falta
+  la pantalla el día que exista el arte.
+- **Pantalla B bajo 10 minutos.** Los recordatorios «a 1, 5 y 12 horas» ya no
+  tienen sentido en una ventana de 10 minutos para los expedientes nuevos; el
+  código sigue ahí, sin decisión de qué hacer con él (queda igual de
+  correcto para los expedientes legados de 24 horas).
+- **`e2e/04-biometria-rechazada.spec.ts`** falla por un "strict mode
+  violation" de Playwright ajeno a este lote — sin investigar.
+- **La sección "Contrato oficial de `SignatureProvider` (Code100)" de
+  CLAUDE.md** no se tocó: sigue describiendo un adaptador oficial que
+  cubriría "las firmas institucionales" en tiempo real, cuando D-38 ya fijó
+  que la de Interseguros llega por un lote externo. No estaba en el alcance
+  pedido para este lote.
 
 ---
 

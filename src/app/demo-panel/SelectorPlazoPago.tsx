@@ -78,7 +78,7 @@ export function SelectorPlazoPago({ opciones, plazoActualMs }: SelectorPlazoPago
 
       <p className="rounded-lg border border-azul-200 bg-azul-50 px-3 py-2 text-xs text-azul-900 dark:border-azul-700 dark:bg-azul-950 dark:text-azul-100">
         El plazo nunca se alarga por acá, solo se acorta, y con <code className="font-mono">DEMO_MODE</code>{" "}
-        apagado vuelven a regir las 24 horas del producto aunque quede otra cosa elegida.
+        apagado vuelven a regir los 10 minutos del producto aunque quede otra cosa elegida.
       </p>
 
       {mensaje ? (

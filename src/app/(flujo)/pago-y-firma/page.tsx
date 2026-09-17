@@ -26,9 +26,11 @@ import { PagoYFirma } from "./PagoYFirma";
  *
  * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "Paso 3 · Pagá y
  * firmá" y el Bloque E. La firma del cliente es el acto INTERNO
- * (`firma-cliente.ts`, D1 ratificada el 30-ago-2026); las institucionales las
- * aplica el sondeo de siempre (mock de Code100, cualificadas). El pago es el
- * formulario v2 montado como sección, gated por `FIRMADO` (regla 6-bis).
+ * (`firma-cliente.ts`, D1 ratificada el 30-ago-2026). El pago es el
+ * formulario v2 montado como sección, gated por `FIRMADO_CLIENTE` (regla
+ * 6-bis re-baseada, 04-sep-2026): ya no hace falta esperar a la firma
+ * institucional de Interseguros, que ahora se aplica después del pago
+ * (D-38, `aplicarFirmasDiferidas` en `emision-p9.ts`) y no en esta página.
  */
 
 export const metadata: Metadata = {
@@ -64,10 +66,11 @@ async function expedienteDeLaSesion(): Promise<{
 export default async function PantallaPagoYFirma() {
   if (!flujoV3Activo()) notFound();
 
-  // FIRMADO es propio de esta página aunque el mapa lo diga igual: el
-  // reencaminado no debe echar a quien está por pagar (mismo criterio que la
-  // página v2 de pago con `tambienPropios`).
-  const enOtroPaso = await expedienteEnOtroPaso("/pago-y-firma", ["FIRMADO"]);
+  // Enmienda del 04-sep-2026 a D-08 (D-38, D-42): FIRMADO pasó a describir un
+  // momento **posterior** al pago —cobrado y con la institucional aplicada,
+  // esperando la emisión— así que ya no es propio de esta página: el mapa lo
+  // manda a `/confirmacion`, y acá no hace falta ninguna excepción para eso.
+  const enOtroPaso = await expedienteEnOtroPaso("/pago-y-firma");
   const sesion = await expedienteDeLaSesion();
   const propio = sesion && ESTADOS_DE_LA_PAGINA.includes(sesion.estado) ? sesion : null;
 

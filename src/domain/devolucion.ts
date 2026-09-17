@@ -66,9 +66,20 @@ export type { SeguimientoDevolucion } from "./textos-devolucion";
 export const PASO_EVIDENCIA_DEVOLUCION_SOLICITADA = "DEVOLUCION_SOLICITADA";
 export const PASO_EVIDENCIA_DEVOLUCION_ACREDITADA = "DEVOLUCION_ACREDITADA";
 
-/** Estados desde los que se puede pedir una devolución: los que tienen dinero adentro. */
+/**
+ * Estados desde los que se puede pedir una devolución: los que tienen dinero
+ * adentro.
+ *
+ * `FIRMADO` entra por D-38/D-42: desde la enmienda del 04-sep-2026 a D-08,
+ * ese estado describe un momento **posterior** al pago —cobrado y con la
+ * institucional diferida ya aplicada, esperando que se ordene la emisión—, no
+ * el momento previo que describía antes de la enmienda. El dinero ya entró
+ * en los dos casos, así que la devolución tiene que poder pedirse desde ahí
+ * igual que desde `PAGO_CONFIRMADO`.
+ */
 export const ESTADOS_CON_DEVOLUCION_POSIBLE: readonly EstadoExpediente[] = [
   "PAGO_CONFIRMADO",
+  "FIRMADO",
   "EMITIDO",
 ];
 

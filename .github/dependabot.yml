@@ -47,6 +47,14 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    groups:
+      # CodeQL exige que init y analyze corran la misma versión: subidos por
+      # separado, cada PR falla solo («Loaded a configuration file for version
+      # '4.37.9', but running version '4.38.0'»; así murieron el #110 y el
+      # #112). Agrupados, suben juntos en un único PR.
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
 
   # Providers de Terraform (infra/.terraform.lock.hcl está versionado a
   # propósito, ver .gitignore).
