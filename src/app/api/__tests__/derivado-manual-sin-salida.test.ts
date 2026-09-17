@@ -916,11 +916,6 @@ describe("3. Inventario de rutas de la API", () => {
      */
     const CREAN_SIN_TOCAR_EL_ORIGINAL: readonly string[] = [
       "admin-consola/reinicio",
-      // T&C del inicio del flujo v3 (DI-10, lote F2): crea el expediente en
-      // INICIADO. Con uno ya existente en la sesión —derivado o no— responde
-      // EXPEDIENTE_YA_EXISTE sin tocarlo; probado en
-      // `src/domain/__tests__/inicio-terminos.test.ts`.
-      "inicio/terminos",
     ];
 
     const CUBIERTAS: readonly string[] = [

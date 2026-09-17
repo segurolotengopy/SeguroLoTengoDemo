@@ -1,20 +1,17 @@
 /**
- * `/consentimientos` — pantalla **04D** del flujo v4.
+ * `/consentimientos` — pantalla **04D** · Consentimientos (etapa 4).
  *
- * Ruta nueva: en v2 los consentimientos eran cuatro de las ocho declaraciones
- * de la misma pantalla. Fuera de v4 no existe.
+ * Los consentimientos que antes eran cuatro de las ocho declaraciones. Es la
+ * **única** puerta a `DECLARACIONES_OK`.
  */
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Pantalla04D } from "@/components/v4/pantallas/Pantalla04D";
 import { sufijoTitulo } from "@/domain/entidades";
-import { flujoV4Activo } from "@/domain/flujo-vigente";
 
 export const metadata: Metadata = {
   title: `Consentimientos · ${sufijoTitulo()}`,
 };
 
 export default function PantallaConsentimientos() {
-  if (!flujoV4Activo()) redirect("/declaraciones");
   return <Pantalla04D />;
 }

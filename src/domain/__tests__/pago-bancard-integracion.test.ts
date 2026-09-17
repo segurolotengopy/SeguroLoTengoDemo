@@ -17,12 +17,11 @@
  * Es la pregunta que ninguno de los dos archivos anteriores contesta: *¿lo que
  * el expediente dice que pasó es lo que le pasó a la operación en Bancard?*
  *
- * ## Es agnóstico de la versión del flujo
+ * ## Es agnóstico de la pantalla
  *
- * v2 (`/pago`) y v3 (`/pago-y-firma`) comparten este dominio, esta API y este
- * adaptador — la pantalla de v3 monta el mismo `FormularioPagoP7`. Así que lo
- * que se prueba acá vale para las dos, y no hay que duplicarlo cuando se apague
- * `FLUJO_V3`.
+ * La pantalla de pago (`05A`) monta este dominio, esta API y este adaptador
+ * sin agregarles reglas: lo que se prueba acá vale para cualquier dibujo que
+ * la reemplace.
  *
  * ## Qué cubre
  *

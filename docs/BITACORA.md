@@ -38,6 +38,182 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-16 (d) · Encendido de v4: un solo flujo, un solo marco, batería E2E contra las doce pantallas
+
+**Rama:** `v4/encendido` (worktree, desde `v4/pantallas` en `8d7e7e1`; PR B) ·
+**Pedido de Andres:** «seguí con el PR B, múltiples agentes».
+
+### El caso
+
+PR A (#131) dejó las doce pantallas v4 detrás de `FLUJO_V4`, apagado, para
+poder fusionarse sin cambio visible. Este es el encendido definitivo que
+CLAUDE.md anunciaba: v4 pasa a ser **el** flujo, y todo lo que existía solo
+para v2 (8 pasos) y v3 (`FLUJO_V3`) se borra del árbol. Tres agentes en
+paralelo sobre archivos disjuntos, y una pasada de cierre a mano.
+
+### Qué cambió
+
+- **Agente «encendido»**: se borran `flujoV3Activo`/`flujoV4Activo`
+  (`flujo-vigente.ts` desaparece), las páginas v3 (`/inscripcion`, `/seguro`,
+  `/pago-y-firma`, `InicioV3`, `canvas-v3.css`, `public/v3/`), los cuerpos v2
+  de cada carpeta de `(flujo)` (`SelectorDePlanes`, `FormularioPagoP7`,
+  `FirmaP8`, `ModalBancard`, `ContratacionAceptada`…), el firmador simulado de
+  Code100 (`/api/p8/firmador-simulado`), los `shared` exclusivos de v2/v3
+  (`TramiteEnOtroPaso`, `AvisoCookies`, `CamposOtp`, `BandaPasosV3`…) y el
+  dominio solo-v3 (`inicio-terminos`, `declaraciones-v3`, textos de
+  inscripción/seguro/inicio). `rutas-flujo.ts` queda con una sola lista y un
+  solo mapa; `REDIRECCIONES_RUTAS_VIEJAS` cubre las dos generaciones de
+  enlaces enviados. `expediente.ts` conserva **el mismo grafo** (`TRANSICIONES`,
+  antes `TRANSICIONES_V2`). `origenCapturaAdmitido` ya no recibe flag: frente y
+  dorso por archivo siempre (D-46), selfie solo cámara salvo demo. Las rutas
+  de la firma interna dejan de estar gateadas. `layout.tsx` fija
+  `data-flujo="v4"` y carga solo Arimo. Cada `page.tsx` monta su `PantallaXX`
+  sin condicional. Se conservaron `CapturaConCamara`, `PanelPruebaDeVida`,
+  `QrBancard` y `VentanaBancardSimulada`, que las pantallas v4 usan.
+- **Agente «marco»**: `MarcoV4` (`CabeceraV4` con menú 01B, `StepperV4` por
+  código, `PieV4`) es el único marco. Las páginas fuera del flujo
+  (`solicitud-vencida`, `asistencia-identidad`, `verificar`, `admin-consola`,
+  `demo-panel`, `design-system`) montan `CabeceraV4`/`PieV4` dentro de
+  `CapaLegalV4`, con `IndicadorFueraDeFlujoV4` para los rótulos de fuera del
+  contador. Logo: se eligió el SVG de `marcas-v4.tsx` sobre el PNG recortado,
+  con la justificación en el docblock de `MarcoV4`. CMP-01 verificado: la
+  identificación regulatoria que llevaba `PieLegal` está en la capa
+  «Responsabilidades» de `CapaLegalV4`. `ToggleTema` borrado (D-29).
+- **Agente «e2e»**: la batería de la raíz `e2e/` se reescribió contra las doce
+  pantallas v4 (ver su cuadro spec → garantía más abajo).
+- **Cierre a mano**: `/privacidad` y `/retracto` al marco v4;
+  `HeaderInstitucional`, `StepperPasos`, `PieLegal` y `shared/marcas.tsx`
+  **borrados** (sin consumidores); `amplify.yml` sin `FLUJO_V3`; comentarios
+  que afirmaban la existencia de archivos borrados, corregidos; `CLAUDE.md`
+  reescrito donde describía v2/v3 (sección v4, estructura, panel de demo,
+  convenciones de UI, checklist).
+- **04E muestra literalmente el texto que se asienta.** La ruta
+  `POST /api/p8/firma-interna/verificar` registra `TEXTO_ACEPTACION_FIRMA`
+  (`PAGO-FIRMA-ACEPTACION-v2`) como `textoAceptado`, y la pantalla mostraba
+  otra redacción. Ahora 04E imprime los tres ítems de `ITEMS_ACEPTACION_FIRMA`
+  bajo «AL FIRMAR, ACEPTÁS», del mismo módulo que lee la ruta: la evidencia y
+  la constancia (D-27) citan un texto que la persona vio. El literal y su
+  versión no cambian.
+
+### Qué hizo Andres
+
+- Pidió el PR B con varios agentes y que se le recuerde borrar
+  `.claude/settings.local.json` al cerrar.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npx tsc --noEmit` | limpio |
+| `npx eslint src` | 0 errores, 1 warning previo (`asistente.ts`) |
+| `npx vitest run` | **1389** tests en verde (102 archivos; se fueron con v3 y el firmador simulado los suyos, y `rutas-flujo.test.ts` se reescribió con un cruce `PASOS_FLUJO` ↔ `PANTALLAS_V4`) |
+| Batería E2E v4 (`e2e/`, reescrita) | **10/10 en verde**: 01–06, 08 y 09 en corridas por lotes; 07 y 10 cayeron en la corrida de ocho (captura del frente y ventana de Bancard, ambos a 15 s de espera bajo carga) y **pasaron aislados** (2,5 min cada uno). `98-capturas` se omite por diseño sin `CAPTURAS_GERENCIA=1`. Tres correcciones al arnés en el camino: el botón de la portada se matchea por prefijo, 03D elige los seis selectores, y la verificación pública admite dos huellas (constancia D-27) |
+| Lo que la E2E destapó | **02-pep-bloqueo** en rojo por un defecto real: en v4 la derivación por PEP (03E) y por salud (04A) no remitía el caso a Alianza (CHG-47). Corregido con `remitirCasoDerivadoBestEffort` en `remision-alianza.ts`, usado por los dos casos de uso, con test unitario propio (`v4/__tests__/remision-derivacion.test.ts`, 4 casos) y aserción también en el spec 03 |
+
+### Queda abierto
+
+- **Decisión de Andres:** el literal de aceptación de la firma
+  (`ITEMS_ACEPTACION_FIRMA`, versión `PAGO-FIRMA-ACEPTACION-v2`) viene del
+  flujo v3; si Legal/Rodrigo quieren otra redacción para v4, se cambia el
+  texto **y** la versión, en un solo lugar.
+- **Decisión de Andres:** 05A y `AVISO_PLAZO_PAGO_P7` siguen prometiendo
+  «podés iniciar una solicitud nueva» tras vencer; la regla #11 bloquea la
+  cédula en `VENCIDO`. Y «Prima neta anual» en el desglose contra D-47.
+- La pantalla 02 tiene dos implementaciones de la misma fuente (`Pantalla02`
+  de esta rama y la 02 de `main` dentro de `plan/page.tsx` de v2, ya borrada):
+  quedó `Pantalla02`. Si algo del arte se ve mejor en la otra, está en el
+  historial (`a9d9853`).
+- `docs/ESPECIFICACION_PANTALLAS.md`, `GUIA_DE_ESTILOS.md` §1-7 y
+  `docs/rediseno-lovable/` describen flujos que ya no existen; son registro
+  histórico, y CLAUDE.md ya lo dice.
+- `/api/demo-panel/firma` (completar un acto de Code100) sobrevive sin
+  consumidor en v4.
+- Borrar `.claude/settings.local.json` (regla `Bash(git merge:*)`).
+
+---
+
+## 2026-09-16 (c) · `v4/pantallas` se reconcilia con `main`: manda `main`
+
+**Rama:** `v4/pantallas` (PR #131) · **Pedido de Andres:** «analiza el
+problema de esta rama y del main … SIN CAMBIAR NADA», y después «procede con
+tu primera sugerencia».
+
+### El caso
+
+La rama nació de un `main` local (`bdbea0b`) que estaba **28 commits atrás**
+de `origin/main`, y en ese tramo las sesiones del 15 y 16-sep habían hecho
+parte del mismo trabajo con otra arquitectura, ya desplegada: renombre
+comercial a VIVE **sin tocar el `PlanId`** (regla #10), plazo de 10 minutos
+sin flag, cobro desde `FIRMADO_CLIENTE` con la firma de Interseguros diferida
+al pago y Alianza fuera del paquete (#120), base visual v4 aplicada al flujo
+de 8 pasos con la pantalla 02 rehecha (#126), batería E2E v4 en verde (#129)
+y la batería v3 retirada (#130). PR #131 estaba `CONFLICTING` y sin CI. Se
+violó la regla de la memoria «comparar contra `main` antes de analizar».
+
+**Decisión:** manda `main` en todo lo que describe el estado del código; de
+la rama sobrevive lo que `main` no tiene (las doce pantallas, el dominio
+03D/03E/04A/04D, los catálogos, la capa legal, la piel v4 de la cámara). El
+flag `FLUJO_V4` **queda apagado** en este PR: se despliega sin cambio visible
+y con la batería E2E de producción intacta. Encenderlo para siempre es el PR
+siguiente.
+
+### Qué cambió
+
+- **Alineación previa a la fusión** (`22d947b`), para que los conflictos
+  fueran pocos: se deshizo el renombre del `PlanId` (`CONFIO_*` se conserva;
+  se borran `PLAN_ID_LEGADO`, `normalizarPlanIdLegado` y el traductor
+  `conPlanRenombrado` del repositorio); `catalogo.ts`, su test y el test del
+  asistente se tomaron de `main` más `PLAN_RECOMENDADO` para la 02; D-45 se
+  enmendó. `e2e/support/flujo.ts` y `01-camino-feliz` se tomaron de `main`;
+  los specs v3 volvieron a la base para que la fusión los borrara limpio.
+- **04E al grafo enmendado:** firmado el cliente, la pantalla va directo a
+  `/pago`; se quitó el sondeo de `/api/p8/estado` que esperaba las firmas
+  institucionales y los textos que nombraban a Alianza como firmante.
+- **05B:** «Firmado por vos e Interseguros»; mensaje para
+  `FIRMA_CORREDOR_PENDIENTE`; el error de carga del resumen es reintentable
+  (antes dejaba a la persona sin botón).
+- **Fusión** (`8d7e7e1`), **4 conflictos** (eran 10 antes de la alineación):
+  `CLAUDE.md` (sección v4 reescrita: las dos capas que conviven), `BITACORA.md`
+  (se conservan las entradas de ambas ramas), `layout.tsx` (un solo `Arimo`,
+  `data-flujo="v4"` conservado), `firma-p8.ts` (`PLAZO_PAGO_MS` de `main`,
+  desaparecen `PLAZO_PAGO_V2_MS`/`PLAZO_PAGO_V4_MS`).
+- **`rutas-flujo.ts`:** `PASOS_FLUJO_V4` recibe `etapa` (la misma tabla que
+  `v4/etapas.ts`) y `/firma` se completa con `FIRMADO_CLIENTE`;
+  `PANTALLA_POR_ESTADO_V4` manda `FIRMADO_CLIENTE` a `/pago` y `FIRMADO` a
+  `/confirmacion`.
+
+### Qué hizo Andres
+
+- Cerró la otra sesión y sus worktrees antes de que esta tocara nada.
+- Creó `.claude/settings.local.json` con `Bash(git merge:*)`: el clasificador
+  del modo automático había bloqueado el `git merge` **local**. Queda
+  pendiente de **borrarlo** al cerrar.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npx tsc --noEmit` | limpio |
+| `npm run lint` | 0 errores, 9 warnings (los mismos de `main`) |
+| `npx vitest run` | **1429** tests en verde (105 archivos) |
+| Batería E2E de producción (`FLUJO_V4` apagado), corrida completa | **8 en verde, 2 en rojo, 3 omitidas** en 23 min: cayeron `06-vencimiento-firma` (se quedó en `/firma` tras tipear el código) y `10-pago-bancard-rechazo` («Pagar» nunca se habilitó) |
+| Las dos rojas, **aisladas**, sobre el mismo árbol | **2/2 en verde** (2,4 y 1,7 min). Mismo patrón que la memoria registra desde el 19-ago: la batería completa deja uno o dos rojos que se mueven cuando la tabla crece; 07 y 09 recorrieron firma y pago en verde en la corrida completa |
+
+### Queda abierto
+
+- **PR B:** encender `FLUJO_V4` para siempre: unificar `MarcoV4` con
+  `HeaderInstitucional`/`StepperPasos` (o al revés), decidir entre la 02 de
+  `main` y `Pantalla02` (misma fuente, dos implementaciones), borrar los
+  cuerpos v2/v3 y reescribir los specs E2E contra las pantallas v4.
+- **Producto (Andres):** 05A y `AVISO_PLAZO_PAGO_P7` prometen «podés iniciar
+  una solicitud nueva» tras vencer, y la regla #11 bloquea la cédula en
+  `VENCIDO`; con 10 minutos deja de ser teórico. Y «Prima neta anual» en el
+  desglose de 05A contra D-47.
+- `docs/rediseno-lovable/` sigue describiendo el porteo a v3 (registro
+  histórico).
+
+---
+
 ## 2026-09-16 · v4 pasa a ser el producto: renombre a VIVE y doce pantallas implementadas
 
 **Rama:** `v4/pantallas` (desde `main`, `bdbea0b`) · **Decisiones de Andres

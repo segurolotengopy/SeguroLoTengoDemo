@@ -11,6 +11,46 @@
  * pantalla**, nunca un número, y la etapa sale de `PANTALLAS_V4`.
  *
  * Sin botón de día/noche: v4 sale solo en claro (D-29).
+ *
+ * ## Único marco del producto (PR B, «encendido de v4», 16-sep-2026)
+ *
+ * Hasta acá convivían dos implementaciones: esta (`CabeceraV4`/`StepperV4`) y
+ * `HeaderInstitucional`/`StepperPasos` de `components/shared` — la segunda con
+ * el logo de SeguroLoTengo como PNG recortado del arte, `indicador` como slot
+ * de contenido libre, y el stepper resuelto por **slug de ruta** vía
+ * `etapaDePaso()` (`domain/rutas-flujo.ts`). Se decidió esta (`CabeceraV4` +
+ * `StepperV4`) como la única, por dos motivos, los dos con evidencia:
+ *
+ * 1. **El logo.** `ANALISIS_VISUAL_PNG.md` §0.2-0.3 describe el logotipo con
+ *    precisión vectorial —«las dos O son anteojos rojos unidos por un puente,
+ *    con la L adentro», navy `#071F78` exacto, `canal digital` al 40 % del
+ *    tamaño con tracking abierto— que un recorte de PNG no puede sostener a
+ *    cualquier resolución ni cuando la marca ajuste un color. El propio
+ *    `HeaderInstitucional` documentaba su logo como «provisional […]
+ *    reemplazar por el SVG oficial en cuanto Interseguros lo mande»: ese
+ *    reemplazo es este, dibujado a mano siguiendo la misma descripción del
+ *    arte que ya estaba escrita en el análisis visual.
+ * 2. **El stepper.** CLAUDE.md exige que el stepper reciba el **código de
+ *    pantalla**, nunca un slug ni un número — es literalmente la regla que
+ *    `rutas-flujo.ts` cita como el origen del bug «Paso 7 de 7». `StepperV4`
+ *    ya cumple eso por diseño (`codigo: CodigoPantallaV4`); el otro dependía
+ *    de un mapeo de rutas del flujo de 8 pasos que v4 no tiene.
+ *
+ * Las páginas del flujo (`components/v4/pantallas/**`) montan `MarcoV4`. Las
+ * páginas **fuera** del flujo que no tienen una `CodigoPantallaV4` propia
+ * —`/solicitud-vencida`, `/asistencia-identidad`, `/verificar`,
+ * `/admin-consola`, `/demo-panel`, `/design-system`, `/privacidad`,
+ * `/retracto`— montan `CabeceraV4` y `PieV4` sueltos dentro de `CapaLegalV4`
+ * (sin forzar un código de pantalla que no les corresponde) y, si necesitan un
+ * indicador propio, usan `IndicadorFueraDeFlujoV4` en vez de inventar un badge
+ * por página.
+ *
+ * `HeaderInstitucional`, `StepperPasos` y `PieLegal` de `components/shared`
+ * se borraron con el flujo de 8 pasos el 16-sep-2026: este es el único marco.
+ * La identificación regulatoria completa que llevaba `PieLegal` (razón
+ * social, actividad, Matrícula SIS N.º 118; CMP-01) vive en la capa
+ * «Responsabilidades» de `CapaLegalV4`, accesible desde el menú y desde el pie
+ * de todas las pantallas.
  */
 
 import { ETAPAS_V4, TOTAL_ETAPAS_V4, pantallaPorCodigoV4 } from "@/domain/v4/etapas";
@@ -146,6 +186,43 @@ export function StepperV4({ codigo }: { readonly codigo: CodigoPantallaV4 }) {
       <span className="shrink-0 text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
         {etapa} de {TOTAL_ETAPAS_V4}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Indicador de las páginas que quedan fuera de las cinco etapas del flujo:
+ * no tienen `CodigoPantallaV4` propio porque no son una de las doce pantallas
+ * del handoff — `/asistencia-identidad` y `/solicitud-vencida` son decisión de
+ * producto (ver sus páginas), sin arte ni fila en la matriz de cumplimiento.
+ *
+ * No es un componente del arte —los 103 PNG no dibujan una pantalla fuera del
+ * flujo—: reproduce, con los tokens de v4 (navy/rojo), el mismo patrón visual
+ * con el que la v2 `StepperPasos` resolvía sus variantes `p0` / `pantalla-a` /
+ * `pantalla-b` (rótulo corto + detalle en versalitas, alineados a la derecha),
+ * para que estas páginas compartan cabecera con el resto sin inventar un
+ * elemento nuevo.
+ */
+export function IndicadorFueraDeFlujoV4({
+  titulo,
+  detalle,
+  tono = "alerta",
+}: {
+  readonly titulo: string;
+  readonly detalle?: string;
+  readonly tono?: "alerta" | "neutral";
+}) {
+  const color = tono === "alerta" ? "var(--v4-rojo)" : "var(--v4-azul-apagado)";
+  return (
+    <div className="px-4 py-3 text-right leading-tight">
+      <p className="text-sm font-bold" style={{ color: tono === "alerta" ? color : "var(--v4-navy)" }}>
+        {titulo}
+      </p>
+      {detalle ? (
+        <p className="text-[0.6875rem] font-semibold tracking-wide uppercase" style={{ color }}>
+          {detalle}
+        </p>
+      ) : null}
     </div>
   );
 }

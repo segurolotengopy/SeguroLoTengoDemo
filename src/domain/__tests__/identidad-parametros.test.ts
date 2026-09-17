@@ -348,14 +348,14 @@ describe("origen de la captura", () => {
     }
   });
 
-  it("fuera del modo demostración no se admite ningún archivo", () => {
-    // `CAPTURA_SOLO_DESDE_CAMARA` es la regla del proceso: un archivo puede
-    // ser la foto de una foto, un PDF de una cédula ajena o una imagen
-    // generada.
+  it("D-46 · fuera del modo demostración se admite archivo para el frente y el dorso, no para la selfie", () => {
+    // Decisión de Andres del 16-sep-2026: sin proveedor de alteración
+    // documental, la cédula se puede cargar como archivo en producción. La
+    // selfie es el ancla biométrica y sigue exigiendo cámara.
     expect(CAPTURA_SOLO_DESDE_CAMARA).toBe(true);
-    for (const tipo of ["FRENTE", "DORSO", "SELFIE"] as const) {
-      expect(origenCapturaAdmitido(tipo, "ARCHIVO", false)).toBe(false);
-    }
+    expect(origenCapturaAdmitido("FRENTE", "ARCHIVO", false)).toBe(true);
+    expect(origenCapturaAdmitido("DORSO", "ARCHIVO", false)).toBe(true);
+    expect(origenCapturaAdmitido("SELFIE", "ARCHIVO", false)).toBe(false);
   });
 
   it("en demostración se admite archivo para las tres capturas", () => {
@@ -368,11 +368,12 @@ describe("origen de la captura", () => {
     }
   });
 
-  it("el modo demostración es lo único que abre el archivo, para la selfie también", () => {
+  it("el modo demostración es lo único que abre el archivo para la selfie", () => {
     // La separación con producción no la sostiene esta función sola: la
     // sostienen `DEMO_MODE`, el adaptador de demostración —que tira si el flag
     // no está encendido— y el origen sellado en la evidencia. Lo que este test
-    // fija es el primer eslabón: sin modo demostración, ni una.
+    // fija es el primer eslabón: sin modo demostración, la selfie por archivo
+    // no entra.
     expect(origenCapturaAdmitido("SELFIE", "ARCHIVO", false)).toBe(false);
     expect(origenCapturaAdmitido("SELFIE", "CAMARA", false)).toBe(true);
   });

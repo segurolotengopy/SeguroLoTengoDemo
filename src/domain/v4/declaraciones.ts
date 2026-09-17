@@ -24,6 +24,7 @@ import { interpretarBeneficiarioP6 } from "../catalogo-p6";
 import { generarNumeroCaso } from "../declaraciones-p6";
 import { registrarConsentimientosV4, registrarDeclaracionesMedicasV4 } from "../expediente";
 import { esRespuestaDeclaracion } from "../elegibilidad";
+import { remitirCasoDerivadoBestEffort } from "../remision-alianza";
 import type {
   DeclaracionesMedicasV4,
   Expediente,
@@ -156,6 +157,17 @@ export async function registrarDeclaracionesSalud(
 
   await deps.expedientes.guardar(resultado.expediente, expediente.actualizadoEn);
   await deps.evidencias.guardar(registro);
+
+  // CHG-47 · el caso derivado se remite a Alianza en el mismo acto, como en
+  // `registrarDeclaracionesP6`. Best-effort: la derivación es terminal (regla
+  // #5) y un fallo de remisión deja evidencia, no revierte nada.
+  if (derivado) {
+    await remitirCasoDerivadoBestEffort(
+      { evidencias: deps.evidencias, ahora, nuevoId },
+      resultado.expediente,
+      entrada.contexto,
+    );
+  }
 
   return {
     ok: true,

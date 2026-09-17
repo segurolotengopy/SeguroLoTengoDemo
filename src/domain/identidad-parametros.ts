@@ -439,14 +439,18 @@ export const CONFIANZA_MINIMA_OCR = 90;
 export const CAMPOS_CRUZADOS_CON_MRZ = ["numeroCedula", "fechaNacimiento", "sexo"] as const;
 
 /**
- * La captura se hace **solo desde la cámara**, nunca por carga de archivo.
+ * La **selfie** se captura solo desde la cámara, nunca por carga de archivo.
  *
- * Es el control de autenticidad más barato y más efectivo que tenemos mientras
- * no haya fuente oficial ni proveedor documental especializado: subir un
- * archivo permite mandar una foto de una foto, un PDF de una cédula ajena o
- * una imagen generada. Está declarado acá, y no solo en el `<input>` de la
- * pantalla, porque es una regla del proceso — si mañana aparece otra pantalla
- * o un endpoint que acepte una imagen de cédula, tiene que respetarlo igual.
+ * Hasta D-46 (16-sep-2026) la regla cubría las tres capturas: subir un archivo
+ * permite mandar una foto de una foto, un PDF de una cédula ajena o una imagen
+ * generada. Andres decidió admitir el archivo para el frente y el dorso en
+ * producción —*"no vamos a usar un proveedor de alteración documental;
+ * permitiremos que carguen archivos"*— y la selfie quedó afuera: es el ancla
+ * biométrica y el único control que resta contra la suplantación una vez que
+ * se admite un archivo como documento. Está declarado acá, y no solo en el
+ * `<input>` de la pantalla, porque es una regla del proceso — si mañana
+ * aparece otra pantalla o un endpoint que acepte una selfie, tiene que
+ * respetarlo igual.
  */
 export const CAPTURA_SOLO_DESDE_CAMARA = true;
 
@@ -502,23 +506,13 @@ export function origenCapturaAdmitido(
   tipo: "FRENTE" | "DORSO" | "SELFIE",
   origen: OrigenCaptura,
   modoDemo: boolean,
-  /**
-   * v4 · D-46: la carga de archivo del **frente y el dorso** deja de ser una
-   * comodidad de demostración y pasa a ser un camino de producción.
-   *
-   * *"No vamos a usar un proveedor de alteración documental. Permitiremos que
-   * carguen archivos."* (Andres, 16-sep-2026.) Lo decide quien llama, porque
-   * el dominio no lee variables de entorno.
-   *
-   * **La selfie queda afuera**: sigue exigiendo cámara salvo en modo demo. Es
-   * el ancla biométrica y el único control que queda contra la suplantación
-   * una vez que se admite un archivo como documento.
-   */
-  archivoDocumentalHabilitado = false,
 ): boolean {
   if (origen === "CAMARA") return true;
-  if (modoDemo) return true;
-  return archivoDocumentalHabilitado && tipo !== "SELFIE";
+  // D-46 · el frente y el dorso se pueden cargar como archivo también en
+  // producción. La selfie sigue exigiendo cámara salvo en modo demostración,
+  // que ya renunció a la prueba de vida (`decidirPresenciaDemo`).
+  if (tipo !== "SELFIE") return true;
+  return modoDemo;
 }
 
 // ---------------------------------------------------------------------------

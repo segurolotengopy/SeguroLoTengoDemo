@@ -8,10 +8,10 @@
  * derivados medidos sobre los PNG y documentados uno por uno en
  * `docs/recepcion/2026-09-14-interseguros/02-pantallas-v4/ANALISIS_VISUAL_PNG.md`.
  *
- * Todo cuelga de `[data-flujo="v4"]`, con el mismo mecanismo que usó v3: así
- * las pantallas que todavía no se portaron siguen viéndose como estaban
- * mientras v4 se construye. Cuando `FLUJO_V4` se encienda para siempre (D-43),
- * este archivo deja de necesitar el prefijo y los otros dos se borran.
+ * Todo cuelga de `[data-flujo="v4"]`. El atributo lo lleva siempre el <html>
+ * (`layout.tsx`) desde que v4 pasó a ser el único flujo (D-43, 16-sep-2026);
+ * el prefijo se conserva porque `captura-v4.css` y las pantallas ya lo nombran
+ * y des-scopearlo no cambiaría nada visible.
  *
  * **Sin modo oscuro** (D-29): la primera fase sale solo en claro, así que acá
  * no hay un solo bloque `dark:`. El botón de día/noche no se monta en v4.

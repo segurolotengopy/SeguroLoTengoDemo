@@ -22,6 +22,7 @@ import { randomUUID } from "node:crypto";
 import type { EvidenceStore } from "../../ports/evidence-store";
 import { generarNumeroCaso } from "../declaraciones-p6";
 import { registrarActividadV4 } from "../expediente";
+import { remitirCasoDerivadoBestEffort } from "../remision-alianza";
 import type { ActividadEconomicaV4, Expediente, RegistroEvidencia } from "../tipos";
 import type { ContextoPeticion, RepositorioExpediente } from "../verificacion-canal-whatsapp";
 import {
@@ -184,6 +185,20 @@ export async function registrarActividad(
 
   await deps.expedientes.guardar(resultado.expediente, expediente.actualizadoEn);
   await deps.evidencias.guardar(registro);
+
+  // CHG-47 · el caso se remite a Alianza en el mismo acto en que se deriva,
+  // igual que hacía `registrarDeclaracionesP6`: una derivación que dependiera
+  // de que alguien la empuje desde la consola es un caso que ya salió del
+  // flujo automático y nadie mira. **Best-effort a propósito**: la derivación
+  // ya ocurrió y es terminal (regla inviolable #5); si la remisión falla queda
+  // evidencia del fallo, visible en la consola, y el reenvío manual.
+  if (numeroCasoDerivacion) {
+    await remitirCasoDerivadoBestEffort(
+      { evidencias: deps.evidencias, ahora, nuevoId },
+      resultado.expediente,
+      entrada.contexto,
+    );
+  }
 
   return {
     ok: true,

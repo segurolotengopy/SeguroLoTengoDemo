@@ -1,6 +1,7 @@
 import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
-import { HeaderInstitucional, StepperPasos } from "@/components/shared";
+import { CabeceraV4, IndicadorFueraDeFlujoV4, PieV4 } from "@/components/v4/MarcoV4";
+import { CapaLegalV4 } from "@/components/v4/CapaLegalV4";
 import {
   ACTORES_PANTALLA_B,
   EVIDENCIA_CONSERVADA_PANTALLA_B,
@@ -24,8 +25,10 @@ import { CasoVencido } from "./CasoVencido";
  * plazo de pago, con el expediente en VENCIDO / DEVOLUCION_EN_TRAMITE /
  * DEVUELTO.
  *
- * **Fuera del contador de pasos**: usa la variante `pantalla-b` del stepper y
- * no lleva barra de plan seleccionado — acá no hay contratación en curso.
+ * **Fuera de las cinco etapas**: usa `IndicadorFueraDeFlujoV4` (no una
+ * `CodigoPantallaV4` de `PANTALLAS_V4`, porque esta pantalla no tiene arte
+ * propio en el handoff) y no lleva barra de plan seleccionado — acá no hay
+ * contratación en curso.
  *
  * Todo lo estático se renderiza en el servidor. Lo que baja como componente de
  * cliente es `CasoVencido`, que abre el trámite de devolución en
@@ -43,8 +46,10 @@ export const metadata: Metadata = {
 
 export default function PantallaBSolicitudVencida() {
   return (
-    <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional indicador={<StepperPasos variante="pantalla-b" />} />
+    <CapaLegalV4>
+      <div className="flex flex-1 flex-col bg-fondo">
+        <CabeceraV4 marcas={3} />
+        <IndicadorFueraDeFlujoV4 titulo="SOLICITUD VENCIDA" detalle="Firmada · Pago no completado" />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
         {/* ---------------------------------------------------------------- */}
@@ -126,7 +131,12 @@ export default function PantallaBSolicitudVencida() {
             </button>
           </form>
         </footer>
-      </main>
-    </div>
+        </main>
+
+        <div className="mx-auto w-full max-w-pantalla px-4">
+          <PieV4 />
+        </div>
+      </div>
+    </CapaLegalV4>
   );
 }

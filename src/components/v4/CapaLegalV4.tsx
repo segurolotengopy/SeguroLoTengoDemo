@@ -199,6 +199,16 @@ export function CapaLegalV4({ children }: { readonly children: React.ReactNode }
       ) : null}
 
       {abierto === "responsabilidades" ? (
+        // CMP-01 / fila 1 de la matriz de cumplimiento — verificado el
+        // 16-sep-2026 (PR B, «encendido de v4»): `TEXTOS_01C` ya identifica a
+        // las tres partes con la misma información de fondo que armaba
+        // `PieLegal` (v2) con `IDENTIFICACION_CANAL` — razón social y rol de
+        // SeguroLoTengo e Interseguros (con su Matrícula SIS N.º 118) y de
+        // Alianza como aseguradora que emite la póliza. No hace falta
+        // agregar nada acá: la identificación regulatoria permanente no
+        // desapareció, se movió de la cabecera (v2) a esta hoja, alcanzable
+        // desde el ☰ y desde "Información legal" en **todas** las pantallas
+        // v4 vía `PieV4`.
         <HojaV4 titulo={TEXTOS_01C.titulo} bajada={TEXTOS_01C.bajada} alCerrar={cerrar}>
           <div className="space-y-4">
             {TEXTOS_01C.tarjetas.map((tarjeta) => (

@@ -152,6 +152,37 @@ export async function remitirCasoAAlianza(
  * ese caso el reintento tampoco va a andar. Cuando la remisión salga de verdad
  * por `MessagingProvider`, hereda los reintentos de ese despachador.
  */
+/**
+ * Remite un caso **recién derivado** y, si la remisión falla, deja la
+ * evidencia del fallo (CHG-47). Nunca lanza: la derivación ya ocurrió y es
+ * terminal (regla inviolable #5), así que un fallo de remisión no puede
+ * revertirla ni convertir en error una respuesta que ya es correcta. Lo que
+ * queda es la evidencia, visible en la consola, y el reenvío manual.
+ *
+ * Es el mismo bloque que `registrarDeclaracionesP6` escribía en línea; vive
+ * acá para que 03E (PEP) y 04A (salud) del flujo v4 no lo repitan y no puedan
+ * olvidarlo.
+ */
+export async function remitirCasoDerivadoBestEffort(
+  deps: DependenciasRemision,
+  expediente: Expediente,
+  contexto: ContextoPeticion,
+): Promise<void> {
+  try {
+    await remitirCasoAAlianza(deps, { expediente, contexto, origen: "AUTOMATICA" });
+  } catch (error) {
+    await registrarRemisionFallida(deps, {
+      expediente,
+      contexto,
+      detalle: error instanceof Error ? error.message : "desconocido",
+    }).catch(() => {
+      // Si tampoco se puede escribir la evidencia del fallo, no queda nada
+      // por hacer acá: la derivación está guardada y la consola muestra el
+      // caso igual, sin remisión registrada.
+    });
+  }
+}
+
 export async function registrarRemisionFallida(
   deps: DependenciasRemision,
   entrada: {

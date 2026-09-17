@@ -55,10 +55,17 @@ import { codigoCertificado } from "./certificado-cobertura";
 import { firmantesDiferidos } from "./firmantes-documento";
 import type { PropositoOtp } from "../ports/otp-provider";
 import { evaluarElegibilidad } from "./elegibilidad";
-import { flujoV3Activo } from "./flujo-vigente";
 
-/** Grafo del flujo de 8 pasos, vigente mientras `FLUJO_V3` esté apagado. */
-export const TRANSICIONES_V2: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
+/**
+ * Grafo de la máquina de estados: única fuente de verdad de qué transición es
+ * legal desde cada estado.
+ *
+ * v4 (D-43) no lo cambió: 03D, 03E y 04A llenan el expediente sin moverlo de
+ * `IDENTIDAD_VERIFICADA`, y `04D` es la única puerta a `DECLARACIONES_OK`. El
+ * grafo alternativo del flujo de 3 pasos (`TRANSICIONES_V3`, identidad antes
+ * que plan) se borró con ese flujo el 16-sep-2026.
+ */
+export const TRANSICIONES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
   // CHG-01 · el plan se elige primero y el OTP de WhatsApp viene después.
   // Todo lo anterior al OTP es información pública, así que ponerlo delante no
   // protegía nada; puesto acá, el código funciona como elemento disuasivo y da
@@ -165,53 +172,8 @@ export const TRANSICIONES_V2: Readonly<Record<EstadoExpediente, readonly EstadoE
   EMITIDO: ["DEVOLUCION_EN_TRAMITE"],
 };
 
-/**
- * Grafo del flujo de 3 pasos (DI-2, Bloque E de `docs/plan/DECISIONES.md`).
- *
- * El orden nuevo —identidad primero, plan después— se logra **recableando
- * aristas entre los mismos estados**: no hay estados nuevos, así que los
- * expedientes históricos siguen siendo legibles y los terminales y legados
- * quedan idénticos. El tramo desde `DECLARACIONES_OK` hasta el final es el
- * mismo del v2, copiado a propósito y con test que lo verifica: la inversión
- * firma→pago (D-08) y la regla 6-bis no se renegocian con este rediseño.
- */
-export const TRANSICIONES_V3: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> = {
-  // Paso 1 · la cédula se conoce al comienzo: el bloqueo por cédula (regla
-  // inviolable #11) se evalúa antes de que la persona invierta tiempo en el
-  // flujo, y la salida a asistencia humana (tres análisis fallidos) sale de
-  // acá y ya no de AUTORIZADO.
-  INICIADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
-  IDENTIDAD_VERIFICADA: ["CANAL_WA_VERIFICADO"],
-  CANAL_WA_VERIFICADO: ["AUTORIZADO"],
-  // La aceptación agrupada del paso 1 (DI-8) es la autorización: cierra la
-  // inscripción y habilita el paso 2.
-  AUTORIZADO: ["PLAN_SELECCIONADO"],
-  // El autobucle sigue siendo el enlace `cambiar plan`. Las declaraciones
-  // viven ahora en el mismo paso que el plan, así que la derivación a análisis
-  // (regla inviolable #5) sale de acá.
-  PLAN_SELECCIONADO: ["PLAN_SELECCIONADO", "DECLARACIONES_OK", "DERIVADO_MANUAL"],
 
-  // Legado (D-06): sin aristas de entrada; conserva sus salidas v2 para que
-  // un expediente histórico detenido acá pueda terminar su trámite.
-  CANAL_EMAIL_VERIFICADO: ["IDENTIDAD_VERIFICADA", "ASISTENCIA_IDENTIDAD"],
-  ASISTENCIA_IDENTIDAD: [],
-  DERIVADO_MANUAL: [],
-
-  // Paso 3 en adelante: idéntico al v2, aristas copiadas sin cambios.
-  DECLARACIONES_OK: ["PAQUETE_GENERADO"],
-  PAQUETE_GENERADO: ["FIRMADO_CLIENTE"],
-  FIRMADO_CLIENTE: ["PAGO_CONFIRMADO", "VENCIDO", "FIRMADO"],
-  PAGO_CONFIRMADO: ["FIRMADO", "EMITIDO", "DEVOLUCION_EN_TRAMITE"],
-  FIRMADO: ["EMITIDO", "DEVOLUCION_EN_TRAMITE", "PAGO_CONFIRMADO", "VENCIDO"],
-  VENCIDO: ["DEVOLUCION_EN_TRAMITE"],
-  DEVOLUCION_EN_TRAMITE: ["DEVUELTO"],
-  DEVUELTO: [],
-  EMITIDO: ["DEVOLUCION_EN_TRAMITE"],
-};
-
-/** Grafo vigente en este despliegue: única fuente de verdad de la máquina de estados. */
-const TRANSICIONES_LEGALES: Readonly<Record<EstadoExpediente, readonly EstadoExpediente[]>> =
-  flujoV3Activo() ? TRANSICIONES_V3 : TRANSICIONES_V2;
+const TRANSICIONES_LEGALES = TRANSICIONES;
 
 export type ResultadoTransicion =
   | { readonly ok: true; readonly expediente: Expediente }
@@ -993,7 +955,7 @@ export function registrarFirmaClienteInterna(
  * quedar habilitado para la emisión.
  *
  * **Solo desde `PAGO_CONFIRMADO`.** El grafo también admite legalmente
- * `FIRMADO_CLIENTE → FIRMADO` (legado, ver `TRANSICIONES_V2`), pero esta
+ * `FIRMADO_CLIENTE → FIRMADO` (legado, ver `TRANSICIONES`), pero esta
  * función lo rechaza explícitamente: aplicar la institucional antes de cobrar
  * volvería a acoplar el cobro a una firma que D-38 sacó del camino crítico.
  * La arista legada existe para expedientes históricos que llegaron a

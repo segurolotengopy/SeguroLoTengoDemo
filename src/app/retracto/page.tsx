@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HeaderInstitucional, PieLegal, TituloDePantalla } from "@/components/shared";
+import { TituloDePantalla } from "@/components/shared";
+import { CabeceraV4, PieV4 } from "@/components/v4/MarcoV4";
+import { CapaLegalV4 } from "@/components/v4/CapaLegalV4";
 import { CORREO_RETRACTO_Y_DATOS, sufijoTitulo } from "@/domain/entidades";
 import {
   FALTA_DEFINICION_LEGAL,
@@ -49,8 +51,9 @@ function ParrafoConMarcador({ texto }: { texto: string }) {
 
 export default function PantallaRetracto() {
   return (
+    <CapaLegalV4>
     <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional />
+      <CabeceraV4 marcas={3} />
 
       <main className="mx-auto flex w-full max-w-pantalla flex-1 flex-col gap-4 px-4 py-5 sm:px-6">
         <TituloDePantalla
@@ -87,7 +90,10 @@ export default function PantallaRetracto() {
         </Link>
       </main>
 
-      <PieLegal />
+      <div className="mx-auto w-full max-w-pantalla px-4">
+        <PieV4 />
+      </div>
     </div>
+    </CapaLegalV4>
   );
 }

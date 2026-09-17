@@ -1,79 +1,21 @@
-import { flujoV4Activo } from "@/domain/flujo-vigente";
+import type { Metadata } from "next";
 import { Pantalla04A } from "@/components/v4/pantallas/Pantalla04A";
 import { sufijoTitulo } from "@/domain/entidades";
-import type { Metadata } from "next";
-import Link from "next/link";
-import {
-  BarraPlanDelExpediente,
-  HeaderInstitucional,
-  PieLegal,
-  StepperPasos,
-  TituloDePantalla,
-  TramiteEnOtroPaso,
-} from "@/components/shared";
-import { esModoDemo } from "@/app/demo-panel/_sesion";
-import { DETALLE_DECLARACIONES_YA_RESPONDIDAS } from "@/domain/textos-reencaminado";
-import { expedienteEnOtroPaso } from "../_reencaminado";
-import { SUBTITULO_P6, TITULO_P6 } from "@/domain/textos-p6";
-import { FormularioDatosYDeclaraciones } from "./FormularioDatosYDeclaraciones";
 
 /**
- * Paso 5 · Datos y declaraciones — `/declaraciones`, en el formato de la
- * maqueta (`PantallasDemo2.pdf` p.5).
+ * `/declaraciones` — pantalla **04A** · Datos y declaraciones (etapa 4).
  *
- * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "P6 · Paso 6 de 9 —
- * Datos y declaraciones". Respaldo normativo del conjunto: filas 16, 18, 19,
- * 20 y 21 de la matriz de cumplimiento (Res. SEPRELAD 71/19, art. 26(1)(a-j) y
- * 44; Res. SEPRELAD 50/20, arts. 2-3 y 7; Código Civil, arts. 1349-1354 y
- * 1387; Ley 4868/13, arts. 6(a) y 7(b)).
- *
- * Todo lo estático se renderiza en el servidor; lo único que baja como
- * componente de cliente son el formulario y la barra de plan.
+ * Tres preguntas de salud y el beneficiario. Una respuesta incompatible
+ * detiene la emisión automática y deriva a `04A1` (regla inviolable #5).
+ * Respaldo normativo del conjunto: filas 16, 18, 19, 20 y 21 de la matriz de
+ * cumplimiento.
  */
 
 export const metadata: Metadata = {
   title: `Datos y declaraciones · ${sufijoTitulo()}`,
-  description:
-    "Paso 6 de 9: datos complementarios, beneficiario por fallecimiento y las ocho declaraciones obligatorias.",
+  description: "Declaraciones de salud y beneficiario por fallecimiento.",
 };
 
-export default async function PantallaP6Declaraciones() {
-  // v4 · arte `04A`: tres preguntas de salud y el beneficiario.
-  if (flujoV4Activo()) {
-    return <Pantalla04A />;
-  }
-
-  const enOtroPaso = await expedienteEnOtroPaso("/declaraciones");
-  return (
-    <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional indicador={<StepperPasos slug="/declaraciones" />} />
-
-      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
-        <BarraPlanDelExpediente enlaceTexto="Cambiar plan" enlaceHref="/plan" />
-
-        <TituloDePantalla titulo={TITULO_P6} subtitulo={SUBTITULO_P6} />
-
-        {enOtroPaso ? (
-          <TramiteEnOtroPaso
-            destino={enOtroPaso}
-            detalle={DETALLE_DECLARACIONES_YA_RESPONDIDAS}
-            modoDemo={esModoDemo()}
-          />
-        ) : (
-          <FormularioDatosYDeclaraciones />
-        )}
-
-        <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
-          <Link
-            href="/identidad"
-            className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-          >
-            ← Volver a la verificación de identidad
-          </Link>
-        </footer>
-      </main>
-
-      <PieLegal />
-    </div>
-  );
+export default function PantallaDeclaraciones() {
+  return <Pantalla04A />;
 }

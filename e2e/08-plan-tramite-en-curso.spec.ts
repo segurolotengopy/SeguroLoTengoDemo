@@ -1,29 +1,37 @@
 import { test, expect } from "@playwright/test";
 import { obtenerPersonaDemo } from "@/adapters/mock/personas";
-import {
-  BOTON_CONTINUAR_PLAN,
-  TITULO_TRAMITE_EN_OTRO_PASO,
-} from "@/domain/textos-plan";
+import { PLANES } from "@/domain/catalogo";
+import { TEXTOS_02 } from "@/domain/v4/textos-plan";
 import { prepararEscenario } from "./support/demo-panel";
-import { completarPlan, completarWhatsapp, esperarHidratacion } from "./support/flujo";
+import { clickearHidratado, completarPlan, completarWhatsapp, esperarHidratacion } from "./support/flujo";
 
 /**
- * Escenario 8 — volver al catálogo con un trámite ya empezado.
+ * Escenario 8 — volver al catálogo con un trámite ya empezado (v4).
  *
- * La máquina de estados admite elegir plan solo desde `INICIADO` y desde
- * `PLAN_SELECCIONADO` (el enlace `Cambiar plan`). Hasta acá la pantalla no
- * miraba nada: dejaba elegir y recién el envío contestaba *"Este proceso ya no
- * está en el paso de selección de plan"*, un rechazo cierto y sin salida.
+ * **Divergencia importante respecto de v2, reportada a Andres.** v2 tenía
+ * `TramiteEnOtroPaso` (`src/components/shared/TramiteEnOtroPaso.tsx`) y la
+ * pregunta `expedienteEnOtroPaso` / `tramiteQueYaPasoEstePaso`, evaluadas **en
+ * el servidor antes de dibujar** el catálogo: con el canal ya verificado, la
+ * pantalla directamente no mostraba el formulario y ofrecía un enlace
+ * "Continuá desde donde quedaste". Al apagarse v2 (rama `v4/encendido`,
+ * 16-sep-2026) esos dos archivos y `_reencaminado.ts` se borraron, y
+ * `/plan` en v4 (`src/app/(flujo)/plan/page.tsx`) siempre devuelve
+ * `<Pantalla02 />` sin ninguna consulta previa al expediente. **Ninguna otra
+ * pantalla de v4 quedó con guardia de render tampoco** — mismo patrón en
+ * `/whatsapp`, `/preparacion`, `/identidad`, `/declaraciones`, `/pago` y
+ * `/confirmacion`.
  *
- * Lo que se verifica es el cambio de momento —se pregunta antes de dibujar, no
- * después de elegir— y las dos caras del mismo hecho:
- *
- * 1. Con el plan elegido y el canal sin verificar, el catálogo sigue abierto:
- *    cambiar de plan es una corrección legítima previa a la autorización.
- * 2. Con el WhatsApp ya verificado, el catálogo se reemplaza por el camino de
- *    vuelta al paso donde quedó el trámite.
+ * Lo que **sí** sigue intacto es la máquina de estados del lado del servidor:
+ * `POST /api/p2/plan` solo acepta elegir plan desde `INICIADO` o
+ * `PLAN_SELECCIONADO` (`puedeElegirPlan`), y cuando el expediente ya pasó ese
+ * paso responde `ok:false` con `destino.ruta` — que `Pantalla02.continuar()`
+ * usa para reencaminar en el cliente en vez de mostrar un error sin salida.
+ * Es esa garantía, y no la de la pantalla, la que este escenario verifica
+ * ahora: **elegir de nuevo el plan nunca revienta el trámite**, ni antes ni
+ * después de verificar el canal — antes porque es una corrección legítima,
+ * después porque el servidor redirige.
  */
-test("volver al catálogo con el trámite avanzado reencamina en vez de rechazar", async ({
+test("re-elegir el plan es idempotente antes de verificar el canal, y reencamina después", async ({
   page,
 }) => {
   const persona = obtenerPersonaDemo("camino-feliz");
@@ -32,27 +40,25 @@ test("volver al catálogo con el trámite avanzado reencamina en vez de rechazar
   await prepararEscenario(page, { personaId: persona.id });
 
   await completarPlan(page, persona);
+  const nombrePlan = PLANES[persona.planElegido].nombre;
 
-  // 1 · PLAN_SELECCIONADO: el catálogo sigue disponible (`Cambiar plan`).
+  // 1 · PLAN_SELECCIONADO: volver a `/plan` y elegir de nuevo el mismo plan es
+  // una corrección legítima previa a la autorización del canal.
   await page.goto("/plan");
   await esperarHidratacion(page);
-  await expect(page.getByRole("button", { name: BOTON_CONTINUAR_PLAN })).toBeVisible();
-  await expect(page.getByText(TITULO_TRAMITE_EN_OTRO_PASO)).toHaveCount(0);
+  await page.getByRole("radio", { name: `Elegir el plan ${nombrePlan}`, exact: true }).click();
+  await clickearHidratado(page.getByRole("button", { name: TEXTOS_02.continuar, exact: true }));
+  await expect(page).toHaveURL(/\/whatsapp$/);
 
-  await completarPlan(page, persona);
   await completarWhatsapp(page, persona);
 
-  // 2 · CANAL_WA_VERIFICADO: el trámite pasó este paso.
+  // 2 · CANAL_WA_VERIFICADO: el catálogo se sigue dibujando (gap de v4, ver
+  // más arriba), pero el servidor ya no deja re-elegir. La pantalla no se
+  // queda mostrando un error: usa el `destino` de la respuesta para llevar a
+  // la persona a donde quedó el trámite.
   await page.goto("/plan");
-  await expect(page.getByText(TITULO_TRAMITE_EN_OTRO_PASO)).toBeVisible();
-  // Ya no hay nada que elegir: el rechazo dejó de ser alcanzable porque el
-  // formulario que lo producía no se dibuja.
-  await expect(page.getByRole("button", { name: BOTON_CONTINUAR_PLAN })).toHaveCount(0);
-
-  // El destino lo decide `destinoDelExpediente`, no la pantalla: desde
-  // CANAL_WA_VERIFICADO se sigue en la preparación.
-  const volver = page.getByRole("link", { name: /Continuá desde donde quedaste/ });
-  await expect(volver).toBeVisible();
-  await volver.click();
-  await expect(page).toHaveURL(/\/preparacion$/);
+  await esperarHidratacion(page);
+  await page.getByRole("radio", { name: `Elegir el plan ${nombrePlan}`, exact: true }).click();
+  await page.getByRole("button", { name: TEXTOS_02.continuar, exact: true }).click();
+  await expect(page).toHaveURL(/\/preparacion$/, { timeout: 15_000 });
 });

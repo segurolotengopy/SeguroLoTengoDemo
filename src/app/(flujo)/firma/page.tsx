@@ -1,164 +1,26 @@
-import { sufijoTitulo } from "@/domain/entidades";
 import type { Metadata } from "next";
-import Link from "next/link";
-import {
-  BarraPlanDelExpediente,
-  HeaderInstitucional,
-  PieLegal,
-  StepperPasos,
-  TramiteEnOtroPaso,
-} from "@/components/shared";
 import { Pantalla04E } from "@/components/v4/pantallas/Pantalla04E";
-import { flujoV4Activo } from "@/domain/flujo-vigente";
-import { DETALLE_FIRMA_YA_HECHA } from "@/domain/textos-reencaminado";
-import { expedienteEnOtroPaso } from "../_reencaminado";
-import { esModoDemo } from "@/app/demo-panel/_sesion";
-import { TOTAL_PASOS, numeroDePaso, pasoAnteriorDe } from "@/domain/rutas-flujo";
-import {
-  ADVERTENCIA_ACEPTACION_P8,
-  LEYENDAS_FINALES_P8,
-  PASOS_POSTERIORES_P8,
-  SUBTITULO_P8,
-  TITULO_DESPUES_DE_LA_FIRMA_P8,
-  TITULO_P8,
-} from "@/domain/textos-p8";
-import { FirmaP8 } from "./FirmaP8";
+import { sufijoTitulo } from "@/domain/entidades";
 
 /**
- * Revisión y firma final.
+ * `/firma` — pantalla **04E** · Revisá, aceptá y firmá (etapa 4).
  *
- * **El número de paso no se escribe acá.** Sale de `PASOS_FLUJO`
- * (`src/domain/rutas-flujo.ts`), igual que el del stepper: con D-08 la firma
- * pasó a ocurrir antes del pago y esta pantalla se quedó anunciando "Paso 8 de
- * 9" en su descripción, que es exactamente lo que escribir el número a mano
- * produce.
+ * Sin arte aprobado ni candidato todavía (ver la cabecera de
+ * `Pantalla04E.tsx`): extrapola el sistema de las pantallas aprobadas y se
+ * rehace cuando llegue el arte.
  *
- * Fuente de verdad: docs/ESPECIFICACION_PANTALLAS.md → "Revisión y firma
- * final". Respaldo normativo del conjunto: filas 29, 34, 35,
- * 36, 37, 41, 42, 43 y 47 de la matriz de cumplimiento (Ley 6822/21, arts.
- * 38(1), 40, 42(5), 44-46, 61, 66 y 67-69; Res. SS SG. 215/17, anexo 1,
- * numeral 11.15, y punto 14; Ley 4868/13, arts. 7(f), 7(n) y 7(r); Código
- * Civil, arts. 1348 y 1373-1374).
- *
- * La pantalla no firma: pide un enlace. La aceptación contractual ocurre en el
- * sitio del proveedor de firma, con el OTP del acto de firma, que nunca pasa
- * por acá (reglas inviolables #1, #2 y #3). Es el **segundo** OTP del flujo,
- * no el tercero: el de correo se retiró con D-06.
- *
- * Todo lo estático se renderiza en el servidor; lo único que baja como
- * componente de cliente son los tres bloques operativos y la barra de plan.
+ * La firma del cliente es la **interna** del portal (D1; Res. SS.SG. 210/2025
+ * art. 4): OTP del acto de firma por el canal verificado, sobre el documento
+ * único ya cerrado y hasheado (reglas inviolables #1, #3 y #4). Es el
+ * segundo OTP del flujo, no el tercero: el de correo se retiró con D-06.
  */
 
 export const metadata: Metadata = {
   title: `Revisión y firma final · ${sufijoTitulo()}`,
-  description: `Paso ${numeroDePaso("/firma")} de ${TOTAL_PASOS}: revisión de la Solicitud y el FIPF cerrados y firma de ambos en un único acto.`,
+  description:
+    "Revisión de la Solicitud y el FIPF cerrados y firma de ambos en un único acto.",
 };
 
-export default async function PantallaP8Firma() {
-  // v4 · arte `04E` (sin arte aprobado ni candidato todavía; ver el
-  // comentario de cabecera de `Pantalla04E.tsx`).
-  if (flujoV4Activo()) {
-    return <Pantalla04E />;
-  }
-
-  // `FIRMADO` sigue siendo de esta pantalla, por la misma razón que
-  // `PAGO_CONFIRMADO` es de la de pago: cuando las firmas institucionales
-  // entran, es la propia pantalla la que lleva a la persona al paso siguiente
-  // desde su sondeo. Reemplazarla por el panel le sacaba esa capacidad y la
-  // dejaba esperando un clic donde antes avanzaba sola — lo encontró el E2E
-  // del tramo institucional caído, que recarga justo cuando el reintento
-  // completa el sellado.
-  const enOtroPaso = await expedienteEnOtroPaso("/firma", ["FIRMADO"]);
-  const pasoAnterior = pasoAnteriorDe("/firma");
-
-  return (
-    <div className="flex flex-1 flex-col bg-fondo">
-      <HeaderInstitucional indicador={<StepperPasos slug="/firma" />} />
-
-      <main className="mx-auto flex w-full max-w-pantalla flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5">
-        {/* "Cambiar plan", como el resto de las pantallas del flujo. Decía
-            "Volver al pago" apuntando a /pago, que era correcto cuando se
-            pagaba antes de firmar: con D-08 el pago pasó a ser el paso
-            siguiente, así que ese enlace mandaba a la persona hacia adelante,
-            a un paso que todavía no puede completar. */}
-        <BarraPlanDelExpediente
-          enlaceTexto="Cambiar plan"
-          enlaceHref="/plan"
-          formatoPremio="premio-anual"
-        />
-
-        <header className="flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-4">
-          <h1 className="shrink-0 text-xl font-bold text-titulo sm:text-2xl">{TITULO_P8}</h1>
-          <p className="text-sm text-cuerpo">
-            {SUBTITULO_P8}{" "}
-            <span className="font-semibold text-naranja-700 dark:text-naranja-300">
-              {ADVERTENCIA_ACEPTACION_P8}
-            </span>
-          </p>
-        </header>
-
-        {/* El bloque de abajo entra como `children` para que quede **antes**
-            del pie de la pantalla de firma —acceso previo y constancia del PDF
-            cerrado—, que a pedido tienen que ser lo último. Sigue siendo
-            contenido de servidor: pasar un componente de servidor como
-            `children` de uno de cliente no lo empuja al bundle. */}
-        {enOtroPaso ? (
-          <TramiteEnOtroPaso
-            destino={enOtroPaso}
-            detalle={DETALLE_FIRMA_YA_HECHA}
-            modoDemo={esModoDemo()}
-          />
-        ) : (
-        <FirmaP8 firmadorSimuladoDisponible={esModoDemo()}>
-        <section
-          aria-labelledby="p8-despues"
-          className="flex flex-col gap-2 rounded-lg border border-borde-sutil bg-superficie p-3"
-        >
-          <h2
-            id="p8-despues"
-            className="text-xs font-bold tracking-wide text-azul-800 uppercase dark:text-azul-200"
-          >
-            {TITULO_DESPUES_DE_LA_FIRMA_P8}
-          </h2>
-          <ol className="flex flex-col gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-4">
-            {PASOS_POSTERIORES_P8.map((paso, indice) => (
-              <li
-                key={paso.titulo}
-                className="flex flex-col gap-0.5 rounded-lg border border-borde-tenue bg-superficie-suave p-2.5"
-              >
-                <span className="text-sm font-semibold text-titulo">
-                  <span className="text-[11px] font-bold text-etiqueta">{indice + 1} · </span>
-                  {paso.titulo}
-                </span>
-                <span className="text-xs text-cuerpo">{paso.detalle}</span>
-              </li>
-            ))}
-          </ol>
-          <ul className="flex list-disc flex-col gap-0.5 pl-5 text-xs text-etiqueta">
-            {LEYENDAS_FINALES_P8.map((leyenda) => (
-              <li key={leyenda}>{leyenda}</li>
-            ))}
-          </ul>
-        </section>
-        </FirmaP8>
-        )}
-
-        {/* Destino y rótulo derivados de PASOS_FLUJO. Escrito a mano decía
-            "Volver a facturación y garantía de pago" hacia /pago, del orden
-            anterior a D-08. */}
-        {pasoAnterior ? (
-          <footer className="flex flex-col gap-2 border-t border-borde-tenue pt-3">
-            <Link
-              href={pasoAnterior.slug}
-              className="text-sm font-semibold text-azul-700 underline decoration-azul-300 underline-offset-2 hover:text-azul-900 dark:text-azul-200 dark:decoration-azul-500"
-            >
-              ← Volver a {pasoAnterior.titulo.toLocaleLowerCase("es-PY")}
-            </Link>
-          </footer>
-        ) : null}
-      </main>
-
-      <PieLegal />
-    </div>
-  );
+export default function PantallaFirma() {
+  return <Pantalla04E />;
 }

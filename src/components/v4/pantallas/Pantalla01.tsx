@@ -219,7 +219,7 @@ function Contenido() {
 
         {/* Banner de cookies: va **en el flujo**, al pie de la portada, no
             flotando. Fijo tapaba las tarjetas del catálogo, que es el
-            problema que `AvisoCookies` de v2 ya documenta. */}
+            problema que `AvisoCookies` de v2 documentaba (borrado el 16-sep-2026). */}
         {!cookiesLeidas ? (
           <div className="v4-tarjeta-azul mb-6 p-4">
             <p className="text-[0.875rem] leading-snug" style={{ color: "var(--v4-azul-apagado)" }}>

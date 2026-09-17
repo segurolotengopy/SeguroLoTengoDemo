@@ -9,7 +9,7 @@
  * componentes de §10— y queda **provisional** hasta que Interseguros mande el
  * arte. No inventa campos ni pasos nuevos: reproduce el contrato de negocio
  * que ya existe en `src/domain/pago-p7.ts` (D-08, D-02, D-12) y que hoy sirve
- * `src/app/(flujo)/pago/FormularioPagoP7.tsx` en v2.
+ * `src/app/(flujo)/pago/FormularioPagoP7.tsx` en v2 (borrado el 16-sep-2026).
  *
  * ## Lo que cambia respecto de v2
  *

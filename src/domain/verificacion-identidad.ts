@@ -57,7 +57,6 @@ import type {
 import { evaluarBloqueoPorCedula } from "./consola-administrativa";
 import type { LectorExpedientesPorCedula } from "./consola-administrativa";
 import { normalizarCorreo } from "./correo";
-import { flujoV3Activo } from "./flujo-vigente";
 import { cotejarCorreccion } from "./cotejo-ocr";
 // Los datos laborales y económicos se capturan **acá** desde la reformulación
 // de pantallas (maqueta p.4). El intérprete y el catálogo conservan el sufijo
@@ -125,7 +124,7 @@ export interface DependenciasP5 {
  * cédula (regla inviolable #11) se evalúe antes de invertir tiempo en el
  * flujo.
  */
-export const ESTADO_REQUERIDO_P5: EstadoExpediente = flujoV3Activo() ? "INICIADO" : "AUTORIZADO";
+export const ESTADO_REQUERIDO_P5: EstadoExpediente = "AUTORIZADO";
 
 /**
  * Estado previo de los expedientes que empezaron antes del retiro del OTP de

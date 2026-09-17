@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CanalFirma } from "@/domain/tipos";
 import { TEXTOS_04E, huellaAbreviada, relojFirma } from "@/domain/v4/textos-firma";
+import { ITEMS_ACEPTACION_FIRMA } from "@/domain/textos-pago-firma";
 import { MarcoV4 } from "../MarcoV4";
 import { CamposOtpV4 } from "../CamposOtpV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
@@ -396,8 +397,19 @@ export function Pantalla04E() {
             </a>
           </section>
 
+          {/* Lo que se muestra acá es, literalmente, lo que `POST
+              /api/p8/firma-interna/verificar` asienta como `textoAceptado`
+              (`TEXTO_ACEPTACION_FIRMA`, versión `VERSION_ACEPTACION_FIRMA`):
+              la evidencia y la constancia (D-27) tienen que citar un texto que
+              la persona vio, no otro. Por eso los ítems salen del mismo módulo
+              que lee la ruta, y no se parafrasean. */}
           <AvisoAzulV4 className="mt-3" titulo={TEXTOS_04E.avisoLegalidadTitulo}>
-            {TEXTOS_04E.avisoLegalidad}
+            <ul className="flex flex-col gap-2">
+              {ITEMS_ACEPTACION_FIRMA.map((item) => (
+                <li key={item.slice(0, 32)}>{item}</li>
+              ))}
+            </ul>
+            <p className="mt-3">{TEXTOS_04E.avisoLegalidad}</p>
           </AvisoAzulV4>
 
           {firmadoCliente ? (

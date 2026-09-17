@@ -17,7 +17,6 @@ import {
 import { decodificarImagen, decodificarSelfie } from "@/app/api/p5/_imagenes";
 import { esModoDemo } from "@/app/demo-panel/_sesion";
 import { origenCapturaAdmitido } from "@/domain/identidad-parametros";
-import { flujoV4Activo } from "@/domain/flujo-vigente";
 import type { OrigenCaptura } from "@/domain/identidad-parametros";
 import { dependenciasP5 } from "@/app/api/p5/_dependencias";
 import { registrarCapturaP5 } from "@/domain/verificacion-identidad";
@@ -45,12 +44,12 @@ export async function POST(request: Request): Promise<Response> {
   // cuerpo sin el campo no puede convertirse en una subida silenciosa.
   //
   // **Esta guarda es la que sostiene la regla en producción.** La pantalla
-  // esconde el botón de subir archivo fuera del modo demostración, pero eso es
-  // cosmético: cualquiera puede armar la petición a mano. Acá se rechaza, así
-  // que un despliegue sin `DEMO_MODE` no tiene forma de aceptar un archivo por
-  // ninguna vía.
+  // ofrece la carga de archivo solo para el frente y el dorso (D-46), pero eso
+  // es cosmético: cualquiera puede armar la petición a mano. Acá se rechaza,
+  // así que un despliegue sin `DEMO_MODE` no tiene forma de aceptar una selfie
+  // como archivo por ninguna vía.
   const origen: OrigenCaptura = cuerpo.origen === "ARCHIVO" ? "ARCHIVO" : "CAMARA";
-  if (!origenCapturaAdmitido(cuerpo.tipo, origen, esModoDemo(), flujoV4Activo())) {
+  if (!origenCapturaAdmitido(cuerpo.tipo, origen, esModoDemo())) {
     return respuestaJson({ ok: false, motivo: "ORIGEN_NO_ADMITIDO" }, { status: 400 });
   }
 

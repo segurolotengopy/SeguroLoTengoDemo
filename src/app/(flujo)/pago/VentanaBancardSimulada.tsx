@@ -69,7 +69,7 @@ export function VentanaBancardSimulada({
         <h3 className="text-sm font-bold text-titulo">Pagá {importeFormateado} con tu tarjeta</h3>
       </header>
 
-      <div className="v3-rejilla" style={{ ["--v3-min" as string]: "200px" }}>
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1">
           <span className={etiqueta}>Número de la tarjeta</span>
           <input

@@ -23,7 +23,6 @@ import {
 import { dependenciasP1 } from "@/app/api/p1/_dependencias";
 import { esCanalFirma } from "@/domain/firma-p8";
 import { solicitarOtpDeFirmaCliente } from "@/domain/firma-cliente";
-import { flujoV3Activo, flujoV4Activo } from "@/domain/flujo-vigente";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +35,6 @@ const STATUS_POR_MOTIVO: Readonly<Record<string, number>> = {
 };
 
 export async function POST(request: Request): Promise<Response> {
-  // La firma interna del cliente es el camino de v3 **y de v4** (D1;
-  // `screens.json` → `client_signature`: «firma electrónica no cualificada
-  // mediante OTP web»). Fuera de esos dos flujos sigue sin existir.
-  if (!flujoV3Activo() && !flujoV4Activo()) {
-    return respuestaJson({ ok: false, motivo: "FLUJO_NO_DISPONIBLE" }, { status: 404 });
-  }
-
   const cuerpo = await leerJson(request);
   if (!cuerpo) {
     return respuestaJson({ ok: false, motivo: "CUERPO_INVALIDO" }, { status: 400 });

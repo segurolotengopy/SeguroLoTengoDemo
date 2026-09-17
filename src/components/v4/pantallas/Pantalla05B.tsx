@@ -14,7 +14,7 @@
  * 03E2) y se rehace por completo en cuanto Interseguros mande el arte de 05B.
  *
  * Funcionalmente reproduce, con la piel v4, lo que ya hace
- * `src/app/(flujo)/confirmacion/ContratacionAceptada.tsx` en v2: la máquina de
+ * `src/app/(flujo)/confirmacion/ContratacionAceptada.tsx` en v2 (borrado el 16-sep-2026): la máquina de
  * estados no cambió con v4 (`CLAUDE.md` → "v4 es la versión del producto"), así
  * que esta pantalla consume los mismos tres endpoints con el mismo contrato:
  *
