@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { PRODUCTOS_01, TEXTOS_01, TEXTOS_COOKIES } from "@/domain/v4/textos-portada";
 import { CabeceraV4, PieV4 } from "../MarcoV4";
 import { CapaLegalV4, useCapaLegalV4 } from "../CapaLegalV4";
+import { DisposicionV4, EncabezadoV4 } from "../disposicion";
 import { BotonPrincipalV4, BotonSecundarioV4, IconoChevronDerecha } from "../piezas";
 import {
   IconoAccidentes,
@@ -166,54 +167,55 @@ function Contenido() {
     <div className="flex min-h-dvh flex-col" style={{ background: "var(--v4-blanco)" }}>
       <CabeceraV4 marcas={2} />
 
-      <main className="mx-auto w-full max-w-[38rem] flex-1 px-4 pt-4">
-        {/* Héroe */}
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <h1 className="v4-titular">
-              {TEXTOS_01.heroeTitulo}
-              <br />
-              <em>{TEXTOS_01.heroeTituloAcento}</em>
-            </h1>
-            <p className="v4-bajada mt-2">{TEXTOS_01.heroeBajada}</p>
-          </div>
-          <IlustracionPortada tamano={124} className="shrink-0" />
-        </div>
-
-        {/* Tres atributos, separados por filetes verticales */}
-        <div className="mt-6 flex items-stretch">
-          {TEXTOS_01.atributos.map((atributo, indice) => (
-            <div key={atributo.rotulo} className="flex flex-1">
-              {indice > 0 ? (
-                <span aria-hidden="true" className="w-px shrink-0" style={{ background: "var(--v4-gris-borde)" }} />
-              ) : null}
-              <Atributo Icono={ICONOS_ATRIBUTO[indice]} rotulo={atributo.rotulo} pie={atributo.pie} />
-            </div>
-          ))}
-        </div>
-
-        {/* Onda decorativa que separa el héroe del catálogo */}
-        <svg viewBox="0 0 400 24" className="mt-6 h-6 w-full" aria-hidden="true" preserveAspectRatio="none">
-          <path d="M0 16 C 60 2, 120 2, 200 12 S 340 26, 400 10 L400 24 L0 24 Z" fill="#EAF2FD" />
-        </svg>
-
-        {/* Catálogo */}
-        <h2 className="mt-4 text-[1.5rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-          {TEXTOS_01.catalogoTitulo}
-        </h2>
-        <p className="v4-bajada mt-1">{TEXTOS_01.catalogoBajada}</p>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {PRODUCTOS_01.map((producto) => (
-            <TarjetaProducto
-              key={producto.id}
-              id={producto.id}
-              nombre={producto.nombre}
-              disponible={producto.disponible}
-              alElegir={() => router.push("/plan")}
+      <main className="mx-auto w-full max-w-[38rem] flex-1 px-4 pt-4 lg:max-w-[72rem] lg:px-8">
+        <DisposicionV4
+          contexto={
+            <EncabezadoV4
+              titulo={TEXTOS_01.heroeTitulo}
+              acento={TEXTOS_01.heroeTituloAcento}
+              bajada={TEXTOS_01.heroeBajada}
+              ilustracion={<IlustracionPortada tamano={124} className="shrink-0" />}
             />
-          ))}
-        </div>
+          }
+        >
+          {/* Tres atributos, separados por filetes verticales */}
+          <div className="mt-6 flex items-stretch lg:mt-0">
+            {TEXTOS_01.atributos.map((atributo, indice) => (
+              <div key={atributo.rotulo} className="flex flex-1">
+                {indice > 0 ? (
+                  <span aria-hidden="true" className="w-px shrink-0" style={{ background: "var(--v4-gris-borde)" }} />
+                ) : null}
+                <Atributo Icono={ICONOS_ATRIBUTO[indice]} rotulo={atributo.rotulo} pie={atributo.pie} />
+              </div>
+            ))}
+          </div>
+
+          {/* Onda decorativa que separa el héroe del catálogo */}
+          <svg viewBox="0 0 400 24" className="mt-6 h-6 w-full" aria-hidden="true" preserveAspectRatio="none">
+            <path d="M0 16 C 60 2, 120 2, 200 12 S 340 26, 400 10 L400 24 L0 24 Z" fill="#EAF2FD" />
+          </svg>
+
+          {/* Catálogo */}
+          <h2 className="mt-4 text-[1.5rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+            {TEXTOS_01.catalogoTitulo}
+          </h2>
+          <p className="v4-bajada mt-1">{TEXTOS_01.catalogoBajada}</p>
+
+          {/* 2 columnas en celular (igual al arte a 390 px) y 3 en escritorio:
+              no se usa `RejillaV4` porque su primera columna es de 1 en
+              celular, y acá el arte pide 2 desde el primer píxel. */}
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+            {PRODUCTOS_01.map((producto) => (
+              <TarjetaProducto
+                key={producto.id}
+                id={producto.id}
+                nombre={producto.nombre}
+                disponible={producto.disponible}
+                alElegir={() => router.push("/plan")}
+              />
+            ))}
+          </div>
+        </DisposicionV4>
 
         <PieV4 />
 
@@ -221,7 +223,7 @@ function Contenido() {
             flotando. Fijo tapaba las tarjetas del catálogo, que es el
             problema que `AvisoCookies` de v2 documentaba (borrado el 16-sep-2026). */}
         {!cookiesLeidas ? (
-          <div className="v4-tarjeta-azul mb-6 p-4">
+          <div className="v4-tarjeta-azul mb-6 p-4 lg:mx-auto lg:max-w-[44rem]">
             <p className="text-[0.875rem] leading-snug" style={{ color: "var(--v4-azul-apagado)" }}>
               {TEXTOS_COOKIES.cuerpo}
             </p>

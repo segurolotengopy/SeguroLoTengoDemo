@@ -22,7 +22,13 @@ export function PanelPep03E1({ alCerrar }: { readonly alCerrar: () => void }) {
       aria-modal="true"
       aria-label={TEXTOS_03E1.titulo}
     >
-      <div className="mx-auto w-full max-w-[38rem] px-4 py-6">
+      {/* Es la única página del arte que ocupa la pantalla entera sin
+          stepper (§0 de este archivo): no es una hoja ni un diálogo de
+          `superficies.tsx`, así que no se le inventa un fondo atenuado ni un
+          borde de tarjeta que el arte no dibuja. Solo se acota el ancho de
+          lectura en escritorio (D-30), igual que la vista de rechazo de
+          edad de 03D. */}
+      <div className="mx-auto w-full max-w-[38rem] px-4 py-6 lg:max-w-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[1.75rem] font-bold" style={{ color: "var(--v4-navy)" }}>

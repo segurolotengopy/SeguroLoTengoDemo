@@ -32,6 +32,7 @@ import { INTENTOS_IDENTIDAD_ANTES_DE_ASISTENCIA } from "@/domain/catalogo-identi
 import { TEXTOS_03C } from "@/domain/v4/textos-identidad";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
+import { AccionesV4, CamposV4, DisposicionV4, EncabezadoV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   AvisoRojoV4,
@@ -475,78 +476,84 @@ export function Pantalla03C({
 
   return (
     <MarcoV4 codigo="03C">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_03C.titulo}
-            <br />
-            <em>{TEXTOS_03C.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_03C.bajada}</p>
+      <DisposicionV4
+        contexto={
+          <>
+            <EncabezadoV4
+              titulo={TEXTOS_03C.titulo}
+              acento={TEXTOS_03C.tituloAcento}
+              bajada={TEXTOS_03C.bajada}
+              ilustracion={<IlustracionIdentidad tamano={112} className="shrink-0" />}
+            />
+            <BarraPlanV4 className="mt-4" />
+          </>
+        }
+      >
+        <AvisoAzulV4 className="mt-4 lg:mt-0" titulo={TEXTOS_03C.avisoArchivosTitulo}>
+          {TEXTOS_03C.avisoArchivos}
+        </AvisoAzulV4>
+
+        <h2 className="v4-rotulo mt-5">{TEXTOS_03C.seccionCaptura}</h2>
+
+        {/* Las tres tarjetas ya van lado a lado en el arte incluso en celular
+            (ANALISIS_VISUAL_PNG.md §5.1: «Tres tarjetas en fila»): `RejillaV4`
+            apila a una columna por debajo de `sm`, así que usarla acá rompería
+            el aspecto de 390 px que exige D-30. Se mantiene el `grid-cols-3`
+            fijo del arte, que ya reparte el ancho lado a lado en cualquier
+            tamaño de pantalla. */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {TIPOS.map((tipo) => (
+            <TarjetaCaptura key={tipo} tipo={tipo} />
+          ))}
         </div>
-        <IlustracionIdentidad tamano={112} className="shrink-0" />
-      </div>
 
-      <BarraPlanV4 className="mt-4" />
+        <TarjetaError />
 
-      <AvisoAzulV4 className="mt-4" titulo={TEXTOS_03C.avisoArchivosTitulo}>
-        {TEXTOS_03C.avisoArchivos}
-      </AvisoAzulV4>
+        <AvisoAzulV4 className="mt-4">{TEXTOS_03C.avisoBiometria}</AvisoAzulV4>
 
-      <h2 className="v4-rotulo mt-5">{TEXTOS_03C.seccionCaptura}</h2>
+        <h2 className="v4-rotulo mt-5">{TEXTOS_03C.seccionCorreo}</h2>
+        <AvisoAzulV4 className="mt-3">{TEXTOS_03C.avisoCorreo}</AvisoAzulV4>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {TIPOS.map((tipo) => (
-          <TarjetaCaptura key={tipo} tipo={tipo} />
-        ))}
-      </div>
+        <CamposV4 className="mt-3 gap-y-3">
+          <CampoTextoV4
+            etiqueta={TEXTOS_03C.etiquetaCorreo}
+            valor={correo}
+            alCambiar={todasValidadas ? setCorreo : undefined}
+            deshabilitado={!todasValidadas}
+            inputMode="email"
+            autoComplete="email"
+            error={errorCorreo === TEXTOS_03C.errorCorreoInvalido ? errorCorreo : null}
+          />
+          <CampoTextoV4
+            etiqueta={TEXTOS_03C.etiquetaCorreoRepetido}
+            valor={correoRepetido}
+            alCambiar={todasValidadas ? setCorreoRepetido : undefined}
+            deshabilitado={!todasValidadas}
+            inputMode="email"
+            autoComplete="off"
+            error={errorCorreo === TEXTOS_03C.errorCorreosNoCoinciden ? errorCorreo : null}
+          />
+        </CamposV4>
+        {!todasValidadas ? (
+          <p className="mt-2 text-center text-[0.875rem]" style={{ color: "var(--v4-gris-texto)" }}>
+            {TEXTOS_03C.correoSeHabilita}
+          </p>
+        ) : null}
+        {errorCorreo && errorCorreo !== TEXTOS_03C.errorCorreoInvalido && errorCorreo !== TEXTOS_03C.errorCorreosNoCoinciden ? (
+          <ErrorDeCampoV4>{errorCorreo}</ErrorDeCampoV4>
+        ) : null}
 
-      <TarjetaError />
-
-      <AvisoAzulV4 className="mt-4">{TEXTOS_03C.avisoBiometria}</AvisoAzulV4>
-
-      <h2 className="v4-rotulo mt-5">{TEXTOS_03C.seccionCorreo}</h2>
-      <AvisoAzulV4 className="mt-3">{TEXTOS_03C.avisoCorreo}</AvisoAzulV4>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <CampoTextoV4
-          etiqueta={TEXTOS_03C.etiquetaCorreo}
-          valor={correo}
-          alCambiar={todasValidadas ? setCorreo : undefined}
-          deshabilitado={!todasValidadas}
-          inputMode="email"
-          autoComplete="email"
-          error={errorCorreo === TEXTOS_03C.errorCorreoInvalido ? errorCorreo : null}
-        />
-        <CampoTextoV4
-          etiqueta={TEXTOS_03C.etiquetaCorreoRepetido}
-          valor={correoRepetido}
-          alCambiar={todasValidadas ? setCorreoRepetido : undefined}
-          deshabilitado={!todasValidadas}
-          inputMode="email"
-          autoComplete="off"
-          error={errorCorreo === TEXTOS_03C.errorCorreosNoCoinciden ? errorCorreo : null}
-        />
-      </div>
-      {!todasValidadas ? (
-        <p className="mt-2 text-center text-[0.875rem]" style={{ color: "var(--v4-gris-texto)" }}>
-          {TEXTOS_03C.correoSeHabilita}
-        </p>
-      ) : null}
-      {errorCorreo && errorCorreo !== TEXTOS_03C.errorCorreoInvalido && errorCorreo !== TEXTOS_03C.errorCorreosNoCoinciden ? (
-        <ErrorDeCampoV4>{errorCorreo}</ErrorDeCampoV4>
-      ) : null}
-
-      <div className="mt-5">
-        <BotonPrincipalV4
-          onClick={validar}
-          disabled={!puedeValidar}
-          cargando={validando}
-          anilloALaDerecha
-        >
-          {validando ? TEXTOS_03C.validando : TEXTOS_03C.validar}
-        </BotonPrincipalV4>
-      </div>
+        <AccionesV4 className="mt-5">
+          <BotonPrincipalV4
+            onClick={validar}
+            disabled={!puedeValidar}
+            cargando={validando}
+            anilloALaDerecha
+          >
+            {validando ? TEXTOS_03C.validando : TEXTOS_03C.validar}
+          </BotonPrincipalV4>
+        </AccionesV4>
+      </DisposicionV4>
 
       {camaraAbierta ? (
         <CapturaConCamara

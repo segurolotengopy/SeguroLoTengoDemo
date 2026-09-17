@@ -20,6 +20,7 @@ import { TEXTOS_03B } from "@/domain/v4/textos-verificacion";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
 import { useCapaLegalV4 } from "../CapaLegalV4";
+import { AccionesV4, DisposicionV4, EncabezadoV4, RejillaV4 } from "../disposicion";
 import { AvisoRojoV4, BotonPrincipalV4, CasillaConsentimientoV4 } from "../piezas";
 import {
   IconoCarnetFrente,
@@ -98,22 +99,20 @@ function Contenido() {
   }
 
   return (
-    <>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_03B.titulo}
-            <br />
-            <em>{TEXTOS_03B.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_03B.bajada}</p>
-        </div>
-        <IlustracionPreparacion tamano={112} className="shrink-0" />
-      </div>
-
-      <BarraPlanV4 className="mt-4" />
-
-      <div className="mt-4 space-y-3">
+    <DisposicionV4
+      contexto={
+        <>
+          <EncabezadoV4
+            titulo={TEXTOS_03B.titulo}
+            acento={TEXTOS_03B.tituloAcento}
+            bajada={TEXTOS_03B.bajada}
+            ilustracion={<IlustracionPreparacion tamano={112} className="shrink-0" />}
+          />
+          <BarraPlanV4 className="mt-4" />
+        </>
+      }
+    >
+      <RejillaV4 columnas={2} className="mt-4 lg:mt-0">
         {TEXTOS_03B.requisitos.map((requisito, indice) => (
           <Requisito
             key={requisito.titulo}
@@ -123,7 +122,7 @@ function Contenido() {
             Icono={ICONOS_REQUISITO[indice]}
           />
         ))}
-      </div>
+      </RejillaV4>
 
       <AvisoRojoV4 className="mt-4">
         <strong style={{ color: "var(--v4-rojo)" }}>{TEXTOS_03B.avisoTitulo}</strong> {TEXTOS_03B.aviso}
@@ -150,12 +149,12 @@ function Contenido() {
 
       {error ? <AvisoRojoV4 className="mt-4">{error}</AvisoRojoV4> : null}
 
-      <div className="mt-5">
+      <AccionesV4 className="mt-5">
         <BotonPrincipalV4 onClick={continuar} disabled={!aceptado} cargando={enviando}>
           {TEXTOS_03B.continuar}
         </BotonPrincipalV4>
-      </div>
-    </>
+      </AccionesV4>
+    </DisposicionV4>
   );
 }
 

@@ -33,6 +33,7 @@ import { ITEMS_ACEPTACION_FIRMA } from "@/domain/textos-pago-firma";
 import { MarcoV4 } from "../MarcoV4";
 import { CamposOtpV4 } from "../CamposOtpV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
+import { AccionesV4, DisposicionV4, EncabezadoV4, RejillaV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   AvisoRojoV4,
@@ -339,213 +340,232 @@ export function Pantalla04E() {
 
   return (
     <MarcoV4 codigo="04E">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_04E.titulo}
-            <br />
-            <em>{TEXTOS_04E.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_04E.bajada}</p>
-        </div>
-        <Ilustracion04E tamano={104} className="shrink-0" />
-      </div>
-
-      <BarraPlanV4 className="mt-4" />
-
-      {!resumen ? (
-        <div className="v4-tarjeta mt-4 p-4">
-          {errorCarga ? (
-            <>
-              <AvisoRojoV4>{errorCarga}</AvisoRojoV4>
-              <div className="mt-3">
-                <BotonSecundarioV4 onClick={() => void cargarResumen()} disabled={cargandoResumen}>
-                  {TEXTOS_04E.botonReintentar}
-                </BotonSecundarioV4>
-              </div>
-            </>
-          ) : (
-            <p className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-              {TEXTOS_04E.preparandoDocumento}
-            </p>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Qué vas a firmar */}
-          <section className="v4-tarjeta mt-4 p-4" aria-labelledby="bloque-documento">
-            <h2
-              id="bloque-documento"
-              className="text-[1.0625rem] font-bold uppercase tracking-wide"
-              style={{ color: "var(--v4-navy)" }}
-            >
-              {TEXTOS_04E.seccionDocumentoTitulo}
-            </h2>
-            <p className="mt-2 text-[0.9375rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-              {TEXTOS_04E.documentoNombre(resumen.documento.codigo)}
-            </p>
-            <p className="mt-0.5 text-[0.875rem]" style={{ color: "var(--v4-azul-apagado)" }}>
-              {TEXTOS_04E.documentoDetalle(resumen.documento.version, huellaAbreviada(resumen.documento.hashSha256))}
-            </p>
-            <a
-              href={`/api/p8/documento?codigo=${encodeURIComponent(resumen.documento.codigo)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="v4-enlace mt-2 inline-block text-[0.9375rem] font-bold uppercase"
-            >
-              {TEXTOS_04E.verPdf}
-            </a>
-          </section>
-
-          {/* Lo que se muestra acá es, literalmente, lo que `POST
-              /api/p8/firma-interna/verificar` asienta como `textoAceptado`
-              (`TEXTO_ACEPTACION_FIRMA`, versión `VERSION_ACEPTACION_FIRMA`):
-              la evidencia y la constancia (D-27) tienen que citar un texto que
-              la persona vio, no otro. Por eso los ítems salen del mismo módulo
-              que lee la ruta, y no se parafrasean. */}
-          <AvisoAzulV4 className="mt-3" titulo={TEXTOS_04E.avisoLegalidadTitulo}>
-            <ul className="flex flex-col gap-2">
-              {ITEMS_ACEPTACION_FIRMA.map((item) => (
-                <li key={item.slice(0, 32)}>{item}</li>
-              ))}
-            </ul>
-            <p className="mt-3">{TEXTOS_04E.avisoLegalidad}</p>
-          </AvisoAzulV4>
-
-          {firmadoCliente ? (
-            <section className="mt-4">
-              <div className="v4-aviso-verde flex flex-col items-center gap-2 px-4 py-8" role="status">
-                <IconoTildeDisco tamano={44} />
-                <p className="text-[1.125rem] font-bold">{TEXTOS_04E.firmadoTitulo}</p>
-                <p className="text-[0.9375rem]">{TEXTOS_04E.firmadoSiguiente}</p>
-              </div>
+      <DisposicionV4
+        contexto_ancho="media"
+        contexto={
+          <>
+            <EncabezadoV4
+              titulo={TEXTOS_04E.titulo}
+              acento={TEXTOS_04E.tituloAcento}
+              bajada={TEXTOS_04E.bajada}
+              ilustracion={<Ilustracion04E tamano={104} />}
+            />
+            <BarraPlanV4 className="mt-4" />
+          </>
+        }
+      >
+        {!resumen ? (
+          <div className="v4-tarjeta mt-4 p-4 lg:mt-0">
+            {errorCarga ? (
+              <>
+                <AvisoRojoV4>{errorCarga}</AvisoRojoV4>
+                <div className="mt-3">
+                  <BotonSecundarioV4 onClick={() => void cargarResumen()} disabled={cargandoResumen}>
+                    {TEXTOS_04E.botonReintentar}
+                  </BotonSecundarioV4>
+                </div>
+              </>
+            ) : (
+              <p className="text-[0.9375rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {TEXTOS_04E.preparandoDocumento}
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Qué vas a firmar */}
+            <section className="v4-tarjeta mt-4 p-4 lg:mt-0" aria-labelledby="bloque-documento">
+              <h2
+                id="bloque-documento"
+                className="text-[1.0625rem] font-bold uppercase tracking-wide"
+                style={{ color: "var(--v4-navy)" }}
+              >
+                {TEXTOS_04E.seccionDocumentoTitulo}
+              </h2>
+              <p className="mt-2 text-[0.9375rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+                {TEXTOS_04E.documentoNombre(resumen.documento.codigo)}
+              </p>
+              <p className="mt-0.5 text-[0.875rem]" style={{ color: "var(--v4-azul-apagado)" }}>
+                {TEXTOS_04E.documentoDetalle(resumen.documento.version, huellaAbreviada(resumen.documento.hashSha256))}
+              </p>
+              <a
+                href={`/api/p8/documento?codigo=${encodeURIComponent(resumen.documento.codigo)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="v4-enlace mt-2 inline-block text-[0.9375rem] font-bold uppercase"
+              >
+                {TEXTOS_04E.verPdf}
+              </a>
             </section>
-          ) : (
-            <>
-              {/* Bloque 1 · canal */}
-              <section className="v4-tarjeta mt-4 p-4" aria-labelledby="bloque-canal">
-                <h2 id="bloque-canal" className="text-[1.25rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-                  {TEXTOS_04E.bloque1Titulo}
-                </h2>
 
-                {codigoVivo && destino ? (
-                  <div className="mt-3">
-                    <FranjaVerdeV4>
-                      {reenviado ? TEXTOS_04E.codigoReenviado(destino) : TEXTOS_04E.codigoEnviado(destino)}
-                    </FranjaVerdeV4>
-                  </div>
-                ) : (
-                  <div className="mt-3 flex flex-col gap-2.5">
-                    {resumen.canalWhatsappEnmascarado ? (
-                      <BotonPrincipalV4
-                        onClick={() => void enviarCodigo("WHATSAPP")}
-                        disabled={enviando}
-                        cargando={enviando && canal === "WHATSAPP"}
-                        icono={<IconoWhatsApp />}
-                      >
-                        {enviando && canal === "WHATSAPP"
-                          ? TEXTOS_04E.botonEnviando
-                          : TEXTOS_04E.botonEnviarWhatsapp(resumen.canalWhatsappEnmascarado)}
-                      </BotonPrincipalV4>
-                    ) : null}
-                    {resumen.canalEmailEnmascarado ? (
-                      <BotonSecundarioV4
-                        onClick={() => void enviarCodigo("EMAIL")}
-                        disabled={enviando}
-                      >
-                        <span className="flex items-center justify-center gap-2.5">
-                          <IconoCorreo />
-                          {enviando && canal === "EMAIL"
-                            ? TEXTOS_04E.botonEnviando
-                            : TEXTOS_04E.botonEnviarCorreo(resumen.canalEmailEnmascarado)}
-                        </span>
-                      </BotonSecundarioV4>
-                    ) : null}
-                  </div>
-                )}
+            {/* Lo que se muestra acá es, literalmente, lo que `POST
+                /api/p8/firma-interna/verificar` asienta como `textoAceptado`
+                (`TEXTO_ACEPTACION_FIRMA`, versión `VERSION_ACEPTACION_FIRMA`):
+                la evidencia y la constancia (D-27) tienen que citar un texto que
+                la persona vio, no otro. Por eso los ítems salen del mismo módulo
+                que lee la ruta, y no se parafrasean. */}
+            <AvisoAzulV4 className="mt-3" titulo={TEXTOS_04E.avisoLegalidadTitulo}>
+              <div className="lg:max-w-prose">
+                <ul className="flex flex-col gap-2">
+                  {ITEMS_ACEPTACION_FIRMA.map((item) => (
+                    <li key={item.slice(0, 32)}>{item}</li>
+                  ))}
+                </ul>
+                <p className="mt-3">{TEXTOS_04E.avisoLegalidad}</p>
+              </div>
+            </AvisoAzulV4>
 
-                {error?.tipo === "ENVIO" ? <AvisoRojoV4 className="mt-3">{error.texto}</AvisoRojoV4> : null}
+            {firmadoCliente ? (
+              <section className="mt-4">
+                <div className="v4-aviso-verde flex flex-col items-center gap-2 px-4 py-8" role="status">
+                  <IconoTildeDisco tamano={44} />
+                  <p className="text-[1.125rem] font-bold">{TEXTOS_04E.firmadoTitulo}</p>
+                  <p className="text-[0.9375rem]">{TEXTOS_04E.firmadoSiguiente}</p>
+                </div>
               </section>
+            ) : (
+              (() => {
+                // Bloque 1 · canal
+                const bloqueCanal = (
+                  <section className="v4-tarjeta p-4" aria-labelledby="bloque-canal">
+                    <h2 id="bloque-canal" className="text-[1.25rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+                      {TEXTOS_04E.bloque1Titulo}
+                    </h2>
 
-              {/* Bloque 2 · código */}
-              {codigoVivo || codigoMuerto ? (
-                <section className="v4-tarjeta mt-4 p-4" aria-labelledby="bloque-codigo">
-                  <h2 id="bloque-codigo" className="text-[1.25rem] font-bold" style={{ color: "var(--v4-navy)" }}>
-                    {TEXTOS_04E.bloque2Titulo}
-                  </h2>
-
-                  {codigoVivo && segundosVencimiento !== null ? (
-                    <p
-                      className="mt-3 text-[0.9375rem] font-bold"
-                      style={{ color: segundosVencimiento === 0 ? "var(--v4-rojo)" : "var(--v4-navy)" }}
-                    >
-                      {TEXTOS_04E.venceEn(relojFirma(segundosVencimiento))}
-                    </p>
-                  ) : null}
-                  {vencido ? (
-                    <p className="mt-3 text-[0.9375rem] font-bold" style={{ color: "var(--v4-rojo)" }}>
-                      {TEXTOS_04E.venceEn("00:00")}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-3">
-                    <CamposOtpV4
-                      valor={codigo}
-                      alCambiar={setCodigo}
-                      activo={codigoVivo}
-                      deshabilitado={!codigoVivo || firmando}
-                      atenuado={firmando}
-                      alCompletar={firmar}
-                    />
-                  </div>
-
-                  {error?.tipo === "CODIGO" ? <ErrorDeCampoV4>{error.texto}</ErrorDeCampoV4> : null}
-
-                  <div className="mt-4">
-                    <BotonPrincipalV4
-                      onClick={() => void firmar(codigo)}
-                      disabled={codigo.length !== 6 || !codigoVivo}
-                      cargando={firmando}
-                    >
-                      {firmando ? TEXTOS_04E.botonFirmando : TEXTOS_04E.botonFirmar}
-                    </BotonPrincipalV4>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-center gap-4 text-[0.9375rem]">
-                    {(segundosReenvio ?? 0) > 0 ? (
-                      <span style={{ color: "var(--v4-gris-texto)" }}>
-                        {TEXTOS_04E.reenviarEn(relojFirma(segundosReenvio ?? 0))}
-                      </span>
+                    {codigoVivo && destino ? (
+                      <div className="mt-3">
+                        <FranjaVerdeV4>
+                          {reenviado ? TEXTOS_04E.codigoReenviado(destino) : TEXTOS_04E.codigoEnviado(destino)}
+                        </FranjaVerdeV4>
+                      </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => canal && void enviarCodigo(canal)}
-                        className="v4-enlace"
-                      >
-                        {TEXTOS_04E.reenviar}
-                      </button>
+                      <div className="mt-3 flex flex-col gap-2.5">
+                        {resumen.canalWhatsappEnmascarado ? (
+                          <BotonPrincipalV4
+                            onClick={() => void enviarCodigo("WHATSAPP")}
+                            disabled={enviando}
+                            cargando={enviando && canal === "WHATSAPP"}
+                            icono={<IconoWhatsApp />}
+                          >
+                            {enviando && canal === "WHATSAPP"
+                              ? TEXTOS_04E.botonEnviando
+                              : TEXTOS_04E.botonEnviarWhatsapp(resumen.canalWhatsappEnmascarado)}
+                          </BotonPrincipalV4>
+                        ) : null}
+                        {resumen.canalEmailEnmascarado ? (
+                          <BotonSecundarioV4
+                            onClick={() => void enviarCodigo("EMAIL")}
+                            disabled={enviando}
+                          >
+                            <span className="flex items-center justify-center gap-2.5">
+                              <IconoCorreo />
+                              {enviando && canal === "EMAIL"
+                                ? TEXTOS_04E.botonEnviando
+                                : TEXTOS_04E.botonEnviarCorreo(resumen.canalEmailEnmascarado)}
+                            </span>
+                          </BotonSecundarioV4>
+                        ) : null}
+                      </div>
                     )}
 
-                    <span aria-hidden="true" className="h-4 w-px" style={{ background: "var(--v4-gris-borde)" }} />
+                    {error?.tipo === "ENVIO" ? <AvisoRojoV4 className="mt-3">{error.texto}</AvisoRojoV4> : null}
+                  </section>
+                );
 
-                    <button type="button" onClick={volverAElegirCanal} className="v4-enlace">
-                      {TEXTOS_04E.elegirOtroCanal}
-                    </button>
-                  </div>
-                </section>
-              ) : null}
-            </>
-          )}
+                // Bloque 2 · código
+                const bloqueCodigo =
+                  codigoVivo || codigoMuerto ? (
+                    <section className="v4-tarjeta p-4" aria-labelledby="bloque-codigo">
+                      <h2 id="bloque-codigo" className="text-[1.25rem] font-bold" style={{ color: "var(--v4-navy)" }}>
+                        {TEXTOS_04E.bloque2Titulo}
+                      </h2>
 
-          <AvisoRojoV4 className="mt-4" titulo={TEXTOS_04E.avisoCodigoTitulo}>
-            {TEXTOS_04E.avisoCodigo}
-          </AvisoRojoV4>
+                      {codigoVivo && segundosVencimiento !== null ? (
+                        <p
+                          className="mt-3 text-[0.9375rem] font-bold"
+                          style={{ color: segundosVencimiento === 0 ? "var(--v4-rojo)" : "var(--v4-navy)" }}
+                        >
+                          {TEXTOS_04E.venceEn(relojFirma(segundosVencimiento))}
+                        </p>
+                      ) : null}
+                      {vencido ? (
+                        <p className="mt-3 text-[0.9375rem] font-bold" style={{ color: "var(--v4-rojo)" }}>
+                          {TEXTOS_04E.venceEn("00:00")}
+                        </p>
+                      ) : null}
 
-          <AvisoAzulV4 className="mt-3" titulo={TEXTOS_04E.avisoImportanteTitulo}>
-            {TEXTOS_04E.avisoImportante}
-          </AvisoAzulV4>
-        </>
-      )}
+                      <div className="mt-3">
+                        <CamposOtpV4
+                          valor={codigo}
+                          alCambiar={setCodigo}
+                          activo={codigoVivo}
+                          deshabilitado={!codigoVivo || firmando}
+                          atenuado={firmando}
+                          alCompletar={firmar}
+                        />
+                      </div>
+
+                      {error?.tipo === "CODIGO" ? <ErrorDeCampoV4>{error.texto}</ErrorDeCampoV4> : null}
+
+                      <AccionesV4 className="mt-4">
+                        <BotonPrincipalV4
+                          onClick={() => void firmar(codigo)}
+                          disabled={codigo.length !== 6 || !codigoVivo}
+                          cargando={firmando}
+                        >
+                          {firmando ? TEXTOS_04E.botonFirmando : TEXTOS_04E.botonFirmar}
+                        </BotonPrincipalV4>
+                      </AccionesV4>
+
+                      <div className="mt-4 flex items-center justify-center gap-4 text-[0.9375rem]">
+                        {(segundosReenvio ?? 0) > 0 ? (
+                          <span style={{ color: "var(--v4-gris-texto)" }}>
+                            {TEXTOS_04E.reenviarEn(relojFirma(segundosReenvio ?? 0))}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => canal && void enviarCodigo(canal)}
+                            className="v4-enlace"
+                          >
+                            {TEXTOS_04E.reenviar}
+                          </button>
+                        )}
+
+                        <span aria-hidden="true" className="h-4 w-px" style={{ background: "var(--v4-gris-borde)" }} />
+
+                        <button type="button" onClick={volverAElegirCanal} className="v4-enlace">
+                          {TEXTOS_04E.elegirOtroCanal}
+                        </button>
+                      </div>
+                    </section>
+                  ) : null;
+
+                // Con los dos bloques visibles van lado a lado desde `lg`
+                // (RejillaV4 de dos columnas); con uno solo, columna angosta
+                // de siempre — dos tarjetas de este tamaño en media columna
+                // vacía se verían huérfanas.
+                return bloqueCodigo ? (
+                  <RejillaV4 columnas={2} className="mt-4 items-start">
+                    {bloqueCanal}
+                    {bloqueCodigo}
+                  </RejillaV4>
+                ) : (
+                  <div className="mt-4">{bloqueCanal}</div>
+                );
+              })()
+            )}
+
+            <AvisoRojoV4 className="mt-4" titulo={TEXTOS_04E.avisoCodigoTitulo}>
+              {TEXTOS_04E.avisoCodigo}
+            </AvisoRojoV4>
+
+            <AvisoAzulV4 className="mt-3" titulo={TEXTOS_04E.avisoImportanteTitulo}>
+              {TEXTOS_04E.avisoImportante}
+            </AvisoAzulV4>
+          </>
+        )}
+      </DisposicionV4>
     </MarcoV4>
   );
 }

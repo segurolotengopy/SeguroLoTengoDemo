@@ -19,6 +19,7 @@ import { TEXTOS_04A } from "@/domain/v4/textos-consentimientos";
 import { MarcoV4 } from "../MarcoV4";
 import { BarraPlanV4 } from "../BarraPlanV4";
 import { HojaV4 } from "../superficies";
+import { AccionesV4, CamposV4, CampoAnchoV4, DisposicionV4, RejillaV4 } from "../disposicion";
 import {
   AvisoAzulV4,
   BotonPrincipalV4,
@@ -99,94 +100,109 @@ export function Pantalla04A() {
 
   return (
     <MarcoV4 codigo="04A">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="v4-titular">
-            {TEXTOS_04A.titulo}
-            <em>{TEXTOS_04A.tituloAcento}</em>
-          </h1>
-          <p className="v4-bajada mt-2">{TEXTOS_04A.bajada}</p>
+      <DisposicionV4
+        contexto={
+          <>
+            <div className="flex items-start gap-2 lg:flex-col lg:gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="v4-titular">
+                  {TEXTOS_04A.titulo}
+                  <em>{TEXTOS_04A.tituloAcento}</em>
+                </h1>
+                <p className="v4-bajada mt-2">{TEXTOS_04A.bajada}</p>
+              </div>
+              <IlustracionDeclaraciones tamano={108} className="shrink-0" />
+            </div>
+
+            <BarraPlanV4 className="mt-4" />
+          </>
+        }
+      >
+        <h2 className="v4-rotulo mt-5 lg:mt-0">{TEXTOS_04A.seccionSalud}</h2>
+
+        {/* Tres declaraciones de salud, cada una con su par SÍ/NO: una lista
+            de tarjetas iguales, así que en escritorio van lado a lado en tres
+            columnas (RejillaV4) y el par se corre debajo del enunciado en vez
+            de aplastarse contra el texto. */}
+        <RejillaV4 columnas={3} className="mt-3">
+          {TEXTOS_04A.preguntas.map((pregunta) => (
+            <div
+              key={pregunta.clave}
+              className="v4-tarjeta-azul flex items-center gap-3 p-4 lg:flex-col lg:items-start lg:justify-between lg:gap-4"
+            >
+              <p className="min-w-0 flex-1 text-[0.9375rem] leading-snug" style={{ color: "var(--v4-navy)" }}>
+                {pregunta.texto}
+              </p>
+              <ParSiNoV4
+                valor={
+                  respuestas[pregunta.clave] === undefined
+                    ? null
+                    : respuestas[pregunta.clave] === "SI"
+                }
+                alElegir={(esSi) =>
+                  setRespuestas((previas) => ({ ...previas, [pregunta.clave]: esSi ? "SI" : "NO" }))
+                }
+                etiquetaAccesible={pregunta.texto}
+              />
+            </div>
+          ))}
+        </RejillaV4>
+
+        <h2 className="v4-rotulo mt-5">
+          {TEXTOS_04A.seccionBeneficiario}
+          <span style={{ color: "var(--v4-rojo)" }}>*</span>
+        </h2>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {(
+            [
+              ["HEREDEROS_LEGALES", TEXTOS_04A.opciones.herederos],
+              ["PERSONA_DESIGNADA", TEXTOS_04A.opciones.designada],
+            ] as const
+          ).map(([valor, rotulo]) => (
+            <label
+              key={valor}
+              className="flex cursor-pointer items-center gap-3 rounded-lg border p-3"
+              style={{
+                borderColor: tipo === valor ? "var(--v4-azul)" : "var(--v4-azul-borde)",
+                background: "var(--v4-blanco)",
+              }}
+            >
+              <input
+                type="radio"
+                name="beneficiario"
+                checked={tipo === valor}
+                onChange={() => setTipo(valor)}
+                className="h-5 w-5"
+                style={{ accentColor: "var(--v4-azul)" }}
+              />
+              <span className="text-[0.9375rem]" style={{ color: "var(--v4-navy)" }}>
+                {rotulo}
+              </span>
+            </label>
+          ))}
         </div>
-        <IlustracionDeclaraciones tamano={108} className="shrink-0" />
-      </div>
 
-      <BarraPlanV4 className="mt-4" />
-
-      <h2 className="v4-rotulo mt-5">{TEXTOS_04A.seccionSalud}</h2>
-
-      <div className="mt-3 space-y-3">
-        {TEXTOS_04A.preguntas.map((pregunta) => (
-          <div key={pregunta.clave} className="v4-tarjeta-azul flex items-center gap-3 p-4">
-            <p className="min-w-0 flex-1 text-[0.9375rem] leading-snug" style={{ color: "var(--v4-navy)" }}>
-              {pregunta.texto}
-            </p>
-            <ParSiNoV4
-              valor={
-                respuestas[pregunta.clave] === undefined
-                  ? null
-                  : respuestas[pregunta.clave] === "SI"
-              }
-              alElegir={(esSi) =>
-                setRespuestas((previas) => ({ ...previas, [pregunta.clave]: esSi ? "SI" : "NO" }))
-              }
-              etiquetaAccesible={pregunta.texto}
-            />
-          </div>
-        ))}
-      </div>
-
-      <h2 className="v4-rotulo mt-5">
-        {TEXTOS_04A.seccionBeneficiario}
-        <span style={{ color: "var(--v4-rojo)" }}>*</span>
-      </h2>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {(
-          [
-            ["HEREDEROS_LEGALES", TEXTOS_04A.opciones.herederos],
-            ["PERSONA_DESIGNADA", TEXTOS_04A.opciones.designada],
-          ] as const
-        ).map(([valor, rotulo]) => (
-          <label
-            key={valor}
-            className="flex cursor-pointer items-center gap-3 rounded-lg border p-3"
-            style={{
-              borderColor: tipo === valor ? "var(--v4-azul)" : "var(--v4-azul-borde)",
-              background: "var(--v4-blanco)",
-            }}
-          >
-            <input
-              type="radio"
-              name="beneficiario"
-              checked={tipo === valor}
-              onChange={() => setTipo(valor)}
-              className="h-5 w-5"
-              style={{ accentColor: "var(--v4-azul)" }}
-            />
-            <span className="text-[0.9375rem]" style={{ color: "var(--v4-navy)" }}>
-              {rotulo}
-            </span>
-          </label>
-        ))}
-      </div>
-
-      {designada ? (
-        <div className="mt-3 space-y-3">
-          <CampoTextoV4
-            etiqueta={TEXTOS_04A.etiquetas.nombre}
-            valor={nombre}
-            alCambiar={setNombre}
-            marcador={TEXTOS_04A.marcadores.nombre}
-            obligatorioConAsterisco
-          />
-          <CampoTextoV4
-            etiqueta={TEXTOS_04A.etiquetas.domicilio}
-            valor={domicilio}
-            alCambiar={setDomicilio}
-            marcador={TEXTOS_04A.marcadores.domicilio}
-            obligatorioConAsterisco
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
+        {designada ? (
+          <CamposV4 className="mt-3 gap-y-3">
+            <CampoAnchoV4>
+              <CampoTextoV4
+                etiqueta={TEXTOS_04A.etiquetas.nombre}
+                valor={nombre}
+                alCambiar={setNombre}
+                marcador={TEXTOS_04A.marcadores.nombre}
+                obligatorioConAsterisco
+              />
+            </CampoAnchoV4>
+            <CampoAnchoV4>
+              <CampoTextoV4
+                etiqueta={TEXTOS_04A.etiquetas.domicilio}
+                valor={domicilio}
+                alCambiar={setDomicilio}
+                marcador={TEXTOS_04A.marcadores.domicilio}
+                obligatorioConAsterisco
+              />
+            </CampoAnchoV4>
             <SelectorV4
               etiqueta={TEXTOS_04A.etiquetas.parentesco}
               valor={parentesco || null}
@@ -205,25 +221,25 @@ export function Pantalla04A() {
               marcador={TEXTOS_04A.marcadores.cedula}
               inputMode="numeric"
             />
+          </CamposV4>
+        ) : null}
+
+        <AvisoAzulV4 className="mt-4" iconoRojo>
+          {TEXTOS_04A.avisoEvaluacion}
+        </AvisoAzulV4>
+
+        {errorFranja ? (
+          <div className="mt-4">
+            <FranjaErrorV4 titulo={errorFranja.titulo} indicacion={errorFranja.indicacion} />
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <AvisoAzulV4 className="mt-4" iconoRojo>
-        {TEXTOS_04A.avisoEvaluacion}
-      </AvisoAzulV4>
-
-      {errorFranja ? (
-        <div className="mt-4">
-          <FranjaErrorV4 titulo={errorFranja.titulo} indicacion={errorFranja.indicacion} />
-        </div>
-      ) : null}
-
-      <div className="mt-5">
-        <BotonPrincipalV4 onClick={continuar} disabled={!completo} cargando={enviando}>
-          {TEXTOS_04A.continuar}
-        </BotonPrincipalV4>
-      </div>
+        <AccionesV4 className="mt-5">
+          <BotonPrincipalV4 onClick={continuar} disabled={!completo} cargando={enviando}>
+            {TEXTOS_04A.continuar}
+          </BotonPrincipalV4>
+        </AccionesV4>
+      </DisposicionV4>
 
       {parentescoAbierto ? (
         <HojaV4

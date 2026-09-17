@@ -38,6 +38,100 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-17 · #131 en producción, correo a Alianza enviado y PDF de prueba de funcionamiento para gerencia
+
+**Rama:** `chore/capturas-gerencia-v4` (desde `main` en `f89a962`) ·
+**Pedidos de Andres:** «consolida los PR», «OK, fusiona #131 cuando el CI
+esté en verde», «borrá el worktree y la rama v4/encendido», «ya mandé el
+correo a Alianza», «elaborá un PDF con una corrida E2E happy path capturando
+cada una de las pantallas, para gerencia».
+
+### Qué pasó
+
+- **Consolidación y despliegue.** `v4/pantallas` avanzó por fast-forward al
+  commit de PR B (`7002256`), GitHub dio #134 por fusionado, y **#131 se
+  fusionó en `main`** (`f89a962`) con el OK explícito de Andres en el chat,
+  los 10 checks en verde y la constancia en el cuerpo del merge. Amplify job
+  **124** en `SUCCEED`; el sitio responde 200 sirviendo la portada v4
+  (`data-flujo="v4"`, menú 01B, catálogo) y las rutas del flujo. Rama y
+  worktree `v4/encendido` borrados.
+- **Correo a Alianza enviado por Andres** con la redacción revisada del
+  16-sep: promete las tres IP a las 48 h de que confirmen host/puerto/clave, y
+  pregunta por el sello de tiempo de su firmador. `BORRADOR_CORREO_ALIANZA.md`
+  quedó marcado como enviado. Apenas contesten, toca el `apply` del conector.
+- **PDF de prueba de funcionamiento.** `98-capturas-gerencia.spec.ts`
+  (reescrito para v4 en PR B pero nunca corrido) fotografiaba las pantallas
+  antes de que cargaran sus datos: 04E con «Estamos cerrando…», 05A y 05B con
+  «—», Pantalla A sin número de caso. Se agregaron esperas por el marcador de
+  carga de cada una (cédula prellenada en 03D, «QUÉ VAS A FIRMAR» en 04E,
+  premio formateado en 05A y Pantalla B, botón «Descargar» en 05B, número de
+  caso `PREFIJO-AAAA-NNNNNN` en Pantalla A). `scripts/armar-pdf-pantallas.py`
+  pasó a los catorce nombres v4, la paleta v4 y una portada con fecha que
+  dice qué es: una corrida automatizada sobre el sistema real, con
+  integraciones simuladas y datos ficticios.
+
+### Segundo tramo · disposición de escritorio (D-30)
+
+**Pedido de Andres:** «las pantallas web están en formato alargado, no llenan
+el ancho de la pantalla; deben ser responsivas. Ordená eso, modularizá y usá
+agentes para modificar y volver a elaborar el PDF mejorado, usando técnicas
+UX».
+
+Las doce pantallas eran una columna de 38 rem centrada: correcta en celular
+(el arte), vacía en escritorio. D-30 ya lo había decidido («en anchos de
+escritorio los componentes van lado a lado, sin cambiar orden, textos ni
+jerarquía») y estaba sin implementar.
+
+- **Sistema único:** `src/components/v4/disposicion.tsx` — `EncabezadoV4`
+  (titular + bajada + ilustración; en escritorio la ilustración baja debajo
+  del texto para que el titular no se parta en cuatro renglones),
+  `DisposicionV4` (columna de contexto fija a la izquierda, 20 o 24 rem, y
+  columna de acción de hasta 48 rem a la derecha, desde 1024 px),
+  `RejillaV4` (tarjetas iguales en 2–3 columnas, misma altura), `CamposV4` /
+  `CampoAnchoV4` (campos cortos y hermanos lado a lado, los largos a fila
+  entera), `AccionesV4` (el botón con ancho de botón, alineado al final de la
+  lectura) y `ProsaV4` (~65 caracteres por línea). `MarcoV4` pasa a 72 rem
+  desde `lg`; `HojaV4` se centra como diálogo en escritorio.
+- **Cuatro agentes en paralelo**, archivos disjuntos: 01–03B, 03C–03E,
+  04A–04E, 05A/05B/A/B. Regla común: toda clase nueva con prefijo responsivo,
+  ni un texto/id/rol/orden del DOM cambia (la E2E selecciona por rol y texto).
+  Desvíos documentados por los agentes: 01 y 03C mantienen su rejilla propia
+  porque el arte ya las pone en fila en celular; 03D/04A/04D conservan el
+  titular a mano porque `EncabezadoV4` inserta un salto que ese arte no tiene.
+- **Correcciones tras la primera captura:** las filas de cobertura de 02 se
+  pisaban a 15 rem (el importe baja a su propia línea en escritorio), los
+  titulares se partían con la ilustración al lado (apilados en `lg`), el ancho
+  «de botón» no aplicaba (`AccionesV4` envuelve cada acción) y en 05A la
+  casilla del certificado había quedado dentro de la fila de acciones.
+- **UX aplicada:** contexto fijo mientras se completa el formulario, largo
+  de línea de lectura, agrupación de campos relacionados, tarjetas de igual
+  altura, acción principal con ancho de botón y al final de la lectura,
+  jerarquía visual intacta. Sin texto nuevo ni elementos fuera del arte.
+- Documentado en D-30 (`DECISIONES.md`) y en `CLAUDE.md` → Convenciones de
+  UI.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| Tras la disposición de escritorio | `tsc` limpio · lint 0 errores · **1389** tests · capturas 14/14 en los dos formatos (segunda tanda) · E2E 01, 02 y 10 (ver línea siguiente) |
+| E2E tras la disposición | **3/3 en verde**: 01 camino feliz (2,5 min), 02 PEP (1,1 min), 10 rechazo de Bancard (1,0 min) — los selectores por rol y texto no se enteraron del cambio |
+| Capturas escritorio (1456 px) | 14/14, tres tests del spec en verde |
+| Capturas celular (390 px, 2x) | 14/14, tres tests del spec en verde |
+| `SeguroLoTengo-camino-feliz-web.pdf` | 15 páginas, 2,7 MB — portada + 12 pantallas + A y B, revisadas una por una |
+| `SeguroLoTengo-camino-feliz-movil.pdf` | 37 páginas, 5,4 MB — tajadas de viewport con solape |
+| Entregados a Andres | los dos PDF, por el chat; los PDF no se versionan (`pantallas/` fuera de git) |
+
+### Queda abierto
+
+- Las mismas cuatro decisiones de #131 (literal de aceptación de la firma,
+  guard de «trámite en otro paso», acuse de entrega en 05B, textos de 05A).
+- Pantalla B conserva los hitos «1 / 5 / 12 / 24 horas» del seguimiento del
+  plazo, que no tienen sentido con 10 minutos (pendiente desde el 15-sep).
+- Respuesta de Alianza → `terraform apply` del conector y envío de las IP.
+
+---
+
 ## 2026-09-16 (d) · Encendido de v4: un solo flujo, un solo marco, batería E2E contra las doce pantallas
 
 **Rama:** `v4/encendido` (worktree, desde `v4/pantallas` en `8d7e7e1`; PR B,
