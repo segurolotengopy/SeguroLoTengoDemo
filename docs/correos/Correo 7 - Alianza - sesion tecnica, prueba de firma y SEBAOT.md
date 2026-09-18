@@ -96,9 +96,9 @@ que ningún documento de prueba quede con una firma con valor legal.
 
 Entendido que el firmador no informa errores. De nuestro lado vamos a poner un
 plazo de espera: si un certificado no vuelve firmado dentro de ese plazo, les
-avisamos por teléfono, como nos indicaron. ¿A qué número y en qué horario
-conviene llamar fuera del horario de oficina, teniendo en cuenta que la firma
-funciona 24/7?
+avisamos por mail, como nos indicaron. ¿A qué correo y en qué horario conviene
+enviar fuera del horario de oficina, teniendo en cuenta que la firma funciona
+24/7?
 
 **5. Emisión**
 

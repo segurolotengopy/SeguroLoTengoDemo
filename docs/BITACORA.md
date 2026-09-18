@@ -197,6 +197,17 @@ de ahí el script; es la salida que ya estaba registrada en memoria.
   API admite. Quedó como ternario, así que con la clave cargada vuelve a viajar.
 - **Correo 7 completo**, con las tres IP y la clave pública pegadas.
 
+### El aviso a Alianza pasa a ser correo automático
+
+**Decisión de Andres, 18-sep:** el punto 4 del Correo 7 pedía un teléfono al que
+llamar cuando un certificado no vuelve firmado; pasa a pedir **una casilla de
+correo**, *«para que podamos automatizar el correo»*. Arrastra dos cosas sin
+resolver: **SES está en sandbox**, donde un destinatario sin verificar hace que
+la API **rechace** el envío —hay que verificar la casilla de Alianza o salir del
+sandbox—, y el aviso **no puede llevar ningún dato de la persona** (regla
+inviolable #7): código, correlativo y cuánto lleva esperando, el mismo criterio
+de `remision-alianza.ts`.
+
 ### Queda abierto
 
 - **Andres:** el OK para enviar el Correo 7, y fusionar #136 — el clasificador

@@ -154,6 +154,17 @@ Es decir: **el único detector de que un CPC no volvió somos nosotros**, y el
    volverse inútil).
 2. **Una alerta operativa** cuando se vence: la consola administrativa es el
    lugar natural, porque ya muestra el expediente y sus envíos a proveedores.
+   **El aviso a Alianza va por correo y automatizado** (decisión de Andres del
+   18-sep, que cambió el punto 4 del Correo 7: el original decía teléfono).
+   Dos cosas que eso arrastra, ninguna resuelta todavía:
+   - **SES está en sandbox**, y ahí un destinatario sin verificar no recibe un
+     correo tardío: la llamada a la API se **rechaza**. Cuando Alianza nos dé la
+     casilla hay que verificarla como identidad —lo confirman ellos con un clic—
+     o salir del sandbox (`docs/CONFIGURACION_SES.md`).
+   - **El aviso no lleva ningún dato de la persona** (regla inviolable #7):
+     código del documento, correlativo y cuánto lleva esperando. Es el mismo
+     criterio de `remision-alianza.ts`, que ni siquiera manda el motivo de una
+     derivación.
 3. **Qué ve la persona mientras tanto.** Es **P2 de D-42**, que sigue abierta.
    Dato a favor: `Pantalla05B` ya sondea y ya trata «sin certificado» como «en
    preparación», así que la espera tiene dónde apoyarse sin inventar una
@@ -262,12 +273,15 @@ Para la **sesión técnica** (A2.3, A2.4), que es lo que destraba el `apply`:
 
 Por correo, junto con las IP:
 
-5. Si el ambiente de pruebas firma con **certificado de prueba** o con el
+5. **A qué casilla mandamos el aviso automático** de un certificado que no
+   volvió, y en qué horario fuera de oficina (punto 4 del Correo 7). De esa
+   casilla depende además verificarla en SES, o salir del sandbox.
+6. Si el ambiente de pruebas firma con **certificado de prueba** o con el
    cualificado real (A2.6 quedó a medias).
-6. Que el firmador **ignore todo lo que no sea `.pdf`**, y confirmación de que
+7. Que el firmador **ignore todo lo que no sea `.pdf`**, y confirmación de que
    el nombre del archivo se conserva (A3.5 no lo dijo).
-7. Contacto de SEBAOT (A4.1).
-8. Horario real de emisión (A3.1).
+8. Contacto de SEBAOT (A4.1).
+9. Horario real de emisión (A3.1).
 
 ---
 
