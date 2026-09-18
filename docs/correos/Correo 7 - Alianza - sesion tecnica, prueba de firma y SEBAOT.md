@@ -112,8 +112,34 @@ que la póliza está en preparación, sin fecha.
 
 **6. Certificado**
 
-Nos falta el **modelo de Certificado de Cobertura Provisional aprobado** por
-ustedes, para generarlo con ese diseño.
+Gracias por el modelo. Lo vamos a respetar tal cual, y la mayoría de los campos
+ya salen de lo que la persona cargó: número de certificado, documento, nombre,
+domicilio, localidad, vigencia con hora, las cuatro sumas aseguradas según el
+plan contratado, y los datos del beneficiario.
+
+6.1. Nos faltan ocho valores que son de ustedes y no queremos inventar.
+¿Nos los confirman?
+
+- **Sección/sub-sección** que corresponde a este producto.
+- **Objeto del seguro**: la redacción exacta que quieren impresa.
+- **Edad límite**, si es distinta de la edad máxima de ingreso.
+- **Límite de padecimientos**.
+- **Plazo máximo del pago**: queremos asegurarnos de a qué pago se refiere.
+- **Período de espera** y **período de carencia**: el modelo pide un valor de
+  cada uno, y nosotros manejamos carencias por cobertura, 180 días para cáncer,
+  30 para renta hospitalaria y 1 día para el resto. ¿Cómo prefieren que se
+  exprese?
+- **Deducible**, si corresponde alguno.
+- **Proporción** del beneficiario cuando hay uno solo: entendemos 100 %.
+
+6.2. Edad mínima 18 y máxima 64, que es lo que el sistema valida contra la
+fecha de nacimiento de la cédula. ¿Coincide con lo que registraron?
+
+6.3. Una aclaración sobre el pie del documento. Al cuerpo del modelo no le
+tocamos nada, pero debajo del cierre necesitamos agregar un bloque con el
+código de verificación y su QR, la huella digital del certificado y el número
+de la solicitud firmada a la que corresponde. Es lo que permite comprobar
+después que el documento es auténtico y no fue alterado. ¿Lo ven bien así?
 
 Quedamos a la espera de los horarios para la sesión.
 

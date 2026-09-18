@@ -36,8 +36,10 @@ Confirma los tres puntos del esquema enviado, que son los de D-42:
 3. **Alianza no firma la propuesta.** Se la mandamos ya firmada, para archivo,
    verificación del FIPF y emisión.
 
-**Sigue faltando el modelo de CPC aprobado**, que el correo pedía implícitamente
-y esta respuesta no adjunta.
+**El modelo de CPC aprobado llegó el mismo 18-sep**, por separado:
+`docs/MODELO_CERTIFICADO_COBERTURA_ALIANZA.docx`, analizado en
+`docs/ANALISIS_MODELO_CPC_ALIANZA.md`. Es una plantilla en blanco, y abre ocho
+valores que solo Alianza puede confirmar.
 
 ---
 

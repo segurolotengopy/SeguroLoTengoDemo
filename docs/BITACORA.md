@@ -208,10 +208,39 @@ sandbox—, y el aviso **no puede llevar ningún dato de la persona** (regla
 inviolable #7): código, correlativo y cuánto lleva esperando, el mismo criterio
 de `remision-alianza.ts`.
 
+### Llegó el modelo oficial del CPC
+
+Alianza mandó el **modelo aprobado** del certificado, el último pendiente de
+D-42. Entró al repositorio como `docs/MODELO_CERTIFICADO_COBERTURA_ALIANZA.docx`,
+con su conversión a PDF al lado para poder verlo sin Word, y el análisis de
+brecha en `docs/ANALISIS_MODELO_CPC_ALIANZA.md`.
+
+- **Es una plantilla en blanco**, sin un valor de ejemplo, maquetada con cuadros
+  de texto. Título interno: «Certificado de Cobertura Provisorio».
+- **La mayor parte ya la tenemos:** número, documento, nombre, domicilio,
+  localidad, vigencia con hora —el modelo pide exactamente lo que CHG-41 ya
+  calcula—, las cuatro sumas aseguradas del plan y el beneficiario con nombre,
+  parentesco y cédula.
+- **Ocho valores no existen en ningún documento del producto** y no se inventan:
+  sección/sub-sección, objeto del seguro, edad límite, límite de padecimientos,
+  plazo máximo del pago, período de espera y de carencia por separado,
+  deducible, y la proporción del beneficiario único. Pasaron a ser el punto 6
+  del Correo 7, que hasta hoy pedía el modelo.
+- **Lo que hoy imprimimos y el modelo no contempla no se puede sacar:** QR y
+  código de verificación (CMP-06), huella y vínculo con `PROP-<correlativo>`
+  (fila 47), la leyenda de que no es póliza ni Nota de Cobertura, y los
+  firmantes (D-13). Van como bloque al pie, sin tocar el cuerpo aprobado, y el
+  correo lo consulta en vez de darlo por hecho.
+- **No se implementó nada todavía**, a propósito: con ocho casilleros vacíos el
+  PDF sería peor que el actual. La leyenda «modelo provisional, pendiente del
+  modelo registrado» sigue siendo cierta hasta que lleguen esos valores.
+
 ### Queda abierto
 
 - **Andres:** el OK para enviar el Correo 7, y fusionar #136 — el clasificador
   frena `gh pr merge` incluso delegado a un subagente.
+- **Reescribir el CPC con el modelo oficial**, cuando Alianza conteste el punto
+  6. Toca `certificado-cobertura.ts`, su plantilla y el catálogo del producto.
 - **Sesión técnica con Alianza:** clave de host, usuario, algoritmos y nombres
   de carpeta. Con eso: cargar el secreto, `alianza_sftp_sin_clave_de_host =
   false`, `apply`, `test-connection` y borrar la privada de la máquina.
