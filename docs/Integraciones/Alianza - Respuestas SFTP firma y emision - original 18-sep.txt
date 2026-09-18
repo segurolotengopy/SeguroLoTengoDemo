@@ -1,0 +1,124 @@
+Buenas Andres, mas abajo mis respuesta.
+
+1. Documentos a firmar
+
+Certificado de Cobertura Provisional: lo generaremos desde la plataforma con el modelo aprobado por ustedes, una vez que el cliente haya firmado la Solicitud + FIPF y el pago esté acreditado, y se lo enviaremos por SFTP para que lo firmen con su firma cualificada y nos lo devuelvan. Es el documento más urgente: el cliente lo espera en la pantalla de confirmación.
+
+Solicitud de Seguro + FIPF (un único PDF): lleva dos firmas, la del cliente con firma electrónica no cualificada, antes del pago, y la de Interseguros con firma cualificada, después del pago. Ustedes no la firman: se la enviaremos ya firmada, para su archivo, la verificación del FIPF y la emisión de la póliza.
+
+1.1. ¿Coinciden con este esquema?
+
+Si, el esquema esta correcto.
+
+2. Conexión y ambiente de pruebas
+
+Nuestra plataforma opera en AWS y el intercambio sale por un conector SFTP dedicado (AWS Transfer Family) con tres direcciones IP fijas de salida, que se usan las tres: no son una principal y dos de respaldo. Las direcciones se asignan al crear el conector y se mantienen mientras exista; si alguna vez lo recreáramos, se las informaríamos antes. Les enviaremos las tres IP y nuestra clave pública SSH dentro de las 48 horas de que nos confirmen el host, el puerto y la clave pública de su servidor (puntos 2.2 a 2.4 más abajo), que son lo que necesitamos para crear el conector apuntando al destino correcto.
+
+2.1. ¿Pueden habilitar las tres direcciones en su firewall?
+
+Si podemos, nos pueden enviar los tres y habilitamos.
+
+2.2. ¿Cuál es el host o la IP pública y el puerto del servidor? En la captura figura 10.0.7.101, que es una dirección interna.
+
+De nuestro lado usaremos la IP 138.186.63.132 puerto 2222
+
+2.3. ¿Nos pasan la clave pública completa del servidor y su huella (fingerprint)? La huella la confirmaríamos también por teléfono antes de la primera conexión.
+
+Esto lo vemos en una sesión independiente
+
+2.4. ¿Podemos autenticarnos con clave SSH en lugar de contraseña? ¿Qué algoritmos de clave y de cifrado admite el servidor (por ejemplo, ed25519 o RSA)?
+
+Podemos verlo en conjunto para que sea mas fácil y rápido
+
+2.5. ¿Pueden asignarnos carpetas dedicadas, separadas por tipo y dirección, que no sean el escritorio de un usuario? Por ejemplo, entrada/emision y entrada/documentos para lo que les enviamos, y salida/documentos (los firmados) y salida/respuestas para lo que nos devuelven, con una subcarpeta procesados/ en cada carpeta de salida, adonde movemos lo que ya recibimos en lugar de borrarlo.
+
+Si se puede es solo cuestión de nombrar carpetas, sin problema se puede hacer.
+
+2.6. ¿Tienen un ambiente de pruebas separado del de producción? Para las pruebas del certificado, ¿pueden firmar con un certificado de prueba, así ningún documento de prueba queda con la firma cualificada real? De nuestro lado, en pruebas solo enviaremos datos ficticios.
+
+Si tenemos ambiente de pruebas, pueden enviar hasta un PDF en blanco la idea solo es firmar para ver su funcionamiento.
+
+2.7. ¿Cuánto tiempo conservan los archivos en el servidor una vez procesados, y quién los retira? Los documentos llevan datos personales y declaraciones de salud.
+
+Esto es necesario? la manipulación de archivos internos es de carácter privado.! se resguardan de manera segura en nuestro sistema.
+
+2.8. Si prefieren una VPN IPsec en lugar de exponer el servidor a Internet, también podemos. Necesitaríamos la IP pública de su equipo de VPN, la red interna donde está el servidor y los parámetros del túnel: versión de IKE, cifrado, y si usan rutas estáticas o BGP.
+
+Podemos iniciar habilitando las IP Públicas mas arriba mencionadas y mas adelante habilitar la VPN, esto debido a lanzar el producto y no retrasar la implementación
+
+3. Firma de los documentos
+
+Entendemos, por la reunión del 4 de septiembre, que el firmador corre en un equipo dedicado con el token de Confirma, toma los archivos de una carpeta de entrada cada 30 segundos, deposita los firmados en una de salida, y aplica una firma por programa. Sobre esa base:
+
+3.1. ¿Qué tiempo máximo de respuesta pueden garantizar, además del estimado de 5 minutos? ¿Funciona las 24 horas, incluidos fines de semana y feriados? El cliente espera el certificado apenas se acredita su pago.
+
+La firma de documentos se realiza 24/7 cada 30 segundos, la emisión de la póliza se hace de manera local con el archivo TXT entregado por ustedes. para ese caso conversar con emisión sobre si será 24/7 o 5/8 ya que es tarea manual.
+
+3.2. ¿Cuál es el procedimiento si el firmador está fuera de servicio (equipo apagado, token retirado, certificado vencido)? ¿Cómo nos enteramos?
+
+No va a firmar el documento una vez que no revisan en un tiempo estimado de 30 segundos se deben comunicar con nosotros.
+
+3.3. Para no procesar un archivo a medio subir, subiremos con extensión .tmp y renombraremos al terminar; les pedimos lo mismo al depositar los firmados. Junto a cada PDF va un archivo .json con el código del documento, su versión, su huella SHA-256 y su tamaño, sin ningún dato de la persona. ¿Su firmador ignora los .tmp y los .json?
+
+favor enviar el documento en PDF para que se firme y se devuelva de la misma forma.
+
+3.4. Formato de la firma: ¿PAdES? ¿La firma es visible? Y, en particular, ¿incluye sello de tiempo de una autoridad (TSA)? Si el firmador no lo agrega, necesitamos saberlo ahora para resolverlo de nuestro lado.
+
+La firma es visible y válida con su sello de tiempo.
+
+3.5. Les pedimos que el documento firmado conserve el nombre del que les enviamos. ¿Cómo nos informan un error (archivo de respuesta, código de error)?
+
+No informamos, el documento se firma o no se firma.! si no llega en los 30 segundos nos informan
+
+3.6. ¿La firma se agrega como actualización incremental del PDF? Es imprescindible: así verificamos que el documento devuelto es exactamente el enviado, con su firma agregada y sin ningún otro cambio.
+
+La firma se agrega sobre el documento original.
+
+3.7. ¿Pueden priorizar los certificados sobre otros archivos (por ejemplo, los de emisión), o todo va en orden de llegada?
+
+Es una implementación independiente no esta sujeto a otros archivos.
+
+4. Registro para la emisión
+
+Gracias por el TXT de ejemplo. Entendemos que es el formato de migración de vida colectivo, y este es un seguro individual con otros datos. Además, en la fila 3 hay un tabulador de más que corre todas las columnas, y el beneficiario va en texto libre. Por eso:
+
+4.1. ¿Tienen una especificación de importación para SEBAOT de este producto (diccionario de datos: campo, tipo, largo, obligatoriedad y valores admitidos)? Si no la tienen, les proponemos nosotros el formato.
+
+Podes conseguir con sebaot.
+
+4.2. Formato del archivo: codificación (¿UTF-8 o ANSI? hay nombres con ñ y tildes), separador, encabezado, registro de control con cantidad de registros, formato de fechas y montos sin separador de miles.
+
+Verificamos con Sebaot
+
+4.3. Periodicidad: ¿un archivo por caso apenas se acredita el pago, o un lote diario?
+
+Habiamos quedado que se haría un lote diario y emisión lo procesa una vez acreditado el pago.
+
+4.4. Número de póliza: ¿la póliza conserva el número de nuestra propuesta, o SEBAOT asigna uno propio?
+
+si se mantiene
+
+4.5. Datos que podemos entregar por caso (indíquennos cuáles necesitan y en qué orden): propuesta (número, producto 15-VI.0002, plan, suma asegurada, premio con prima neta e IVA, fecha de solicitud y de firma del cliente); asegurado (nombres, apellidos, cédula, fecha de nacimiento, sexo, estado civil, nacionalidad, país de nacimiento y de residencia); contacto (celular verificado, correo, domicilio y ciudad); datos del FIPF (situación laboral, actividad económica, ocupación, profesión, empleador, ingreso mensual y origen de los ingresos); beneficiario (herederos legales o persona designada con nombre, domicilio, parentesco y cédula si la informó); facturación (nombre y cédula o RUC); pago (fecha y hora, monto, medio, referencia y número de autorización de Bancard, nunca el número completo de la tarjeta); documento (nombre del PDF de la Solicitud + FIPF y su huella SHA-256).
+
+Vamos a verificar con Emisión y Sebaot
+
+Las respuestas de la declaración de salud están en la Solicitud firmada. Salvo que las necesiten como datos para SEBAOT, preferimos no repetirlas en el TXT.
+
+5. Respuestas de Alianza
+
+Nos sirve un archivo de respuesta en salida/respuestas, identificado por el número de propuesta, para cada etapa:
+5.1 archivo recibido (con cantidad de registros);
+5.2 registros aceptados y rechazados con el motivo (para reenviar, mandaríamos el registro corregido con el mismo número de propuesta, y un reenvío nunca debería generar una póliza duplicada);
+5.3 pólizas emitidas (número, fecha de emisión y referencia de la factura electrónica);
+5.4 pólizas enviadas al cliente (fecha y canal); 5.5 errores posteriores a la aceptación.
+
+Por ahora no tenemos esa opción, igual no es prioridad para la implementación.
+Mas adelante lo podemos adecuar.
+
+6. Pagos
+
+Como el cobro se hace por Bancard directamente a las cuentas de Alianza: ¿necesitan un archivo de conciliación aparte (diario, por ejemplo), o les alcanza con los datos del pago dentro del registro de emisión? Si hay devoluciones, ¿cómo quieren que se las informemos?
+
+Si les resulta práctico, coordinamos una llamada técnica corta para cerrar estos puntos, y con la IP habilitada hacemos la primera prueba con datos ficticios.
+
+lo de pagos lo vemos en una sesión a parte y involucramos a tesorería y finanzas

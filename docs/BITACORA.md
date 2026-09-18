@@ -38,6 +38,122 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-18 · Alianza contestó: firmantes confirmados, conexión a medias y ningún archivo de respuesta
+
+**Rama:** `claude/alianza-docs-sftp-setup-11036b` (worktree, desde `main` en
+`0f65101`) · **Disparador:** Andres pegó en el chat la respuesta de Alianza al
+correo que él mismo envió el 17-sep.
+
+### El caso
+
+El correo del 17-sep hacía 24 preguntas numeradas en seis bloques: firmantes,
+conexión SFTP, firma, formato del TXT de emisión, archivos de respuesta y
+conciliación de pagos. La respuesta llegó en línea, punto por punto, y **cambia
+el estado de tres frentes a la vez**: cierra P1 (qué firma Alianza), desbloquea
+a medias el conector, y elimina de la fase 1 todo el canal de acuses.
+
+### Qué cambió
+
+- **`docs/Integraciones/Alianza - Respuestas SFTP, firma y emision.md`** — las
+  respuestas reordenadas por identificador (A1.1 … A6), con cita literal de cada
+  una, siguiendo la misma convención que Bancard y Code100. El original, sin
+  editar, al lado en `.txt`. No tiene datos personales.
+- **`docs/ANALISIS_RESPUESTAS_ALIANZA.md`** — el análisis: siete hallazgos, qué
+  choca con el código escrito y qué hay que decidir.
+- **`docs/CONFIGURACION_SFTP_ALIANZA.md`** — la tabla de la sección 1 pasa a
+  decir qué dato ya tenemos y cuál sigue faltando; la sección 8 se rehízo; y se
+  agregó la **sección 3.4**, el camino para sacar las tres IP antes de tener la
+  clave de host.
+- **`docs/correos/Correo 7 - Alianza - …md`** — borrador de la contrarespuesta,
+  con el párrafo de las IP escrito en dos variantes según lo que decida Andres.
+
+### Lo que la respuesta cierra
+
+- **El esquema de firmantes (A1.1): *"Si, el esquema esta correcto"*.** Alianza
+  firma **solo el CPC**; la Solicitud + FIPF la firman cliente e Interseguros.
+  Es D-42 tal cual, y cierra P1: `INTERCAMBIO_ASEGURADORA_DOCUMENTOS=CPC`.
+- **Host y puerto: `138.186.63.132:2222`** (A2.2), una IP pública de verdad y no
+  la `10.0.7.101` interna de la captura.
+- **La póliza conserva nuestro correlativo** (A4.4), **lote diario** (A4.3), y
+  el firmador **no compite** con la emisión (A3.7).
+- **Fase 1 por Internet; la VPN queda para después** (A2.8).
+
+### Lo que la respuesta rompe o deja peor de lo previsto
+
+- **«Solo PDF» (A3.3).** No contestaron si el firmador ignora los `.tmp` y los
+  `.json`, y pidieron mandar únicamente el PDF. El adaptador manda **dos**
+  archivos y publica renombrando desde `.tmp`. El riesgo grande no es el JSON:
+  es que un firmador que no filtre por extensión tome un PDF a medio subir,
+  firme un archivo truncado y lo devuelva — y ese documento no empareja por
+  prefijo, así que el CPC de un cliente real nunca se entrega. Propuesta en el
+  análisis §3: dejar de mandar el metadato y reemplazar el `.tmp` por una
+  **carpeta de tránsito** con `StartRemoteMove`, que no depende de que el
+  firmador entienda extensiones.
+- **Nadie avisa cuando algo sale mal (A3.2, A3.5, A5).** No hay archivo de
+  error, no hay acuse y no habrá archivos de respuesta en la fase 1. El único
+  detector de un CPC que no volvió somos nosotros, y el único canal de reclamo
+  es el teléfono. Hace falta plazo de espera, alerta en la consola y decidir qué
+  ve la persona mientras tanto (P2 de D-42, abierta). `salida/respuestas` queda
+  vacía a propósito, y eso ahora está escrito para que nadie lo lea como falla.
+- **La firma incremental sigue sin probarse (A3.6).** *"La firma se agrega sobre
+  el documento original"* es compatible con incremental y también con un
+  firmador que reescriba el PDF. Es el riesgo #1 de `DISENO_FIRMA_EN_LOTE.md`
+  §6, y se resuelve con el PDF en blanco que ellos mismos ofrecieron, no
+  preguntando de nuevo.
+- **La emisión es manual y sin horario definido (A3.1)**, con lote diario: un
+  caso pagado el viernes puede tener póliza el martes. No obliga a cambiar
+  código —P9 y 05B no prometen plazo— pero hay que confirmarlo antes del
+  lanzamiento.
+- **SEBAOT (A4.1, A4.2, A4.5): *"podes conseguir con sebaot"*.** El formato del
+  TXT sigue sin dueño y bloquea la emisión.
+- **La retención se rechazó (A2.7).** Es defendible: tratan esos datos por
+  derecho propio como aseguradora. Va al acuerdo de servicio, no al correo
+  técnico, así que el borrador **no** insiste.
+
+### El hallazgo que destraba la espera
+
+La `precondition` de `infra/alianza-sftp.tf` exige la clave de host, y con razón.
+Pero la documentación de AWS dice que un conector se puede crear con
+`TrustedHostKeys` vacío y **no transfiere nada** hasta que se la cargue: la
+salvaguarda la impone el servicio, no solo nuestro Terraform. Un conector así
+**ya tiene sus tres IP**, y agregar la clave después es un `UpdateConnector`, así
+que **las IP no cambian**. Eso permite mandarles las IP hoy y que habiliten el
+firewall en paralelo a la sesión técnica, en vez de en serie. Requiere
+autorización de Andres porque crea recursos en la cuenta real.
+
+### Qué hizo Andres
+
+- Envió el correo el 17-sep y pegó la respuesta completa en el chat el 18-sep.
+- **Pendiente de decidir:** conector ahora sin clave de host (variante A) o
+  esperar la sesión técnica (variante B); y si se aplica el cambio de «solo PDF»
+  + carpeta de tránsito antes de la primera prueba.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| Alcance del cambio | solo documentación; ni un archivo de `src/` ni de `infra/` tocado |
+| `npm run typecheck` · `npm run lint` | en verde |
+| Cita de AWS sobre `TrustedHostKeys` vacío | leída de la guía oficial de Transfer Family, citada textual en la guía y en el análisis |
+| Contraste del esquema de firmantes contra el código | coincide con `firmantes-documento.ts` y con D-42 |
+
+### Queda abierto
+
+- **Decisión de Andres:** conector ahora o después; y enviar el Correo 7.
+- **Sesión técnica con Alianza:** clave de host, usuario, algoritmos y nombres de
+  carpeta (incluida cuál vigila el firmador).
+- **Prueba del PDF en blanco** en su ambiente: es la que decide si el
+  emparejamiento por prefijo del lote de firma sirve. Va antes de construir la
+  recepción.
+- **Cambio en el adaptador:** solo PDF y carpeta de tránsito en vez de `.tmp`.
+- **P2 de D-42:** qué ve la persona mientras el CPC espera la firma de Alianza.
+- **Modelo de CPC aprobado**, que no vino con la respuesta.
+- **SEBAOT** y la **sesión de pagos** con tesorería y finanzas.
+- Lo que ya estaba: las cuatro decisiones de #131, y los hitos de Pantalla B que
+  no tienen sentido con 10 minutos.
+
+---
+
 ## 2026-09-17 · #131 en producción, correo a Alianza enviado y PDF de prueba de funcionamiento para gerencia
 
 **Rama:** `chore/capturas-gerencia-v4` (desde `main` en `f89a962`) ·
