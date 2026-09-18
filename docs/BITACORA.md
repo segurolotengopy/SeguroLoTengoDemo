@@ -137,9 +137,47 @@ autorización de Andres porque crea recursos en la cuenta real.
 | Cita de AWS sobre `TrustedHostKeys` vacío | leída de la guía oficial de Transfer Family, citada textual en la guía y en el análisis |
 | Contraste del esquema de firmantes contra el código | coincide con `firmantes-documento.ts` y con D-42 |
 
+### Segundo tramo · las tres autorizaciones de Andres
+
+**Pedidos:** «Vamos con el conector ahora y aplica el cambio del adaptador», y
+«dime qué responder a Alianza».
+
+- **Cambio del adaptador (A3.3), implementado.** El envío ya no manda el
+  metadato `.json` —`enviarMetadato`, apagado por defecto y encendible con
+  `INTERCAMBIO_ASEGURADORA_METADATO=true` para otra aseguradora— y **el `.tmp`
+  se fue**: el PDF se sube a `/entrada/en-curso` y se **mueve** a la carpeta que
+  vigila el firmador al terminar. Un movimiento del servidor es instantáneo, así
+  que en la carpeta vigilada nunca aparece un archivo incompleto, y deja de
+  depender de que el firmador filtre por extensión, que es lo que Alianza no
+  quiso confirmar. El sufijo sigue vivo en el otro sentido: es lo que le pedimos
+  a Alianza al depositar, y la recepción lo hace cumplir. Mock actualizado para
+  simular lo mismo.
+- **Conector: preparado, no creado.** `alianza_sftp_sin_clave_de_host` permite
+  crear el conector sin la clave de host, con la cita de AWS en el comentario:
+  un conector así **no transfiere un solo byte**, pero ya tiene sus tres IP, y
+  agregarlas después es un cambio en el lugar que **no las cambia**. El `apply`
+  quedó trabado un escalón antes: `aab1-demo-deployer` no tiene permisos de
+  Transfer Family —falta adjuntar `SLTDemoAlianzaSftpPolicy`, que pide
+  administración— y la sesión del perfil de administración está vencida.
+- **Clave SSH generada** (`ed25519`, dedicada, sin passphrase, en
+  `~/slt-alianza-sftp`). La pública ya está pegada en el Correo 7 con su huella.
+  La privada se borra de la máquina apenas se cargue en Secrets Manager.
+- **Correo 7 listo**, con el hueco de las tres IP marcado.
+
+### Verificaciones del segundo tramo
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npm test` | **1390** tests, 102 archivos, todo en verde |
+| `npm run typecheck` · `npm run lint` | limpio · 0 errores, 3 advertencias preexistentes |
+| `terraform validate` · `terraform fmt` | válido · formato ok |
+| Tests nuevos del envío | solo viaja el PDF · la carpeta del firmador está vacía hasta publicar · con metadato encendido, el PDF se mueve último |
+
 ### Queda abierto
 
-- **Decisión de Andres:** conector ahora o después; y enviar el Correo 7.
+- **Andres:** reautenticar el perfil de administración (`aws login`) para
+  adjuntar `SLTDemoAlianzaSftpPolicy`; con eso el conector se crea y salen las
+  IP. Y el OK para enviar el Correo 7.
 - **Sesión técnica con Alianza:** clave de host, usuario, algoritmos y nombres de
   carpeta (incluida cuál vigila el firmador).
 - **Prueba del PDF en blanco** en su ambiente: es la que decide si el

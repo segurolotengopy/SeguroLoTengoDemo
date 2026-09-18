@@ -2,8 +2,9 @@
  * Adaptador simulado del intercambio documental con la aseguradora (ítem 36).
  *
  * Simula las dos puntas: el conector SFTP de Transfer Family y a **Alianza
- * firmando**. Lo que manda se "transfiere" después de una demora, se publica
- * (deja de ser `.tmp`) y Alianza devuelve en su carpeta de firmados **el mismo
+ * firmando**. Lo que manda se "transfiere" después de una demora a la carpeta
+ * de tránsito, se publica moviéndolo a la carpeta que vigila el firmador
+ * (`PUBLICACION_POR_MOVIMIENTO`), y Alianza devuelve en su carpeta de firmados **el mismo
  * PDF con una revisión incremental agregada**. Esa es la propiedad que importa:
  * los bytes enviados quedan intactos como prefijo del archivo devuelto, que es
  * lo que el lote de firma usa para emparejar (`docs/plan/DISENO_FIRMA_EN_LOTE.md`
@@ -159,12 +160,21 @@ export function crearIntercambioAseguradoraMock(opciones: OpcionesIntercambioMoc
       if (estadoSegunEventos(t.direccion, t.eventos) !== "EN_CURSO") continue;
       if (ahora() - t.solicitadaEn < demora) continue;
 
-      if (t.direccion === "ENVIO" && t.bytesEnviados && t.metadato) {
+      if (t.direccion === "ENVIO" && t.bytesEnviados) {
         const instante = new Date(ahora()).toISOString();
-        const rutaMetadato = `${t.carpetaRemota}/${t.nombreArchivo.replace(/\.pdf$/, ".json")}`;
+        const nombreMetadato = t.nombreArchivo.replace(/\.pdf$/, ".json");
         evento(t, "TRANSFERIDA");
-        // Primero el metadato y después el PDF, igual que el adaptador real.
-        servidor.set(rutaMetadato, { bytes: t.metadato, modificadoEn: instante });
+        // Sube a tránsito: mientras esté acá, el firmador no lo ve.
+        if (t.metadato) {
+          servidor.set(`${carpetas.transito}/${nombreMetadato}`, { bytes: t.metadato, modificadoEn: instante });
+        }
+        servidor.set(`${carpetas.transito}/${t.nombreArchivo}`, { bytes: t.bytesEnviados, modificadoEn: instante });
+        // Publicar es moverlo; el PDF último, igual que el adaptador real.
+        if (t.metadato) {
+          servidor.delete(`${carpetas.transito}/${nombreMetadato}`);
+          servidor.set(`${t.carpetaRemota}/${nombreMetadato}`, { bytes: t.metadato, modificadoEn: instante });
+        }
+        servidor.delete(`${carpetas.transito}/${t.nombreArchivo}`);
         servidor.set(t.rutaRemota, { bytes: t.bytesEnviados, modificadoEn: instante });
         evento(t, "PUBLICADA");
         // Alianza firma y lo deja en su carpeta de firmados.
@@ -228,12 +238,14 @@ export function crearIntercambioAseguradoraMock(opciones: OpcionesIntercambioMoc
       const referencia = `env-${solicitud.hashSha256.slice(0, 24)}-${intentos.length + 1}`;
       enviosPorHuella.set(clave, [...intentos, referencia]);
 
-      const metadato = construirMetadatoEnviado(
-        solicitud,
-        solicitud.hashSha256,
-        solicitud.bytes.length,
-        new Date(ahora()).toISOString(),
-      );
+      const metadato = configuracion.enviarMetadato
+        ? construirMetadatoEnviado(
+            solicitud,
+            solicitud.hashSha256,
+            solicitud.bytes.length,
+            new Date(ahora()).toISOString(),
+          )
+        : null;
       const t: Transferencia = {
         referencia,
         direccion: "ENVIO",
@@ -242,7 +254,7 @@ export function crearIntercambioAseguradoraMock(opciones: OpcionesIntercambioMoc
         carpetaRemota: carpetas.envio,
         solicitadaEn: ahora(),
         bytesEnviados: solicitud.bytes,
-        metadato: new TextEncoder().encode(JSON.stringify(metadato)),
+        metadato: metadato ? new TextEncoder().encode(JSON.stringify(metadato)) : null,
         hashSha256: solicitud.hashSha256,
         bytesRecibidos: null,
         eventos: [],

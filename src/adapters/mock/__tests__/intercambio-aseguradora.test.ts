@@ -23,6 +23,7 @@ let ahora = Date.parse("2026-09-15T12:00:00.000Z");
 const CONFIGURACION: ConfiguracionIntercambioAseguradora = {
   documentosHabilitados: ["CPC"],
   carpetas: CARPETAS_REMOTAS_PROPUESTAS,
+  enviarMetadato: false,
 };
 
 beforeEach(() => {

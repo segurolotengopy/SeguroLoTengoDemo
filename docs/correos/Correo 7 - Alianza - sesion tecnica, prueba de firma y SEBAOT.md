@@ -1,14 +1,21 @@
 # Correo 7 · Alianza — sesión técnica, prueba de firma y SEBAOT
 
-**Estado: BORRADOR, sin enviar.** Redactado el 18-sep-2026 en respuesta a
+**Estado: LISTO PARA ENVIAR, a la espera del OK de Andres.** Redactado el
+18-sep-2026 en respuesta a
 `docs/Integraciones/Alianza - Respuestas SFTP, firma y emision.md`.
 Análisis que lo sustenta: `docs/ANALISIS_RESPUESTAS_ALIANZA.md`.
 
-**Antes de enviarlo, Andres decide una cosa:** si creamos el conector **ahora**,
-sin la clave de host, para mandarles las tres IP y que habiliten el firewall en
-paralelo (sección 3.4 de `docs/CONFIGURACION_SFTP_ALIANZA.md`), o si esperamos a
-la sesión técnica y mandamos todo junto. El párrafo de las IP está escrito en las
-dos variantes; hay que borrar la que no corresponda.
+**Decidido (Andres, 18-sep):** se crea el conector ahora, sin esperar la clave
+de host, para que Alianza habilite el firewall en paralelo a la sesión técnica
+(sección 3.4 de `docs/CONFIGURACION_SFTP_ALIANZA.md`).
+
+**Las tres IP todavía no están en el correo:** crear el conector exige adjuntar
+la política `SLTDemoAlianzaSftpPolicy` al grupo de despliegue, y eso pide
+credenciales de administración cuya sesión está vencida. Apenas Andres
+reautentique, se aplica, se pegan las tres direcciones donde dice el punto 1 y
+sale. La clave pública SSH **ya está**, generada con `ssh-keygen -t ed25519`; la
+privada vive en `~/slt-alianza-sftp` hasta cargarla en Secrets Manager, y se
+borra ahí mismo.
 
 Lo que **no** va en este correo, a propósito: la retención de archivos (2.7).
 Contestaron que es asunto interno y es defendible; eso va al acuerdo de servicio,
@@ -39,25 +46,41 @@ el firmador cada 30 segundos** y en cuál deja los documentos firmados.
 
 Díganos dos o tres horarios y nos acomodamos.
 
-*[VARIANTE A — si creamos el conector antes de la sesión]*
-Les adjuntamos ya las **tres direcciones IP de salida** y nuestra clave pública,
-así pueden ir habilitando el firewall en paralelo: son fijas y no cambian cuando
-completemos la configuración en la sesión.
+Para que no tengan que esperar a la sesión, les dejamos ya lo nuestro.
 
-*[VARIANTE B — si esperamos]*
-Apenas tengamos esos datos les enviamos las tres direcciones IP de salida y
-nuestra clave pública, dentro de las 48 horas.
+**Nuestra clave pública SSH**, dedicada exclusivamente a este intercambio:
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHdIE8bfK5v5ad8V9G0QK2O7c+PriRe4G8KnmPexNVU4 segurolotengo-alianza-sftp
+```
+
+Su huella, para que la contrasten:
+`SHA256:LhMYdIDjLB7EINRgzAu50196WcKNDmC45cQ06Z//Prc`
+
+Si su servidor no admite ed25519, avísennos y generamos una RSA de 4096 bits.
+
+**Nuestras tres direcciones IP de salida**, para el firewall:
+
+```
+[IP 1]
+[IP 2]
+[IP 3]
+```
+
+Las tres se usan indistintamente, así que hay que habilitar las tres. Son fijas
+y no cambian cuando completemos la configuración en la sesión técnica.
 
 **2. Envío de archivos**
 
 Tomamos nota: les mandamos **únicamente el PDF**, sin ningún archivo adicional
 al lado.
 
-2.1. Para que su firmador nunca tome un archivo a medio subir, vamos a dejarlo
-primero en una carpeta de tránsito y recién moverlo a la carpeta que ustedes
-vigilan cuando terminó de subir. Así, todo lo que aparece en la carpeta del
-firmador está completo. Solo necesitamos que creen esa carpeta de tránsito, por
-ejemplo `entrada/en-curso`.
+2.1. Para que su firmador nunca tome un archivo a medio subir, ya cambiamos la
+forma de depositarlo: lo subimos primero a una carpeta de tránsito y recién lo
+movemos a la carpeta que ustedes vigilan cuando la subida terminó. El
+movimiento es instantáneo, así que todo lo que aparece en la carpeta del
+firmador está completo. Lo único que necesitamos de ustedes es que creen esa
+carpeta de tránsito, por ejemplo `entrada/en-curso`.
 2.2. ¿Nos confirman que el documento firmado conserva el mismo nombre del que
 les enviamos?
 

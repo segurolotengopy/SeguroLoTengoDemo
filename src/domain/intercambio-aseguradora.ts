@@ -37,6 +37,12 @@ export type TipoDocumentoIntercambio = (typeof TIPOS_DOCUMENTO_INTERCAMBIO)[numb
 export type CarpetaRecepcion = "DOCUMENTOS_FIRMADOS" | "RESPUESTAS";
 
 export interface CarpetasRemotas {
+  /**
+   * Dónde se suben los documentos mientras se están escribiendo. **Nadie la
+   * vigila**: el archivo aparece en `envio` recién cuando está completo, por un
+   * movimiento del servidor. Ver `PUBLICACION_POR_MOVIMIENTO`.
+   */
+  readonly transito: string;
   /** Dónde se depositan los documentos a firmar (en el servidor de Alianza). */
   readonly envio: string;
   /** Dónde Alianza deja los documentos firmados. */
@@ -51,6 +57,18 @@ export interface ConfiguracionIntercambioAseguradora {
   /** Tipos que la aseguradora firma y que por eso se le mandan. Vacío = no sale nada. */
   readonly documentosHabilitados: readonly TipoDocumentoIntercambio[];
   readonly carpetas: CarpetasRemotas;
+  /**
+   * Si al lado del PDF viaja el `.json` con su huella y su tamaño. **Apagado
+   * por defecto**: Alianza pidió *"favor enviar el documento en PDF"* (A3.3 de
+   * `docs/Integraciones/Alianza - Respuestas SFTP, firma y emision.md`) y no
+   * contestó qué hace su firmador con un archivo que no es PDF.
+   *
+   * El metadato era una comodidad para quien recibe —verificar la huella sin
+   * calcularla—, no una necesidad nuestra: la huella la tenemos y la
+   * recalculamos al recibir. Se conserva encendible porque el puerto puede
+   * servir a otra aseguradora que sí lo quiera.
+   */
+  readonly enviarMetadato: boolean;
 }
 
 /**
@@ -59,6 +77,7 @@ export interface ConfiguracionIntercambioAseguradora {
  * `salida/` lo que devuelve. **No están confirmadas**: se pisan por entorno.
  */
 export const CARPETAS_REMOTAS_PROPUESTAS: CarpetasRemotas = {
+  transito: "/entrada/en-curso",
   envio: "/entrada/documentos",
   documentosFirmados: "/salida/documentos",
   respuestas: "/salida/respuestas",
@@ -79,7 +98,10 @@ function carpetaAbsoluta(valor: string | undefined, porDefecto: string): string 
  * - `INTERCAMBIO_ASEGURADORA_DOCUMENTOS`: lista separada por comas (`CPC` o
  *   `CPC,PROP`). Un valor que no sea un tipo conocido **tira**: un error de
  *   tipeo no puede dejar de mandar el CPC en silencio.
- * - `ALIANZA_SFTP_CARPETA_ENVIO`, `…_FIRMADOS`, `…_RESPUESTAS`: carpetas remotas.
+ * - `ALIANZA_SFTP_CARPETA_ENVIO`, `…_TRANSITO`, `…_FIRMADOS`, `…_RESPUESTAS`:
+ *   carpetas remotas.
+ * - `INTERCAMBIO_ASEGURADORA_METADATO=true`: manda también el `.json`. Apagado
+ *   por defecto (A3.3: Alianza pidió solo el PDF).
  */
 export function leerConfiguracionIntercambio(entorno: Entorno = process.env): ConfiguracionIntercambioAseguradora {
   const declarados = (entorno.INTERCAMBIO_ASEGURADORA_DOCUMENTOS ?? "")
@@ -97,7 +119,9 @@ export function leerConfiguracionIntercambio(entorno: Entorno = process.env): Co
 
   return {
     documentosHabilitados: [...new Set(declarados.filter(esTipoDocumentoIntercambio))],
+    enviarMetadato: entorno.INTERCAMBIO_ASEGURADORA_METADATO === "true",
     carpetas: {
+      transito: carpetaAbsoluta(entorno.ALIANZA_SFTP_CARPETA_TRANSITO, CARPETAS_REMOTAS_PROPUESTAS.transito),
       envio: carpetaAbsoluta(entorno.ALIANZA_SFTP_CARPETA_ENVIO, CARPETAS_REMOTAS_PROPUESTAS.envio),
       documentosFirmados: carpetaAbsoluta(
         entorno.ALIANZA_SFTP_CARPETA_FIRMADOS,
@@ -128,11 +152,33 @@ export function nombreMetadatoRemoto(codigo: string, version: number): string {
 }
 
 /**
- * Sufijo con el que se sube y que se quita al terminar (borrador, punto 3.3):
- * un archivo `.tmp` es un archivo que todavía se está escribiendo, y ninguno
- * de los dos lados lo procesa. La recepción los ignora al listar.
+ * Sufijo de «esto todavía se está escribiendo».
+ *
+ * **Lo usa Alianza al depositar, no nosotros al enviar.** Se lo pedimos en el
+ * correo del 17-sep y la recepción lo hace cumplir: un `.tmp` no se lista ni se
+ * trae. Para nuestros envíos ya no alcanza — ver `PUBLICACION_POR_MOVIMIENTO`.
  */
 export const SUFIJO_EN_CURSO = ".tmp";
+
+/**
+ * **Por qué nuestros envíos no usan el sufijo.**
+ *
+ * La idea original era subir `CPC-…-v1.pdf.tmp` a la carpeta que vigila el
+ * firmador y renombrarlo al terminar. Eso apuesta a que el firmador filtre por
+ * extensión, y Alianza **no lo confirmó** (A3.3): su firmador mira una carpeta
+ * cada 30 segundos y firma lo que encuentra. Un firmador que no filtre toma el
+ * PDF a medio subir, firma un archivo truncado y lo devuelve; ese documento no
+ * empareja por prefijo con el enviado, y el certificado de una persona real
+ * nunca se entrega.
+ *
+ * Por eso el archivo se sube a una carpeta **que nadie vigila** (`transito`) y
+ * se **mueve** a la carpeta del firmador cuando la subida terminó. Un
+ * movimiento del lado del servidor es instantáneo, así que en la carpeta
+ * vigilada nunca aparece un archivo incompleto —**sin depender de que el
+ * firmador entienda extensiones**—, y lo único que hay que pedirle a Alianza es
+ * una carpeta más.
+ */
+export const PUBLICACION_POR_MOVIMIENTO = true;
 
 /**
  * Un nombre que llega del servidor remoto es dato no confiable: se lo usa como

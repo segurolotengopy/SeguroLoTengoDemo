@@ -57,8 +57,8 @@ del borrador de respuesta (`docs/recepcion/2026-09-14-interseguros/BORRADOR_CORR
 | ⬜ **Clave pública de host del servidor** (`ssh-ed25519 AAAA…` o `ssh-rsa AAAA…`) y su **huella** — sesión técnica (A2.3) | Que el conector compruebe que habla con Alianza y no con un impostor | `alianza_sftp_trusted_host_keys` |
 | ⬜ **Usuario** — sesión técnica (A2.4) | La credencial | secreto |
 | ⬜ Que acepten **autenticación por clave SSH** — sesión técnica (A2.4) | Les mandamos nuestra clave pública (sección 2) | — |
-| ⚠️ **Carpetas**: dónde depositamos, dónde dejan lo firmado, y una subcarpeta `procesados/` en cada una — aceptaron el esquema (A2.5) pero **faltan los nombres**, y sobre todo **cuál vigila el firmador** | La app mueve lo ya recibido a `procesados/` en vez de borrarlo | `ALIANZA_SFTP_CARPETA_*` |
-| ⚠️ Si aceptan subir como **`.tmp` y renombrar** al terminar — **no contestaron**, y pidieron *"enviar el documento en PDF"* (A3.3). Ver `ANALISIS_RESPUESTAS_ALIANZA.md` §3 | Que nadie procese un archivo a medio escribir | — |
+| ⚠️ **Carpetas**: una de **tránsito**, una donde depositamos, donde dejan lo firmado, y una subcarpeta `procesados/` en cada una de recepción — aceptaron el esquema (A2.5) pero **faltan los nombres**, y sobre todo **cuál vigila el firmador** | La app sube a tránsito y **mueve** a la del firmador al terminar; y mueve lo ya recibido a `procesados/` en vez de borrarlo | `ALIANZA_SFTP_CARPETA_*` |
+| ✅ Que nadie procese un archivo a medio escribir — **resuelto sin pedirles nada más que una carpeta**: subimos a `entrada/en-curso` y movemos a la carpeta del firmador al terminar. Ver `ANALISIS_RESPUESTAS_ALIANZA.md` §3 | El `.tmp` apostaba a que su firmador filtrara por extensión, y no lo confirmaron (A3.3) | `ALIANZA_SFTP_CARPETA_TRANSITO` |
 | ⬜ Qué **algoritmos SSH** admite el servidor — sesión técnica (A2.4) | Si son viejos, hay que elegir otra política criptográfica | `alianza_sftp_security_policy` |
 | ⚠️ Si la firma es **PAdES incremental** — dijeron *"se agrega sobre el documento original"* (A3.6), que no lo prueba. **Se verifica con el PDF en blanco en su ambiente de pruebas**, no preguntando de nuevo | Lo devuelto tiene que contener lo enviado como prefijo | — |
 
@@ -258,9 +258,11 @@ El resultado aparece segundos después en `s3://<bucket>/alianza/listados/`.
 - `INTEGRATION_INTERCAMBIO_ASEGURADORA=live`
 - `INTERCAMBIO_ASEGURADORA_DOCUMENTOS=CPC`. **No tiene valor por defecto**:
   qué firma Alianza sigue abierto (P1), y sin la variable no sale ningún documento.
-- `ALIANZA_SFTP_CARPETA_ENVIO`, `…_FIRMADOS` y `…_RESPUESTAS`, si Alianza
-  confirma otras carpetas que las propuestas (`/entrada/documentos`,
-  `/salida/documentos`, `/salida/respuestas`).
+- `ALIANZA_SFTP_CARPETA_TRANSITO`, `…_ENVIO`, `…_FIRMADOS` y `…_RESPUESTAS`, si
+  Alianza confirma otras carpetas que las propuestas (`/entrada/en-curso`,
+  `/entrada/documentos`, `/salida/documentos`, `/salida/respuestas`).
+- `INTERCAMBIO_ASEGURADORA_METADATO` **no se enciende con Alianza**: pidieron
+  solo el PDF (A3.3) y por eso el `.json` está apagado por defecto.
 
 **`salida/respuestas` va a estar vacía, y no es una falla.** Alianza contestó
 que los archivos de respuesta *"por ahora no tenemos esa opción"* (A5): en la
@@ -268,11 +270,10 @@ fase 1 no hay acuse de recepción, ni aceptados/rechazados, ni aviso de póliza
 emitida. La carpeta y `CarpetaRecepcion.RESPUESTAS` se conservan para cuando la
 adecúen.
 
-Lo que tiene que pasar al enviar: en el servidor de Alianza aparecen
-`CPC-<correlativo>-v1.json.tmp` y `….pdf.tmp`, y al rato los dos sin `.tmp`, el
-JSON primero. El JSON lleva código, correlativo, versión, huella SHA-256 y
-tamaño: **ningún dato de la persona**, y los nombres de archivo tampoco, porque
-los logs del conector registran rutas.
+Lo que tiene que pasar al enviar: `CPC-<correlativo>-v1.pdf` aparece primero en
+`/entrada/en-curso` y **después** en la carpeta del firmador, entero, por un
+movimiento del servidor. **Ningún otro archivo viaja** (A3.3). Los nombres no
+llevan datos de la persona, porque los logs del conector registran rutas.
 
 ---
 

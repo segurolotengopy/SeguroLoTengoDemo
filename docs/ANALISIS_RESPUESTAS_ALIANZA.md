@@ -110,17 +110,23 @@ de la misma forma"* y **no contestó** si su firmador ignora los `.tmp` y los
   documento **no empareja** con el enviado (`NO_EMPAREJA` del lote de firma) y el
   CPC de un cliente real nunca se entrega.
 
-**Propuesta.** Dos cambios en el adaptador, ninguno en el puerto:
+**Implementado el 18-sep-2026**, con el OK de Andres. Dos cambios en el
+adaptador y en el mock, ninguno en el puerto:
 
-1. **Dejar de mandar el metadato a la carpeta de firma.** Configurable, apagado
-   por defecto para Alianza. Nuestra verificación no lo necesita: la huella la
-   tenemos nosotros y la recalculamos al recibir.
-2. **Cambiar el `.tmp` por una carpeta de tránsito.** En vez de subir
-   `archivo.pdf.tmp` a la carpeta vigilada y renombrar, subir a
-   `/entrada/en-curso/` y **mover** a `/entrada/documentos/` al terminar
-   (`StartRemoteMove` ya hace movimientos entre carpetas: es lo que usa
-   `archivarRecibido`). Un archivo aparece en la carpeta vigilada solo cuando
-   está completo, **sin depender de que el firmador entienda extensiones**.
+1. **El metadato dejó de viajar.** `ConfiguracionIntercambioAseguradora.enviarMetadato`,
+   apagado por defecto y encendible con `INTERCAMBIO_ASEGURADORA_METADATO=true`
+   para otra aseguradora que sí lo quiera. Nuestra verificación no lo necesita:
+   la huella la tenemos y la recalculamos al recibir.
+2. **El `.tmp` se reemplazó por una carpeta de tránsito.** El PDF se sube a
+   `/entrada/en-curso/` y se **mueve** a `/entrada/documentos/` al terminar, con
+   el mismo `StartRemoteMove` que ya usaba `archivarRecibido`. Un archivo
+   aparece en la carpeta vigilada solo cuando está completo, **sin depender de
+   que el firmador entienda extensiones**. El sufijo `.tmp` sigue vivo para el
+   otro sentido: es lo que le pedimos a Alianza al depositar, y la recepción lo
+   hace cumplir.
+
+Con tests: que solo viaje el PDF, que la carpeta del firmador esté vacía hasta
+la publicación, y que con el metadato encendido el PDF se mueva último.
 
 La opción 2 es más robusta que insistir con el `.tmp` y no le pide nada a
 Alianza salvo crear una carpeta más, algo que ya dijeron que no es problema
