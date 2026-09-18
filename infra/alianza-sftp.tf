@@ -350,7 +350,11 @@ resource "aws_transfer_connector" "alianza" {
   url                  = var.alianza_vpn_habilitada ? null : var.alianza_sftp_url
 
   sftp_config {
-    trusted_host_keys = var.alianza_sftp_trusted_host_keys
+    # `null` y no `[]`: el provider valida MinItems = 1 sobre la lista, así que
+    # una lista vacía corta el apply. Con el atributo omitido, el conector se
+    # crea sin claves de confianza, que es lo que la API admite y lo que
+    # `alianza_sftp_sin_clave_de_host` quiere decir.
+    trusted_host_keys = length(var.alianza_sftp_trusted_host_keys) > 0 ? var.alianza_sftp_trusted_host_keys : null
     user_secret_id    = aws_secretsmanager_secret.alianza_sftp[0].id
   }
 

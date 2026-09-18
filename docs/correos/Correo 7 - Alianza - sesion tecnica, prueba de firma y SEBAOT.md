@@ -9,13 +9,10 @@ Análisis que lo sustenta: `docs/ANALISIS_RESPUESTAS_ALIANZA.md`.
 de host, para que Alianza habilite el firewall en paralelo a la sesión técnica
 (sección 3.4 de `docs/CONFIGURACION_SFTP_ALIANZA.md`).
 
-**Las tres IP todavía no están en el correo:** crear el conector exige adjuntar
-la política `SLTDemoAlianzaSftpPolicy` al grupo de despliegue, y eso pide
-credenciales de administración cuya sesión está vencida. Apenas Andres
-reautentique, se aplica, se pegan las tres direcciones donde dice el punto 1 y
-sale. La clave pública SSH **ya está**, generada con `ssh-keygen -t ed25519`; la
-privada vive en `~/slt-alianza-sftp` hasta cargarla en Secrets Manager, y se
-borra ahí mismo.
+**El texto está completo.** El conector `c-f2f1ac065481446ab` se creó el
+18-sep-2026 con sus tres IP, ya pegadas en el punto 1, y la clave pública SSH
+también está. La privada vive en `~/slt-alianza-sftp` hasta cargarla en Secrets
+Manager, y se borra ahí mismo.
 
 Lo que **no** va en este correo, a propósito: la retención de archivos (2.7).
 Contestaron que es asunto interno y es defendible; eso va al acuerdo de servicio,
@@ -62,9 +59,9 @@ Si su servidor no admite ed25519, avísennos y generamos una RSA de 4096 bits.
 **Nuestras tres direcciones IP de salida**, para el firewall:
 
 ```
-[IP 1]
-[IP 2]
-[IP 3]
+67.202.57.40
+44.209.137.228
+50.19.171.17
 ```
 
 Las tres se usan indistintamente, así que hay que habilitar las tres. Son fijas

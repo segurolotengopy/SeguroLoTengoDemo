@@ -8,8 +8,12 @@ Región: **us-east-1**. Cuenta: **120005938663**. Terraform: `infra/alianza-sftp
 y `infra/alianza-vpn.tf`. Código: puerto `src/ports/intercambio-aseguradora.ts`,
 adaptador `src/adapters/live/intercambio-aseguradora-sftp.ts`.
 
-**Estado al 18-sep-2026: todo escrito y apagado.** Nada existe en la cuenta hasta
-que se complete la sección 3. Alianza contestó el 18-sep
+**Estado al 18-sep-2026: el conector existe, y todavía no transfiere nada.**
+`c-f2f1ac065481446ab`, creado **sin clave de host a propósito** (sección 3.4)
+para tener sus tres IP: `67.202.57.40`, `44.209.137.228` y `50.19.171.17`.
+Bandeja `slt-demo-intercambio-alianza-4d889806`, secreto
+`slt-demo-alianza-sftp-credencial` **vacío**. Falta la sesión técnica con
+Alianza para cargar la clave de host y el usuario. Alianza contestó el 18-sep
 (`docs/Integraciones/Alianza - Respuestas SFTP, firma y emision.md`, análisis en
 `docs/ANALISIS_RESPUESTAS_ALIANZA.md`): dieron **host y puerto**, y dejaron la
 **clave de host**, el **usuario** y los **algoritmos** para una sesión técnica
@@ -329,11 +333,12 @@ dejarla encendida "por las dudas".
 | Puerto, mock, adaptador live y contrato | ✅ |
 | Qué documentos firma Alianza (`INTERCAMBIO_ASEGURADORA_DOCUMENTOS`) | ✅ **`CPC`**: A1.1 confirmó D-42 y cerró P1 |
 | Host y puerto | ✅ `sftp://138.186.63.132:2222` (A2.2) |
-| Política `SLTDemoAlianzaSftpPolicy` adjuntada | ⬜ Andres, con administración |
+| Política `SLTDemoAlianzaSftpPolicy` adjuntada | ✅ Andres, 18-sep-2026 |
+| Conector creado, por ahora solo por sus IP | ✅ `c-f2f1ac065481446ab` |
 | Clave de host, usuario y algoritmos | ⬜ **sesión técnica conjunta** (A2.3, A2.4) |
-| Clave SSH generada y pública enviada | ⬜ |
+| Clave SSH generada | ✅ `ed25519`, huella `SHA256:LhMYdIDjLB7EINRgzAu50196WcKNDmC45cQ06Z//Prc`; enviarla ⬜ |
 | Secreto cargado | ⬜ |
-| IP enviadas a Alianza y habilitadas | ⬜ se pueden adelantar con la sección 3.4 |
+| IP enviadas a Alianza y habilitadas | ⬜ están en el Correo 7, sin enviar |
 | `test-connection` en `OK` | ⬜ |
 | Nombres de carpeta, y cuál vigila el firmador | ⬜ aceptaron el esquema (A2.5), faltan los nombres |
 | Solo PDF, sin metadato `.json`, y `.tmp` o carpeta de tránsito | ⬜ decisión pendiente (A3.3, análisis §3) |
