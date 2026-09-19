@@ -298,10 +298,25 @@ va a funcionar así.
 - **No toca el cobro ni la cobertura.** La emisión manual ocurre después del
   pago y de la firma; lo que se estira es cuándo existe la póliza, y P9 ya
   separa «Solicitud aceptada» de «Póliza en preparación» sin prometer fecha.
-- **Tres preguntas abiertas:** si esto alcanza también al **certificado** —si
-  sí, el conector SFTP recién creado se queda sin uso—, a qué casilla va el
-  lote y si aceptan el adjunto cifrado, y cómo nos enteramos de que lo
-  procesaron.
+**Andres acotó el alcance el mismo día, y quedó como D-49:** *«Me refiero
+SOLAMENTE al TXT para que se generen las PÓLIZAS, los certificados pasan por el
+circuito armado»*. El conector SFTP conserva su razón de ser. Y sobre cómo
+viaja: *«Es mejor hacer enlaces, pero por ahora será solo enviando el archivo
+TXT, que podría estar en un ZIP con passwd»*.
+
+- **El enlace de descarga queda como objetivo**, no descartado.
+- **Un ZIP «con contraseña» son dos cosas distintas**, y conviene saberlo antes
+  de construirlo: ZipCrypto lo abre el explorador de Windows sin instalar nada
+  y es **débil** —tiene un ataque conocido cuando se conoce parte del
+  contenido, que es exactamente un TXT de formato fijo—; AES-256 sí protege y
+  el explorador de Windows **no lo abre**, hace falta 7-Zip. Se elige AES-256 y
+  hay que confirmar que su operador puede abrirlo. Si no pudiera, la salida es
+  el enlace y **no** bajar a ZipCrypto: un cifrado que no cifra es peor que
+  ninguno, porque hace creer que el problema está resuelto.
+- La contraseña no viaja en el mismo correo, se acuerda una vez por otro canal
+  y vive en Secrets Manager.
+- **Quedan tres preguntas:** a qué casilla va el lote, si su operador abre
+  AES-256, y cómo nos enteramos de que lo procesaron.
 
 ### Quinto tramo · los recordatorios que la Pantalla B seguía prometiendo
 

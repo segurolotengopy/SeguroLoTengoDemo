@@ -292,6 +292,11 @@ solicitudes de emisión llegan por correo**, en los archivos TXT del modelo que
 mandaron, y **las procesan a mano en SEBAOT**. No hay SFTP para esto y **no hay
 confirmación automática**. Alianza no sabe cuánto tiempo va a funcionar así.
 
+**Alcance, acotado por Andres el mismo día (D-49): es solo el TXT de las
+pólizas.** El **certificado sigue yendo y volviendo por el conector SFTP**, que
+conserva su razón de ser. Lo que cambia de canal es únicamente el lote de
+emisión.
+
 Confirma y endurece lo que A5 ya insinuaba, y cambia tres cosas del plan.
 
 ### 10.1. El puerto de emisión modela un sistema que no existe
@@ -326,13 +331,22 @@ infraestructura segura y evaluación de riesgos, Res. SS.SG. 231/2025 Anexo I
 art. 6 y 210/2025 Anexo I art. 10—, que es un control derivado, igual que la
 fila 79 con la separación de ambientes.
 
-Dos mitigaciones que no dependen de Alianza y conviene proponerles:
+**Decidido (D-49): por ahora, adjunto cifrado**, con la contraseña acordada una
+vez por otro canal. El **enlace de descarga autenticado** queda como objetivo y
+no como idea descartada: es mejor porque el archivo no se copia en dos buzones
+y el acceso caduca. Se retoma cuando la operación de Alianza lo absorba.
 
-1. **Adjunto cifrado**, con la contraseña por un canal distinto del correo.
-2. **Enlace de descarga autenticado** en lugar del adjunto, con el archivo
-   viviendo en nuestra bandeja y un acceso que caduca.
+**Un ZIP «con contraseña» son dos cosas distintas, y hay que elegir antes de
+construirlo.** El cifrado clásico —ZipCrypto— lo abre el explorador de archivos
+de Windows sin instalar nada, y es **débil**: tiene un ataque conocido cuando
+se conoce parte del contenido, que es exactamente el caso de un TXT de formato
+fijo y campos previsibles. El cifrado **AES-256** sí protege, y a cambio el
+explorador de Windows **no lo abre**: hace falta 7-Zip o equivalente.
 
-La segunda es mejor y más trabajo. La primera se puede hacer ya.
+Se elige **AES-256**, y hay que confirmarle a Alianza que su operador puede
+abrirlo. Si no pudiera, la salida es el enlace, **no** bajar a ZipCrypto: un
+cifrado que no cifra es peor que ninguno, porque hace creer que el problema
+está resuelto.
 
 ### 10.3. Nada de esto cambia el cobro ni la cobertura
 
@@ -345,14 +359,15 @@ fecha.
 
 ### 10.4. Lo que hay que preguntar antes de seguir
 
-1. **¿Esto alcanza también al certificado?** El aviso habla de «solicitudes de
-   emisión de certificados» y de TXT procesados en SEBAOT, que es el circuito
-   de la **póliza**. El **CPC** es un PDF que va a firma por carpetas cada 30
-   segundos (A3.1), que es otro camino. Si el CPC también pasara a correo, el
-   conector SFTP se queda sin uso y hay que decidir qué se hace con él.
-2. **A qué casilla** se manda el lote, y si aceptan el adjunto cifrado.
+1. **A qué casilla** se manda el lote diario.
+2. **Si su operador puede abrir un ZIP con AES-256** (7-Zip y similares lo
+   hacen; el explorador de Windows no). De la respuesta depende si el adjunto
+   va cifrado de verdad o hay que adelantar el enlace.
 3. **Cómo sabemos que lo procesaron**, aunque sea una respuesta escrita a mano:
    sin ninguna señal, un lote perdido en una bandeja no se detecta nunca.
+
+~~¿Esto alcanza también al certificado?~~ **Resuelto el mismo día (D-49): no.**
+El certificado sigue por el circuito SFTP ya armado.
 
 ## 11. Estado de los pendientes del intercambio
 

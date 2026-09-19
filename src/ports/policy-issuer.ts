@@ -9,9 +9,13 @@
  *
  * Este puerto modela una integración que responde, y la operación que Alianza
  * describió es otra: **las solicitudes de emisión llegan por correo**, en
- * archivos TXT, y **las procesa una persona a mano en SEBAOT**. No hay SFTP
- * para esto, no hay acuse y no hay a quién consultarle un estado. Alianza no
- * sabe cuánto tiempo va a funcionar así.
+ * archivos TXT dentro de un ZIP con contraseña, y **las procesa una persona a
+ * mano en SEBAOT**. No hay SFTP para esto, no hay acuse y no hay a quién
+ * consultarle un estado. Alianza no sabe cuánto tiempo va a funcionar así.
+ *
+ * **Solo cambia de canal el lote de pólizas** (D-49). El Certificado de
+ * Cobertura sigue yendo y volviendo por el conector SFTP, que es otro camino y
+ * otro puerto (`IntercambioAseguradora`).
  *
  * Lo que eso implica para el adaptador oficial, cuando se escriba:
  *
