@@ -38,6 +38,329 @@ Dos reglas que hacen que esto sirva:
 
 ---
 
+## 2026-09-18 · Alianza contestó: firmantes confirmados, conexión a medias y ningún archivo de respuesta
+
+**Rama:** `claude/alianza-docs-sftp-setup-11036b` (worktree, desde `main` en
+`0f65101`) · **Disparador:** Andres pegó en el chat la respuesta de Alianza al
+correo que él mismo envió el 17-sep.
+
+### El caso
+
+El correo del 17-sep hacía 24 preguntas numeradas en seis bloques: firmantes,
+conexión SFTP, firma, formato del TXT de emisión, archivos de respuesta y
+conciliación de pagos. La respuesta llegó en línea, punto por punto, y **cambia
+el estado de tres frentes a la vez**: cierra P1 (qué firma Alianza), desbloquea
+a medias el conector, y elimina de la fase 1 todo el canal de acuses.
+
+### Qué cambió
+
+- **`docs/Integraciones/Alianza - Respuestas SFTP, firma y emision.md`** — las
+  respuestas reordenadas por identificador (A1.1 … A6), con cita literal de cada
+  una, siguiendo la misma convención que Bancard y Code100. El original, sin
+  editar, al lado en `.txt`. No tiene datos personales.
+- **`docs/ANALISIS_RESPUESTAS_ALIANZA.md`** — el análisis: siete hallazgos, qué
+  choca con el código escrito y qué hay que decidir.
+- **`docs/CONFIGURACION_SFTP_ALIANZA.md`** — la tabla de la sección 1 pasa a
+  decir qué dato ya tenemos y cuál sigue faltando; la sección 8 se rehízo; y se
+  agregó la **sección 3.4**, el camino para sacar las tres IP antes de tener la
+  clave de host.
+- **`docs/correos/Correo 7 - Alianza - …md`** — borrador de la contrarespuesta,
+  con el párrafo de las IP escrito en dos variantes según lo que decida Andres.
+
+### Lo que la respuesta cierra
+
+- **El esquema de firmantes (A1.1): *"Si, el esquema esta correcto"*.** Alianza
+  firma **solo el CPC**; la Solicitud + FIPF la firman cliente e Interseguros.
+  Es D-42 tal cual, y cierra P1: `INTERCAMBIO_ASEGURADORA_DOCUMENTOS=CPC`.
+- **Host y puerto: `138.186.63.132:2222`** (A2.2), una IP pública de verdad y no
+  la `10.0.7.101` interna de la captura.
+- **La póliza conserva nuestro correlativo** (A4.4), **lote diario** (A4.3), y
+  el firmador **no compite** con la emisión (A3.7).
+- **Fase 1 por Internet; la VPN queda para después** (A2.8).
+
+### Lo que la respuesta rompe o deja peor de lo previsto
+
+- **«Solo PDF» (A3.3).** No contestaron si el firmador ignora los `.tmp` y los
+  `.json`, y pidieron mandar únicamente el PDF. El adaptador manda **dos**
+  archivos y publica renombrando desde `.tmp`. El riesgo grande no es el JSON:
+  es que un firmador que no filtre por extensión tome un PDF a medio subir,
+  firme un archivo truncado y lo devuelva — y ese documento no empareja por
+  prefijo, así que el CPC de un cliente real nunca se entrega. Propuesta en el
+  análisis §3: dejar de mandar el metadato y reemplazar el `.tmp` por una
+  **carpeta de tránsito** con `StartRemoteMove`, que no depende de que el
+  firmador entienda extensiones.
+- **Nadie avisa cuando algo sale mal (A3.2, A3.5, A5).** No hay archivo de
+  error, no hay acuse y no habrá archivos de respuesta en la fase 1. El único
+  detector de un CPC que no volvió somos nosotros, y el único canal de reclamo
+  es el teléfono. Hace falta plazo de espera, alerta en la consola y decidir qué
+  ve la persona mientras tanto (P2 de D-42, abierta). `salida/respuestas` queda
+  vacía a propósito, y eso ahora está escrito para que nadie lo lea como falla.
+- **La firma incremental sigue sin probarse (A3.6).** *"La firma se agrega sobre
+  el documento original"* es compatible con incremental y también con un
+  firmador que reescriba el PDF. Es el riesgo #1 de `DISENO_FIRMA_EN_LOTE.md`
+  §6, y se resuelve con el PDF en blanco que ellos mismos ofrecieron, no
+  preguntando de nuevo.
+- **La emisión es manual y sin horario definido (A3.1)**, con lote diario: un
+  caso pagado el viernes puede tener póliza el martes. No obliga a cambiar
+  código —P9 y 05B no prometen plazo— pero hay que confirmarlo antes del
+  lanzamiento.
+- **SEBAOT (A4.1, A4.2, A4.5): *"podes conseguir con sebaot"*.** El formato del
+  TXT sigue sin dueño y bloquea la emisión.
+- **La retención se rechazó (A2.7).** Es defendible: tratan esos datos por
+  derecho propio como aseguradora. Va al acuerdo de servicio, no al correo
+  técnico, así que el borrador **no** insiste.
+
+### El hallazgo que destraba la espera
+
+La `precondition` de `infra/alianza-sftp.tf` exige la clave de host, y con razón.
+Pero la documentación de AWS dice que un conector se puede crear con
+`TrustedHostKeys` vacío y **no transfiere nada** hasta que se la cargue: la
+salvaguarda la impone el servicio, no solo nuestro Terraform. Un conector así
+**ya tiene sus tres IP**, y agregar la clave después es un `UpdateConnector`, así
+que **las IP no cambian**. Eso permite mandarles las IP hoy y que habiliten el
+firewall en paralelo a la sesión técnica, en vez de en serie. Requiere
+autorización de Andres porque crea recursos en la cuenta real.
+
+### Qué hizo Andres
+
+- Envió el correo el 17-sep y pegó la respuesta completa en el chat el 18-sep.
+- **Pendiente de decidir:** conector ahora sin clave de host (variante A) o
+  esperar la sesión técnica (variante B); y si se aplica el cambio de «solo PDF»
+  + carpeta de tránsito antes de la primera prueba.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| Alcance del cambio | solo documentación; ni un archivo de `src/` ni de `infra/` tocado |
+| `npm run typecheck` · `npm run lint` | en verde |
+| Cita de AWS sobre `TrustedHostKeys` vacío | leída de la guía oficial de Transfer Family, citada textual en la guía y en el análisis |
+| Contraste del esquema de firmantes contra el código | coincide con `firmantes-documento.ts` y con D-42 |
+
+### Segundo tramo · las tres autorizaciones de Andres
+
+**Pedidos:** «Vamos con el conector ahora y aplica el cambio del adaptador», y
+«dime qué responder a Alianza».
+
+- **Cambio del adaptador (A3.3), implementado.** El envío ya no manda el
+  metadato `.json` —`enviarMetadato`, apagado por defecto y encendible con
+  `INTERCAMBIO_ASEGURADORA_METADATO=true` para otra aseguradora— y **el `.tmp`
+  se fue**: el PDF se sube a `/entrada/en-curso` y se **mueve** a la carpeta que
+  vigila el firmador al terminar. Un movimiento del servidor es instantáneo, así
+  que en la carpeta vigilada nunca aparece un archivo incompleto, y deja de
+  depender de que el firmador filtre por extensión, que es lo que Alianza no
+  quiso confirmar. El sufijo sigue vivo en el otro sentido: es lo que le pedimos
+  a Alianza al depositar, y la recepción lo hace cumplir. Mock actualizado para
+  simular lo mismo.
+- **Conector: preparado, no creado.** `alianza_sftp_sin_clave_de_host` permite
+  crear el conector sin la clave de host, con la cita de AWS en el comentario:
+  un conector así **no transfiere un solo byte**, pero ya tiene sus tres IP, y
+  agregarlas después es un cambio en el lugar que **no las cambia**. El `apply`
+  quedó trabado un escalón antes: `aab1-demo-deployer` no tiene permisos de
+  Transfer Family —falta adjuntar `SLTDemoAlianzaSftpPolicy`, que pide
+  administración— y la sesión del perfil de administración está vencida.
+- **Clave SSH generada** (`ed25519`, dedicada, sin passphrase, en
+  `~/slt-alianza-sftp`). La pública ya está pegada en el Correo 7 con su huella.
+  La privada se borra de la máquina apenas se cargue en Secrets Manager.
+- **Correo 7 listo**, con el hueco de las tres IP marcado.
+
+### Verificaciones
+
+| Qué | Resultado |
+| :---- | :---- |
+| `npm test`, al cierre de la sesión | **1399** tests, 102 archivos, todo en verde |
+| `npm test`, tras el segundo tramo | **1390** tests, 102 archivos, todo en verde |
+| `npm run typecheck` · `npm run lint` | limpio · 0 errores, 3 advertencias preexistentes |
+| `terraform validate` · `terraform fmt` | válido · formato ok |
+| Tests nuevos del envío | solo viaja el PDF · la carpeta del firmador está vacía hasta publicar · con metadato encendido, el PDF se mueve último |
+
+### Tercer tramo · el conector existe
+
+Andres se autenticó con la cuenta de administración y corrió el script
+`permisos-alianza-sftp.sh` (scratchpad, copiado a `~/segurolotengo-demo/`), que
+creó `SLTDemoAlianzaSftpPolicy` y la adjuntó al grupo de despliegue. El
+clasificador del modo automático **no deja que la sesión otorgue permisos IAM**,
+de ahí el script; es la salida que ya estaba registrada en memoria.
+
+- **Conector creado:** `c-f2f1ac065481446ab`, con sus tres IP —`67.202.57.40`,
+  `44.209.137.228`, `50.19.171.17`—, bandeja
+  `slt-demo-intercambio-alianza-4d889806` y el secreto vacío. **No transfiere
+  nada**: sin clave de host, la propia AWS lo impide.
+- **El state vive en el checkout principal, no en el worktree.** Aplicar desde
+  acá sin darse cuenta habría intentado crear toda la infraestructura de nuevo.
+  El `plan` y el `apply` fueron con
+  `-state=/home/andres-alberdi/segurolotengo-demo/infra/terraform.tfstate`. El
+  plan se revisó antes: 11 a crear, 1 a cambiar, 0 a destruir, y el cambio era
+  sumarle dos variables a Amplify sin tocar las trece existentes.
+- **El provider exige lo que la API no.** `trusted_host_keys = []` corta el
+  apply con `Not enough list items`: el schema valida `MinItems = 1`. Con
+  `null` el atributo se omite y el conector se crea, que es justo lo que la
+  API admite. Quedó como ternario, así que con la clave cargada vuelve a viajar.
+- **Correo 7 completo**, con las tres IP y la clave pública pegadas.
+
+### El aviso a Alianza pasa a ser correo automático
+
+**Decisión de Andres, 18-sep:** el punto 4 del Correo 7 pedía un teléfono al que
+llamar cuando un certificado no vuelve firmado; pasa a pedir **una casilla de
+correo**, *«para que podamos automatizar el correo»*. Arrastra dos cosas sin
+resolver: **SES está en sandbox**, donde un destinatario sin verificar hace que
+la API **rechace** el envío —hay que verificar la casilla de Alianza o salir del
+sandbox—, y el aviso **no puede llevar ningún dato de la persona** (regla
+inviolable #7): código, correlativo y cuánto lleva esperando, el mismo criterio
+de `remision-alianza.ts`.
+
+### Llegó el modelo oficial del CPC
+
+Alianza mandó el **modelo aprobado** del certificado, el último pendiente de
+D-42. Entró al repositorio como `docs/MODELO_CERTIFICADO_COBERTURA_ALIANZA.docx`,
+con su conversión a PDF al lado para poder verlo sin Word, y el análisis de
+brecha en `docs/ANALISIS_MODELO_CPC_ALIANZA.md`.
+
+- **Es una plantilla en blanco**, sin un valor de ejemplo, maquetada con cuadros
+  de texto. Título interno: «Certificado de Cobertura Provisorio».
+- **La mayor parte ya la tenemos:** número, documento, nombre, domicilio,
+  localidad, vigencia con hora —el modelo pide exactamente lo que CHG-41 ya
+  calcula—, las cuatro sumas aseguradas del plan y el beneficiario con nombre,
+  parentesco y cédula.
+- **Ocho valores no existen en ningún documento del producto** y no se inventan:
+  sección/sub-sección, objeto del seguro, edad límite, límite de padecimientos,
+  plazo máximo del pago, período de espera y de carencia por separado,
+  deducible, y la proporción del beneficiario único. Pasaron a ser el punto 6
+  del Correo 7, que hasta hoy pedía el modelo.
+- **Lo que hoy imprimimos y el modelo no contempla no se puede sacar:** QR y
+  código de verificación (CMP-06), huella y vínculo con `PROP-<correlativo>`
+  (fila 47), la leyenda de que no es póliza ni Nota de Cobertura, y los
+  firmantes (D-13). Van como bloque al pie, sin tocar el cuerpo aprobado, y el
+  correo lo consulta en vez de darlo por hecho.
+- La leyenda «modelo provisional, pendiente del modelo registrado» sigue siendo
+  cierta hasta que lleguen esos valores, y no se toca.
+
+### Cuarto tramo · adelantar el certificado sin las respuestas
+
+**Pedido de Andres:** ya mandó el correo técnico, la parte legal de Alianza está
+viendo tres puntos, y mientras tanto *«avanza todo lo que podamos, anotando lo
+pendiente, para evitar que tardemos más posteriormente»*.
+
+Se adelantó del modelo oficial **todo lo que no depende de una respuesta**:
+
+- **Domicilio y localidad** en el bloque del asegurado, desde
+  `datosComplementarios`, que es el que se compone siempre y ya leen la
+  Solicitud y el FIPF.
+- **Edad de ingreso** como `18 a 64 años`. El modelo la pide en dos renglones y
+  acá va en uno, para no estirar el documento; los dos números siguen a la
+  vista, que es lo que obliga la regla #8.
+- **Bloque nuevo de beneficiarios**, con nombre, parentesco, cédula y
+  proporción. Herederos legales se resuelven en un renglón con el 100 %; la
+  cédula del designado es opcional (CHG-24) y si falta **se omite el renglón**
+  en vez de imprimir un casillero vacío. `beneficiario` pasó a ser campo
+  faltante del certificado: el modelo tiene ese bloque y el flujo lo exige
+  antes de cerrar el paquete.
+- **`src/domain/condiciones-producto.ts`**, nuevo: las ocho condiciones que
+  Alianza debe confirmar, todas en `null`, más `camposDefinidos`, que es la
+  regla —**lo que no se confirmó no se imprime**— con un solo lugar y su test.
+  Cuando contesten se llenan ahí y aparecen solas: ni la plantilla ni el armado
+  se vuelven a tocar.
+
+**El certificado pasó a dos carillas**, y se aceptó. El cierre —firma y pie—
+baja entero a la segunda. Pelear por la carilla única no tenía sentido: las
+ocho condiciones que faltan suman hasta ocho filas más y la romperían igual. Se
+compactaron dos filas igual (edades en un renglón, beneficiarios en cuatro
+columnas) para que la huella del documento firmado no quedara sola arriba de la
+segunda. El comentario del código que prometía una carilla se corrigió en vez
+de dejarlo mintiendo.
+
+**Verificado mirando el PDF, no solo los tests:** se generaron dos certificados
+de muestra —herederos legales y persona designada— y se revisaron las dos
+carillas de cada uno.
+
+### La emisión no va por SFTP: va por correo y a mano
+
+Aviso posterior de Alianza, ya cerrada la ronda de respuestas: **las solicitudes
+de emisión llegan por correo**, en los TXT del modelo, y **las procesan a mano
+en SEBAOT**. Sin SFTP y **sin confirmación automática**. No saben cuánto tiempo
+va a funcionar así.
+
+- **`PolicyIssuer` modela un sistema que no existe.** El puerto supone una
+  integración que contesta: `emitirPoliza` devuelve estado y número, y
+  `consultarEstadoPoliza` pregunta por uno. Del otro lado hay una persona
+  abriendo un correo. El adaptador oficial solo va a poder decir «se remitió»,
+  con fecha y destinatario; consultar estado **no tiene implementación posible**
+  por ese canal, y el estado real entra a mano por la consola. **No se
+  reescribió el puerto** —el live no existe, el mock sirve al demo y el formato
+  del TXT sigue sin definir— pero el encabezado ya lo advierte, para que nadie
+  construya sobre la premisa de que hay respuesta.
+- **Un adjunto con datos personales por un canal que no controlamos.** El TXT
+  lleva cédula, domicilio, actividad e ingresos, y queda copiado en dos buzones
+  por tiempo indefinido. **No hay fila de la matriz que prohíba el correo**, y
+  se dice así en vez de inventar una: lo más cercano es la fila 78, control
+  derivado. Se proponen dos mitigaciones: adjunto cifrado con la contraseña por
+  otro canal, o un enlace de descarga autenticado que caduque.
+- **No toca el cobro ni la cobertura.** La emisión manual ocurre después del
+  pago y de la firma; lo que se estira es cuándo existe la póliza, y P9 ya
+  separa «Solicitud aceptada» de «Póliza en preparación» sin prometer fecha.
+**Andres acotó el alcance el mismo día, y quedó como D-49:** *«Me refiero
+SOLAMENTE al TXT para que se generen las PÓLIZAS, los certificados pasan por el
+circuito armado»*. El conector SFTP conserva su razón de ser. Y sobre cómo
+viaja: *«Es mejor hacer enlaces, pero por ahora será solo enviando el archivo
+TXT, que podría estar en un ZIP con passwd»*.
+
+- **El enlace de descarga queda como objetivo**, no descartado.
+- **Un ZIP «con contraseña» son dos cosas distintas**, y conviene saberlo antes
+  de construirlo: ZipCrypto lo abre el explorador de Windows sin instalar nada
+  y es **débil** —tiene un ataque conocido cuando se conoce parte del
+  contenido, que es exactamente un TXT de formato fijo—; AES-256 sí protege y
+  el explorador de Windows **no lo abre**, hace falta 7-Zip. Se elige AES-256 y
+  hay que confirmar que su operador puede abrirlo. Si no pudiera, la salida es
+  el enlace y **no** bajar a ZipCrypto: un cifrado que no cifra es peor que
+  ninguno, porque hace creer que el problema está resuelto.
+- La contraseña no viaja en el mismo correo, se acuerda una vez por otro canal
+  y vive en Secrets Manager.
+- **Quedan tres preguntas:** a qué casilla va el lote, si su operador abre
+  AES-256, y cómo nos enteramos de que lo procesaron.
+
+### Quinto tramo · los recordatorios que la Pantalla B seguía prometiendo
+
+Pendiente desde el 15-sep, e independiente de Alianza. La lista de actores
+decía que Interseguros *«realiza los recordatorios de 1, 5 y 12 horas»*, que es
+la fila 29 de la matriz. **Con D-32 el plazo entero dura diez minutos**: a la
+primera hora el expediente venció hace rato, así que no es que los
+recordatorios se hayan quitado, es que ya no existe la ventana en la que
+ocurrirían.
+
+- El rol de Interseguros pasa a decir lo que sí hace, y la divergencia queda
+  declarada en el módulo junto a las otras dos, con su porqué.
+- **La fila 41 estaba igual de vieja:** el comentario decía que la vigencia de
+  24 horas del enlace de firma es «el plazo cuyo vencimiento trae a la persona
+  hasta acá», y desde v4 el cliente firma en pantalla con su código, sin ningún
+  enlace que caduque.
+- **Queda abierto, como decisión de producto y no de norma:** si dentro de los
+  diez minutos corresponde **algún** aviso, y por qué canal. Mientras no se
+  decida, no se escribe: la matriz misma aclara que esos horarios no salen de
+  ningún artículo.
+
+### Queda abierto
+
+- **Andres:** el OK para enviar el Correo 7, y fusionar #136 — el clasificador
+  frena `gh pr merge` incluso delegado a un subagente.
+- **Reescribir el CPC con el modelo oficial**, cuando Alianza conteste el punto
+  6. Toca `certificado-cobertura.ts`, su plantilla y el catálogo del producto.
+- **Sesión técnica con Alianza:** clave de host, usuario, algoritmos y nombres
+  de carpeta. Con eso: cargar el secreto, `alianza_sftp_sin_clave_de_host =
+  false`, `apply`, `test-connection` y borrar la privada de la máquina.
+- **Sesión técnica con Alianza:** clave de host, usuario, algoritmos y nombres de
+  carpeta (incluida cuál vigila el firmador).
+- **Prueba del PDF en blanco** en su ambiente: es la que decide si el
+  emparejamiento por prefijo del lote de firma sirve. Va antes de construir la
+  recepción.
+- **Cambio en el adaptador:** solo PDF y carpeta de tránsito en vez de `.tmp`.
+- **P2 de D-42:** qué ve la persona mientras el CPC espera la firma de Alianza.
+- **Modelo de CPC aprobado**, que no vino con la respuesta.
+- **SEBAOT** y la **sesión de pagos** con tesorería y finanzas.
+- Lo que ya estaba: las cuatro decisiones de #131, y los hitos de Pantalla B que
+  no tienen sentido con 10 minutos.
+
+---
+
 ## 2026-09-17 · #131 en producción, correo a Alianza enviado y PDF de prueba de funcionamiento para gerencia
 
 **Rama:** `chore/capturas-gerencia-v4` (desde `main` en `f89a962`) ·

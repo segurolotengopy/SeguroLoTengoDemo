@@ -16,9 +16,9 @@
  * - `StartDirectoryListing` — escribe en S3 un JSON `<connector>-<listing>.json`
  *   con `files[{filePath, modifiedTimestamp, size}]`, `paths` y `truncated`.
  *   https://docs.aws.amazon.com/transfer/latest/APIReference/API_StartDirectoryListing.html
- * - `StartRemoteMove` — renombra en el servidor remoto (`.tmp` → definitivo,
- *   y lo recibido → `procesados/`). Devuelve un `MoveId` y **no hay API para
- *   consultar su resultado**: se confirma listando.
+ * - `StartRemoteMove` — mueve en el servidor remoto: de la carpeta de tránsito
+ *   a la que vigila el firmador, y lo recibido → `procesados/`. Devuelve un
+ *   `MoveId` y **no hay API para consultar su resultado**: se confirma listando.
  *   https://docs.aws.amazon.com/transfer/latest/APIReference/API_StartRemoteMove.html
  *
  * `StartRemoteDelete` existe y **no se usa a propósito**: lo procesado se mueve,
@@ -70,7 +70,6 @@ import type {
   ConfiguracionIntercambioAseguradora,
 } from "../../domain/intercambio-aseguradora";
 import {
-  SUFIJO_EN_CURSO,
   carpetaRemotaDeRecepcion,
   construirMetadatoEnviado,
   nombreArchivoRemoto,
@@ -98,7 +97,10 @@ interface RegistroTransferencia {
   readonly referencia: string;
   readonly direccion: DireccionTransferencia;
   readonly nombreArchivo: string;
+  /** Envío: carpeta final, la que vigila el firmador. Recepción: de dónde se trae. */
   readonly carpetaRemota: string;
+  /** Solo en un envío: dónde se sube antes de publicar. Ver `PUBLICACION_POR_MOVIMIENTO`. */
+  readonly carpetaTransito?: string;
   /** Envío: huella del PDF. Recepción: null hasta recibir. */
   readonly hashSha256: string | null;
   /** Archivos que mueve la transferencia: en un envío, metadato y PDF. */
@@ -270,13 +272,14 @@ export function crearIntercambioAseguradoraSftp(opciones: OpcionesIntercambioSft
       // Solo quien escribe PUBLICADA renombra: dos sondeos simultáneos no
       // piden dos veces el mismo movimiento.
       if (!(await registrarEvento(ref, "PUBLICADA"))) return;
+      const origen = registro.carpetaTransito ?? registro.carpetaRemota;
       try {
-        // Metadato primero: cuando Alianza vea el PDF, su JSON ya está.
+        // El PDF va último: cuando el firmador lo ve, lo que lo acompaña ya está.
         for (const nombre of registro.archivos) {
           await cliente.send(
             new StartRemoteMoveCommand({
               ConnectorId: connectorId,
-              SourcePath: `${registro.carpetaRemota}/${nombre}${SUFIJO_EN_CURSO}`,
+              SourcePath: `${origen}/${nombre}`,
               TargetPath: `${registro.carpetaRemota}/${nombre}`,
             }),
           );
@@ -317,28 +320,39 @@ export function crearIntercambioAseguradoraSftp(opciones: OpcionesIntercambioSft
       );
       if (duplicado) return { ok: true, referencia, duplicado: true, nombreRemoto };
 
+      // El PDF primero en la lista, para que sea el último en moverse: cuando
+      // el firmador lo ve, todo lo que lo acompaña ya está publicado.
+      const archivos = configuracion.enviarMetadato ? [nombreMetadato, nombreRemoto] : [nombreRemoto];
       const registro: RegistroTransferencia = {
         referencia,
         direccion: "ENVIO",
         nombreArchivo: nombreRemoto,
         carpetaRemota: carpetas.envio,
+        carpetaTransito: carpetas.transito,
         hashSha256: solicitud.hashSha256,
-        archivos: [nombreMetadato, nombreRemoto],
+        archivos,
       };
       await bandeja.guardarSiNoExiste(claves.registro(referencia), json(registro), JSON_TIPO);
 
-      const metadato = construirMetadatoEnviado(solicitud, solicitud.hashSha256, solicitud.bytes.length, ahora());
-      const claveMetadato = claves.salida(referencia, `${nombreMetadato}${SUFIJO_EN_CURSO}`);
-      const clavePdf = claves.salida(referencia, `${nombreRemoto}${SUFIJO_EN_CURSO}`);
-      await bandeja.guardarSiNoExiste(claveMetadato, json(metadato), JSON_TIPO);
+      // Sin sufijo: lo que protege de una lectura a medias es la carpeta de
+      // tránsito, que nadie vigila (`PUBLICACION_POR_MOVIMIENTO`).
+      const rutas: string[] = [];
+      if (configuracion.enviarMetadato) {
+        const metadato = construirMetadatoEnviado(solicitud, solicitud.hashSha256, solicitud.bytes.length, ahora());
+        const claveMetadato = claves.salida(referencia, nombreMetadato);
+        await bandeja.guardarSiNoExiste(claveMetadato, json(metadato), JSON_TIPO);
+        rutas.push(bandeja.rutaTransfer(claveMetadato));
+      }
+      const clavePdf = claves.salida(referencia, nombreRemoto);
       await bandeja.guardarSiNoExiste(clavePdf, solicitud.bytes, "application/pdf");
+      rutas.push(bandeja.rutaTransfer(clavePdf));
 
       try {
         const salida = await cliente.send(
           new StartFileTransferCommand({
             ConnectorId: connectorId,
-            SendFilePaths: [bandeja.rutaTransfer(claveMetadato), bandeja.rutaTransfer(clavePdf)],
-            RemoteDirectoryPath: carpetas.envio,
+            SendFilePaths: rutas,
+            RemoteDirectoryPath: carpetas.transito,
           }),
         );
         const transferId = salida.TransferId ?? "";

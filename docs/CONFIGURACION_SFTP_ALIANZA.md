@@ -4,12 +4,27 @@ Guía operativa del envío y la recepción de PDF con Alianza Garantía (ítem 3
 `Tabla de Integraciones externas - Tabla.csv`): les mandamos un documento para
 que lo firmen y traemos de vuelta lo firmado y sus archivos de respuesta.
 
+> **Este canal es para los documentos que Alianza firma, no para la emisión.**
+> El 18-sep-2026 avisaron que **las solicitudes de emisión van por correo**, en
+> archivos TXT, y las procesan a mano en SEBAOT. **El certificado sigue por
+> acá** (D-49), así que el conector conserva su razón de ser; lo que nunca va a
+> pasar por este canal es el lote de pólizas
+> (`docs/ANALISIS_RESPUESTAS_ALIANZA.md` §10).
+
 Región: **us-east-1**. Cuenta: **120005938663**. Terraform: `infra/alianza-sftp.tf`
 y `infra/alianza-vpn.tf`. Código: puerto `src/ports/intercambio-aseguradora.ts`,
 adaptador `src/adapters/live/intercambio-aseguradora-sftp.ts`.
 
-**Estado al 15-sep-2026: todo escrito y apagado.** Nada existe en la cuenta hasta
-que se complete la sección 3.
+**Estado al 18-sep-2026: el conector existe, y todavía no transfiere nada.**
+`c-f2f1ac065481446ab`, creado **sin clave de host a propósito** (sección 3.4)
+para tener sus tres IP: `67.202.57.40`, `44.209.137.228` y `50.19.171.17`.
+Bandeja `slt-demo-intercambio-alianza-4d889806`, secreto
+`slt-demo-alianza-sftp-credencial` **vacío**. Falta la sesión técnica con
+Alianza para cargar la clave de host y el usuario. Alianza contestó el 18-sep
+(`docs/Integraciones/Alianza - Respuestas SFTP, firma y emision.md`, análisis en
+`docs/ANALISIS_RESPUESTAS_ALIANZA.md`): dieron **host y puerto**, y dejaron la
+**clave de host**, el **usuario** y los **algoritmos** para una sesión técnica
+conjunta. Sin esos tres, el `apply` completo sigue trabado — ver la sección 3.4.
 
 ---
 
@@ -49,14 +64,14 @@ del borrador de respuesta (`docs/recepcion/2026-09-14-interseguros/BORRADOR_CORR
 
 | Dato | Para qué | Variable |
 | :---- | :---- | :---- |
-| **Host público o IP pública, y puerto** | La URL del conector. La captura mostraba `10.0.7.101`, que es interna y no sirve por Internet | `alianza_sftp_url` |
-| **Clave pública de host del servidor** (`ssh-ed25519 AAAA…` o `ssh-rsa AAAA…`) y su **huella** | Que el conector compruebe que habla con Alianza y no con un impostor | `alianza_sftp_trusted_host_keys` |
-| **Usuario** | La credencial | secreto |
-| Que acepten **autenticación por clave SSH** | Les mandamos nuestra clave pública (sección 2) | — |
-| **Carpetas**: dónde depositamos, dónde dejan lo firmado, dónde las respuestas, y una subcarpeta `procesados/` en cada una | La app mueve lo ya recibido a `procesados/` en vez de borrarlo | `ALIANZA_SFTP_CARPETA_*` |
-| Si aceptan subir como **`.tmp` y renombrar** al terminar, y que hagan lo mismo | Que nadie procese un archivo a medio escribir | — |
-| Qué **algoritmos SSH** admite el servidor | Si son viejos, hay que elegir otra política criptográfica | `alianza_sftp_security_policy` |
-| Si la firma es **PAdES incremental** | Lo devuelto tiene que contener lo enviado como prefijo | — |
+| ✅ **Host público o IP pública, y puerto** — **`138.186.63.132`, puerto `2222`** (A2.2) | La URL del conector. La captura mostraba `10.0.7.101`, que es interna y no sirve por Internet | `alianza_sftp_url` |
+| ⬜ **Clave pública de host del servidor** (`ssh-ed25519 AAAA…` o `ssh-rsa AAAA…`) y su **huella** — sesión técnica (A2.3) | Que el conector compruebe que habla con Alianza y no con un impostor | `alianza_sftp_trusted_host_keys` |
+| ⬜ **Usuario** — sesión técnica (A2.4) | La credencial | secreto |
+| ⬜ Que acepten **autenticación por clave SSH** — sesión técnica (A2.4) | Les mandamos nuestra clave pública (sección 2) | — |
+| ⚠️ **Carpetas**: una de **tránsito**, una donde depositamos, donde dejan lo firmado, y una subcarpeta `procesados/` en cada una de recepción — aceptaron el esquema (A2.5) pero **faltan los nombres**, y sobre todo **cuál vigila el firmador** | La app sube a tránsito y **mueve** a la del firmador al terminar; y mueve lo ya recibido a `procesados/` en vez de borrarlo | `ALIANZA_SFTP_CARPETA_*` |
+| ✅ Que nadie procese un archivo a medio escribir — **resuelto sin pedirles nada más que una carpeta**: subimos a `entrada/en-curso` y movemos a la carpeta del firmador al terminar. Ver `ANALISIS_RESPUESTAS_ALIANZA.md` §3 | El `.tmp` apostaba a que su firmador filtrara por extensión, y no lo confirmaron (A3.3) | `ALIANZA_SFTP_CARPETA_TRANSITO` |
+| ⬜ Qué **algoritmos SSH** admite el servidor — sesión técnica (A2.4) | Si son viejos, hay que elegir otra política criptográfica | `alianza_sftp_security_policy` |
+| ⚠️ Si la firma es **PAdES incremental** — dijeron *"se agrega sobre el documento original"* (A3.6), que no lo prueba. **Se verifica con el PDF en blanco en su ambiente de pruebas**, no preguntando de nuevo | Lo devuelto tiene que contener lo enviado como prefijo | — |
 
 **La huella se confirma por un canal distinto del que trae la clave.** Si la clave
 llega por correo, la huella se confirma por teléfono o WhatsApp con alguien de
@@ -114,7 +129,7 @@ En el `.tfvars` local, que **no** se versiona:
 
 ```hcl
 alianza_sftp_habilitado        = true
-alianza_sftp_url               = "sftp://<host-publico>:<puerto>"
+alianza_sftp_url               = "sftp://138.186.63.132:2222"
 alianza_sftp_trusted_host_keys = ["ssh-ed25519 AAAA..."]
 # alianza_sftp_security_policy = "TransferSFTPConnectorSecurityPolicy-…"  # solo si hace falta
 ```
@@ -145,6 +160,34 @@ rol `aab1-demo-alianza-sftp-conector`, el conector, el permiso del rol de
 Amplify sobre ambos, y las variables `ALIANZA_SFTP_CONNECTOR_ID` y
 `ALIANZA_SFTP_BUCKET` en la app. **No** cambia el modo del adaptador: la app
 sigue en mock hasta la sección 6.
+
+### 3.4. Sacar las IP antes de tener la clave de host
+
+Alianza confirmó host y puerto pero dejó la clave de host para una sesión
+técnica (A2.3), y la `precondition` del conector exige
+`alianza_sftp_trusted_host_keys`. La salvaguarda es correcta: sin la clave, el
+conector le entregaría documentos con declaraciones de salud a cualquiera que
+conteste en esa IP.
+
+Hay un camino intermedio que **no la debilita**, porque quien lo impone es AWS:
+
+> *"You have an option to create your connector while leaving the
+> `TrustedHostKeys` parameter empty. However, your connector will not be able to
+> transfer files with the remote server until you provide this parameter"*
+> ([Create an SFTP connector](https://docs.aws.amazon.com/transfer/latest/userguide/create-sftp-connector-procedure.html))
+
+Un conector sin clave de host **no transfiere nada**, y sin embargo **ya tiene
+sus tres IP**. Sirve para mandárselas a Alianza y que habiliten el firewall en
+paralelo a la sesión técnica, en vez de en serie. Agregar la clave después es un
+`UpdateConnector` (cambio en el lugar), así que **las IP no cambian**: solo
+destruir y recrear el conector las cambiaría.
+
+**Requiere autorización de Andres**, porque crea recursos en la cuenta real, y
+deja el estado degradado a la vista en vez de escondido: la variable se llama
+`alianza_sftp_sin_clave_de_host` y el `plan` la anuncia.
+
+**No se usa para nada más.** Con la clave en mano se vuelve a `false` y el
+conector queda como corresponde.
 
 ---
 
@@ -226,15 +269,22 @@ El resultado aparece segundos después en `s3://<bucket>/alianza/listados/`.
 - `INTEGRATION_INTERCAMBIO_ASEGURADORA=live`
 - `INTERCAMBIO_ASEGURADORA_DOCUMENTOS=CPC`. **No tiene valor por defecto**:
   qué firma Alianza sigue abierto (P1), y sin la variable no sale ningún documento.
-- `ALIANZA_SFTP_CARPETA_ENVIO`, `…_FIRMADOS` y `…_RESPUESTAS`, si Alianza
-  confirma otras carpetas que las propuestas (`/entrada/documentos`,
-  `/salida/documentos`, `/salida/respuestas`).
+- `ALIANZA_SFTP_CARPETA_TRANSITO`, `…_ENVIO`, `…_FIRMADOS` y `…_RESPUESTAS`, si
+  Alianza confirma otras carpetas que las propuestas (`/entrada/en-curso`,
+  `/entrada/documentos`, `/salida/documentos`, `/salida/respuestas`).
+- `INTERCAMBIO_ASEGURADORA_METADATO` **no se enciende con Alianza**: pidieron
+  solo el PDF (A3.3) y por eso el `.json` está apagado por defecto.
 
-Lo que tiene que pasar al enviar: en el servidor de Alianza aparecen
-`CPC-<correlativo>-v1.json.tmp` y `….pdf.tmp`, y al rato los dos sin `.tmp`, el
-JSON primero. El JSON lleva código, correlativo, versión, huella SHA-256 y
-tamaño: **ningún dato de la persona**, y los nombres de archivo tampoco, porque
-los logs del conector registran rutas.
+**`salida/respuestas` va a estar vacía, y no es una falla.** Alianza contestó
+que los archivos de respuesta *"por ahora no tenemos esa opción"* (A5): en la
+fase 1 no hay acuse de recepción, ni aceptados/rechazados, ni aviso de póliza
+emitida. La carpeta y `CarpetaRecepcion.RESPUESTAS` se conservan para cuando la
+adecúen.
+
+Lo que tiene que pasar al enviar: `CPC-<correlativo>-v1.pdf` aparece primero en
+`/entrada/en-curso` y **después** en la carpeta del firmador, entero, por un
+movimiento del servidor. **Ningún otro archivo viaja** (A3.3). Los nombres no
+llevan datos de la persona, porque los logs del conector registran rutas.
 
 ---
 
@@ -286,12 +336,18 @@ dejarla encendida "por las dudas".
 | :---- | :---- |
 | Registro en la tabla de integraciones (ítem 36) | ✅ |
 | Terraform del conector, bandeja, rol y secreto | ✅ escrito, `validate` en verde, **sin aplicar** |
-| Terraform de la VPN | ✅ escrito, apagado |
+| Terraform de la VPN | ✅ escrito, apagado — Alianza prefiere empezar por Internet (A2.8) |
 | Puerto, mock, adaptador live y contrato | ✅ |
-| Política `SLTDemoAlianzaSftpPolicy` adjuntada | ⬜ Andres, con administración |
-| Datos de Alianza (host, puerto, clave de host, usuario, carpetas) | ⬜ esperan la respuesta al correo |
-| Clave SSH generada y pública enviada | ⬜ |
+| Qué documentos firma Alianza (`INTERCAMBIO_ASEGURADORA_DOCUMENTOS`) | ✅ **`CPC`**: A1.1 confirmó D-42 y cerró P1 |
+| Host y puerto | ✅ `sftp://138.186.63.132:2222` (A2.2) |
+| Política `SLTDemoAlianzaSftpPolicy` adjuntada | ✅ Andres, 18-sep-2026 |
+| Conector creado, por ahora solo por sus IP | ✅ `c-f2f1ac065481446ab` |
+| Clave de host, usuario y algoritmos | ⬜ **sesión técnica conjunta** (A2.3, A2.4) |
+| Clave SSH generada | ✅ `ed25519`, huella `SHA256:LhMYdIDjLB7EINRgzAu50196WcKNDmC45cQ06Z//Prc`; enviarla ⬜ |
 | Secreto cargado | ⬜ |
-| IP enviadas a Alianza y habilitadas | ⬜ |
+| IP enviadas a Alianza y habilitadas | ⬜ están en el Correo 7, sin enviar |
 | `test-connection` en `OK` | ⬜ |
-| Qué documentos firma Alianza (`INTERCAMBIO_ASEGURADORA_DOCUMENTOS`) | ⬜ P1, Rodrigo |
+| Nombres de carpeta, y cuál vigila el firmador | ⬜ aceptaron el esquema (A2.5), faltan los nombres |
+| Solo PDF, sin metadato `.json`, y `.tmp` o carpeta de tránsito | ⬜ decisión pendiente (A3.3, análisis §3) |
+| Firma incremental verificada con un PDF de prueba | ⬜ **la prueba que va primero** (A3.6, análisis §5) |
+| Modelo de CPC aprobado por Alianza | ⬜ no vino con la respuesta |

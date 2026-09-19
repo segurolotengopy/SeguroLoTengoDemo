@@ -69,6 +69,30 @@ variable "alianza_sftp_trusted_host_keys" {
   default     = []
 }
 
+variable "alianza_sftp_sin_clave_de_host" {
+  description = <<-EOT
+    Crea el conector SIN la clave de host del servidor, a propósito.
+
+    Sirve para una sola cosa: obtener las tres IP de salida y mandárselas a
+    Alianza para que habiliten su firewall, mientras la clave de host se
+    coordina en la sesión técnica (respuesta A2.3 del 18-sep-2026). No debilita
+    nada, porque la salvaguarda la impone AWS y no solo esta precondición:
+
+      "You have an option to create your connector while leaving the
+       TrustedHostKeys parameter empty. However, your connector will not be able
+       to transfer files with the remote server until you provide this parameter"
+      https://docs.aws.amazon.com/transfer/latest/userguide/create-sftp-connector-procedure.html
+
+    Un conector así no transfiere un solo byte. Y las IP son del conector: con
+    la clave en mano se agrega por UpdateConnector, un cambio en el lugar, así
+    que NO cambian. Solo destruirlo y recrearlo las cambiaría.
+
+    Con la clave cargada, esta variable vuelve a false y no se usa nunca más.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "alianza_sftp_security_policy" {
   description = <<-EOT
     Política criptográfica del conector (TransferSFTPConnectorSecurityPolicy-*).
@@ -326,7 +350,11 @@ resource "aws_transfer_connector" "alianza" {
   url                  = var.alianza_vpn_habilitada ? null : var.alianza_sftp_url
 
   sftp_config {
-    trusted_host_keys = var.alianza_sftp_trusted_host_keys
+    # `null` y no `[]`: el provider valida MinItems = 1 sobre la lista, así que
+    # una lista vacía corta el apply. Con el atributo omitido, el conector se
+    # crea sin claves de confianza, que es lo que la API admite y lo que
+    # `alianza_sftp_sin_clave_de_host` quiere decir.
+    trusted_host_keys = length(var.alianza_sftp_trusted_host_keys) > 0 ? var.alianza_sftp_trusted_host_keys : null
     user_secret_id    = aws_secretsmanager_secret.alianza_sftp[0].id
   }
 
@@ -346,8 +374,8 @@ resource "aws_transfer_connector" "alianza" {
       error_message = "alianza_sftp_habilitado = true exige alianza_sftp_url (sftp://host:puerto) mientras la VPN esté apagada. Pedíselo a Alianza: la captura mostraba 10.0.7.101, que es interna y no sirve por Internet."
     }
     precondition {
-      condition     = length(var.alianza_sftp_trusted_host_keys) > 0
-      error_message = "alianza_sftp_habilitado = true exige alianza_sftp_trusted_host_keys. Sin la clave del servidor, el conector no puede comprobar que habla con Alianza."
+      condition     = length(var.alianza_sftp_trusted_host_keys) > 0 || var.alianza_sftp_sin_clave_de_host
+      error_message = "alianza_sftp_habilitado = true exige alianza_sftp_trusted_host_keys. Sin la clave del servidor, el conector no puede comprobar que habla con Alianza. Para crearlo solo por sus IP, mientras la clave se coordina, poné alianza_sftp_sin_clave_de_host = true: ese conector no transfiere nada."
     }
   }
 }

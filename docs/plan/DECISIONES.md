@@ -406,6 +406,46 @@ producto**.
   fuente enumera estas listas. Cuando Interseguros mande el catálogo aprobado,
   manda el suyo.
 
+## Bloque I — el canal de emisión (18-sep-2026)
+
+Decisión de Andres del 18-sep-2026, después de que Alianza avisara cómo van a
+operar la emisión mientras dure la primera etapa.
+
+### D-49 · El lote de emisión va por correo, en un ZIP con contraseña — **DECIDIDA**
+
+- **Qué dijo Alianza:** las solicitudes para que SEBAOT genere las **pólizas**
+  llegan **por correo**, en los archivos TXT del modelo, y las procesa **una
+  persona a mano**. No hay SFTP para esto, no hay acuse y no saben por cuánto
+  tiempo va a ser así.
+- **Alcance, acotado por Andres:** *"Me refiero SOLAMENTE al TXT para que se
+  generen las PÓLIZAS, los certificados pasan por el circuito armado."* El
+  **CPC sigue yendo y volviendo por el conector SFTP**, que por lo tanto
+  conserva su razón de ser. Lo que cambia de canal es únicamente el lote de
+  emisión.
+- **Cómo viaja, por ahora:** *"Es mejor hacer enlaces, pero por ahora será solo
+  enviando el archivo TXT, que podría estar en un ZIP con passwd o algo
+  sencillo que pueda ser manejado por un operador."* El TXT lleva cédula,
+  domicilio, actividad e ingresos, y el correo atraviesa servidores que no
+  controlamos, así que **no viaja en claro**.
+- **El enlace de descarga autenticado queda como objetivo**, no descartado: es
+  mejor porque el archivo no se copia en dos buzones y el acceso caduca. Se
+  retoma cuando la operación de Alianza lo pueda absorber.
+- **Consecuencia técnica que hay que resolver antes de construirlo:** un ZIP
+  «con contraseña» son dos cosas distintas. El cifrado clásico (ZipCrypto) lo
+  abre el explorador de archivos de Windows sin instalar nada, y es **débil**:
+  tiene un ataque conocido cuando se conoce parte del contenido, y un TXT de
+  formato fijo es justamente eso. El cifrado **AES-256** sí protege, y en
+  cambio el explorador de Windows **no lo abre**: el operador necesita 7-Zip o
+  similar. Se elige AES-256 y **hay que confirmarle a Alianza** que su operador
+  puede abrirlo; si no pudiera, la alternativa es el enlace, no bajar a
+  ZipCrypto.
+- **La contraseña** no viaja por el mismo correo, se acuerda una vez por otro
+  canal y vive en Secrets Manager, nunca en el repositorio.
+- Sin respaldo en la matriz de cumplimiento: **no hay fila que prohíba el
+  correo**. Lo más cercano es la fila 78 —infraestructura segura y evaluación
+  de riesgos, Res. SS.SG. 231/2025 Anexo I art. 6 y 210/2025 Anexo I art. 10—,
+  que es un control derivado, como la 79 con la separación de ambientes.
+
 ## Actualizaciones que la Matriz V4 necesita (consecuencia de la ronda 1)
 
 Dos decisiones **establecidas** dejan desactualizado el texto de la matriz. No son

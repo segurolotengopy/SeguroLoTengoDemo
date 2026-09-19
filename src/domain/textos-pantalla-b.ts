@@ -15,15 +15,19 @@
  *   devolución"* (Ley 4868/13, arts. 7(m, p, q) y 30(c)).
  * - 29 — *"Enviar recordatorios de firma a 1, 5 y 12 horas"*. La propia matriz
  *   aclara que **no existe un artículo que determine esos horarios**: son un
- *   control interno, no una obligación legal.
+ *   control interno, no una obligación legal. **Ya no se pueden cumplir**: ver
+ *   la segunda divergencia declarada, más abajo.
  * - 30 — *"Devolver el premio si el cliente no firma dentro del plazo
  *   comunicado"* (Ley 4868/13, arts. 7(f), 17 y 30(b); Res. SS SG. 215/17,
  *   Anexo 1, numerales 8.4, 8.5 y 8.9). Es la fila que manda en esta pantalla.
  * - 65 — *"Explicar cancelación y metodología de devolución"* (Ley 4868/13,
  *   arts. 7(m, p, q) y 30(c); Res. SS SG. 215/17, Anexo 1, numerales 8.4, 8.5
  *   y 8.9).
- * - 41 — la vigencia de 24 horas del enlace de firma, que es el plazo cuyo
- *   vencimiento trae a la persona hasta acá.
+ * - 41 — la vigencia de 24 horas del enlace de firma. **Ya no es el plazo que
+ *   trae a la persona hasta acá**: con el orden invertido (D-08) lo que vence
+ *   es el plazo para **pagar** un expediente ya firmado, que D-32 fijó en diez
+ *   minutos, y desde v4 el cliente firma en pantalla con su código, sin ningún
+ *   enlace que caduque.
  *
  * ## Divergencia declarada de la especificación
  *
@@ -45,6 +49,23 @@
  *
  * Cuál se muestra lo decide `hayPremioQueDevolver`, que mira si el dinero
  * entró — no el medio de pago ni la fecha del expediente.
+ *
+ * ## Segunda divergencia: los recordatorios de la fila 29
+ *
+ * La fila 29 pide recordatorios **a 1, 5 y 12 horas**, y con D-32 el plazo
+ * entero dura **diez minutos**: a la primera hora el expediente hace rato que
+ * venció. No es que los recordatorios se hayan quitado, es que ya no existe la
+ * ventana en la que ocurrirían.
+ *
+ * Por eso esta pantalla **no promete ninguno**. La matriz misma dice que esos
+ * horarios no salen de ningún artículo, así que la divergencia no toca una
+ * obligación legal; pero dejar escrito que Interseguros «realiza los
+ * recordatorios de 1, 5 y 12 horas» describía un trabajo que nadie puede
+ * hacer, y un texto así es peor que ninguno.
+ *
+ * **Queda abierto**, y es decisión de producto, no de norma: si dentro de los
+ * diez minutos corresponde **algún** aviso —a los cinco, por ejemplo— y por
+ * qué canal. Mientras no se decida, no se escribe.
  */
 
 export const TITULO_PANTALLA_B = "Tu solicitud venció porque no completaste el pago";
@@ -237,8 +258,11 @@ export const ACTORES_PANTALLA_B: readonly ActorPantallaB[] = [
     rol: "Controla el plazo, registra el estado y genera las comunicaciones.",
   },
   {
+    // Los recordatorios «a 1, 5 y 12 horas» de la fila 29 se cayeron con D-32:
+    // ver la divergencia declarada arriba. Prometerlos acá sería describir un
+    // trabajo que nadie puede hacer en un plazo de diez minutos.
     actor: "Interseguros",
-    rol: "Verifica manualmente la firma y realiza los recordatorios de 1, 5 y 12 horas.",
+    rol: "Verifica manualmente la firma y atiende el caso.",
   },
   {
     actor: "Alianza Garantía",

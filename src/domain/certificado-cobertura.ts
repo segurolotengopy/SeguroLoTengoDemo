@@ -46,7 +46,13 @@ import {
 } from "./documentos";
 import type { CampoDocumento, EncabezadoDocumento } from "./documentos";
 import { firmantesDe } from "./firmantes-documento";
-import type { Expediente, MedioDePago } from "./tipos";
+import {
+  CONDICIONES_PRODUCTO,
+  PROPORCION_BENEFICIARIO_UNICO,
+  camposDefinidos,
+} from "./condiciones-producto";
+import { EDAD_MAXIMA_PERMITIDA, EDAD_MINIMA_PERMITIDA } from "./tipos";
+import type { Beneficiario, Expediente, MedioDePago } from "./tipos";
 
 // ---------------------------------------------------------------------------
 // Identidad del documento
@@ -155,6 +161,20 @@ export interface ContenidoCertificado {
   /** Bloque 3 — Coberturas y carencias del plan contratado. */
   readonly plan: string;
   readonly coberturas: readonly CoberturaCertificado[];
+  /**
+   * Límites, plazos y deducible que pide el modelo oficial de Alianza.
+   *
+   * **Puede venir vacío**, y entonces el bloque no se dibuja: son las ocho
+   * condiciones que Alianza todavía no confirmó (`CONDICIONES_PRODUCTO`), y un
+   * casillero vacío sería peor que la ausencia del renglón. Las edades de
+   * ingreso sí salen siempre: son nuestras por la regla inviolable #8.
+   */
+  readonly condiciones: readonly CampoDocumento[];
+  /**
+   * Beneficiario por fallecimiento, con la proporción que pide el modelo.
+   * Nunca va vacío: el flujo exige declararlo antes de cerrar el paquete.
+   */
+  readonly beneficiarios: readonly CampoDocumento[];
   /** Bloque 4 — Pago acreditado. */
   readonly pago: readonly CampoDocumento[];
   /** Bloque 5 — Documento firmado del que cuelga este certificado. */
@@ -184,7 +204,8 @@ export type CampoFaltanteCertificado =
   | "canalEmail"
   | "paqueteDocumental"
   | "firma"
-  | "pagoConfirmado";
+  | "pagoConfirmado"
+  | "beneficiario";
 
 export type ResultadoContenidoCertificado =
   | { readonly ok: true; readonly contenido: ContenidoCertificado }
@@ -240,8 +261,17 @@ export function armarContenidoCertificado(
   expediente: Expediente,
   opciones: OpcionesCertificado,
 ): ResultadoContenidoCertificado {
-  const { numeroPropuesta, plan, identidad, canalWhatsapp, canalEmail, paqueteDocumental, firma, pago } =
-    expediente;
+  const {
+    numeroPropuesta,
+    plan,
+    identidad,
+    canalWhatsapp,
+    canalEmail,
+    paqueteDocumental,
+    firma,
+    pago,
+    beneficiario,
+  } = expediente;
 
   const faltantes: CampoFaltanteCertificado[] = [];
   if (!numeroPropuesta) faltantes.push("numeroPropuesta");
@@ -251,6 +281,9 @@ export function armarContenidoCertificado(
   if (!canalEmail) faltantes.push("canalEmail");
   if (!paqueteDocumental) faltantes.push("paqueteDocumental");
   if (!firma) faltantes.push("firma");
+  // El modelo oficial de Alianza tiene bloque de beneficiarios, y el flujo lo
+  // exige antes de cerrar el paquete: si falta acá, es un error de programación.
+  if (!beneficiario) faltantes.push("beneficiario");
   // El instante del cobro es el dato del que cuelga toda la vigencia: sin él
   // no hay certificado que emitir.
   if (!pago || !pago.confirmadoEn || !pago.referenciaBancard) faltantes.push("pagoConfirmado");
@@ -265,7 +298,8 @@ export function armarContenidoCertificado(
     !firma ||
     !pago ||
     !pago.confirmadoEn ||
-    !pago.referenciaBancard
+    !pago.referenciaBancard ||
+    !beneficiario
   ) {
     return { ok: false, faltantes };
   }
@@ -300,14 +334,20 @@ export function armarContenidoCertificado(
       correlativo,
       version,
       emitidoEn: opciones.emitidoEn,
-      asegurado: [
+      // El modelo oficial pide domicilio y localidad, y los pide en este
+      // bloque. Salen de `datosComplementarios`, que es el que se compone
+      // siempre —también fuera de v4— y el que ya leen la Solicitud y el FIPF.
+      asegurado: camposDefinidos([
         { etiqueta: "Nombres y apellidos", valor: `${identidad.nombres} ${identidad.apellidos}`.trim() },
         { etiqueta: "Cédula", valor: identidad.numeroCedula },
         { etiqueta: "Fecha de nacimiento", valor: formatearFecha(identidad.fechaNacimiento) },
+        { etiqueta: "Domicilio", valor: expediente.datosComplementarios?.domicilio ?? null },
+        { etiqueta: "Localidad", valor: expediente.datosComplementarios?.ciudad ?? null },
         { etiqueta: "WhatsApp verificado", valor: enmascararCelular(canalWhatsapp.valor) },
         { etiqueta: "Correo verificado", valor: enmascararCorreo(canalEmail.valor) },
         { etiqueta: "Producto", valor: NOMBRE_PRODUCTO },
-      ],
+        { etiqueta: "Sección / sub-sección", valor: CONDICIONES_PRODUCTO.seccionSubSeccion },
+      ]),
       vigencia: [
         { etiqueta: "Pago acreditado", valor: formatearInstante(pago.confirmadoEn) },
         { etiqueta: "Inicio de la cobertura", valor: formatearInstante(inicioCobertura) },
@@ -341,6 +381,26 @@ export function armarContenidoCertificado(
           carencia: CARENCIA_GENERAL,
         },
       ],
+      // Límites, plazos y deducible del modelo oficial. Las edades de ingreso
+      // salen siempre —son nuestras, regla inviolable #8—; el resto aparece
+      // recién cuando Alianza confirme (`CONDICIONES_PRODUCTO`).
+      condiciones: camposDefinidos([
+        { etiqueta: "Objeto del seguro", valor: CONDICIONES_PRODUCTO.objetoDelSeguro },
+        // El modelo las trae como dos renglones; acá van en uno solo para no
+        // empujar el cierre a una segunda carilla. Dice lo mismo, y este
+        // documento se mira en el teléfono.
+        {
+          etiqueta: "Edad de ingreso",
+          valor: `${EDAD_MINIMA_PERMITIDA} a ${EDAD_MAXIMA_PERMITIDA} años`,
+        },
+        { etiqueta: "Edad límite", valor: CONDICIONES_PRODUCTO.edadLimite },
+        { etiqueta: "Límite de padecimientos", valor: CONDICIONES_PRODUCTO.limitePadecimientos },
+        { etiqueta: "Plazo máximo del pago", valor: CONDICIONES_PRODUCTO.plazoMaximoPago },
+        { etiqueta: "Período de espera", valor: CONDICIONES_PRODUCTO.periodoEspera },
+        { etiqueta: "Período de carencia", valor: CONDICIONES_PRODUCTO.periodoCarencia },
+        { etiqueta: "Deducible", valor: CONDICIONES_PRODUCTO.deducible },
+      ]),
+      beneficiarios: beneficiariosDe(beneficiario),
       pago: [
         { etiqueta: "Premio anual · IVA incluido", valor: formatearGuaranies(pago.montoGs) },
         { etiqueta: "Medio de pago", valor: medioLegible(pago.medio) },
@@ -366,6 +426,27 @@ export function armarContenidoCertificado(
       leyendaVerificacion: `Verificá la autenticidad de este certificado en ${encabezado.urlVerificacion}`,
     },
   };
+}
+
+/**
+ * El bloque de beneficiarios del modelo oficial: nombre, parentesco, cédula y
+ * proporción.
+ *
+ * Los herederos legales no tienen nombre ni cédula que declarar, así que se
+ * nombran como lo que son y se llevan el 100 %. La cédula del designado es
+ * opcional (CHG-24) y por eso puede no estar: se omite el renglón en vez de
+ * imprimirlo vacío, igual que con las condiciones pendientes.
+ */
+function beneficiariosDe(beneficiario: Beneficiario): readonly CampoDocumento[] {
+  if (beneficiario.tipo === "HEREDEROS_LEGALES") {
+    return [{ etiqueta: "Beneficiarios", valor: `Herederos legales — ${PROPORCION_BENEFICIARIO_UNICO}` }];
+  }
+  return camposDefinidos([
+    { etiqueta: "Nombre", valor: beneficiario.nombreCompleto },
+    { etiqueta: "Parentesco", valor: beneficiario.parentesco },
+    { etiqueta: "C.I.", valor: beneficiario.numeroCedula },
+    { etiqueta: "Proporción", valor: PROPORCION_BENEFICIARIO_UNICO },
+  ]);
 }
 
 /** Cómo se nombra el medio de pago en el documento. Nunca datos de tarjeta (regla #6). */

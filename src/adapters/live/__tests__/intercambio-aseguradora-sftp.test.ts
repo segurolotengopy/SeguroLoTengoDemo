@@ -32,7 +32,11 @@ const CONECTOR = "c-0123456789abcdef0";
 const CONFIGURACION: ConfiguracionIntercambioAseguradora = {
   documentosHabilitados: ["CPC"],
   carpetas: CARPETAS_REMOTAS_PROPUESTAS,
+  enviarMetadato: false,
 };
+
+/** Alianza pidió solo el PDF (A3.3); el metadato se prueba aparte. */
+const CON_METADATO: ConfiguracionIntercambioAseguradora = { ...CONFIGURACION, enviarMetadato: true };
 
 type Bandeja = ReturnType<typeof crearBandejaIntercambioEnMemoria>;
 
@@ -140,7 +144,7 @@ function crearConectorSimulado(bandeja: Bandeja, carpetas: CarpetasRemotas) {
   } as unknown as ClienteTransfer;
 
   function resolver(): void {
-    // Alianza firma lo que ya quedó publicado (sin .tmp) en su carpeta de entrada.
+    // Alianza firma lo que ya quedó publicado en la carpeta que vigila su firmador.
     for (const [ruta, archivo] of [...servidor]) {
       if (dirname(ruta) !== carpetas.envio || !ruta.endsWith(".pdf") || firmados.has(ruta)) continue;
       firmados.add(ruta);
@@ -155,14 +159,14 @@ function crearConectorSimulado(bandeja: Bandeja, carpetas: CarpetasRemotas) {
   return { cliente, servidor, comandos, controles, resolver };
 }
 
-function montar() {
+function montar(configuracion: ConfiguracionIntercambioAseguradora = CONFIGURACION) {
   const bandeja = crearBandejaIntercambioEnMemoria("slt-demo-intercambio-alianza-prueba");
-  const conector = crearConectorSimulado(bandeja, CONFIGURACION.carpetas);
+  const conector = crearConectorSimulado(bandeja, configuracion.carpetas);
   const proveedor = crearIntercambioAseguradoraSftp({
     cliente: conector.cliente,
     bandeja,
     connectorId: CONECTOR,
-    configuracion: CONFIGURACION,
+    configuracion,
   });
   return { bandeja, conector, proveedor };
 }
@@ -178,15 +182,29 @@ runIntercambioAseguradoraContractTests(
 );
 
 describe("intercambio sobre Transfer Family", () => {
-  it("sube metadato y PDF como .tmp a la carpeta de envío, y los renombra en ese orden", async () => {
+  it("manda solo el PDF: Alianza pidió que no viaje nada más al lado (A3.3)", async () => {
+    const { conector, proveedor } = montar();
+    const envio = await proveedor.enviarDocumento(solicitudDePrueba());
+    if (!envio.ok) throw new Error("envío rechazado");
+
+    const pedido = conector.comandos.find((c) => c instanceof StartFileTransferCommand) as StartFileTransferCommand;
+    expect(pedido.input.SendFilePaths?.map(basename)).toEqual(["CPC-00018425-v1.pdf"]);
+
+    conector.resolver();
+    await proveedor.consultarTransferencia(envio.referencia);
+    expect([...conector.servidor.keys()].filter((ruta) => ruta.endsWith(".json"))).toEqual([]);
+  });
+
+  it("sube a la carpeta de tránsito y publica moviendo: el firmador nunca ve un PDF a medio subir", async () => {
     const { conector, proveedor } = montar();
     const envio = await proveedor.enviarDocumento(solicitudDePrueba());
     if (!envio.ok) throw new Error("envío rechazado");
 
     const pedido = conector.comandos.find((c) => c instanceof StartFileTransferCommand) as StartFileTransferCommand;
     expect(pedido.input.ConnectorId).toBe(CONECTOR);
-    expect(pedido.input.RemoteDirectoryPath).toBe("/entrada/documentos");
-    expect(pedido.input.SendFilePaths?.map(basename)).toEqual(["CPC-00018425-v1.json.tmp", "CPC-00018425-v1.pdf.tmp"]);
+    // El destino de la subida es tránsito, no la carpeta que vigila el firmador.
+    expect(pedido.input.RemoteDirectoryPath).toBe("/entrada/en-curso");
+    expect([...conector.servidor.keys()].some((ruta) => ruta.startsWith("/entrada/documentos/"))).toBe(false);
 
     conector.resolver();
     expect((await proveedor.consultarTransferencia(envio.referencia))?.estado).toBe("COMPLETADA");
@@ -195,19 +213,31 @@ describe("intercambio sobre Transfer Family", () => {
       .filter((c): c is StartRemoteMoveCommand => c instanceof StartRemoteMoveCommand)
       .map((c) => [c.input.SourcePath, c.input.TargetPath]);
     expect(movimientos).toEqual([
-      ["/entrada/documentos/CPC-00018425-v1.json.tmp", "/entrada/documentos/CPC-00018425-v1.json"],
-      ["/entrada/documentos/CPC-00018425-v1.pdf.tmp", "/entrada/documentos/CPC-00018425-v1.pdf"],
+      ["/entrada/en-curso/CPC-00018425-v1.pdf", "/entrada/documentos/CPC-00018425-v1.pdf"],
     ]);
+    // Publicado entero, y la carpeta de tránsito queda limpia.
+    expect(conector.servidor.has("/entrada/documentos/CPC-00018425-v1.pdf")).toBe(true);
+    expect(conector.servidor.has("/entrada/en-curso/CPC-00018425-v1.pdf")).toBe(false);
   });
 
-  it("el metadato lleva huella y tamaño, y nada de la persona", async () => {
-    const { conector, proveedor } = montar();
+  it("con el metadato encendido, el PDF se mueve último y el metadato lleva huella y tamaño, nada de la persona", async () => {
+    const { conector, proveedor } = montar(CON_METADATO);
     const solicitud = solicitudDePrueba();
-    await proveedor.enviarDocumento(solicitud);
+    const envio = await proveedor.enviarDocumento(solicitud);
+    if (!envio.ok) throw new Error("envío rechazado");
     conector.resolver();
+    await proveedor.consultarTransferencia(envio.referencia);
+
+    const movimientos = conector.comandos
+      .filter((c): c is StartRemoteMoveCommand => c instanceof StartRemoteMoveCommand)
+      .map((c) => c.input.TargetPath);
+    expect(movimientos).toEqual([
+      "/entrada/documentos/CPC-00018425-v1.json",
+      "/entrada/documentos/CPC-00018425-v1.pdf",
+    ]);
 
     const metadato = JSON.parse(
-      new TextDecoder().decode(conector.servidor.get("/entrada/documentos/CPC-00018425-v1.json.tmp")?.bytes),
+      new TextDecoder().decode(conector.servidor.get("/entrada/documentos/CPC-00018425-v1.json")?.bytes),
     ) as Record<string, unknown>;
     expect(Object.keys(metadato).sort()).toEqual(
       ["archivo", "codigo", "correlativo", "enviadoEn", "formato", "hashSha256", "tamanoBytes", "tipo", "version"],

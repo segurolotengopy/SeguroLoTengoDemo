@@ -17,11 +17,13 @@ import {
   formatearInstante,
   inicioCoberturaDesde,
 } from "../certificado-cobertura";
+import { CONDICIONES_PRODUCTO, camposDefinidos } from "../condiciones-producto";
 import { codigoSolicitud } from "../documentos";
 import { firmantesDe } from "../firmantes-documento";
 import type { Expediente } from "../tipos";
 import {
   NUMERO_PROPUESTA_FIJO,
+  datosComplementariosFixture,
   expedienteEnPagoConfirmado,
   expedienteFirmado,
   pagoConfirmadoFixture,
@@ -177,5 +179,130 @@ describe("contenido del certificado", () => {
     const resultado = armarContenidoCertificado(expedienteFirmado(), { emitidoEn: EMITIDO_EN });
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.faltantes).toContain("pagoConfirmado");
+  });
+});
+
+/**
+ * El modelo oficial de Alianza (18-sep-2026,
+ * `docs/MODELO_CERTIFICADO_COBERTURA_ALIANZA.docx`) pide campos que el
+ * certificado no imprimía. Estos tests cubren los que ya se pueden llenar con
+ * lo que el expediente tiene, y la regla que gobierna a los que no: **lo que
+ * Alianza todavía no confirmó no se imprime**.
+ */
+describe("certificado · campos del modelo oficial de Alianza", () => {
+  function contenidoDe(expediente: Expediente = expedienteEnPagoConfirmado()) {
+    const resultado = armarContenidoCertificado(expediente, { emitidoEn: EMITIDO_EN });
+    if (!resultado.ok) throw new Error(`Faltantes: ${resultado.faltantes.join(",")}`);
+    return resultado.contenido;
+  }
+
+  const etiquetas = (campos: readonly { readonly etiqueta: string }[]) => campos.map((c) => c.etiqueta);
+
+  it("imprime domicilio y localidad, que el modelo pide en el bloque del asegurado", () => {
+    const asegurado = contenidoDe().asegurado;
+    expect(asegurado).toContainEqual({ etiqueta: "Domicilio", valor: datosComplementariosFixture.domicilio });
+    expect(asegurado).toContainEqual({ etiqueta: "Localidad", valor: datosComplementariosFixture.ciudad });
+  });
+
+  /**
+   * El modelo las pide en dos renglones y el certificado las junta en uno, para
+   * no empujar el cierre a otra carilla. Los dos números siguen a la vista, que
+   * es lo que la regla #8 obliga a declarar.
+   */
+  it("imprime las edades de ingreso, que son nuestras y no de Alianza (regla #8)", () => {
+    const condiciones = contenidoDe().condiciones;
+    expect(condiciones).toContainEqual({ etiqueta: "Edad de ingreso", valor: "18 a 64 años" });
+  });
+
+  /**
+   * La regla que evita el peor resultado posible: un certificado con ocho
+   * casilleros vacíos, que se lee como un documento al que se le perdieron los
+   * datos en vez de uno cuyos valores todavía no se acordaron.
+   */
+  it("omite las ocho condiciones que Alianza todavía no confirmó", () => {
+    const pendientes = [
+      "Sección / sub-sección",
+      "Objeto del seguro",
+      "Edad límite",
+      "Límite de padecimientos",
+      "Plazo máximo del pago",
+      "Período de espera",
+      "Período de carencia",
+      "Deducible",
+    ];
+    const contenido = contenidoDe();
+    const presentes = [...etiquetas(contenido.asegurado), ...etiquetas(contenido.condiciones)];
+    for (const pendiente of pendientes) {
+      expect(CONDICIONES_PRODUCTO).toBeDefined();
+      expect(presentes).not.toContain(pendiente);
+    }
+  });
+
+  it("ninguna condición viaja con el valor vacío: o tiene contenido o no está", () => {
+    for (const campo of contenidoDe().condiciones) {
+      expect(campo.valor.trim()).not.toBe("");
+    }
+  });
+
+  /**
+   * `camposDefinidos` es la puerta por la que pasan los pendientes, así que el
+   * día que Alianza conteste alcanza con llenar `CONDICIONES_PRODUCTO`: esto
+   * prueba que no hace falta tocar nada más.
+   */
+  it("con un valor confirmado, el campo aparece sin tocar el armado", () => {
+    const definidos = camposDefinidos([
+      { etiqueta: "Deducible", valor: null },
+      { etiqueta: "Período de espera", valor: "30 días" },
+      { etiqueta: "Objeto del seguro", valor: "   " },
+    ]);
+    expect(definidos).toEqual([{ etiqueta: "Período de espera", valor: "30 días" }]);
+  });
+
+  it("los herederos legales se llevan el 100 % y no inventan nombre ni cédula", () => {
+    const beneficiarios = contenidoDe().beneficiarios;
+    expect(beneficiarios).toEqual([{ etiqueta: "Beneficiarios", valor: "Herederos legales — 100 %" }]);
+  });
+
+  it("una persona designada lleva nombre, parentesco, cédula y proporción", () => {
+    const base = expedienteEnPagoConfirmado();
+    const contenido = contenidoDe({
+      ...base,
+      beneficiario: {
+        tipo: "PERSONA_DESIGNADA",
+        nombreCompleto: "Ana María Gorena",
+        parentesco: "Hija",
+        domicilio: "Avda. España 123",
+        numeroCedula: "1.234.567",
+      },
+    });
+    expect(contenido.beneficiarios).toEqual([
+      { etiqueta: "Nombre", valor: "Ana María Gorena" },
+      { etiqueta: "Parentesco", valor: "Hija" },
+      { etiqueta: "C.I.", valor: "1.234.567" },
+      { etiqueta: "Proporción", valor: "100 %" },
+    ]);
+  });
+
+  /** La cédula del designado es opcional (CHG-24): sin ella se omite el renglón. */
+  it("sin cédula del designado no queda un casillero vacío", () => {
+    const base = expedienteEnPagoConfirmado();
+    const contenido = contenidoDe({
+      ...base,
+      beneficiario: {
+        tipo: "PERSONA_DESIGNADA",
+        nombreCompleto: "Ana María Gorena",
+        parentesco: "Hija",
+        domicilio: null,
+        numeroCedula: null,
+      },
+    });
+    expect(etiquetas(contenido.beneficiarios)).toEqual(["Nombre", "Parentesco", "Proporción"]);
+  });
+
+  it("sin beneficiario declarado no se arma el certificado", () => {
+    const base = expedienteEnPagoConfirmado();
+    const resultado = armarContenidoCertificado({ ...base, beneficiario: null }, { emitidoEn: EMITIDO_EN });
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) expect(resultado.faltantes).toContain("beneficiario");
   });
 });

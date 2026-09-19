@@ -532,12 +532,32 @@ function dibujarCertificado(
 
   seccion(lienzo, 3, `Coberturas contratadas · Plan ${contenido.plan}`);
   tablaDeCoberturas(lienzo, contenido.coberturas);
+  // Límites, plazos y deducible del modelo oficial de Alianza. Van pegados a
+  // la tabla porque modifican lo que la tabla promete. El bloque puede estar
+  // vacío mientras Alianza no confirme esos valores, y entonces no se dibuja:
+  // un encabezado sin filas se lee como un dato que se perdió.
+  if (contenido.condiciones.length > 0) {
+    grillaDeCampos(lienzo, contenido.condiciones, 3);
+  }
+
+  // Bloque de beneficiarios del modelo oficial. Sección propia y no un renglón
+  // más de "Asegurado": es a quién se le paga, y es lo segundo que alguien
+  // busca en este documento después de desde cuándo está cubierto.
+  // Cuatro columnas y no tres: son los cuatro campos que pide el modelo y
+  // entran en una fila, que es lo que mantiene el certificado en una carilla.
+  seccion(lienzo, 4, "Beneficiarios por fallecimiento");
+  grillaDeCampos(lienzo, contenido.beneficiarios, 4);
 
   // El cobro y el documento firmado van bajo un mismo encabezado porque son
-  // las dos caras de la misma pregunta —qué respalda esta cobertura— y porque
-  // así el certificado entra en una sola carilla, que es como se lo va a
-  // mirar: en el teléfono, sin desplazarse.
-  seccion(lienzo, 4, "Pago acreditado y documento que lo respalda");
+  // las dos caras de la misma pregunta: qué respalda esta cobertura.
+  //
+  // Esto también buscaba dejar el certificado en **una sola carilla**, y desde
+  // que entraron los campos del modelo oficial de Alianza (18-sep-2026) ya no
+  // alcanza: el cierre baja a una segunda carilla. Se decidió no pelearla,
+  // porque las ocho condiciones que Alianza todavía debe confirmar
+  // (`CONDICIONES_PRODUCTO`) suman hasta ocho filas más y la romperían igual.
+  // Lo que sí se conserva es que el cierre **baje entero**, nunca el pie solo.
+  seccion(lienzo, 5, "Pago acreditado y documento que lo respalda");
   grillaDeCampos(lienzo, contenido.pago, 2);
   grillaDeCampos(lienzo, contenido.respaldo, 3);
   // La huella ocupa la fila entera: en media columna se recortaría, y un hash
@@ -550,7 +570,7 @@ function dibujarCertificado(
   // el pie parece un documento roto. Reservado junto, o entra todo en la
   // primera carilla o baja todo junto a la segunda.
   lienzo.asegurarEspacio(ALTO_CIERRE_CERTIFICADO);
-  seccion(lienzo, 5, "Firma de la aseguradora");
+  seccion(lienzo, 6, "Firma de la aseguradora");
   bloqueFirmaAplicada(lienzo, contenido.firmantes);
   lienzo.pagina.parrafo(MARGEN, lienzo.y, ANCHO_UTIL, contenido.leyendaFirma, {
     tamano: 6.6,
