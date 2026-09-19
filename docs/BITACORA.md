@@ -273,6 +273,26 @@ de dejarlo mintiendo.
 de muestra —herederos legales y persona designada— y se revisaron las dos
 carillas de cada uno.
 
+### Quinto tramo · los recordatorios que la Pantalla B seguía prometiendo
+
+Pendiente desde el 15-sep, e independiente de Alianza. La lista de actores
+decía que Interseguros *«realiza los recordatorios de 1, 5 y 12 horas»*, que es
+la fila 29 de la matriz. **Con D-32 el plazo entero dura diez minutos**: a la
+primera hora el expediente venció hace rato, así que no es que los
+recordatorios se hayan quitado, es que ya no existe la ventana en la que
+ocurrirían.
+
+- El rol de Interseguros pasa a decir lo que sí hace, y la divergencia queda
+  declarada en el módulo junto a las otras dos, con su porqué.
+- **La fila 41 estaba igual de vieja:** el comentario decía que la vigencia de
+  24 horas del enlace de firma es «el plazo cuyo vencimiento trae a la persona
+  hasta acá», y desde v4 el cliente firma en pantalla con su código, sin ningún
+  enlace que caduque.
+- **Queda abierto, como decisión de producto y no de norma:** si dentro de los
+  diez minutos corresponde **algún** aviso, y por qué canal. Mientras no se
+  decida, no se escribe: la matriz misma aclara que esos horarios no salen de
+  ningún artículo.
+
 ### Queda abierto
 
 - **Andres:** el OK para enviar el Correo 7, y fusionar #136 — el clasificador
