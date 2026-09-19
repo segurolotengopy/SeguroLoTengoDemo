@@ -5,6 +5,28 @@
  * ver P8 y P9). Expone también el estado de la facturación electrónica:
  * Alianza la emite, SeguroLoTengo solo recibe estado/referencia.
  *
+ * ## ⚠️ La operación real no contesta (aviso de Alianza, 18-sep-2026)
+ *
+ * Este puerto modela una integración que responde, y la operación que Alianza
+ * describió es otra: **las solicitudes de emisión llegan por correo**, en
+ * archivos TXT, y **las procesa una persona a mano en SEBAOT**. No hay SFTP
+ * para esto, no hay acuse y no hay a quién consultarle un estado. Alianza no
+ * sabe cuánto tiempo va a funcionar así.
+ *
+ * Lo que eso implica para el adaptador oficial, cuando se escriba:
+ *
+ * - `emitirPoliza` solo puede significar **«se remitió»**, con fecha y
+ *   destinatario. Nunca «emitida», y nunca un número de póliza devuelto.
+ * - `consultarEstadoPoliza` y `consultarEstadoFacturaElectronica` **no tienen
+ *   implementación posible** por ese canal: el estado real entra a mano por la
+ *   consola administrativa.
+ * - El envío es **un lote diario** (respuesta A4.3), no una llamada por caso.
+ *
+ * El puerto **no se reescribe todavía**: el adaptador live no existe, el mock
+ * sirve para el demo, y el formato del TXT sigue sin definir (SEBAOT). Esta
+ * nota está para que nadie construya encima de la premisa de que hay
+ * respuesta. Análisis en `docs/ANALISIS_RESPUESTAS_ALIANZA.md` §10.
+ *
  * `emitirPoliza` exige `firma: Firma` completa (de `src/domain/tipos.ts`,
  * con ambos hashes firmados obligatorios) — regla de negocio inviolable #3:
  * no hay forma de invocar este puerto con documentos parcialmente firmados.

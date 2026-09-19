@@ -177,6 +177,16 @@ El firmador no compite con la emisión: son dos caminos separados.
 
 **Lote diario**, confirmado.
 
+### **A4.6** — Cómo llega ese lote (aviso posterior, 18-sep por la tarde)
+
+Alianza avisó, por fuera de las respuestas numeradas, que **las solicitudes de
+emisión llegan por correo**, en los archivos TXT del modelo, y que **las
+procesan a mano en SEBAOT**. No van por SFTP y **no hay confirmación
+automática**. No saben por cuánto tiempo va a ser así.
+
+Impacto en `PolicyIssuer` y en el canal, con las tres preguntas que abre:
+`docs/ANALISIS_RESPUESTAS_ALIANZA.md` §10.
+
 ### **A4.4** — Número de póliza
 
 > *"si se mantiene"*

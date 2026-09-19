@@ -285,7 +285,76 @@ Por correo, junto con las IP:
 
 ---
 
-## 10. Estado de los pendientes del intercambio
+## 10. La emisión no va por SFTP: va por correo y a mano (18-sep, tarde)
+
+Aviso posterior de Alianza, por fuera de las respuestas numeradas: **las
+solicitudes de emisión llegan por correo**, en los archivos TXT del modelo que
+mandaron, y **las procesan a mano en SEBAOT**. No hay SFTP para esto y **no hay
+confirmación automática**. Alianza no sabe cuánto tiempo va a funcionar así.
+
+Confirma y endurece lo que A5 ya insinuaba, y cambia tres cosas del plan.
+
+### 10.1. El puerto de emisión modela un sistema que no existe
+
+`src/ports/policy-issuer.ts` supone una integración que **contesta**:
+`emitirPoliza` devuelve estado y número, y `consultarEstadoPoliza` pregunta por
+uno. Con la operación real no hay a quién preguntarle: del otro lado hay una
+persona abriendo un correo.
+
+Lo que el adaptador oficial va a poder hacer, cuando se escriba:
+
+- **Componer el lote del día y mandarlo.** Su resultado honesto es «remitido»,
+  con fecha y destinatario, nunca «emitida» ni un número de póliza.
+- **Nada más.** Consultar estado y consultar factura **no tienen
+  implementación posible** por este canal, y el estado real entra a mano por la
+  consola administrativa.
+
+**No se reescribe el puerto todavía** —el adaptador live no existe y el mock
+sirve para el demo—, pero queda anotado para que nadie construya encima de la
+premisa de que hay respuesta. El encabezado del puerto ya lo advierte.
+
+### 10.2. Un adjunto con datos personales, por un canal que no controlamos
+
+El TXT lleva nombre, cédula, fecha de nacimiento, domicilio, actividad e
+ingresos. Por correo eso viaja entre servidores que no son nuestros ni de
+Alianza, y queda copiado en dos buzones por tiempo indefinido (A2.7: su
+retención es asunto interno de ellos).
+
+**No hay una fila de la matriz que prohíba el correo**, y conviene decirlo así
+en vez de inventar una: lo más cercano es la **fila 78** —mantener
+infraestructura segura y evaluación de riesgos, Res. SS.SG. 231/2025 Anexo I
+art. 6 y 210/2025 Anexo I art. 10—, que es un control derivado, igual que la
+fila 79 con la separación de ambientes.
+
+Dos mitigaciones que no dependen de Alianza y conviene proponerles:
+
+1. **Adjunto cifrado**, con la contraseña por un canal distinto del correo.
+2. **Enlace de descarga autenticado** en lugar del adjunto, con el archivo
+   viviendo en nuestra bandeja y un acceso que caduca.
+
+La segunda es mejor y más trabajo. La primera se puede hacer ya.
+
+### 10.3. Nada de esto cambia el cobro ni la cobertura
+
+Vale dejarlo escrito porque es lo que más tranquiliza: la emisión manual pasa
+**después** del pago y de la firma. El cobro, la vigencia del certificado y el
+paquete firmado no dependen de que alguien abra un correo. Lo que se estira es
+el momento en que la póliza existe, y P9 ya está diseñado para eso: muestra
+«Solicitud aceptada» y «Póliza en preparación» por separado, sin prometer
+fecha.
+
+### 10.4. Lo que hay que preguntar antes de seguir
+
+1. **¿Esto alcanza también al certificado?** El aviso habla de «solicitudes de
+   emisión de certificados» y de TXT procesados en SEBAOT, que es el circuito
+   de la **póliza**. El **CPC** es un PDF que va a firma por carpetas cada 30
+   segundos (A3.1), que es otro camino. Si el CPC también pasara a correo, el
+   conector SFTP se queda sin uso y hay que decidir qué se hace con él.
+2. **A qué casilla** se manda el lote, y si aceptan el adjunto cifrado.
+3. **Cómo sabemos que lo procesaron**, aunque sea una respuesta escrita a mano:
+   sin ninguna señal, un lote perdido en una bandeja no se detecta nunca.
+
+## 11. Estado de los pendientes del intercambio
 
 | Ítem | Antes | Ahora |
 | :---- | :---- | :---- |

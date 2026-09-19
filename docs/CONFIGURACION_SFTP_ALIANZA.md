@@ -4,6 +4,12 @@ Guía operativa del envío y la recepción de PDF con Alianza Garantía (ítem 3
 `Tabla de Integraciones externas - Tabla.csv`): les mandamos un documento para
 que lo firmen y traemos de vuelta lo firmado y sus archivos de respuesta.
 
+> **Este canal es para los documentos que Alianza firma, no para la emisión.**
+> El 18-sep-2026 avisaron que **las solicitudes de emisión van por correo**, en
+> archivos TXT, y las procesan a mano en SEBAOT. Queda por confirmar si eso
+> alcanza también al certificado, que es lo único que hoy justifica el conector
+> (`docs/ANALISIS_RESPUESTAS_ALIANZA.md` §10).
+
 Región: **us-east-1**. Cuenta: **120005938663**. Terraform: `infra/alianza-sftp.tf`
 y `infra/alianza-vpn.tf`. Código: puerto `src/ports/intercambio-aseguradora.ts`,
 adaptador `src/adapters/live/intercambio-aseguradora-sftp.ts`.

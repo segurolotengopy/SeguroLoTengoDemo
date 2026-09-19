@@ -273,6 +273,36 @@ de dejarlo mintiendo.
 de muestra —herederos legales y persona designada— y se revisaron las dos
 carillas de cada uno.
 
+### La emisión no va por SFTP: va por correo y a mano
+
+Aviso posterior de Alianza, ya cerrada la ronda de respuestas: **las solicitudes
+de emisión llegan por correo**, en los TXT del modelo, y **las procesan a mano
+en SEBAOT**. Sin SFTP y **sin confirmación automática**. No saben cuánto tiempo
+va a funcionar así.
+
+- **`PolicyIssuer` modela un sistema que no existe.** El puerto supone una
+  integración que contesta: `emitirPoliza` devuelve estado y número, y
+  `consultarEstadoPoliza` pregunta por uno. Del otro lado hay una persona
+  abriendo un correo. El adaptador oficial solo va a poder decir «se remitió»,
+  con fecha y destinatario; consultar estado **no tiene implementación posible**
+  por ese canal, y el estado real entra a mano por la consola. **No se
+  reescribió el puerto** —el live no existe, el mock sirve al demo y el formato
+  del TXT sigue sin definir— pero el encabezado ya lo advierte, para que nadie
+  construya sobre la premisa de que hay respuesta.
+- **Un adjunto con datos personales por un canal que no controlamos.** El TXT
+  lleva cédula, domicilio, actividad e ingresos, y queda copiado en dos buzones
+  por tiempo indefinido. **No hay fila de la matriz que prohíba el correo**, y
+  se dice así en vez de inventar una: lo más cercano es la fila 78, control
+  derivado. Se proponen dos mitigaciones: adjunto cifrado con la contraseña por
+  otro canal, o un enlace de descarga autenticado que caduque.
+- **No toca el cobro ni la cobertura.** La emisión manual ocurre después del
+  pago y de la firma; lo que se estira es cuándo existe la póliza, y P9 ya
+  separa «Solicitud aceptada» de «Póliza en preparación» sin prometer fecha.
+- **Tres preguntas abiertas:** si esto alcanza también al **certificado** —si
+  sí, el conector SFTP recién creado se queda sin uso—, a qué casilla va el
+  lote y si aceptan el adjunto cifrado, y cómo nos enteramos de que lo
+  procesaron.
+
 ### Quinto tramo · los recordatorios que la Pantalla B seguía prometiendo
 
 Pendiente desde el 15-sep, e independiente de Alianza. La lista de actores
