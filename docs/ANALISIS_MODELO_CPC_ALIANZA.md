@@ -108,15 +108,39 @@ dice a la vez lo que la norma registró y lo que la persona compró. El
 
 ---
 
-## 6. Qué hace falta para implementarlo
+## 6. Lo que ya se adelantó (18-sep-2026)
 
-1. **Las ocho respuestas de la sección 3.** Sin ellas el PDF tendría casilleros
-   vacíos, que es peor que el documento actual.
+Sin esperar las respuestas, y para que después sea solo llenar valores:
+
+- **Domicilio y localidad** entraron al bloque del asegurado, desde
+  `datosComplementarios`, que es el que se compone siempre.
+- **Edad de ingreso** se imprime como `18 a 64 años`. El modelo la pide en dos
+  renglones y acá va en uno para no estirar el documento; los dos números
+  quedan a la vista, que es lo que obliga la regla #8.
+- **Bloque de beneficiarios**, con nombre, parentesco, cédula y proporción.
+  Herederos legales se resuelven en un renglón con el 100 %; la cédula del
+  designado es opcional (CHG-24) y si falta **se omite el renglón**.
+- **`src/domain/condiciones-producto.ts`**: las ocho condiciones pendientes,
+  todas en `null`, y la regla `camposDefinidos` que hace que **lo que Alianza
+  no confirmó no se imprima**. Cuando contesten, se llenan ahí y aparecen solas:
+  no hay que tocar la plantilla ni el armado.
+- Nueve tests nuevos, incluido el que fija que los ocho campos pendientes **no**
+  salgan en el PDF.
+
+**Efecto secundario aceptado: el certificado pasó a dos carillas.** El cierre
+—firma y pie— bajó a la segunda. Se decidió no pelear por la carilla única,
+porque las ocho condiciones que faltan suman hasta ocho filas más y la
+romperían igual. Lo que se conserva es que el cierre baje **entero**, nunca el
+pie solo.
+
+## 7. Qué hace falta para terminarlo
+
+1. **Las ocho respuestas de la sección 3**, que se cargan en
+   `CONDICIONES_PRODUCTO` y con eso aparecen en el PDF.
 2. **El OK de Alianza al bloque de respaldo** de la sección 4.
-3. Recién ahí: reescribir `src/domain/certificado-cobertura.ts` y su plantilla
-   con el orden del modelo, sumar la proporción al beneficiario y llevar los
-   valores nuevos al catálogo del producto. El cálculo de vigencia **no
-   cambia**: el modelo pide exactamente lo que ya hace.
+3. **La confirmación del título y del orden** de la sección 5. Eso sí obliga a
+   reordenar la plantilla, y por eso no se adelantó: cambiar el nombre de un
+   documento que ya se emitió, sin confirmación, sería peor que esperar.
 
 Mientras tanto, la leyenda actual del PDF —«Modelo provisional, pendiente del
 modelo registrado de Alianza Garantía»— **sigue siendo cierta** y no hay que

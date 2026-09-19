@@ -164,11 +164,12 @@ autorización de Andres porque crea recursos en la cuenta real.
   La privada se borra de la máquina apenas se cargue en Secrets Manager.
 - **Correo 7 listo**, con el hueco de las tres IP marcado.
 
-### Verificaciones del segundo tramo
+### Verificaciones
 
 | Qué | Resultado |
 | :---- | :---- |
-| `npm test` | **1390** tests, 102 archivos, todo en verde |
+| `npm test`, al cierre de la sesión | **1399** tests, 102 archivos, todo en verde |
+| `npm test`, tras el segundo tramo | **1390** tests, 102 archivos, todo en verde |
 | `npm run typecheck` · `npm run lint` | limpio · 0 errores, 3 advertencias preexistentes |
 | `terraform validate` · `terraform fmt` | válido · formato ok |
 | Tests nuevos del envío | solo viaja el PDF · la carpeta del firmador está vacía hasta publicar · con metadato encendido, el PDF se mueve último |
@@ -231,9 +232,46 @@ brecha en `docs/ANALISIS_MODELO_CPC_ALIANZA.md`.
   (fila 47), la leyenda de que no es póliza ni Nota de Cobertura, y los
   firmantes (D-13). Van como bloque al pie, sin tocar el cuerpo aprobado, y el
   correo lo consulta en vez de darlo por hecho.
-- **No se implementó nada todavía**, a propósito: con ocho casilleros vacíos el
-  PDF sería peor que el actual. La leyenda «modelo provisional, pendiente del
-  modelo registrado» sigue siendo cierta hasta que lleguen esos valores.
+- La leyenda «modelo provisional, pendiente del modelo registrado» sigue siendo
+  cierta hasta que lleguen esos valores, y no se toca.
+
+### Cuarto tramo · adelantar el certificado sin las respuestas
+
+**Pedido de Andres:** ya mandó el correo técnico, la parte legal de Alianza está
+viendo tres puntos, y mientras tanto *«avanza todo lo que podamos, anotando lo
+pendiente, para evitar que tardemos más posteriormente»*.
+
+Se adelantó del modelo oficial **todo lo que no depende de una respuesta**:
+
+- **Domicilio y localidad** en el bloque del asegurado, desde
+  `datosComplementarios`, que es el que se compone siempre y ya leen la
+  Solicitud y el FIPF.
+- **Edad de ingreso** como `18 a 64 años`. El modelo la pide en dos renglones y
+  acá va en uno, para no estirar el documento; los dos números siguen a la
+  vista, que es lo que obliga la regla #8.
+- **Bloque nuevo de beneficiarios**, con nombre, parentesco, cédula y
+  proporción. Herederos legales se resuelven en un renglón con el 100 %; la
+  cédula del designado es opcional (CHG-24) y si falta **se omite el renglón**
+  en vez de imprimir un casillero vacío. `beneficiario` pasó a ser campo
+  faltante del certificado: el modelo tiene ese bloque y el flujo lo exige
+  antes de cerrar el paquete.
+- **`src/domain/condiciones-producto.ts`**, nuevo: las ocho condiciones que
+  Alianza debe confirmar, todas en `null`, más `camposDefinidos`, que es la
+  regla —**lo que no se confirmó no se imprime**— con un solo lugar y su test.
+  Cuando contesten se llenan ahí y aparecen solas: ni la plantilla ni el armado
+  se vuelven a tocar.
+
+**El certificado pasó a dos carillas**, y se aceptó. El cierre —firma y pie—
+baja entero a la segunda. Pelear por la carilla única no tenía sentido: las
+ocho condiciones que faltan suman hasta ocho filas más y la romperían igual. Se
+compactaron dos filas igual (edades en un renglón, beneficiarios en cuatro
+columnas) para que la huella del documento firmado no quedara sola arriba de la
+segunda. El comentario del código que prometía una carilla se corrigió en vez
+de dejarlo mintiendo.
+
+**Verificado mirando el PDF, no solo los tests:** se generaron dos certificados
+de muestra —herederos legales y persona designada— y se revisaron las dos
+carillas de cada uno.
 
 ### Queda abierto
 
